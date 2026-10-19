@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+node_modules/
+release/
+*.sqlite3*
+private/
+projects/
+restricted/
+protected/
+foundations/
+settings.json
+.env
+_app/bootstrap/*.zip
+_app/bootstrap/*.whl
