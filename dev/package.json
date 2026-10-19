@@ -1,0 +1,1 @@
+{"private":true,"scripts":{"test:dom":"node check_dom.cjs ../_app/hivemind_assembly"},"devDependencies":{"jsdom":"30.1.3"}}

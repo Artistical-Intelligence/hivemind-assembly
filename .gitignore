@@ -14,3 +14,7 @@ settings.json
 .env
 _app/bootstrap/*.zip
 _app/bootstrap/*.whl
+
+.ruff_cache/
+_app/package_manifest.json
+*.bundle

@@ -1,0 +1,199 @@
+{
+  "profile": "native_autonomous",
+  "model_api_inference": false,
+  "paid_overage": false,
+  "poll_interval_hours": 24,
+  "browser": {
+    "headless": false
+  },
+  "foundations": {
+    "hermes_home": "",
+    "ghidra_home": "",
+    "rea_home": "",
+    "c_compiler": ""
+  },
+  "routes": {
+    "worker.opus": {
+      "provider": "claude",
+      "mode": "native",
+      "model": "Opus 5.5",
+      "effort": "High",
+      "inference_transport": "native_browser",
+      "profile": "claude",
+      "conversation_url": "",
+      "account_label": "",
+      "allowed_hosts": [
+        "claude.ai"
+      ],
+      "selectors": {
+        "model": "",
+        "mode": "",
+        "effort": "",
+        "account": "",
+        "composer": "",
+        "send": "",
+        "user_messages": "",
+        "assistant_messages": "",
+        "complete": "",
+        "streaming": "",
+        "authentication": "",
+        "quota": "",
+        "approval": "",
+        "upload": "",
+        "attachment_ready": ""
+      },
+      "usage": {
+        "scope": "claude.native",
+        "url": "",
+        "windows": [],
+        "no_numeric_limit_confirmed": false
+      }
+    },
+    "worker.astra": {
+      "provider": "openai",
+      "mode": "Work",
+      "model": "GPT-6 Astra",
+      "effort": "High",
+      "inference_transport": "native_browser",
+      "profile": "openai",
+      "conversation_url": "",
+      "account_label": "",
+      "allowed_hosts": [
+        "chatgpt.com"
+      ],
+      "selectors": {
+        "model": "",
+        "mode": "",
+        "effort": "",
+        "account": "",
+        "composer": "",
+        "send": "",
+        "user_messages": "",
+        "assistant_messages": "",
+        "complete": "",
+        "streaming": "",
+        "authentication": "",
+        "quota": "",
+        "approval": "",
+        "upload": "",
+        "attachment_ready": ""
+      },
+      "usage": {
+        "scope": "openai.work",
+        "url": "",
+        "windows": [],
+        "no_numeric_limit_confirmed": false
+      }
+    },
+    "worker.extra": {
+      "provider": "openai",
+      "mode": "Chat",
+      "model": "GPT-6",
+      "effort": "Extra High",
+      "inference_transport": "native_browser",
+      "profile": "openai",
+      "conversation_url": "",
+      "account_label": "",
+      "allowed_hosts": [
+        "chatgpt.com"
+      ],
+      "selectors": {
+        "model": "",
+        "mode": "",
+        "effort": "",
+        "account": "",
+        "composer": "",
+        "send": "",
+        "user_messages": "",
+        "assistant_messages": "",
+        "complete": "",
+        "streaming": "",
+        "authentication": "",
+        "quota": "",
+        "approval": "",
+        "upload": "",
+        "attachment_ready": ""
+      },
+      "usage": {
+        "scope": "openai.chat",
+        "url": "",
+        "windows": [],
+        "no_numeric_limit_confirmed": false
+      }
+    },
+    "adviser.extra": {
+      "provider": "openai",
+      "mode": "Chat",
+      "model": "GPT-6",
+      "effort": "Extra High",
+      "inference_transport": "native_browser",
+      "profile": "openai",
+      "conversation_url": "",
+      "account_label": "",
+      "allowed_hosts": [
+        "chatgpt.com"
+      ],
+      "selectors": {
+        "model": "",
+        "mode": "",
+        "effort": "",
+        "account": "",
+        "composer": "",
+        "send": "",
+        "user_messages": "",
+        "assistant_messages": "",
+        "complete": "",
+        "streaming": "",
+        "authentication": "",
+        "quota": "",
+        "approval": "",
+        "upload": "",
+        "attachment_ready": ""
+      },
+      "usage": {
+        "scope": "openai.chat",
+        "url": "",
+        "windows": [],
+        "no_numeric_limit_confirmed": false
+      }
+    },
+    "reviewer.high": {
+      "provider": "openai",
+      "mode": "Chat",
+      "model": "GPT-6",
+      "effort": "High",
+      "inference_transport": "native_browser",
+      "profile": "openai",
+      "conversation_url": "",
+      "account_label": "",
+      "allowed_hosts": [
+        "chatgpt.com"
+      ],
+      "selectors": {
+        "model": "",
+        "mode": "",
+        "effort": "",
+        "account": "",
+        "composer": "",
+        "send": "",
+        "user_messages": "",
+        "assistant_messages": "",
+        "complete": "",
+        "streaming": "",
+        "authentication": "",
+        "quota": "",
+        "approval": "",
+        "upload": "",
+        "attachment_ready": ""
+      },
+      "usage": {
+        "scope": "openai.chat",
+        "url": "",
+        "windows": [],
+        "no_numeric_limit_confirmed": false
+      }
+    }
+  },
+  "publication": "private",
+  "isolation": "broker_only_no_arbitrary_execution"
+}

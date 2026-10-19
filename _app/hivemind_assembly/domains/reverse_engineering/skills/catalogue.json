@@ -1,0 +1,402 @@
+[
+  {
+    "id": "identify-target",
+    "version": "1.0.0",
+    "purpose": "Identify the exact target and reconstruction objective",
+    "prerequisites": "Original binary and declared objective",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Record binary SHA-256, platform, build/region, loader, entry points and objective. Separate matching, readable reconstruction and porting. Preserve originals; choose a bounded first region.",
+    "exceptions": [
+      "Never infer starting ABI or architecture solely from a filename."
+    ],
+    "acceptance": "Input hashes and supported platform recorded.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "establish-reference",
+    "version": "1.0.0",
+    "purpose": "Establish an independent execution baseline",
+    "prerequisites": "Executable target and reference runner",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Choose an independent runner. Record initial registers, memory permissions, files, clocks and external events. Replay twice. If behavior is nondeterministic, identify controls before comparing.",
+    "exceptions": [
+      "Two executions of the same lifter are not independent."
+    ],
+    "acceptance": "A replayable case and exact reference tool version.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "evidence-discipline",
+    "version": "1.0.0",
+    "purpose": "Separate observed facts from hypotheses",
+    "prerequisites": "Evidence with provenance",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Label each finding observed, inferred, tested or proved under a model. Link exact bytes, address, tool and source revision. Preserve contradictions. Require a discriminating check before promotion.",
+    "exceptions": [
+      "Agreement among agents is not a test or proof."
+    ],
+    "acceptance": "Claims retain scope and actual evidence links.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "source-reading",
+    "version": "1.0.0",
+    "purpose": "Retrieve and validate required sources",
+    "prerequisites": "Authorized source catalogue",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Inventory sections and images. Fetch mandatory dependencies explicitly; expand decisive sections; search for exceptions, obsolete versions and failed attempts. Record retrieved versus delivered and unresolved extraction gaps.",
+    "exceptions": [
+      "Search snippets do not establish complete reading."
+    ],
+    "acceptance": "Every declared critical obligation resolved or blocked.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "diagnose-failure",
+    "version": "1.0.0",
+    "purpose": "Diagnose repeated failures",
+    "prerequisites": "Retained operation evidence",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Compare attempts and actual result hashes. Separate transport, environment, semantics, retrieval and reasoning failures. Ask the recovery reviewer for one discriminating experiment after repeated unchanged reasoning failures.",
+    "exceptions": [
+      "Do not reload browsers to repair a reasoning failure."
+    ],
+    "acceptance": "Next action distinguishes competing explanations.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "function-contract",
+    "version": "1.0.0",
+    "purpose": "Recover function interfaces",
+    "prerequisites": "Exact program and caller/callee evidence",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Inspect callers, callee uses, stack effects, return uses, saved registers and exceptional exits. Propose ABI and parameter contracts with conflicting evidence. Test against reference calls.",
+    "exceptions": [
+      "Names and prototypes are hypotheses until checked."
+    ],
+    "acceptance": "Calling convention and effects tested on retained cases.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "layout-recovery",
+    "version": "1.0.0",
+    "purpose": "Infer layouts from observed accesses",
+    "prerequisites": "Memory access and allocation evidence",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Group accesses by base and offset; distinguish unions, aliases, arrays and padding. Trace allocation sizes and constructor initialization. Preserve per-build offsets. Test reads and writes through all observed callers.",
+    "exceptions": [
+      "One observed field offset is not a portable type layout."
+    ],
+    "acceptance": "Proposed layout includes uncertainty and conflicting accesses.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "control-flow",
+    "version": "1.0.0",
+    "purpose": "Recover control flow and unresolved targets",
+    "prerequisites": "Instruction map and reachable edges",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Map direct branches and calls; track indirect target provenance, jump tables and exception edges. Keep unresolved target sets explicit. Recover loops without using one trace as whole-program coverage.",
+    "exceptions": [
+      "Unexecuted code may still be statically translated; traces are not complete coverage."
+    ],
+    "acceptance": "Unknown edges remain visible and do not become dead code.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "script-runtime",
+    "version": "1.0.0",
+    "purpose": "Identify embedded scripts and interpreters",
+    "prerequisites": "Interpreter or asset evidence",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Identify dispatch tables, bytecode fetch, constants, stack/register VM state and resource boundaries. Separate script semantics from the native interpreter and version every format hypothesis.",
+    "exceptions": [
+      "Native code recovery does not recover all game scripts or assets."
+    ],
+    "acceptance": "At least one script input replays under the proposed model.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "guest-state",
+    "version": "1.0.0",
+    "purpose": "Preserve guest architectural state",
+    "prerequisites": "P-code language and binary hash",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Declare integer widths, defined flags, memory spaces, endian/alignment, control state and faults. Execute supported raw P-code; stop on unknown user operations, FP/vector semantics or unmodeled effects.",
+    "exceptions": [
+      "Never turn an unsupported instruction into a no-op."
+    ],
+    "acceptance": "Positive and seeded negative differential cases pass.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "hybrid-boundaries",
+    "version": "1.0.0",
+    "purpose": "Define runtime and fallback boundaries",
+    "prerequisites": "Actually executable fallback",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Declare ABI, guest stack/memory, callbacks, external effects and ownership on both sides. Retain a working interpreter or emulator for unresolved regions. Test transitions in both directions.",
+    "exceptions": [
+      "Original bytes alone are not a runtime fallback."
+    ],
+    "acceptance": "Boundary tests and rollback preserve executable behavior.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "verify-region",
+    "version": "1.0.0",
+    "purpose": "Validate a reconstructed region",
+    "prerequisites": "Exact candidate, reference, inputs and tools",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Inspect required observations and initial-state contract; run independent reference and candidate; compare defined effects; retain first mismatch and replay input. Attempt proof only for supported complete regions.",
+    "exceptions": [
+      "A finite differential pass is not all-input equivalence."
+    ],
+    "acceptance": "Actual cases and proof assumptions attached to candidate hashes.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "persistent-ghidra",
+    "version": "1.0.0",
+    "purpose": "Operate persistent Ghidra and REA projects",
+    "prerequisites": "Configured native installation and project",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Use complete native foundations. Import once, record native program identity and revision, inspect before annotating, serialize conflicting writes, commit and save explicitly. Reconcile the operation ledger after lost acknowledgments.",
+    "exceptions": [
+      "Do not overwrite user annotations or assume in-memory commit is durable save."
+    ],
+    "acceptance": "Project reopens and operation identity is reconciled.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "stage-changes",
+    "version": "1.0.0",
+    "purpose": "Stage and verify revision-aware changes",
+    "prerequisites": "Current writer lease and briefing",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Read current hash. Retain before/after artifacts. Apply only with current epoch, expected revision and valid briefing. Run checks against resulting bytes. Retain unverified candidates separately.",
+    "exceptions": [
+      "A stale worker may retain artifacts but cannot publish."
+    ],
+    "acceptance": "Hashes, journal and save state agree.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "build-test",
+    "version": "1.0.0",
+    "purpose": "Build and test declared targets",
+    "prerequisites": "Authorized build recipe and evaluator boundary",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Pin toolchain and recipe; retain command arguments, exit, output and artifact hashes. Run protected acceptance tests and seeded failures. Reject success claims without execution records.",
+    "exceptions": [
+      "Timeouts and compiler exits are not passing results."
+    ],
+    "acceptance": "Reproducible build and protected checks for exact candidate.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "step-brief",
+    "version": "1.0.0",
+    "purpose": "Announce and brief substantive steps",
+    "prerequisites": "Task objective and authorized evidence",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Declare goal, revision, method, uncertainty and checks. Adviser resolves required reading and supplies bounded procedure. Invalidate briefing after material evidence, contract or revision changes.",
+    "exceptions": [
+      "Routine commands in a valid brief do not require redundant broad rereading."
+    ],
+    "acceptance": "Intent, brief, evidence and execution are linked.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "handoff",
+    "version": "1.0.0",
+    "purpose": "Transfer work at a safe checkpoint",
+    "prerequisites": "Durable operation journal",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Reconcile pending effects; save state and evidence; preserve candidate edits; revoke old epoch then grant next writer. Restore exact revision and next action in the new session.",
+    "exceptions": [
+      "Never hand off during an ambiguous native write."
+    ],
+    "acceptance": "Old-writer rejection and restart recovery tests pass.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "resume",
+    "version": "1.0.0",
+    "purpose": "Resume after interrupted delivery",
+    "prerequisites": "Outbox and stable conversation binding",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Restore known conversation/profile and durable message IDs. Search visible user messages for exact request marker. Reuse identity. If delivery remains ambiguous, quarantine without resending a mutation.",
+    "exceptions": [
+      "A click is not proof of delivery; no duplicate blind retry."
+    ],
+    "acceptance": "Recovered request/result hashes and actual external state agree.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "curate-learning",
+    "version": "1.0.0",
+    "purpose": "Promote scoped reusable expertise",
+    "prerequisites": "Actual evidence and protected evaluation",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Propose one canonical knowledge/procedure/executable asset with overlapping applicability, conditions and counterexamples. Compare active and candidate on protected holdouts and regressions. Promote only measured gain; retain rollback.",
+    "exceptions": [
+      "Origin is not applicability; identical-model claims are not independent evidence."
+    ],
+    "acceptance": "Benefit and regression evidence linked to active version.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  },
+  {
+    "id": "sanitized-export",
+    "version": "1.0.0",
+    "purpose": "Prepare a private or sanitized export",
+    "prerequisites": "Publication authorization and permitted content",
+    "scope": [
+      "general-reverse-engineering"
+    ],
+    "procedure": "Build a fresh package from an explicit file allowlist. Exclude sources, browser profiles, credentials, private paths, host/account metadata and hidden evaluator data. Scan selected contents and keep unresolved items private.",
+    "exceptions": [
+      "Secret links are not access control; never sanitize after public upload."
+    ],
+    "acceptance": "Export manifest and scan precede publication.",
+    "sources": [
+      "User design v3.0, sections 6\u201324 and Appendix C"
+    ],
+    "readiness": "documented",
+    "evidence_strength": "design-derived; executable tests listed separately",
+    "dependencies": []
+  }
+]

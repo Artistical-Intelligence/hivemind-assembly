@@ -1,0 +1,129 @@
+{
+  "application": "Hivemind Assembly",
+  "version": "0.4.0",
+  "release_type": "engineering_preview",
+  "design_baseline": "Unified Ghidra REA Specialist Agent Design v3.0",
+  "full_product_accepted": false,
+  "architecture": "modular_monolith",
+  "primary_domain": "reverse_engineering",
+  "automated_tests": {
+    "passed": 168,
+    "skipped": 1,
+    "failed": 0,
+    "host": "Linux Python 3.12",
+    "skipped_gate": "Chromium local browser fixture cannot launch under this host socket restrictions; current browser CI required",
+    "elapsed_seconds": 38.49
+  },
+  "current_checks": {
+    "semantic_cli": "six differential smoke cases, positive UNSAT and negative SAT proof passed",
+    "compiled_function_cli": "freestanding unsigned addition built with GCC and passed development cases against original machine code",
+    "dom_fixture": "both acceptance form modes, project creation, escaping, skills, settings and learning controls passed with jsdom",
+    "static_checks": "pyflakes, JavaScript syntax and git diff --check passed",
+    "packaging": "Windows and source archives built; ZIP integrity and all manifest hashes verified",
+    "acceptance": "register proofs and compiled scalar C function checks against pinned originals; wrong results, nontermination, dependencies and tampering rejected; system calls, interrupts and function-boundary escape explicitly rejected",
+    "coordination": "retained computation without model allowance, batch restart/failure continuation, same-response retry, preserved write result, supporting quota wait and shutdown drain passed",
+    "learning": "localized playbook edits preserve details, stale edits and duplicates rejected, evidence checked, proposals idempotent, context dependency/route/budget filtering passed; existing executable optimization regression suite passed",
+    "browser_download": "Event value fixed; atomic staging preserves verified artifacts on failed transfer/hash mismatch. Real browser uses actual Blob download; CI confirmation pending",
+    "focused_followup": "two failed-download cases passed after full-suite run"
+  },
+  "historical_v0_1_evidence": {
+    "python_static_checks": "passed",
+    "javascript_syntax": "passed",
+    "dom_fixture": "dashboard, navigation, project creation, HTML escaping, 20 skills and settings passed with jsdom; no visual browser QA",
+    "ghidra_12_1_4": "real compiled ELF imported, inventoried, reopened, decompiled, annotated, reopened to verify saved ledger, duplicate operation reconciled without extra revision",
+    "hermes": "complete pinned source SessionDB and additive session host exercised",
+    "rea_6_7_0": "CLI launch passed; deeper analysis blocked by host procps process-ownership failure",
+    "semantic_inputs": "six smoke families plus 100 deterministic random arithmetic cases; deliberately incorrect register, flag, memory, fault and status results rejected",
+    "proof": "equivalent arithmetic rewrite UNSAT; incorrect rewrite SAT with witness; unsupported effects and unmodeled observations UNKNOWN",
+    "hybrid": "50 deterministic input pairs compared for recovered-region plus P-code fallback and all-P-code rollback against Unicorn",
+    "corpus": {
+      "planned": 96,
+      "compiled_gcc": 48,
+      "blocked_clang": 48,
+      "families": 12,
+      "split_unit": "whole family"
+    }
+  },
+  "native_live_acceptance": {
+    "validated_routes": 0,
+    "required_routes": 5,
+    "reason": "Live provider identity, mode, effort, allowance, attachment and unattended team acceptance remain unverified"
+  },
+  "remaining": [
+    "Live native worker/adviser/Ghidra and artifact round trip",
+    "Provider-specific identity, completion, quota and renewal adapters",
+    "Complete Hermes runtime coordination beyond session host and CLI extension",
+    "Multi-function cumulative builds, memory/platform observation and whole-application acceptance",
+    "Broader processor/platform semantics and application reconstruction",
+    "Donor knowledge/procedure optimizers and measured cross-project improvement",
+    "Windows end-to-end installation and native-process acceptance"
+  ],
+  "model_api_inference": false,
+  "paid_overage": false,
+  "compatibility": {
+    "data_location": "Unchanged: UnifiedWorkbench on Windows; unified-workbench on Linux",
+    "legacy_python_namespace": "workbench preserved",
+    "database_schema": "version 1 with additive retry_schedule table",
+    "ghidra_project_and_hermes_session_identifiers": "unchanged"
+  },
+  "historical_v0_2_evidence": {
+    "automated_tests": {
+      "passed": 105,
+      "skipped": 1,
+      "failed": 0,
+      "elapsed_seconds": 23.28,
+      "host": "Linux Python 3.12",
+      "skipped_gate": "Chromium fixture: WORKBENCH_TEST_CHROME not configured; no live browser validation"
+    },
+    "checks": {
+      "baseline": "96 passed, 1 skipped before refactor",
+      "architecture": "9 new tests passed; core-only operation without RE/browser dependencies, preserved capabilities, alternate fixture domain, recovery fences and Ghidra resource/reopen fixture",
+      "semantic_cli": "all six differential smoke cases passed; scoped arithmetic proof UNSAT",
+      "dom_fixture": "dashboard, navigation, project form, escaped output, 20 skills and settings passed with jsdom",
+      "python_static_checks": "pyflakes passed; git diff --check passed",
+      "javascript_syntax": "node --check passed"
+    },
+    "ci_contracts": {
+      "windows_passed": 108,
+      "linux_passed": 108,
+      "skipped_per_platform": 1,
+      "chromium_fixture_passed": 1
+    }
+  },
+  "learning_scope": {
+    "optimizer": "reuse identical region proofs within one invocation",
+    "benchmark_cases": 4,
+    "repetitions_per_case": 5,
+    "observed_elapsed_reduction": 0.6757128709592404,
+    "general_cross_project_improvement_validated": false
+  },
+  "historical_v0_3_evidence": {
+    "automated_tests": {
+      "passed": 139,
+      "skipped": 1,
+      "failed": 0,
+      "elapsed_seconds": 36.94,
+      "host": "Linux Python 3.12",
+      "skipped_gate": "Chromium local browser fixture; this execution host denies the required socket. Separate CI browser gate remains required."
+    },
+    "current_checks": {
+      "semantic_cli": "six differential smoke cases, positive UNSAT and negative SAT proof passed",
+      "dom_fixture": "dashboard, project creation, HTML escaping, skills, settings, acceptance form and learning controls passed with jsdom",
+      "static_checks": "pyflakes, JavaScript syntax and git diff --check passed",
+      "packaging": "Windows and source archives built; file hashes and ZIP integrity verified",
+      "acceptance": "pinned originals, actual candidate files, counterexamples, missing files, stale leases, concurrent mutation rejection, bounded correction attempts and idempotent completion evidence passed",
+      "coordination": "scripted worker/adviser/file/proof/acceptance/learning loop, same-message restart recovery, supporting-role admission and artifact retention passed",
+      "workflow_learning": "protected family-separated cases, median paired timings, complete-output preservation, engine invalidation, re-evaluation and rollback passed"
+    },
+    "ci": {
+      "head": "8aa631a07846395a7dd8dee1085071bb88cb6574",
+      "linux": "passed",
+      "windows": "passed",
+      "browser_fixture": "failed: download awaited AsyncEventInfo instead of its value; corrected in 0.4.0"
+    }
+  },
+  "current_ci": {
+    "status": "pending snapshot CI",
+    "live_provider_acceptance": false
+  }
+}
