@@ -189,3 +189,40 @@ def test_check_request_rejects_revision_changed_before_lease(app, monkeypatch, k
     assert result["status"] == "failed" and result["error_type"] == "Conflict" and result["stale"]
     assert app.store.task(task["id"])["status"] == "paused"
     assert not app.store.rows("SELECT id FROM operations WHERE task_id=?", (task["id"],))
+
+
+def test_poll_during_retained_intent_never_reports_false_interruption(app, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+
+    task = shared_starter(app)
+    retained, release, polling, finished = (threading.Event() for _ in range(4))
+    original_put = app.store.put
+
+    def put(kind, key, payload, conn=None):
+        result = original_put(kind, key, payload, conn)
+        if kind == "mcp_check_request":
+            retained.set()
+            assert release.wait(3)
+        return result
+
+    monkeypatch.setattr(app.store, "put", put)
+    api = app.mcp_gateway.checks
+
+    def poll():
+        polling.set()
+        result = api.status(task["id"], "concurrent_poll")
+        finished.set()
+        return result
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        start = pool.submit(api.start, task["id"], "concurrent_poll")
+        assert retained.wait(2)
+        status = pool.submit(poll)
+        assert polling.wait(2)
+        try:
+            assert not finished.wait(.05)
+        finally:
+            release.set()
+        assert start.result(timeout=3)["status"] in ("running", "completed")
+        assert status.result(timeout=3)["status"] in ("running", "completed")
+    assert wait(app, task["id"], "concurrent_poll")["passed"]

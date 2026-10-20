@@ -29,6 +29,12 @@ class CheckRequests:
         return json.loads(rows[0]["payload"]) if rows else None
 
     def status(self, task_id, request_id):
+        # Do not mistake a retained request for an interruption during the small
+        # interval before its worker has been registered and started.
+        with self.lock:
+            return self._status(task_id, request_id)
+
+    def _status(self, task_id, request_id):
         self.authorize(task_id)
         request = self.retained(request_id)
         if request is None:
