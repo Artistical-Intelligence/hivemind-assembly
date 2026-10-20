@@ -18,12 +18,12 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def object_file(root, name, source):
+def object_file(root, name, source, arch="x86_64"):
     (root / (name + ".c")).write_text(source)
     subprocess.run(
         [
             CLANG,
-            "--target=x86_64-pc-windows-msvc",
+            f"--target={arch}-pc-windows-msvc",
             "-O2",
             "-ffreestanding",
             "-fno-builtin",
@@ -38,17 +38,19 @@ def object_file(root, name, source):
     )
 
 
-@pytest.fixture
-def dlls(tmp_path):
+@pytest.fixture(params=["x86_64", "aarch64"])
+def dlls(tmp_path, request):
     object_file(
         tmp_path,
         "helper",
         "unsigned data=19;unsigned *ptr=&data;unsigned mix(unsigned x){return x+*ptr;}",
+        request.param,
     )
     object_file(
         tmp_path,
         "main",
         "__declspec(dllimport) unsigned mix(unsigned);unsigned recovered(unsigned x){return mix(x)*3;}",
+        request.param,
     )
     subprocess.run(
         [
@@ -191,3 +193,24 @@ def test_protected_dependency_is_not_replaced_by_workspace_edit(dlls, store, tmp
     )
     (tmp_path / "helper.dll").write_bytes(b"changed original dependency")
     assert verifier.verify(tmp_path, contract, artifacts, project, context)["passed"]
+
+
+def test_cross_architecture_dependency_is_rejected(dlls):
+    import pefile
+
+    root, deps = dlls
+    pe = pefile.PE(data=deps['helper.dll'])
+    pe.FILE_HEADER.Machine = 0xAA64 if pe.FILE_HEADER.Machine == 0x8664 else 0x8664
+    with pytest.raises(Blocked, match='architecture'):
+        pe_dependencies.load(root, symbol='recovered', dependencies={'helper.dll': bytes(pe.write())})
+
+
+def test_arm64ec_and_arm64x_dependencies_are_rejected(dlls):
+    import pefile
+
+    root, deps = dlls
+    for machine in (0xA641, 0xA64E):
+        pe = pefile.PE(data=deps['helper.dll'])
+        pe.FILE_HEADER.Machine = machine
+        with pytest.raises(Blocked, match='standard PE32'):
+            pe_dependencies.load(root, symbol='recovered', dependencies={'helper.dll': bytes(pe.write())})

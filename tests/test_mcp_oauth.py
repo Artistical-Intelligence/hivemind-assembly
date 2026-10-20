@@ -55,6 +55,9 @@ def oauth_server():
                 "token_endpoint_auth_methods_supported": ["none"],
                 "authorization_response_iss_parameter_supported": True,
             }
+            if state.get("metadata_url"):
+                result.pop("registration_endpoint")
+                result["client_id_metadata_document_supported"] = True
         elif path in ("/register", "/auth/token-v2"):
             body = b""
             while True:
@@ -69,6 +72,9 @@ def oauth_server():
             else:
                 values = parse_qs(body.decode())
                 assert values["resource"] == [base + "/mcp"]
+                if state.get("metadata_url"):
+                    assert values["client_id"] == [state["metadata_url"]]
+                    assert "client_secret" not in values
                 if values["grant_type"] == ["authorization_code"]:
                     state["tokens"] += 1
                     assert values["code"] == ["one-time-code-secret"]
@@ -132,8 +138,9 @@ def oauth_server():
         sock.close()
 
 
+@pytest.mark.parametrize("registration", ["dynamic", "metadata"])
 def test_official_oauth_registration_pkce_refresh_and_private_storage(
-    app, oauth_server
+    app, oauth_server, registration
 ):
     base, state = oauth_server
     task = app.store.create_project("oauth", "test", paused=True)
@@ -146,12 +153,25 @@ def test_official_oauth_registration_pkce_refresh_and_private_storage(
     }
     app.connections.save(config)
     opens = []
+    options = {"server": "fixture"}
+    if registration == "metadata":
+        state["metadata_url"] = "https://ha.example/oauth/client.json"
+        with socket.socket() as port_probe:
+            port_probe.bind(("127.0.0.1", 0))
+            port = port_probe.getsockname()[1]
+        options.update(client_metadata_url=state["metadata_url"], port=port)
+        document = app.action("/api/mcp/client-metadata", {"url": state["metadata_url"], "port": port})
+        assert document["client_id"] == state["metadata_url"]
+        assert document["application_type"] == "native"
 
     async def browser(profile, url):
         opens.append(profile)
         values = parse_qs(urlsplit(url).query)
         assert values["code_challenge_method"] == ["S256"]
         assert values["resource"] == [base + "/mcp"]
+        if registration == "metadata":
+            assert values["client_id"] == [document["client_id"]]
+            assert values["redirect_uri"] == document["redirect_uris"]
         state["challenge"] = values["code_challenge"][0]
         async with httpx2.AsyncClient(trust_env=False) as http:
             response = await http.get(
@@ -165,17 +185,19 @@ def test_official_oauth_registration_pkce_refresh_and_private_storage(
             assert response.status_code == 200
 
     app.connections.oauth.open_page = browser
-    result = app.action("/api/mcp/authorize", {"server": "fixture"})
+    result = app.action("/api/mcp/authorize", options)
     assert result["stage"] == "connecting"
     app.connections.oauth.futures["fixture"].result(timeout=20)
     assert (
         app.connections.oauth.status()[0]["stage"] == "connected"
     ), app.connections.oauth.status()
-    assert state["registrations"] == state["tokens"] == len(opens) == 1
+    assert state["registrations"] == (1 if registration == "dynamic" else 0)
+    assert state["tokens"] == len(opens) == 1
     app.action("/api/mcp/authorize", {"server": "fixture"})
     app.connections.oauth.futures["fixture"].result(timeout=20)
     assert app.connections.oauth.status()[0]["stage"] == "connected"
-    assert state["registrations"] == state["tokens"] == len(opens) == 1
+    assert state["registrations"] == (1 if registration == "dynamic" else 0)
+    assert state["tokens"] == len(opens) == 1
     assert app.connections.settings()["servers"]["fixture"]["auth"] == "oauth_session"
     app.connections.oauth.credentials["fixture"]["expires_at"] = time.time() - 60
 
@@ -266,7 +288,7 @@ def test_callback_rejects_wrong_state_host_duplicates_and_replay():
     asyncio.run(exercise())
 
 
-@pytest.mark.parametrize("change", ["issuer", "endpoint"])
+@pytest.mark.parametrize("change", ["issuer", "endpoint", "registration"])
 def test_changed_identity_rejected_before_sending_authorization_code(
     app, oauth_server, change
 ):
@@ -280,6 +302,12 @@ def test_changed_identity_rejected_before_sending_authorization_code(
         if change == "endpoint":
             cfg = app.connections.settings()
             cfg["servers"]["fixture"]["url"] = base + "/different"
+            app.connections.save(cfg)
+        if change == "registration":
+            cfg = app.connections.settings()
+            cfg["servers"]["fixture"].update(
+                client_metadata_url="https://ha.example/changed.json", oauth_callback_port=40001
+            )
             app.connections.save(cfg)
         async with httpx2.AsyncClient(trust_env=False) as http:
             await http.get(
@@ -362,3 +390,23 @@ def test_vault_storage_expiry_and_forget_rejects_late_token_write(app, monkeypat
     assert not values
     with pytest.raises(Blocked, match="changed"):
         asyncio.run(storage.set_tokens(token))
+
+
+@pytest.mark.parametrize('url,port', [
+    ('http://example.com/client.json', 40001),
+    ('https://example.com/', 40001),
+    ('https:///client.json', 40001),
+    ('https://user:secret@example.com/client.json', 40001),
+    ('https://example.com/client.json?key=secret', 40001),
+    ('https://example.com/client.json#fragment', 40001),
+    ('https://example.com:bad/client.json', 40001),
+    ('https://example.com/client.json', 0),
+    ('https://example.com/client.json', True),
+])
+def test_metadata_document_rejects_unusable_registration_before_saving(app, url, port):
+    from hivemind_assembly.core.common import ContractError
+    before = app.connections.settings()
+    with pytest.raises(ContractError):
+        app.action('/api/mcp/client-metadata', {'url': url, 'port': port})
+    assert app.connections.settings() == before
+    assert not app.connections.oauth.futures

@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.14.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.15.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -251,7 +251,7 @@ AArch64 accepts static little-endian ELF and standard ARM64 PE images with base 
 calls, with 16 arguments, eight register arguments and aligned stack arguments.
 The compiler uses each target’s real C data model (LP64 versus Windows LLP64);
 matching C spellings alone do not establish matching behavior. ARM64EC/ARM64X
-and ARM64 DLL import linking are unsupported.
+are unsupported. Explicit ARM64 DLL dependencies use the same bounded import/relocation lane as x64; mixed architectures are rejected.
 Callee-saved integer registers and the low 64 bits of v8-v15 are checked; x18 is
 reserved. System-register access, TLS, exceptions, authenticated branches, SVE/SME,
 floating-point parameters, aggregates and variadic interfaces are outside this lane.
@@ -497,3 +497,5 @@ REA’s experimental Windows provider does not admit Linux ELF targets. This gat
 does not sign into model accounts or replace live autonomous acceptance.
 
 The full foundation check passed at checkpoint `2f8785b` in [hosted run 39476662077](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39476662077), using default Ghidra analyzers and upstream REA process/filesystem controls. The runner supplied prerequisite tools; this does not establish desktop WinGet setup.
+
+HTTP MCP authorization also accepts a hosted client metadata URL. In Connections, generate the public document using a fixed callback port, serve it at your HTTPS URL, and connect. HA uses the official SDK to prefer this registration when the server advertises support, retaining the choice for reconnects and token refresh. The document contains no credentials. Editing the registration or endpoint invalidates in-flight authorization; an HTTPS host is required for the document.

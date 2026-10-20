@@ -77,7 +77,7 @@ External HTTP MCP onboarding now uses the official SDK for discovery, public-cli
 registration, PKCE, issuer validation and refresh. Session/vault storage, restored
 expiry and token endpoints, repeated connection without duplicate registration,
 state-bound loopback callbacks and cancellation have local protocol checks. Provider
-consent, metadata-document-only registration and live account policies remain gates.
+consent and live account policies remain gates. Hosted client metadata document registration is implemented using the official SDK, with a generated public document, fixed loopback callback, retained settings and configuration-change fencing.
 
 Version 0.14 adds bounded AArch64 linked-function reconstruction, cross-architecture
 comparison with x86-64, protected acceptance, reusable workflow calls, installed
@@ -94,4 +94,4 @@ follow the pinned REA engine range. Desktop WinGet setup remains unverified.
 
 The same bounded AArch64 call lane also supports standard Windows ARM64 PE
 exports and Clang/LLD builds. Cross-platform C data models remain distinct.
-ARM64EC/ARM64X, ARM64 DLL import linking and Windows OS services are unsupported.
+ARM64EC/ARM64X and Windows OS services are unsupported. Version 0.15 adds explicit ARM64 DLL import linking, same-architecture validation, relocation, forwarders and protected dependency pinning.

@@ -382,7 +382,12 @@ class Application:
                 data.get("remember", False),
                 data.get("client_id") or None,
                 data.get("port", 0),
+                data.get("client_metadata_url"),
             )
+        if path == "/api/mcp/client-metadata":
+            from ..integrations.mcp_oauth import client_metadata_document
+
+            return client_metadata_document(data.get("url"), data.get("port"))
         if path == "/api/mcp/discover":
             return self.background_job(
                 "Discover MCP tools",

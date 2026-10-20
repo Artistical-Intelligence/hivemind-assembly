@@ -10,10 +10,48 @@ from hivemind_assembly.core.common import Blocked, ContractError, digest
 from .github import CredentialVault
 
 
+def client_metadata_document(url, port):
+    """Public native-client metadata, containing no account or credential data."""
+    try:
+        parsed = urlsplit(url) if isinstance(url, str) else None
+        valid = (
+            parsed and parsed.scheme == "https" and parsed.hostname
+            and parsed.path not in ("", "/") and not parsed.username
+            and not parsed.password and not parsed.query and not parsed.fragment
+            and not any(c.isspace() or ord(c) < 32 for c in url)
+            and len(url) <= 2000
+        )
+        if parsed:
+            parsed.port  # Validate malformed/out-of-range ports before saving.
+    except ValueError:
+        valid = False
+    if not valid:
+        raise ContractError("Client metadata needs an HTTPS document URL without credentials, query or fragment")
+    if type(port) is not int or not 1 <= port <= 65535:
+        raise ContractError("Client metadata needs a fixed callback port (1–65535)")
+    return {
+        "client_id": url,
+        "client_name": "Hivemind Assembly",
+        "application_type": "native",
+        "redirect_uris": [f"http://127.0.0.1:{port}/oauth/callback"],
+        "grant_types": ["authorization_code", "refresh_token"],
+        "response_types": ["code"],
+        "token_endpoint_auth_method": "none",
+    }
+
+
+def registration_binding(spec):
+    return {
+        "client_metadata_url": spec.get("client_metadata_url"),
+        "oauth_callback_port": spec.get("oauth_callback_port", 0),
+    }
+
+
 class OAuthStorage:
     def __init__(self, manager, server, spec):
         self.manager, self.server = manager, server
         self.url, self.mode = spec["url"], spec["auth"]
+        self.registration = registration_binding(spec)
         self.generation = manager.generations.get(server, 0)
         self.vault = CredentialVault(
             manager.connections.store.root, "MCP.OAuth." + server
@@ -27,6 +65,7 @@ class OAuthStorage:
             self.manager.closed
             or current.get("url") != self.url
             or current.get("auth") != self.mode
+            or registration_binding(current) != self.registration
             or self.manager.generations.get(self.server, 0) != self.generation
         ):
             raise Blocked(
@@ -43,6 +82,8 @@ class OAuthStorage:
             )
             if value and value.get("url") != self.url:
                 raise Blocked("MCP OAuth credential belongs to a different endpoint")
+            if value and value.get("registration", registration_binding({})) != self.registration:
+                raise Blocked("MCP OAuth registration changed; reconnect in Connections")
             value = json.loads(json.dumps(value or {"url": self.url}))
             self.remember_secrets(value)
             return value
@@ -60,6 +101,7 @@ class OAuthStorage:
         with self.manager.connections.lock:
             value = self.read()
             value[field] = data
+            value["registration"] = self.registration
             if field == "tokens":
                 value["expires_at"] = (
                     time.time() + data["expires_in"]
@@ -272,7 +314,7 @@ class OAuthManager:
         with self.connections.lock:
             return [{"server": key, **value} for key, value in self.states.items()]
 
-    def start(self, server, remember=False, client_id=None, port=0):
+    def start(self, server, remember=False, client_id=None, port=0, client_metadata_url=None):
         if self.closed:
             raise Blocked("HA is shutting down")
         if (
@@ -297,6 +339,15 @@ class OAuthManager:
             spec = cfg["servers"].get(server)
             if not spec or spec["transport"] != "http":
                 raise Blocked("Save an HTTP MCP connection before authorizing it")
+            metadata_url = (
+                spec.get("client_metadata_url")
+                if client_metadata_url is None else client_metadata_url or None
+            )
+            if metadata_url:
+                if client_id:
+                    raise ContractError("Choose a registered Client ID or a metadata URL, not both")
+                port = port or spec.get("oauth_callback_port", 0)
+                client_metadata_document(metadata_url, port)
             if self.submit is None or self.open_page is None:
                 raise Blocked(
                     "MCP browser authorization requires the running HA application"
@@ -321,6 +372,7 @@ class OAuthManager:
                     and uri.port
                     and port in (0, uri.port)
                     and (client_id is None or client_id == retained["client_id"])
+                    and metadata_url == spec.get("client_metadata_url")
                 )
             else:
                 reusable = False
@@ -331,6 +383,12 @@ class OAuthManager:
                 # Switching storage never copies secrets into settings or disk.
                 self.forget(server)
             spec["auth"] = mode
+            if metadata_url:
+                spec["client_metadata_url"] = metadata_url
+                spec["oauth_callback_port"] = port
+            else:
+                spec.pop("client_metadata_url", None)
+                spec.pop("oauth_callback_port", None)
             self.connections.save(cfg)
             self.states[server] = {"stage": "connecting"}
             self.futures[server] = self.submit(
@@ -379,6 +437,7 @@ class OAuthManager:
             raise Blocked("Connect this MCP server with browser authorization first")
         metadata = OAuthClientMetadata(
             client_name="Hivemind Assembly",
+            application_type="native",
             redirect_uris=[redirect],
             grant_types=["authorization_code", "refresh_token"],
             response_types=["code"],
@@ -442,6 +501,7 @@ class OAuthManager:
             storage=storage,
             redirect_handler=redirect_handler,
             callback_handler=callback_handler if callback else None,
+            client_metadata_url=spec.get("client_metadata_url"),
         )
         storage.provider = provider
         return provider, storage

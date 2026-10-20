@@ -21,15 +21,17 @@ def library_name(value):
     return value.lower()
 
 
-def parsed(raw):
+def parsed(raw, machine=None):
     if not isinstance(raw, bytes) or not 1 <= len(raw) <= call_images.MAX_IMAGE:
         raise ContractError("PE dependency exceeds file bounds")
     try:
         pe = pefile.PE(data=raw, fast_load=False)
     except pefile.PEFormatError as error:
         raise ContractError("Invalid PE dependency") from error
-    if pe.FILE_HEADER.Machine != 0x8664 or pe.OPTIONAL_HEADER.Magic != 0x20B:
-        raise Blocked("Dependencies must be PE32+ x86-64")
+    if pe.FILE_HEADER.Machine not in (0x8664, 0xAA64) or pe.OPTIONAL_HEADER.Magic != 0x20B:
+        raise Blocked("Dependencies must be standard PE32+ x86-64 or ARM64")
+    if machine is not None and pe.FILE_HEADER.Machine != machine:
+        raise Blocked("DLL dependency architecture does not match the root image")
     if getattr(pe, "DIRECTORY_ENTRY_TLS", None) or getattr(
         pe, "DIRECTORY_ENTRY_DELAY_IMPORT", None
     ):
@@ -96,7 +98,7 @@ def load(data, symbol=None, address=None, dependencies=None):
         if name not in supplied:
             raise Blocked("DLL dependency was not supplied: " + name)
         raw = supplied[name]
-        pe = parsed(raw)
+        pe = parsed(raw, root.FILE_HEADER.Machine)
         if pe.OPTIONAL_HEADER.AddressOfEntryPoint:
             raise Blocked("Dependency requires loader initialization: " + name)
         base = 0x200000000 + len(modules) * 0x4000000
@@ -230,7 +232,7 @@ def load(data, symbol=None, address=None, dependencies=None):
     ):
         raise ContractError("Linked entry is not executable")
     return {
-        "abi": "win64",
+        "abi": "winarm64" if root.FILE_HEADER.Machine == 0xAA64 else "win64",
         "entry": entry,
         "segments": segments,
         "sha256": hashlib.sha256(data).hexdigest(),

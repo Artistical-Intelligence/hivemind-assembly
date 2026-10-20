@@ -77,9 +77,19 @@ class Connections:
                 "projects",
                 "timeout",
                 "auth",
+                "client_metadata_url",
+                "oauth_callback_port",
             }:
                 raise ContractError(
                     "Unsupported connection field; keep credentials in the credential store"
+                )
+            if "client_metadata_url" in spec or "oauth_callback_port" in spec:
+                from .mcp_oauth import client_metadata_document
+
+                if spec.get("transport") != "http":
+                    raise ContractError("Client metadata is for HTTP MCP connections")
+                client_metadata_document(
+                    spec.get("client_metadata_url"), spec.get("oauth_callback_port")
                 )
             if spec.get("auth", "none") not in (
                 "none",
