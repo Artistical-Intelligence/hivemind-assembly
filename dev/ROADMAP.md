@@ -5,22 +5,28 @@ checks, protected knowledge/procedure rollouts, shared learning reservations,
 Qiling file/memory replay, deeper Ghidra/REA queries and installed-tool checks.
 It is not a declaration that the requested product has passed all gates.
 
-Recent additions: protected RGBA frame and PCM audio comparisons, sample-indexed
+Recent additions: owner file browsing, UTF-8 editing, binary previews, streamed uploads,
+revision-guarded saves with retained prior versions, runnable examples, and direct
+independent checks from the dashboard. These expose the existing verification
+engine as an editable workflow; they do not establish unattended reconstruction.
+
+Earlier additions: protected RGBA frame and PCM audio comparisons, sample-indexed
 audio replay, frame/waveform review and task-specific evidence. Exact byte defaults
 and per-program repeatability are preserved. These do not establish arbitrary
 game equivalence or hardware timing.
 
 Optional hosted test requests now dispatch and track the managed GitHub workflow
 at a reviewed commit, with durable lost-response recovery and cancellation.
-Dashboard controls and project-scoped worker status are implemented. Live account
-dispatch, artifact review and Windows execution remain unverified; remote workflow
-success does not replace local independent acceptance.
+Dashboard controls and project-scoped worker status are implemented. Windows CI
+has exercised native compilation, process cleanup and runtime probes. Live HA
+account dispatch and clean Windows installation remain unverified; remote
+workflow success does not replace local independent acceptance.
 
 Earlier additions: persistent project goals, shared native turn budgets, owner-pinned
 general-purpose native test recipes, protected native acceptance, automatic
 publication of tested sources, and portable disposable-runner workflows. Real
-Linux C/CLI and offscreen Mesa frame probes passed locally. Hosted Windows and
-GitHub dispatch remain unverified.
+Linux C/CLI and offscreen Mesa frame probes passed locally. End-to-end GitHub
+dispatch from HA remains unverified.
 
 Earlier additions: linked ELF/PE integer and pointer-function reconstruction,
 protected cross-ABI acceptance, optional existing repository binding, and

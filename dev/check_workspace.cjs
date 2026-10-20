@@ -1,0 +1,24 @@
+// Real HTTP/controller integration in jsdom; Chromium is exercised separately in CI.
+const {JSDOM}=require('jsdom'), fs=require('fs'), assert=require('node:assert/strict');
+const [root,url,token]=process.argv.slice(2);
+const dom=new JSDOM(fs.readFileSync(root+'/application/static/index.html','utf8'),{url:url+'/#'+token,runScripts:'outside-only'}), w=dom.window;
+w.fetch=(path,opts)=>fetch(url+path,opts); w.HTMLElement.prototype.scrollIntoView=()=>{};
+w.eval(['native_captures.js','app.js','workspace.js'].map(file=>fs.readFileSync(root+'/application/static/'+file,'utf8')).join('\n')+'\nwindow.fixtureRefresh=refresh;');
+const $=s=>w.document.querySelector(s), click=s=>$(s).click();
+const until=async fn=>{for(let n=0;n<200;n++){if(fn())return;await new Promise(r=>setTimeout(r,50));}throw Error('Timeout: '+fn+'\n'+$('#workspace-message').textContent+'\n'+$('#notice').textContent)};
+(async()=>{
+ click('[data-starter="registers"]');
+ await until(()=>$('#file-editor').value==='8d0437\n');
+ click('#workspace-check'); await until(()=>$('#workspace-result-summary').textContent.startsWith('Checks passed'));
+ $('#file-editor').value='89f829f0';$('#file-editor').dispatchEvent(new w.Event('input'));
+ click('[data-file="original.hex"]');await until(()=>$('#workspace-message').textContent.includes('Save your draft'));
+ w.fixtureRefresh();assert.equal($('#file-editor').value,'89f829f0');
+ click('#file-save');await until(()=>$('#file-draft').textContent==='Saved on disk');
+ click('#workspace-check');await until(()=>$('#workspace-result-summary').textContent.startsWith('Checks did not pass'));
+ $('#starter-native-allow').checked=true;click('[data-starter="native_python"]');
+ await until(()=>$('#file-path').value==='candidate.py');
+ click('#workspace-check');await until(()=>$('#workspace-result-summary').textContent.startsWith('Checks passed'));
+ assert.equal($('#workspace-task').options.length,2);
+ click('#workspace-last-result');await until(()=>$('#workspace-result').textContent.includes('native_tool_tests'));
+ console.log('Real controller dashboard flow passed: two starters, editing, dirty draft guard, passing and failing checks, retained native observations.');dom.window.close();
+})().catch(e=>{console.error(e);dom.window.close();process.exitCode=1});

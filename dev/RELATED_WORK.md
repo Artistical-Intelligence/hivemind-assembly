@@ -344,9 +344,18 @@ Windows CI exposed an asynchronous Job Object cleanup race: killing descendants
 on handle close can return before inherited output handles are released. Normal
 cleanup now terminates the job and observes its active-process count before
 removing temporary output files. Kill-on-close remains the controller-crash
-fallback. Actual Windows timeout, output-limit and controller-exit checks passed
-after this change. Linux ELF fixtures select Clang/LLD on Windows; native Linux
+fallback. Windows timeout, output-limit and controller-exit checks exercise this path.
+Because sharing violations can briefly persist after job accounting reaches zero,
+temporary-file cleanup also retries only Windows sharing/lock violations for at
+most two seconds. Persistent locks and other access errors remain failures. Linux ELF fixtures select Clang/LLD on Windows; native Linux
 oracles remain separate host-specific checks.
 
 - https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_basic_accounting_information
 - https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects
+
+Clang's documented Windows installation discovery needs the shared Windows
+installation roots even when test processes use an isolated home directory.
+Preserving those specific system paths restored Visual Studio/SDK discovery in
+actual Windows CI without inheriting model credentials or user configuration.
+Native C compilation/execution and wrong-candidate rejection then passed.
+- https://clang.llvm.org/docs/UsersManual.html#clang-cl

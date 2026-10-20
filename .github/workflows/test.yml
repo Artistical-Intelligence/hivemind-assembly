@@ -50,4 +50,39 @@ jobs:
       - name: Exercise local DOM transport fixture
         run: |
           export WORKBENCH_TEST_CHROME="$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')"
-          python -m pytest tests/test_browser_fixture.py -q
+          python -m pytest tests/test_browser_fixture.py tests/test_dashboard_browser.py -q --junitxml=browser-results.xml
+      - name: Retain browser results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-results-${{ github.run_id }}
+          path: browser-results.xml
+          retention-days: 3
+  windows-package:
+    timeout-minutes: 20
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build and verify release archives
+        run: python dev/build_release.py "${{ runner.temp }}/ha-packages"
+      - name: Install and exercise the packaged runtime
+        shell: pwsh
+        run: |
+          $archive = (Get-ChildItem "$env:RUNNER_TEMP/ha-packages/*Windows.zip").FullName
+          $release = "$env:RUNNER_TEMP/HA package with spaces"
+          $data = "$env:RUNNER_TEMP/HA persistent data"
+          Expand-Archive -LiteralPath $archive -DestinationPath $release
+          $app = "$release/Hivemind_Assembly"
+          & powershell -NoProfile -ExecutionPolicy Bypass -File "$app/_app/Start.ps1" -DataRoot $data -VerifyOnly
+          if ($LASTEXITCODE -ne 0) { throw 'First-launch verification failed' }
+          & "$data/runtime-python312/python.exe" dev/check_package.py $app $data prepare
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged project workflow failed' }
+          Remove-Item -Recurse -Force $release
+          Expand-Archive -LiteralPath $archive -DestinationPath $release
+          & powershell -NoProfile -ExecutionPolicy Bypass -File "$app/_app/Start.ps1" -DataRoot $data -VerifyOnly
+          if ($LASTEXITCODE -ne 0) { throw 'Updated launcher verification failed' }
+          & "$data/runtime-python312/python.exe" dev/check_package.py $app $data verify-update
+          if ($LASTEXITCODE -ne 0) { throw 'Update or backup restoration lost project data' }

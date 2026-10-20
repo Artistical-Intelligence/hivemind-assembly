@@ -1,0 +1,162 @@
+"""Owner-run independent project checks; never substitute for native team acceptance."""
+
+import json
+import threading
+from hivemind_assembly.core.acceptance import Acceptance
+from hivemind_assembly.core.common import Blocked, Conflict, canonical, uid
+
+
+def run_checks(app, task_id):
+    service = Acceptance(app.controller, app.broker)
+    rows = app.store.rows(
+        "SELECT payload FROM records WHERE kind='acceptance_contract' AND id=?",
+        (task_id,),
+    )
+    if not rows:
+        raise Blocked("Configure an independent check before running it")
+    contract = json.loads(rows[0]["payload"])
+    if contract["scope"] == "native_tool_tests":
+        return app.run_native_tests(task_id)
+    with app.store.lock:
+        app.workspace.guard(task_id)
+        task = app.store.task(task_id)
+        app.store.state(task_id, "queued")
+        try:
+            epoch = app.controller.acquire(task_id, "user.checking", seconds=1200)
+        except BaseException:
+            app.store.state(task_id, "paused")
+            raise
+    try:
+        revision = app.store.project(task["project_id"])["revision"]
+        app.broker.cancel.setdefault(task_id, threading.Event()).clear()
+        verifier = service.verifier(contract["scope"])
+        result = verifier.verify(
+            app.broker.workspace(task_id),
+            contract,
+            app.broker.artifacts,
+            task["project_id"],
+            app.broker.context(task_id),
+        )
+        with app.store.tx() as db:
+            app.controller._fence(db, task_id, "user.checking", epoch)
+            if app.store.project(task["project_id"])["revision"] != revision:
+                raise Conflict("Project changed while checks were running")
+            verifier.recheck(app.broker.workspace(task_id), result)
+        artifact = app.broker.artifacts.add(
+            canonical(result), "manual-check.json", task["project_id"], "protected"
+        )
+        report = {
+            "task": task_id,
+            "revision": revision,
+            "artifact": artifact["id"],
+            "result": result,
+            "task_accepted": False,
+        }
+        app.store.put("manual_check:" + task_id, uid("check"), report)
+        app.store.event(
+            task_id,
+            "manual_check_finished",
+            {
+                "passed": result.get("passed", False),
+                "artifact": artifact["id"],
+                "revision": revision,
+            },
+        )
+        return report
+    finally:
+        with app.store.tx() as db:
+            db.execute(
+                "UPDATE tasks SET status=CASE WHEN status='cancelled' THEN status ELSE 'paused' END,owner=NULL,lease_until=0,brief_id=NULL WHERE id=? AND epoch=? AND owner='user.checking'",
+                (task_id, epoch),
+            )
+
+
+def starter(app, kind, request_id, allow_native=False):
+    import re
+
+    if not isinstance(request_id, str) or not re.fullmatch(
+        "[A-Za-z0-9_-]{16,80}", request_id
+    ):
+        raise ValueError("A stable starter request ID is required")
+    if kind not in ("registers", "native_python"):
+        raise ValueError("Unknown starter project")
+    if kind == "native_python" and allow_native is not True:
+        raise Blocked(
+            "Authorize the supplied Python recipes before creating this native starter"
+        )
+    # Retry resumes the same new project instead of creating duplicates.
+    rows = app.store.rows(
+        "SELECT payload FROM records WHERE kind='starter_request' AND id=?",
+        (request_id,),
+    )
+    if rows:
+        retained = json.loads(rows[0]["payload"])
+        if retained["kind"] != kind:
+            raise Conflict("Starter request already belongs to a different example")
+        task = app.store.task(retained["task"])
+    else:
+        task = app.store.create_project(
+            (
+                "Register reconstruction"
+                if kind == "registers"
+                else "Native tool reconstruction"
+            ),
+            "Reconstruct the supplied example and verify its behavior independently.",
+            paused=True,
+        )
+        app.store.put("starter_request", request_id, {"kind": kind, "task": task["id"]})
+    if app.store.rows(
+        "SELECT id FROM records WHERE kind='starter_ready' AND id=?", (request_id,)
+    ):
+        return task
+    if kind == "registers":
+        files = {
+            "original.hex": "89f801f0\n",
+            "candidate.hex": "8d0437\n",
+            "README.txt": "The original computes a 32-bit sum. The candidate uses LEA. Run checks, change candidate.hex to 89f829f0 (subtraction), and rerun to see the counterexample. Originals are pinned separately. This proves only the configured register region, not an entire application.\n",
+        }
+        contract = {
+            "scope": "x86_64_register_regions",
+            "checks": [
+                {
+                    "original_path": "original.hex",
+                    "candidate_path": "candidate.hex",
+                    "original_format": "hex",
+                    "candidate_format": "hex",
+                    "inputs": ["RDI", "RSI"],
+                    "outputs": ["RAX"],
+                }
+            ],
+        }
+    else:
+        files = {
+            "original.py": "import sys\nsys.stdout.buffer.write(bytes((x ^ 0x55) for x in sys.stdin.buffer.read()))\n",
+            "candidate.py": "import sys\ndata = sys.stdin.buffer.read()\ntable = bytes(i ^ 85 for i in range(256))\nsys.stdout.buffer.write(data.translate(table))\n",
+            "README.txt": "The original transforms bytes with XOR 0x55. The candidate uses a lookup table. Run checks, edit candidate.py, and rerun. Native execution uses this computer. Independent cases and the original are pinned outside the editable workspace.\n",
+        }
+        suite = {
+            "version": 1,
+            "programs": {
+                key: {"files": [key + ".py"], "argv": ["{python}", key + ".py"]}
+                for key in ("original", "candidate")
+            },
+            "cases": [
+                {"id": "empty", "stdin_hex": ""},
+                {"id": "text", "stdin_hex": b"hivemind\n".hex()},
+                {"id": "bytes", "stdin_hex": bytes(range(256)).hex()},
+            ],
+            "repeats": 3,
+        }
+        files["suite.json"] = json.dumps(suite, indent=2) + "\n"
+        contract = {"scope": "native_tool_tests", "suite": suite}
+    for name, text in files.items():
+        app.workspace.write(task["id"], name, text)
+    if kind == "native_python":
+        from hivemind_assembly.core.test_acceptance import NativeTestAcceptance
+
+        verifier = NativeTestAcceptance(app.store)
+        verifier.authorize_recipe(task["project_id"], contract)
+        verifier.allow(task["project_id"], True)
+    Acceptance(app.controller, app.broker).configure(task["id"], contract)
+    app.store.put("starter_ready", request_id, {"task": task["id"]})
+    return app.store.task(task["id"])

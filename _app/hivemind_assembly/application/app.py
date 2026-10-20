@@ -1,8 +1,8 @@
 from __future__ import annotations
-import asyncio, json, os, secrets, shutil, threading, time, webbrowser
+import asyncio, json, os, secrets, shutil, threading, time, webbrowser, tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, unquote
 from hivemind_assembly import __version__
 from hivemind_assembly.paths import APP_ROOT
 from hivemind_assembly.domains.reverse_engineering.domain import (
@@ -86,6 +86,9 @@ class Application:
             repositories=self.repositories,
             hosted_tests=self.hosted_tests,
         )
+        from .workspace import Workspace
+
+        self.workspace = Workspace(self.broker)
         recovery = self.broker.recover_pending()
         if recovery:
             self.store.put("startup_recovery", uid("startup"), {"operations": recovery})
@@ -391,6 +394,36 @@ class Application:
             return self.create_repository(data["task"], data["repository"], link=True)
         if path == "/api/github/repository":
             return self.create_repository(data["task"], data["repository"])
+        if path == "/api/workspace/list":
+            return self.workspace.listing(data["task"])
+        if path == "/api/workspace/read":
+            return self.workspace.read(data["task"], data["path"])
+        if path == "/api/workspace/write":
+            return self.workspace.write(
+                data["task"], data["path"], data["text"], data.get("expected_sha")
+            )
+        if path == "/api/project/starter":
+            from .project_checks import starter
+
+            return starter(
+                self, data["kind"], data["request_id"], data.get("allow_native", False)
+            )
+        if path == "/api/project/check":
+            from .project_checks import run_checks
+
+            return self.background_job(
+                "Check project", lambda: run_checks(self, data["task"])
+            )
+        if path == "/api/project/check-result":
+            task = self.store.task(data["task"])
+            contract = Acceptance(self.controller, self.broker).describe(task["id"])
+            if contract and contract["scope"] == "native_tool_tests":
+                return self._action("/api/native-tests/results", data)
+            rows = self.store.rows(
+                "SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1",
+                ("manual_check:" + task["id"],),
+            )
+            return json.loads(rows[0]["payload"]) if rows else {"status": "not_run"}
         if path == "/api/project":
             if not data.get("name") or not data.get("objective"):
                 raise ContractError("Name and objective are required")
@@ -683,6 +716,7 @@ class Application:
 
     def run_native_tests(self, task_id):
         with self.store.lock:
+            self.workspace.guard(task_id)
             with self.store.tx() as db:
                 task = self.store.task(task_id)
                 if task["status"] != "paused" or task["owner"]:
@@ -872,6 +906,7 @@ def make_server(app, port=0):
                 "/": ("index.html", "text/html; charset=utf-8"),
                 "/app.js": ("app.js", "text/javascript"),
                 "/native_captures.js": ("native_captures.js", "text/javascript"),
+                "/workspace.js": ("workspace.js", "text/javascript"),
                 "/style.css": ("style.css", "text/css"),
             }
             if path not in files:
@@ -886,6 +921,41 @@ def make_server(app, port=0):
                 self.send(403, {"error": "Unauthorized local request"})
                 return
             try:
+                if urlsplit(self.path).path == "/api/workspace/upload":
+                    from .workspace import UPLOAD_LIMIT
+
+                    n = int(self.headers.get("Content-Length", "-1"))
+                    if (
+                        not 0 <= n <= UPLOAD_LIMIT
+                        or self.headers.get("Content-Type")
+                        != "application/octet-stream"
+                    ):
+                        raise ContractError(
+                            "File uploads require binary data up to 256 MiB"
+                        )
+                    task = self.headers.get("X-HA-Task", "")
+                    name = unquote(self.headers.get("X-HA-Path", ""))
+                    app.workspace.path(task, name)
+                    app.workspace.guard(task)
+                    self.connection.settimeout(30)
+                    with tempfile.TemporaryDirectory(prefix="ha-upload-") as folder:
+                        stage = Path(folder) / "upload"
+                        with stage.open("wb") as out:
+                            remaining = n
+                            while remaining:
+                                chunk = self.rfile.read(min(remaining, 1024 * 1024))
+                                if not chunk:
+                                    raise ContractError("File upload was interrupted")
+                                out.write(chunk)
+                                remaining -= len(chunk)
+                        result = app.workspace.install(
+                            task,
+                            name,
+                            stage,
+                            self.headers.get("X-HA-Expected-SHA256") or None,
+                        )
+                    self.send(200, result)
+                    return
                 n = int(self.headers.get("Content-Length", "0"))
                 if not 0 < n <= 2_000_000:
                     raise ContractError("Invalid request size")

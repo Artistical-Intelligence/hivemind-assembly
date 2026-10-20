@@ -1,15 +1,15 @@
 {
-  "version": "0.10.0",
+  "version": "0.11.0",
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 350,
-    "skipped": 1,
+    "passed": 375,
+    "skipped": 3,
     "failed": 0,
-    "elapsed_seconds": 76.87,
+    "elapsed_seconds": 80.46,
     "host": "Linux Python 3.12",
     "hermes_source": "c0015464f0f40d52c5702a84cf58e70361f4a04c",
-    "skipped_gate": "Local Chromium fixture not enabled on this restored host; no browser acceptance inferred."
+    "skipped_gate": "Local Chromium transport and dashboard tests, and Windows-only cleanup stress. Each has a dedicated GitHub CI job; no signed-in provider acceptance inferred."
   },
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -18,7 +18,9 @@
     "static": "pyflakes on changed implementation/tests, JavaScript syntax and git diff --check passed. Workflow template matches the source workflow; runtime and source release archives are separately manifest-checked.",
     "goals": "Fixture native responses exercised root goal continuation through real local capture execution and a second fresh independent acceptance run. This is not signed-in native model acceptance.",
     "historical_evidence": "Checks under historical_checks were recorded in earlier development runs and are not newly claimed from this release verification.",
-    "github_ci": "Hosted CI for ccb0839: Linux JUnit report verified against the GitHub artifact SHA-256: 344 passed, 7 skipped (optional Hermes/PE dependencies/browser fixture). The separate real Chromium DOM transport job passed. Windows run is still being investigated; no clean-install acceptance claimed."
+    "github_ci": "Hosted CI run 39426873106 at b92018f passed Windows and Linux contracts, semantic checks, Windows native execution preflight, and a separate real Chromium provider-transport fixture. These predate the dashboard workspace changes. New dashboard and packaged-runtime CI gates are pending.",
+    "windows_runtime": "Windows CI at b92018f passed native C compilation/execution, process cleanup, portable guest runtime probes and repeated cleanup stress. New clean packaged-runtime install/update/restore checks are pending.",
+    "project_workspace": "Real owner file API and streamed authenticated binary upload passed. The actual HTTP controller and jsdom dashboard completed register/native starters, editing, draft preservation, passing/failing checks and retained observation review. Chromium dashboard and bundled Windows launcher verification are pending."
   },
   "native_live_acceptance": {
     "validated_routes": 0,
@@ -37,7 +39,7 @@
     "Clean Windows install/update/restore and native REA execution on a compatible host.",
     "Target-level broader application reconstruction.",
     "Separately requested full audit and revision pass.",
-    "Run the managed native workflow on hosted Linux/Windows using a live authorized account with a configured spending boundary; verify Windows process-tree cleanup and representative target recipes."
+    "Run the managed native workflow through HA using a live authorized account with a configured spending boundary; review representative Linux/Windows target recipes and retained artifacts."
   ],
   "model_api_inference": false,
   "paid_overage": false,

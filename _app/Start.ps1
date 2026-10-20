@@ -1,6 +1,12 @@
+param(
+    [string]$DataRoot = '',
+    [switch]$VerifyOnly,
+    [switch]$NoBrowser
+)
 $ErrorActionPreference = 'Stop'
 $AppRoot = $PSScriptRoot
-$DataRoot = Join-Path $env:LOCALAPPDATA 'UnifiedWorkbench'
+if (-not $DataRoot) { $DataRoot = Join-Path $env:LOCALAPPDATA 'UnifiedWorkbench' }
+$DataRoot = [System.IO.Path]::GetFullPath($DataRoot)
 $RuntimeRoot = Join-Path $DataRoot 'runtime-python312'
 $Python = Join-Path $RuntimeRoot 'python.exe'
 New-Item -ItemType Directory -Force $DataRoot | Out-Null
@@ -39,5 +45,11 @@ if ($DesiredHash -ne $InstalledHash) {
     }
     Set-Content -Path $Marker -Value $DesiredHash
 }
-& $Python (Join-Path $AppRoot 'launch.py') serve
+if ($VerifyOnly) {
+    & $Python (Join-Path $AppRoot 'launch.py') verify --data-dir $DataRoot
+} elseif ($NoBrowser) {
+    & $Python (Join-Path $AppRoot 'launch.py') serve --data-dir $DataRoot --no-browser
+} else {
+    & $Python (Join-Path $AppRoot 'launch.py') serve --data-dir $DataRoot
+}
 exit $LASTEXITCODE

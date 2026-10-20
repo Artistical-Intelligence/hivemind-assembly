@@ -1,12 +1,12 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.10.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.11.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
 1. Extract the Windows release ZIP and open `Start_Hivemind_Assembly.cmd`.
 2. The launcher installs the bundled Python runtime and the hash-locked Windows dependency set into your user data directory, then opens the dashboard. The first dependency installation needs internet access.
-3. Run **Semantic self-check** to exercise the independent verifier.
+3. Open **Project files** and choose **Create register example**. Run checks, edit `candidate.hex`, save, and check again. The native Python example also works without a compiler after you authorize its supplied recipes. **Semantic self-check** exercises the verifier separately.
 4. Use **Setup & settings → Install pinned foundations**. On Windows, setup uses WinGet to install missing Git, Node.js 24+, Java 21+ and a C compiler, then installs and automatically checks the pinned foundations on a source-known fixture. Windows may require system authorization or a restart. Existing installations can be configured in settings.
 5. Use **Set up all native sessions** on Overview. Setup reuses dedicated sign-ins, discovers exact controls, creates separate conversations and verifies two-way attachment transfers. Unrecognized controls or allowance mappings remain unverified; `_app/NATIVE_SETUP.md` describes the recovery path. Each role retains its designated provider, surface, model and effort. Inference APIs, paid overage and manual relay are not fallbacks.
 
@@ -14,7 +14,7 @@ The application uses dedicated Edge, Chrome or Playwright profiles. It does not 
 
 ## Working with a project
 
-Create a project in its prepared state, import the target, and define acceptance before resuming the task. Workers declare bounded steps, receive an adviser briefing, request broker operations, and use the retained results to continue. Separate reviewer sessions support recovery.
+Create a project in its prepared state. In **Project files**, upload targets, browse files, and edit UTF-8 candidates. Save preserves the previous bytes and refuses stale overwrites; polling never replaces an unsaved draft. Uploads accept files up to 256 MiB each, and the text editor supports 512 KiB. Larger targets can use local-path import. Define acceptance in **Projects & tasks**, then run the pinned checks directly from **Project files** before resuming agents. Manual checks leave the task paused and do not declare autonomous completion. Workers declare bounded steps, receive an adviser briefing, request broker operations, and use the retained results to continue. Separate reviewer sessions support recovery.
 
 For a bounded x86-64 integer register region, **Independent acceptance → Register equivalence proof** pins the original bytes and names the candidate file, input registers and observed outputs. Completion independently reads the candidate and reruns the proof. Missing files, counterexamples, unsupported semantics, stale ownership and concurrent changes prevent acceptance. Failed supported checks return their evidence for up to three correction attempts. Unconfigured objectives remain `awaiting_acceptance`.
 
@@ -342,6 +342,12 @@ For CLI use, run `python _app/launch.py test-programs --suite SUITE.json
 --workspace INPUT_FOLDER --compiler COMPILER --allow-native` on one line.
 The source distribution also provides the dependency-free
 `dev/run_native_tests.py` runner with a required `--output RESULTS.json` argument.
+
+Native recipes need their target's headers, libraries and runtime dependencies.
+On Windows, ordinary C builds with Clang require the Visual C++ Build Tools and
+Windows SDK; installing LLVM alone supplies the freestanding reconstruction
+compiler, not those C runtime headers. CLI callers may select an installed MinGW
+compiler with `--compiler`. Compiler diagnostics are retained with build evidence.
 
 The **Native reconstructed program tests** GitHub Actions workflow is manually
 dispatched on a standard Linux or Windows runner. It checks out the selected commit

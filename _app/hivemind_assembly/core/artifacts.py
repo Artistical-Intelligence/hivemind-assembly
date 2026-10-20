@@ -1,5 +1,5 @@
 from __future__ import annotations
-import hashlib, re, time, zipfile
+import hashlib, re, time, zipfile, os, tempfile
 from pathlib import Path
 from hivemind_assembly.core.common import (
     atomic_write,
@@ -40,6 +40,46 @@ class Artifacts:
                 ),
             )
         return self.store.one("SELECT * FROM artifacts WHERE id=?", (key,))
+
+    def add_file(self, source, name, project=None, classification="task"):
+        """Retain large owner imports without loading the whole file into memory."""
+        if classification not in ("task", "shared", "restricted", "protected"):
+            raise ContractError("Unknown artifact classification")
+        self.root.mkdir(parents=True, exist_ok=True)
+        fd, stage = tempfile.mkstemp(prefix="incoming-", dir=self.root)
+        h, size = hashlib.sha256(), 0
+        try:
+            with os.fdopen(fd, "wb") as out, Path(source).open("rb") as inp:
+                while chunk := inp.read(1024 * 1024):
+                    h.update(chunk)
+                    size += len(chunk)
+                    out.write(chunk)
+                out.flush()
+                os.fsync(out.fileno())
+            digest = h.hexdigest()
+            target = self.root / digest[:2] / digest
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.exists() and file_hash(target) != digest:
+                raise ContractError("Retained artifact content hash mismatch")
+            if not target.exists():
+                os.replace(stage, target)
+            key = uid("artifact")
+            with self.store.tx() as db:
+                db.execute(
+                    "INSERT INTO artifacts VALUES(?,?,?,?,?,?,?)",
+                    (
+                        key,
+                        digest,
+                        size,
+                        classification,
+                        project,
+                        Path(name).name,
+                        time.time(),
+                    ),
+                )
+            return self.store.one("SELECT * FROM artifacts WHERE id=?", (key,))
+        finally:
+            Path(stage).unlink(missing_ok=True)
 
     def read(self, key, role, project=None):
         row = self.store.one("SELECT * FROM artifacts WHERE id=?", (key,))
