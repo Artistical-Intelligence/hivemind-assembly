@@ -33,5 +33,12 @@
   ],
   "diagnostic_paths": [
     "renderer.json"
-  ]
+  ],
+  "comparators": {
+    "frame.rgba": {
+      "format": "rgba8",
+      "width": 16,
+      "height": 16
+    }
+  }
 }

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "programs": {
+    "original": {"files": ["original.py"], "argv": ["{python}", "original.py"]},
+    "candidate": {
+      "files": ["reconstructed.c"],
+      "build": [["{cc}", "reconstructed.c", "-O2", "-o", "program.exe"]],
+      "argv": ["program.exe"]
+    }
+  },
+  "cases": [
+    {"id": "silence", "stdin_hex": ""},
+    {"id": "pulse", "stdin_hex": "3020313230300a"},
+    {"id": "level-changes", "stdin_hex": "3020323030300a38202d3930300a313620300a32342033303030300a"}
+  ],
+  "output_paths": ["audio.pcm"],
+  "comparators": {
+    "audio.pcm": {"format": "pcm_s16le", "channels": 2, "sample_rate": 8000, "frames": 32}
+  },
+  "repeats": 3,
+  "timeout_seconds": 10,
+  "platforms": ["Linux", "Windows", "Darwin"]
+}

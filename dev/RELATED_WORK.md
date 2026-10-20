@@ -304,3 +304,20 @@ this does not establish arbitrary Linux or Windows runtime compatibility.
 
 - EGL surfaceless specification: https://registry.khronos.org/EGL/extensions/MESA/EGL_MESA_platform_surfaceless.txt . The included source-known probe uses a real pbuffer and OpenGL pixel readback, without substituting synthetic rendering.
 - Windows Job Objects: https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects . Use process-tree membership before starting the target, with kill-on-close; test the Windows branch on Windows before claiming platform acceptance.
+
+## Frame and audio observation contracts
+
+- Pixelmatch: https://github.com/mapbox/pixelmatch/blob/main/README.md . Reviewed
+  pixel mismatch counts, thresholds and anti-alias handling. Its perceptual
+  image comparison is useful for visual regression; HA's raw capture contract
+  instead requires explicit channel-error and pixel-count limits, including
+  alpha, with no automatic anti-alias exclusions or alignment. This small exact
+  arithmetic comparator does not reproduce Pixelmatch's perceptual algorithm.
+- SciPy correlation: https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.correlation_lags.html . Correlation can locate time shifts in signals.
+  HA retains fixed sample alignment for acceptance because automatically shifting
+  captures could conceal an input/replay latency regression. Per-channel absolute
+  peak and RMS error are sufficient for this bounded integer PCM contract; no
+  signal-processing library, audio decoder or resampler is reimplemented.
+
+Source-known C/Python pulse replay and real EGL readback exercise these contracts.
+They are capture checks, not claims of arbitrary game, audio-device or GPU parity.

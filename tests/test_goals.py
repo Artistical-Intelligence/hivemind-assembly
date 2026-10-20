@@ -15,6 +15,67 @@ from hivemind_assembly.automation.policy import Availability, Window
 from test_team import RecordingHost, FixtureNative
 
 
+def test_goal_runs_protected_native_captures_to_independent_acceptance(store):
+    from hivemind_assembly.core.broker import Broker as CoreBroker
+    from hivemind_assembly.core.test_acceptance import NativeTestAcceptance
+    from test_observations import capture_suite
+
+    class CaptureNative(FixtureNative):
+        async def exchange(self, route, message):
+            response = await super().exchange(route, message)
+            if response["type"] == "tool_request":
+                response.update(tool="test_programs", args={})
+            return response
+
+    cfg = json.loads(
+        (Path(__file__).parents[1] / "_app/config/default.json").read_text()
+    )
+    for name in cfg["routes"]:
+        cfg["routes"][name]["conversation_url"] = "https://example.invalid/" + name
+    controller = Controller(store)
+    broker = CoreBroker(controller, cfg)
+    task = store.create_project("capture goal", "Reconstruct an RGBA frame")
+    (broker.workspace(task["id"]) / "candidate.py").write_text(
+        "from pathlib import Path;Path('capture').write_bytes(bytes([1,0,0,255]))"
+    )
+    spec = {"scope": "native_tool_tests", "suite": capture_suite()}
+    verifier = NativeTestAcceptance(store)
+    verifier.allow(task["project_id"], True)
+    verifier.authorize_recipe(task["project_id"], spec)
+    Acceptance(controller, broker).configure(task["id"], spec)
+    native = CaptureNative()
+    team = NativeTeam(controller, broker, native, cfg)
+    team.host = RecordingHost()
+    for name in ("worker.opus", "adviser.extra"):
+        team.observations[name] = Availability(
+            name, True, True, False, time.time(), [Window("daily", 50)]
+        )
+    team.goals.command(task["id"], "/goal")
+
+    async def run():
+        for _ in range(6):
+            await team.supervise(task["id"])
+
+    asyncio.run(run())
+    assert store.task(task["id"])["status"] == "accepted"
+    assert team.goals.status(task["id"])["status"] == "achieved"
+    evidence = store.rows(
+        "SELECT payload FROM records WHERE kind=?", ("native_test_run:" + task["id"],)
+    )
+    assert len(evidence) == 2  # Worker test and fresh independent acceptance run.
+    result = json.loads(
+        broker.artifacts.read(
+            json.loads(evidence[-1]["payload"])["observations_artifact"],
+            "evaluator",
+            task["project_id"],
+        )
+    )
+    assert result["task_id"] == task["id"] and result["passed"]
+    assert not result["cases"][0]["comparisons"]["candidate"][0]["files"]["capture"][
+        "exact"
+    ]
+
+
 def test_goal_restart_budget_idempotency_and_shared_children(store):
     task = store.create_project("goal", "Recover the program")
     goals = Goals(store)

@@ -226,6 +226,26 @@ def test_owner_native_recipe_and_observations(app):
         observations["passed"]
         and observations["cases"][0]["runs"]["candidate"][0]["file_contents_hex"]
     )
+    # Results belong to a task, not merely the last sibling run in its project.
+    import time
+
+    with app.store.tx() as db:
+        db.execute(
+            "INSERT INTO tasks(id,project_id,objective,status,updated) VALUES(?,?,?,'paused',?)",
+            ("native-child", task["project_id"], "Different check", time.time()),
+        )
+    assert app.action("/api/native-tests/results", {"task": "native-child"}) == {
+        "status": "not_run"
+    }
+    child_payload = {**payload, "task": "native-child"}
+    child_root = app.broker.workspace("native-child")
+    (child_root / "candidate.py").write_text("print('wrong output')")
+    app.action("/api/native-tests/configure", child_payload)
+    assert not app.run_native_tests("native-child")["passed"]
+    assert not app.action("/api/native-tests/results", {"task": "native-child"})[
+        "passed"
+    ]
+    assert app.action("/api/native-tests/results", {"task": task["id"]})["passed"]
     app.action(
         "/api/native-tests/permission",
         {"project": task["project_id"], "allowed": False},

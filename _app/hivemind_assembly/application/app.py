@@ -398,13 +398,15 @@ class Application:
         if path == "/api/native-tests/results":
             task = self.store.task(data["task"])
             rows = self.store.rows(
-                "SELECT id FROM artifacts WHERE project_id=? AND logical_name='native-test-observations.json' AND classification='protected' ORDER BY created DESC LIMIT 1",
-                (task["project_id"],),
+                "SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1",
+                ("native_test_run:" + task["id"],),
             )
             return (
                 json.loads(
                     self.broker.artifacts.read(
-                        rows[0]["id"], "evaluator", task["project_id"]
+                        json.loads(rows[0]["payload"])["observations_artifact"],
+                        "evaluator",
+                        task["project_id"],
                     )
                 )
                 if rows
@@ -848,6 +850,7 @@ def make_server(app, port=0):
             files = {
                 "/": ("index.html", "text/html; charset=utf-8"),
                 "/app.js": ("app.js", "text/javascript"),
+                "/native_captures.js": ("native_captures.js", "text/javascript"),
                 "/style.css": ("style.css", "text/css"),
             }
             if path not in files:

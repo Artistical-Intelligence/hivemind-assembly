@@ -65,6 +65,7 @@ class NativeTestAcceptance:
                     "case_count": len(spec["cases"]),
                     "repeats": spec["repeats"],
                     "platforms": spec["platforms"],
+                    "comparators": spec["comparators"],
                     "claim": "Trusted native execution; sampled streams/exit/selected files, not all-input equivalence",
                 }
             ],
@@ -99,8 +100,18 @@ class NativeTestAcceptance:
             retained_files={**original_files, **candidate_files},
         )
         self.require_permission(project)
+        result["task_id"] = contract["task_id"]
+        result["suite_artifact"] = contract["suite_artifact"]
         evidence = artifacts.add(
             canonical(result), "native-test-observations.json", project, "protected"
+        )
+        self.store.put(
+            "native_test_run:" + contract["task_id"],
+            uid("native_test_run"),
+            {
+                "observations_artifact": evidence["id"],
+                "suite_artifact": contract["suite_artifact"],
+            },
         )
         result_hashes = {
             name: hashlib.sha256(data).hexdigest()

@@ -310,6 +310,33 @@ Bundled examples:
 - `_app/examples/offscreen_gl`: a Linux Mesa/EGL fixture that creates a real offscreen
   OpenGL context, reads back RGBA pixels and compares them with an independent buffer.
   It needs EGL/OpenGL libraries; unsupported graphics setup is a failure, not a fake frame.
+- `_app/examples/audio_replay`: an independent Python reference and compiled C
+  reconstruction replay sample-indexed level changes into signed stereo PCM.
+  Silence, a pulse and level changes are checked without an audio device.
+
+Recipes may declare `comparators` for selected `output_paths`. Unlisted files
+remain byte-exact. For a frame, use
+`{"frame.rgba":{"format":"rgba8","width":16,"height":16}}`.
+Pixels are tightly packed RGBA bytes in stored row order, including alpha.
+Optional `max_channel_error` and `max_bad_pixels` default to zero. The result
+reports changed pixels, peak channel error and the bounds of pixels exceeding
+the threshold. Every selected frame must be present at the declared size; use
+separate paths to check multiple frames at recorded replay checkpoints.
+
+For audio, use `{"audio.pcm":{"format":"pcm_s16le","channels":2,
+"sample_rate":8000,"frames":32}}`. Samples are interleaved signed 16-bit
+little-endian values. Optional `max_sample_error` and `max_rms_error` default to
+zero and both must pass independently for every channel. Sample count and channel
+order remain exact. There is no time alignment, resampling or gain adjustment.
+Sample rate describes the capture contract; raw PCM cannot prove hardware timing.
+
+Tolerances are pinned with the owner's recipe and cannot be changed by workers.
+Each program must still produce identical observations across repetitions,
+even when differences between the original and reconstruction are tolerated.
+Exit status and stdout/stderr remain exact. **View latest observations** shows
+frame and per-channel waveform previews with quantitative comparison results.
+Captures and oracle details stay in protected evidence, tied to the task and
+suite that produced them; they are not disclosed to workers or published.
 
 For CLI use, run `python _app/launch.py test-programs --suite SUITE.json
 --workspace INPUT_FOLDER --compiler COMPILER --allow-native` on one line.

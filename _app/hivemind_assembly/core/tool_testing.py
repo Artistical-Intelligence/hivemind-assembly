@@ -15,6 +15,7 @@ import tempfile
 import time
 from .common import Blocked, ContractError, canonical, digest
 from .native_process import run
+from .observations import validate_comparators, compare_observation, capture_size
 
 LIMIT = 2 * 1024 * 1024
 
@@ -84,6 +85,7 @@ def validate(spec):
         "cases",
         "output_paths",
         "diagnostic_paths",
+        "comparators",
         "repeats",
         "timeout_seconds",
         "platforms",
@@ -121,6 +123,9 @@ def validate(spec):
         relative(name)
     if len(set(x.lower() for x in outputs)) != len(outputs):
         raise ContractError("Duplicate/case-colliding output paths")
+    comparators = validate_comparators(
+        value.setdefault("comparators", {}), outputs, LIMIT
+    )
     diagnostics = value.setdefault("diagnostic_paths", [])
     if not isinstance(diagnostics, list) or len(diagnostics) > 16:
         raise ContractError("At most 16 diagnostic files")
@@ -188,6 +193,12 @@ def validate(spec):
             for content in expected["files"].values():
                 if content is not None:
                     hex_bytes(content)
+            for name, rule in comparators.items():
+                content = expected["files"][name]
+                if content is None or len(hex_bytes(content)) != capture_size(rule):
+                    raise ContractError(
+                        "Expected capture must match declared format and size"
+                    )
     repeats = value.setdefault("repeats", 2)
     timeout = value.setdefault("timeout_seconds", 30)
     if (
@@ -245,6 +256,7 @@ def expected_observation(expected):
             p: hashlib.sha256(hex_bytes(v)).hexdigest() if v is not None else None
             for p, v in expected["files"].items()
         },
+        "file_contents_hex": expected["files"],
     }
 
 
@@ -428,21 +440,21 @@ def execute(
         expected = (
             expected_observation(case["expected"])
             if "expected" in case
-            else comparisons["original"][0]
+            else runs["original"][0]
         )
-        passed = stable and all(
-            r.get("status") == "completed"
-            and 0 <= r["exit_code"] < 0xC0000000
-            and r == expected
-            for rows in comparisons.values()
-            for r in rows
-        )
+        checks = {
+            kind: [compare_observation(r, expected, spec["comparators"]) for r in rows]
+            for kind, rows in runs.items()
+        }
+        passed = stable and all(r["passed"] for rows in checks.values() for r in rows)
         results.append(
             {
                 "id": case["id"],
                 "passed": passed,
                 "repeatable": stable,
                 "runs": runs,
+                "comparisons": checks,
+                "expected": expected if "expected" in case else None,
                 "reason": (
                     "matched"
                     if passed
@@ -454,11 +466,23 @@ def execute(
                 ),
             }
         )
+        evidence_bytes += len(canonical(checks)) + len(
+            canonical(results[-1]["expected"])
+        )
+        if evidence_bytes > 16 * LIMIT:
+            return {
+                "passed": False,
+                "status": "evidence_limit",
+                "cases": results[:-1],
+                "builds": builds,
+                "input_hashes": hashes,
+            }
     return {
         "passed": all(r["passed"] for r in results),
         "status": "completed",
         "suite_hash": digest(spec),
         "input_hashes": hashes,
+        "comparators": spec["comparators"],
         "platform": platform.platform(),
         "python": platform.python_version(),
         "cases": results,

@@ -5,7 +5,12 @@ checks, protected knowledge/procedure rollouts, shared learning reservations,
 Qiling file/memory replay, deeper Ghidra/REA queries and installed-tool checks.
 It is not a declaration that the requested product has passed all gates.
 
-Recent additions: persistent project goals, shared native turn budgets, owner-pinned
+Recent additions: protected RGBA frame and PCM audio comparisons, sample-indexed
+audio replay, frame/waveform review and task-specific evidence. Exact byte defaults
+and per-program repeatability are preserved. These do not establish arbitrary
+game equivalence or hardware timing.
+
+Earlier additions: persistent project goals, shared native turn budgets, owner-pinned
 general-purpose native test recipes, protected native acceptance, automatic
 publication of tested sources, and portable disposable-runner workflows. Real
 Linux C/CLI and offscreen Mesa frame probes passed locally. Hosted Windows and

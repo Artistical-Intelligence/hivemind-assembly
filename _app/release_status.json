@@ -3,13 +3,13 @@
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 317,
+    "passed": 333,
     "skipped": 1,
     "failed": 0,
-    "elapsed_seconds": 60.95,
+    "elapsed_seconds": 78.71,
     "host": "Linux Python 3.12",
     "hermes_source": "c0015464f0f40d52c5702a84cf58e70361f4a04c",
-    "skipped_gate": "Local Chromium DOM fixture. An installed Chromium executable was found, but this host rejects its required socket operation; the fixture is not counted as passed."
+    "skipped_gate": "Local Chromium fixture not enabled on this restored host; no browser acceptance inferred."
   },
   "current_checks": {
     "github_setup": "Resumable registration, lost acknowledgement, reuse, missing uncertain registration, account/origin guards and non-secret retained state passed automated fixtures. Live browser reached GitHub sign-in; live registration was not executed.",
@@ -59,7 +59,9 @@
     "standing_goals": "Persistent root objectives, project-wide native request budgets, idempotent reservation across restart, pause/clear/resume, automatic continuation, root-only independent completion and reviewer recovery request resumption passed. No extra model API judge. Native signed-in goal execution is not verified.",
     "native_tool_testing": "Actual native original/candidate C builds with different implementations and optimization levels passed three repeated oracle cases. Source-known wrong candidates were rejected. An installed gzip oracle agreed with a Python decompression utility on three byte-stream cases. Expected-output/file tests, repeated-run instability, deadlines, output limits, process-tree cleanup after timeout and controller exit, environment credential stripping, owner-only recipes, protected original/corpus, permission revocation and source rechecks passed. Native execution is explicitly owner-authorized and is not a security sandbox.",
     "offscreen_graphics": "Actual EGL 1.5 pbuffer/OpenGL readback passed three repeated comparisons of a 16x16 RGBA frame against independent expected pixels. Observed renderer: llvmpipe (LLVM 20.1.2, 256 bits); Mesa 25.2.8 OpenGL 4.5 compatibility. This verifies the source-known graphics probe, not arbitrary game behavior or GPU performance.",
-    "hosted_testing": "Manual Linux/Windows GitHub Actions workflow and dependency-free runner implemented, with exact commit/run metadata, no persisted checkout credentials, bounded runtime and short artifact retention. Actual hosted dispatch and Windows Job Object execution remain unverified. Account spending policy is not set or inferred by the workflow. The local bubblewrap probe failed because this host denies a required NETLINK_ROUTE socket; no sandbox was claimed."
+    "hosted_testing": "Manual Linux/Windows GitHub Actions workflow and dependency-free runner implemented, with exact commit/run metadata, no persisted checkout credentials, bounded runtime and short artifact retention. Actual hosted dispatch and Windows Job Object execution remain unverified. Account spending policy is not set or inferred by the workflow. The local bubblewrap probe failed because this host denies a required NETLINK_ROUTE socket; no sandbox was claimed.",
+    "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
+    "capture_preview": "jsdom checks passed for exact RGBA bytes delivered to canvas, per-channel PCM waveform samples, invalid shapes and escaped labels. Dashboard interactions passed. Actual browser rendering remains unverified."
   },
   "native_live_acceptance": {
     "validated_routes": 0,
@@ -87,11 +89,13 @@
     "data_location": "Existing UnifiedWorkbench user-data path is unchanged",
     "credentials": "OS vault; browser credentials are not copied to code, configuration, releases or backups"
   },
-  "supplementary_tests": {
-    "goal_controls_and_reviewer_recovery": {
-      "passed": 4,
-      "failed": 0,
-      "note": "Includes one added reviewer-retry regression after the full suite; the other three goal tests are also in the full suite."
-    }
+  "historical_automated_tests": {
+    "passed": 317,
+    "skipped": 1,
+    "failed": 0,
+    "elapsed_seconds": 60.95,
+    "host": "Linux Python 3.12",
+    "hermes_source": "c0015464f0f40d52c5702a84cf58e70361f4a04c",
+    "skipped_gate": "Local Chromium DOM fixture. An installed Chromium executable was found, but this host rejects its required socket operation; the fixture is not counted as passed."
   }
 }
