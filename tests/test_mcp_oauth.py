@@ -263,7 +263,10 @@ def test_callback_rejects_wrong_state_host_duplicates_and_replay():
     asyncio.run(exercise())
 
 
-def test_sdk_rejects_wrong_issuer_before_sending_authorization_code(app, oauth_server):
+@pytest.mark.parametrize("change", ["issuer", "endpoint"])
+def test_changed_identity_rejected_before_sending_authorization_code(
+    app, oauth_server, change
+):
     base, state = oauth_server
     config = app.connections.settings()
     config["servers"]["fixture"] = {"transport": "http", "url": base + "/mcp"}
@@ -271,13 +274,17 @@ def test_sdk_rejects_wrong_issuer_before_sending_authorization_code(app, oauth_s
 
     async def browser(profile, url):
         values = parse_qs(urlsplit(url).query)
+        if change == "endpoint":
+            cfg = app.connections.settings()
+            cfg["servers"]["fixture"]["url"] = base + "/different"
+            app.connections.save(cfg)
         async with httpx2.AsyncClient(trust_env=False) as http:
             await http.get(
                 values["redirect_uri"][0],
                 params={
                     "code": "one-time-code-secret",
                     "state": values["state"][0],
-                    "iss": base + "/wrong-issuer",
+                    "iss": base + ("/wrong-issuer" if change == "issuer" else "/auth"),
                 },
             )
 

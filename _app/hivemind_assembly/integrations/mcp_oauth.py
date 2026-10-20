@@ -288,6 +288,8 @@ class OAuthManager:
         ):
             raise ContractError("Client ID must be a nonempty string")
         with self.connections.lock:
+            if self.closed:
+                raise Blocked("HA is shutting down")
             old = self.futures.get(server)
             if old and not old.done():
                 return {"server": server, **self.states[server]}
@@ -395,8 +397,18 @@ class OAuthManager:
             if callback.server is None:
                 await callback.start(callback.port)
             callback.expect(url)
-            self.states[server] = {"stage": "authorization", "callback": callback.url}
+            with self.connections.lock:
+                storage.check()
+                self.states[server] = {
+                    "stage": "authorization",
+                    "callback": callback.url,
+                }
             await self.open_page("mcp-oauth-" + digest(server)[:20], url)
+
+        async def callback_handler():
+            result = await callback.result()
+            storage.check()
+            return result
 
         class PersistentProvider(OAuthClientProvider):
             async def _initialize(self):
@@ -429,7 +441,7 @@ class OAuthManager:
             client_metadata=metadata,
             storage=storage,
             redirect_handler=redirect_handler,
-            callback_handler=callback.result if callback else None,
+            callback_handler=callback_handler if callback else None,
         )
         storage.provider = provider
         return provider, storage
@@ -453,39 +465,42 @@ class OAuthManager:
                 tools = await self.connections.external(
                     server, oauth_setup=(provider, storage)
                 )
-                storage.check()
-                self.states[server] = {
-                    "stage": "connected",
-                    "tools": len(tools),
-                    "storage": (
-                        "OS credential store"
-                        if spec["auth"] == "oauth_vault"
-                        else "session only"
-                    ),
-                }
+                with self.connections.lock:
+                    storage.check()
+                    self.states[server] = {
+                        "stage": "connected",
+                        "tools": len(tools),
+                        "storage": (
+                            "OS credential store"
+                            if spec["auth"] == "oauth_vault"
+                            else "session only"
+                        ),
+                    }
         except asyncio.CancelledError:
             raise
         except Exception as error:
             # Provider exceptions can include token response bodies. Retain no
             # response text, callback query, authorization code, or tokens.
-            if self.generations.get(server, 0) == generation:
-                self.states[server] = {
-                    "stage": "attention",
-                    "reason": "MCP authorization did not complete ("
-                    + type(error).__name__
-                    + "). Check the provider's browser page and connection settings, then reconnect.",
-                }
+            with self.connections.lock:
+                if self.generations.get(server, 0) == generation:
+                    self.states[server] = {
+                        "stage": "attention",
+                        "reason": "MCP authorization did not complete ("
+                        + type(error).__name__
+                        + "). Check the provider's browser page and connection settings, then reconnect.",
+                    }
         finally:
             await callback.close()
             self.tasks.discard(asyncio.current_task())
 
     def close(self):
-        self.closed = True
-        for server in self.generations:
-            self.generations[server] += 1
-        for future in self.futures.values():
-            future.cancel()
-        self.credentials.clear()
+        with self.connections.lock:
+            self.closed = True
+            for server in self.generations:
+                self.generations[server] += 1
+            for future in self.futures.values():
+                future.cancel()
+            self.credentials.clear()
 
     async def drain(self):
         tasks = list(self.tasks)
