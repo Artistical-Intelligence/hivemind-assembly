@@ -367,3 +367,12 @@ mkdir/rename/unlink/rmdir after the same path checks. This supplies missing pinn
 upstream handlers and respects removal flags. Dynamic ARM images and dependencies
 remain unsupported. Both architectures share deterministic guest metadata,
 resource bounds, filesystem isolation, cancellation and protected acceptance.
+
+`integrations.mcp_checks` retains immutable request and terminal-result records
+for owner-pinned local checks. It uses the existing project verifier and task
+leases; native recipe permissions remain unchanged. A retry returns the same
+request outcome, including revision staleness. A prior-process request lacking a
+terminal result is interrupted and is never automatically rerun. The MCP summary
+excludes evaluator outputs; errors stay in protected artifacts. Shutdown cancels
+and joins these checks before closing the store. This does not pin acceptance
+on a model's behalf or let manual checks complete an autonomous goal.

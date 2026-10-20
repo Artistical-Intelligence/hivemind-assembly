@@ -103,3 +103,10 @@ separately executed native fixture; protected acceptance rejects incorrect code.
 ARM directory-at calls use the existing guarded upstream Qiling handlers because
 its pinned release lacks those handlers or ignores unlinkat removal flags.
 Unknown effects, non-CWD directory descriptors and unsupported flags stop replay.
+
+Inbound MCP can now start existing pinned checks and poll retained outcomes.
+Stable request IDs prevent duplicate execution after lost responses, interrupted
+requests require explicit review, and results expose no protected corpus data.
+Local official-SDK and stdio-to-HTTP exchanges cover this path; signed-in web-chat
+tunnel acceptance remains separate. The goal/controller/ARM-to-x64 file workflow
+was exercised with scripted native responses and rejects post-check mutations.

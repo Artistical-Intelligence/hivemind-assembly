@@ -446,8 +446,13 @@ class Gateway:
     def __init__(self, app):
         self.app = app
         self.connections = app.connections
+        from .mcp_checks import CheckRequests
+
+        self.checks = CheckRequests(app, self.task)
 
     def task(self, task_id):
+        if not self.connections.settings()["enabled"]:
+            raise Blocked("MCP access is disabled")
         task = self.app.store.task(task_id)
         if task["project_id"] not in self.connections.settings()["projects"]:
             raise Blocked("Project is not shared with MCP")
@@ -530,6 +535,10 @@ class Gateway:
         task = self.task(args["task"])
         if tool == "ha_task_status":
             return {"task": task, "goal": self.app.team.goals.status(task["id"])}
+        if tool == "ha_run_checks":
+            return self.checks.start(task["id"], args["request_id"])
+        if tool == "ha_check_status":
+            return self.checks.status(task["id"], args["request_id"])
         if tool == "ha_control":
             if args["action"] not in ("pause", "resume", "cancel"):
                 raise ContractError("Expected pause, resume or cancel")
@@ -572,6 +581,16 @@ def build_server(call):
     def ha_task_status(task: str) -> dict[str, Any]:
         """Read durable task status and its standing goal."""
         return call("ha_task_status", {"task": task})
+
+    @server.tool()
+    def ha_run_checks(task: str, request_id: str) -> dict[str, Any]:
+        """Start existing owner-pinned checks for a paused shared project. Retry with the same ID; no automatic rerun after interruption. Native recipes require prior owner authorization. Does not accept a task or expose holdouts."""
+        return call("ha_run_checks", {"task": task, "request_id": request_id})
+
+    @server.tool()
+    def ha_check_status(task: str, request_id: str) -> dict[str, Any]:
+        """Read the retained outcome of a check request without protected inputs or expected outputs."""
+        return call("ha_check_status", {"task": task, "request_id": request_id})
 
     @server.tool()
     def ha_control(task: str, action: str) -> dict[str, Any]:

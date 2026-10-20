@@ -440,3 +440,15 @@ compiler target explicitly, and rejects ARM64EC/ARM64X identities. A C data-mode
 regression verifies that LP64 and LLP64 differences cannot silently pass.
 
 MCP client metadata registration reuses the official Python SDK provider (`client_metadata_url`) rather than implementing a second OAuth flow: https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/client/oauth-clients.md . Static ARM Linux syscall numbers follow the kernel UAPI: https://github.com/torvalds/linux/blob/master/include/uapi/asm-generic/unistd.h . ARM64 DLL base relocation reuses pefile and Microsoft PE semantics: https://learn.microsoft.com/en-us/windows/win32/debug/pe-format .
+
+### Durable MCP checks
+
+Reviewed the official [Tasks extension](https://tasks.extensions.modelcontextprotocol.io/)
+and [Python v2 migration guide](https://py.sdk.modelcontextprotocol.io/migration/).
+Tasks require negotiated client support. HA keeps its broadly compatible ordinary
+SDK tools for starting and polling checks; it does not advertise the Tasks
+extension. Immutable request IDs and retained outcomes use HA's existing store
+and verifier, with project scoping, no replay after interruption, and no protected
+corpus in responses. This is an application job API, not a new JSON-RPC protocol
+implementation. A future Tasks adapter can wrap the same retained records when
+both clients and the pinned SDK extension support it.

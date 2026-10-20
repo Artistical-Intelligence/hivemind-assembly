@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.15.1 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.15.2 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -411,6 +411,14 @@ connection into a JSON MCP client configuration while preserving other entries
 and saving a backup. Keep HA running; the bridge connects to its authenticated
 local controller. Web chat needs a supported private tunnel in addition to this
 local connection. Provider account authorization is a separate setup step.
+
+Connected chats can call `ha_run_checks(task, request_id)` and poll
+`ha_check_status(task, request_id)` for a shared paused project with owner-pinned
+acceptance. Keep the same request ID when retrying: a lost response or controller
+restart never silently reruns a check. Results report success, revision staleness
+and execution status without exposing protected cases or expected outputs. These
+checks leave the project paused; `/goal` completion still requires a separate
+independent acceptance run. Native recipes require prior owner authorization.
 
 External stdio and HTTP MCP connections have explicit project and tool grants.
 Workers receive only their authorized connection names and tool names. Calls use

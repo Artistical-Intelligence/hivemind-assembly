@@ -265,3 +265,65 @@ def test_explicit_unlimited_goal_retains_usage_without_exhausting(store):
     goals.command(task["id"], "/goal budget 10")
     with pytest.raises(GoalStopped):
         goals.reserve(task["id"], "bounded-again")
+
+
+@pytest.mark.parametrize("change_after_worker_check", [False, True])
+def test_goal_arm_program_rechecks_actual_files_before_completion(store, change_after_worker_check):
+    import os
+    import shutil
+    from hivemind_assembly.domains.reverse_engineering.program import build
+
+    compiler = os.environ.get("HA_TEST_CLANG") or shutil.which("clang")
+    if not compiler:
+        pytest.skip("Clang and LLD required")
+    cfg = json.loads((Path(__file__).parents[1] / "_app/config/default.json").read_text())
+    cfg["foundations"]["c_compiler"] = compiler
+    for name in cfg["routes"]:
+        cfg["routes"][name]["conversation_url"] = "https://example.invalid/" + name
+    controller = Controller(store)
+    broker = Broker(controller, cfg)
+    task = store.create_project("ARM program goal", "Recover a file transformer")
+    root = broker.workspace(task["id"])
+    source = '''int ha_main(void){unsigned char b[32];long f=ha_open("input",0,0);
+    long n=ha_file_read(f,b,32);ha_close(f);for(long i=0;i<n;i++)b[i]^=13;
+    f=ha_open("result",577,384);ha_file_write(f,b,n);ha_close(f);return 0;}'''
+    (root / "main.c").write_text(source)
+    manifest = {"sources": ["main.c"]}
+    built = build(root, {**manifest, "architecture": "aarch64"}, broker.jobs, compiler)
+    assert built["passed"], built
+    (root / "original.elf").write_bytes(bytes.fromhex(built["elf_hex"]))
+    (root / "build.json").write_text(json.dumps(manifest))
+    cases = [{"runtime": "qiling_linux", "files": {"/input": value.hex()}, "effect_policy": "observable"}
+             for value in (b"", bytes(range(32)))]
+    Acceptance(controller, broker).configure(task["id"], {
+        "scope": "linux_program", "original_path": "original.elf",
+        "manifest_path": "build.json", "cases": cases,
+    })
+
+    class ProgramNative(FixtureNative):
+        async def exchange(self, route, message):
+            response = await super().exchange(route, message)
+            if response["type"] == "tool_request":
+                response.update(tool="compare_program", args={
+                    "original_path": "original.elf", "manifest_path": "build.json", "cases": cases,
+                })
+            elif response["type"] == "complete" and change_after_worker_check:
+                (root / "main.c").write_text(source.replace("^=13", "^=12"))
+            return response
+
+    team = NativeTeam(controller, broker, ProgramNative(), cfg)
+    team.host = RecordingHost()
+    for name in ("worker.opus", "adviser.extra"):
+        team.observations[name] = Availability(name, True, True, False, time.time(), [Window("daily", 50)])
+    team.goals.command(task["id"], "/goal")
+    team.goals.command(task["id"], "/goal budget unlimited")
+
+    async def run():
+        for _ in range(6):
+            await team.supervise(task["id"])
+
+    asyncio.run(run())
+    operations = store.rows("SELECT result FROM operations WHERE tool='compare_program'")
+    assert len(operations) == 1 and json.loads(operations[0]["result"])["passed"]
+    assert (store.task(task["id"])["status"] == "accepted") is not change_after_worker_check
+    assert (team.goals.status(task["id"])["status"] == "achieved") is not change_after_worker_check

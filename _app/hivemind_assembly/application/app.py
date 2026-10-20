@@ -9,6 +9,7 @@ from hivemind_assembly.domains.reverse_engineering.domain import (
     ReverseEngineeringDomain,
 )
 from hivemind_assembly.core.common import (
+    Conflict,
     canonical,
     atomic_write,
     uid,
@@ -128,6 +129,7 @@ class Application:
         )
         self.native_setup_futures = {}
         self.shutdown = False
+        self.closed = False
         self.learning_lock = threading.Lock()
         self.action_lock = threading.RLock()
         self.thread.start()
@@ -909,11 +911,13 @@ class Application:
             )
         raise ContractError("Unknown action")
 
-    def run_native_tests(self, task_id):
+    def run_native_tests(self, task_id, expected_revision=None):
         with self.store.lock:
             self.workspace.guard(task_id)
             with self.store.tx() as db:
                 task = self.store.task(task_id)
+                if expected_revision is not None and self.store.project(task["project_id"])["revision"] != expected_revision:
+                    raise Conflict("Project changed before the requested check started")
                 if task["status"] != "paused" or task["owner"]:
                     raise Blocked(
                         "Manual tests require a paused, unassigned task; active workers use test_programs"
@@ -926,7 +930,11 @@ class Application:
                 raise
         try:
             revision = self.store.project(task["project_id"])["revision"]
-            self.broker.cancel.setdefault(task_id, threading.Event()).clear()
+            event = self.broker.cancel.setdefault(task_id, threading.Event())
+            event.clear()
+            if self.shutdown:
+                event.set()
+                raise Blocked("HA is shutting down")
             self.controller.brief(
                 task_id,
                 {"revision": revision},
@@ -1014,7 +1022,7 @@ class Application:
                 )
 
     def close(self):
-        if self.shutdown:
+        if self.closed:
             return
         self.tunnel.close()
         self.connections.oauth.close()
@@ -1024,6 +1032,7 @@ class Application:
         self.shutdown = True
         for event in self.broker.cancel.values():
             event.set()
+        self.mcp_gateway.checks.close()
 
         async def close_runtime():
             await self.connections.oauth.drain()
@@ -1040,6 +1049,7 @@ class Application:
         self.thread.join(timeout=5)
         self.store.close()
         self.instance_lock.close()
+        self.closed = True
 
 
 def make_server(app, port=0):

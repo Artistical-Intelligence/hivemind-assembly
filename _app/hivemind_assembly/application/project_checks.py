@@ -6,7 +6,7 @@ from hivemind_assembly.core.acceptance import Acceptance
 from hivemind_assembly.core.common import Blocked, Conflict, canonical, uid
 
 
-def run_checks(app, task_id):
+def run_checks(app, task_id, expected_revision=None):
     service = Acceptance(app.controller, app.broker)
     rows = app.store.rows(
         "SELECT payload FROM records WHERE kind='acceptance_contract' AND id=?",
@@ -16,10 +16,12 @@ def run_checks(app, task_id):
         raise Blocked("Configure an independent check before running it")
     contract = json.loads(rows[0]["payload"])
     if contract["scope"] == "native_tool_tests":
-        return app.run_native_tests(task_id)
+        return app.run_native_tests(task_id, expected_revision=expected_revision)
     with app.store.lock:
         app.workspace.guard(task_id)
         task = app.store.task(task_id)
+        if expected_revision is not None and app.store.project(task["project_id"])["revision"] != expected_revision:
+            raise Conflict("Project changed before the requested check started")
         app.store.state(task_id, "queued")
         try:
             epoch = app.controller.acquire(task_id, "user.checking", seconds=1200)
@@ -29,6 +31,9 @@ def run_checks(app, task_id):
     try:
         revision = app.store.project(task["project_id"])["revision"]
         app.broker.cancel.setdefault(task_id, threading.Event()).clear()
+        if app.shutdown:
+            app.broker.cancel[task_id].set()
+            raise Blocked("HA is shutting down")
         verifier = service.verifier(contract["scope"])
         result = verifier.verify(
             app.broker.workspace(task_id),
