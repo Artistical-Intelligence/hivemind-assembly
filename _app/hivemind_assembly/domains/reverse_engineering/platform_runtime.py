@@ -107,6 +107,8 @@ def replay(
     *,
     files=None,
     clock_ns=0,
+    argv=None,
+    env=None,
     random_hex="",
     max_instructions=1_000_000,
     observations=(),
@@ -115,6 +117,10 @@ def replay(
     from qiling import Qiling
     from qiling.const import QL_VERBOSE
 
+    from .process_inputs import normalize
+    from .guest_cpu import unsupported as unsupported_cpu
+
+    argv, env = normalize(argv, env)
     load_image(data)
     declared = files_spec(files or {})
     if (
@@ -147,10 +153,27 @@ def replay(
             path = root / name.lstrip("/")
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(content)
-        ql = Qiling(
+
+        # Qiling's ELF loader encodes strings as Latin-1. Preserve the declared
+        # UTF-8 bytes and separate the guest program name from the staged host path.
+        class DeclaredProcess(Qiling):
+            @property
+            def path(self):
+                return str(binary)
+
+            @property
+            def argv(self):
+                return [value.encode("utf-8").decode("latin-1") for value in argv]
+
+        ql = DeclaredProcess(
             [str(binary)],
             str(root),
-            env={},
+            env={
+                key.encode("utf-8")
+                .decode("latin-1"): value.encode("utf-8")
+                .decode("latin-1")
+                for key, value in env.items()
+            },
             verbose=QL_VERBOSE.OFF,
             console=False,
             multithread=False,
@@ -340,6 +363,11 @@ def replay(
 
         def instruction(engine, address, size):
             state["instructions"] += 1
+            if not 1 <= size <= 15 or unsupported_cpu(
+                bytes(ql.mem.read(address, size))
+            ):
+                stop("unsupported_cpu_state")
+                return
             if state["instructions"] % 1024 == 0:
                 if cancel is not None and cancel.is_set():
                     stop("cancelled")

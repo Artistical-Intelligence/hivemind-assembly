@@ -274,3 +274,9 @@ GitHub's Git database API rejects empty repositories. The checkpoint publisher
 initializes a verified source file through Contents with retained intent, then
 uses tree/commit/ref objects for incremental multi-file checkpoints. It never
 force-pushes and preserves unrelated files in the base tree.
+
+Qiling's documented argv/env process model is reused for declared CLI inputs:
+https://docs.qiling.io/en/latest/howto/ . The pinned 1.4.6 ELF loader encodes
+strings as Latin-1, so the adapter preserves declared UTF-8 bytes explicitly
+and separates guest argv[0] from the temporary host binary path. No alternate
+loader or host environment inheritance is introduced.

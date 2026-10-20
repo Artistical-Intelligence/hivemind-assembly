@@ -251,3 +251,10 @@ recursion without Python recursion-depth limits; the standard-library topologica
 sorter orders groups by dependencies. External targets remain explicit. Native
 Ghidra inventory/callgraph pagination and a complete 13-function plan were tested
 on the installed distribution. Static callgraphs do not establish runtime closure.
+
+Process inputs are explicit UTF-8 `argv`/`env` values bounded to 64 KiB. The
+Unicorn lane constructs the initial ELF stack; Qiling retains its upstream
+loader, with a narrow process subclass separating the staged host path from
+the guest program name. Both lanes use the same external-CPU-state rejection
+policy and the recovered C startup exposes arguments/environment without host
+headers. Protected suites retain these inputs without exposing them to workers.

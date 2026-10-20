@@ -168,7 +168,11 @@ engine for declared guest files, memory mapping, file descriptors, fixed time
 and supplied random bytes. Files are absolute guest paths mapped to hexadecimal
 contents; a fresh root is staged for each execution. `ha_open`, `ha_close`,
 `ha_seek`, `ha_file_read`, `ha_file_write`, `ha_map` and `ha_unmap` expose those
-boundaries to recovered C. Host files, process creation and networking are not
+boundaries to recovered C. Cases may also declare `argv` (including the program
+name) and `env`; both replay engines supply exactly these UTF-8 inputs and never
+inherit host environment variables. Defaults are `["program"]` and `{}`.
+Recovered C reads them through `ha_argc()`, `ha_argv(index)` and `ha_getenv(name)`.
+CPU clock/random instructions and port I/O stop replay explicitly. Host files, process creation and networking are not
 forwarded. Undeclared or unsupported effects cannot pass acceptance. **Complete static Linux program** acceptance pins an original ELF and
 input corpus, rebuilds independently, checks output, exit, input consumption,
 paired memory regions and declared external effects, and retains an executable.

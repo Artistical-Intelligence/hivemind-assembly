@@ -80,6 +80,7 @@ def runner():
             "proof": file_hash(folder / "proof.py"),
             "calls": file_hash(folder / "call_images.py"),
             "semantics": file_hash(folder / "semantics.py"),
+            "cpu_boundary": file_hash(folder / "guest_cpu.py"),
             "image_loader": file_hash(folder / "program.py"),
             "adapter": file_hash(Path(__file__)),
             "workflow": file_hash(Path(workflows.__file__)),

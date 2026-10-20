@@ -28,6 +28,7 @@ class FunctionEvaluator:
                         "learning_evaluator.py",
                         "reconstruction.py",
                         "semantics.py",
+                        "guest_cpu.py",
                     )
                 },
             }

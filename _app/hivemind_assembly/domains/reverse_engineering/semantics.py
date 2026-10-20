@@ -7,6 +7,7 @@ No platform, OS, device, floating-point or whole-program equivalence is implied.
 from __future__ import annotations
 import importlib.metadata
 from hivemind_assembly.core.common import ContractError
+from .guest_cpu import unsupported as unsupported_cpu
 
 
 class Unsupported(ContractError):
@@ -371,39 +372,7 @@ def run_reference(case):
             }
             m.emu_stop()
             return
-        # Host-dependent clocks/randomness, CPU queries and port I/O cannot be
-        # treated as pure replay operations or memoized workflow results.
-        instruction = bytes(m.mem_read(address, size))
-        while instruction and (
-            instruction[0]
-            in (0x66, 0x67, 0xF0, 0xF2, 0xF3, 0x2E, 0x36, 0x3E, 0x26, 0x64, 0x65)
-            or 0x40 <= instruction[0] <= 0x4F
-        ):
-            instruction = instruction[1:]
-        nondeterministic = (
-            instruction[:2] in (b"\x0f\x31", b"\x0f\x33", b"\x0f\xa2")
-            or instruction[:3] in (b"\x0f\x01\xf9", b"\x0f\x01\xd0")
-            or (
-                instruction[:2] == b"\x0f\xc7"
-                and len(instruction) >= 3
-                and (instruction[2] >> 3) & 7 in (6, 7)
-            )
-            or instruction[:1]
-            in (
-                b"\xe4",
-                b"\xe5",
-                b"\xe6",
-                b"\xe7",
-                b"\xec",
-                b"\xed",
-                b"\xee",
-                b"\xef",
-                b"\x6c",
-                b"\x6d",
-                b"\x6e",
-                b"\x6f",
-            )
-        )
+        nondeterministic = unsupported_cpu(bytes(m.mem_read(address, size)))
         if nondeterministic:
             unsupported = {
                 "reason": "Host-dependent CPU state or port I/O is outside deterministic replay",

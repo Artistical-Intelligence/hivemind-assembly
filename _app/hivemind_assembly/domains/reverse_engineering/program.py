@@ -22,6 +22,9 @@ from hivemind_assembly.core.common import (
 )
 
 HEADER = """typedef unsigned long ha_size;
+long ha_argc(void);
+const char *ha_argv(long index);
+const char *ha_getenv(const char *name);
 long ha_read(void *buffer, ha_size count);
 long ha_write(const void *buffer, ha_size count);
 void ha_exit(int code);
@@ -37,6 +40,12 @@ int ha_main(void);
 RUNTIME = (
     HEADER
     + r"""
+static long ha_runtime_argc;
+static char **ha_runtime_argv, **ha_runtime_env;
+long ha_argc(void){return ha_runtime_argc;}
+const char *ha_argv(long i){return i>=0 && i<ha_runtime_argc ? ha_runtime_argv[i] : (const char*)0;}
+const char *ha_getenv(const char *name){if(!name || !*name)return (const char*)0;for(char **p=ha_runtime_env;*p;p++){long i=0;while(name[i] && name[i]!='=' && name[i]==(*p)[i])i++;if(!name[i] && (*p)[i]=='=')return *p+i+1;}return (const char*)0;}
+int ha_boot(unsigned long *stack){ha_runtime_argc=(long)*stack;ha_runtime_argv=(char**)(stack+1);ha_runtime_env=ha_runtime_argv+ha_runtime_argc+1;return ha_main();}
 long ha_read(void *p, ha_size n) { long r; __asm__ volatile("syscall":"=a"(r):"a"(0L),"D"(0L),"S"(p),"d"(n):"rcx","r11","memory"); return r; }
 long ha_write(const void *p, ha_size n) { long r; __asm__ volatile("syscall":"=a"(r):"a"(1L),"D"(1L),"S"(p),"d"(n):"rcx","r11","memory"); return r; }
 void ha_exit(int n) { __asm__ volatile("syscall"::"a"(60L),"D"((long)n):"rcx","r11","memory"); __builtin_unreachable(); }
@@ -48,7 +57,7 @@ long ha_file_read(long f,void *p,ha_size n){return ha_call3(0,f,(long)p,n);}
 long ha_file_write(long f,const void *p,ha_size n){return ha_call3(1,f,(long)p,n);}
 void *ha_map(ha_size n){long r;register long flags __asm__("r10")=34;register long fd __asm__("r8")=-1;register long off __asm__("r9")=0;__asm__ volatile("syscall":"=a"(r):"a"(9L),"D"(0L),"S"(n),"d"(3L),"r"(flags),"r"(fd),"r"(off):"rcx","r11","memory");return (void*)r;}
 long ha_unmap(void *p,ha_size n){return ha_call3(11,(long)p,n,0);}
-__attribute__((naked)) void _start(void) { __asm__ volatile("andq $-16, %rsp; call ha_main; movl %eax, %edi; call ha_exit; ud2"); }
+__attribute__((naked)) void _start(void) { __asm__ volatile("movq %rsp, %rdi; andq $-16, %rsp; call ha_boot; movl %eax, %edi; call ha_exit; ud2"); }
 """
 )
 
@@ -217,6 +226,8 @@ def replay(
     input_bytes=b"",
     *,
     clock_ns=0,
+    argv=None,
+    env=None,
     max_instructions=1_000_000,
     observations=(),
     cancel=None,
@@ -232,6 +243,10 @@ def replay(
         or not 1 <= max_instructions <= 10_000_000
     ):
         raise ContractError("Replay input, clock or instruction bound invalid")
+    from .process_inputs import normalize, entry_stack
+    from .guest_cpu import unsupported as unsupported_cpu
+
+    argv, env = normalize(argv, env)
     entry, segments = load_image(data)
     uc = u.Uc(u.UC_ARCH_X86, u.UC_MODE_64)
     pages = {}
@@ -253,10 +268,9 @@ def replay(
         uc.mem_protect(address, 4096, perms)
     stack, stack_size = 0x70000000, 0x100000
     uc.mem_map(stack, stack_size, u.UC_PROT_READ | u.UC_PROT_WRITE)
-    # Linux entry stack with argc=0 and empty argv/envp/auxv. Runtime's call
-    # prologue has the same initial 16-byte alignment as a real ELF entry.
-    uc.reg_write(x.UC_X86_REG_RSP, stack + stack_size - 32)
-    uc.mem_write(stack + stack_size - 32, b"\0" * 32)
+    uc.reg_write(
+        x.UC_X86_REG_RSP, entry_stack(uc.mem_write, stack + stack_size, argv, env)
+    )
     events, output, stderr = [], bytearray(), bytearray()
     cursor, count, status, exit_code = 0, 0, "budget_exhausted", None
     fault = None
@@ -345,6 +359,11 @@ def replay(
     def instruction(engine, address, size, _):
         nonlocal count
         count += 1
+        if not 1 <= size <= 15 or unsupported_cpu(
+            bytes(engine.mem_read(address, size))
+        ):
+            stop("unsupported_cpu_state")
+            return
         if cancel is not None and count % 1024 == 0 and cancel.is_set():
             stop("cancelled")
 
@@ -398,6 +417,8 @@ def compare(original, candidate, cases, cancel=None):
     for case in cases:
         args = {
             "clock_ns": case.get("clock_ns", 0),
+            "argv": case.get("argv"),
+            "env": case.get("env"),
             "max_instructions": case.get("max_instructions", 1_000_000),
             "cancel": cancel,
         }
@@ -405,8 +426,11 @@ def compare(original, candidate, cases, cancel=None):
         runtime = case.get("runtime", "unicorn_linux")
         if runtime == "qiling_linux":
             from .platform_runtime import replay as qiling_replay
+
             runner = qiling_replay
-            args.update(files=case.get("files", {}), random_hex=case.get("random_hex", ""))
+            args.update(
+                files=case.get("files", {}), random_hex=case.get("random_hex", "")
+            )
         elif runtime != "unicorn_linux":
             raise ContractError("Unknown program runtime")
         before = runner(

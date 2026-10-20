@@ -3,10 +3,10 @@
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 272,
+    "passed": 287,
     "skipped": 1,
     "failed": 0,
-    "elapsed_seconds": 47.55,
+    "elapsed_seconds": 47.65,
     "host": "Linux Python 3.12",
     "hermes_source": "c0015464f0f40d52c5702a84cf58e70361f4a04c",
     "skipped_gate": "Local Chromium DOM fixture. An installed Chromium executable was found, but this host rejects its required socket operation; the fixture is not counted as passed."
@@ -52,7 +52,8 @@
     "checkpoint_publication": "Optional existing-repository binding and local-only operation; automatic publication scheduling after trusted comparisons; exact source hashes, append-only journal, non-force branch updates, remote-change rejection, and lost initialization/ref response recovery passed fixtures. HA live publication remains unverified; development snapshots were pushed separately through the connected GitHub tools.",
     "pe_dependencies": "Actual Clang/LLD PE fixtures passed explicit DLL linking, absolute-pointer relocation, forwarded exports, missing-import rejection, initialization rejection, and protected dependency pinning. No native Windows execution or Windows API runtime claimed.",
     "reconstruction_planning": "Complete Ghidra inventory and static-callgraph pagination exercised on actual Ghidra; 13-function graph planned. A 4000-function chain, recursion groups, external dependencies and incomplete/changed/truncated graph rejection passed automated tests.",
-    "workflow_composition": "Earlier-step references, selected outputs, deterministic integer/pointer function replay, invalid-result-path rejection, independent scalar/pointer holdouts, and revocable native workflow permission are implemented. Built-in optimizers retain paired measured timings and require preserved results before promotion; no general native self-improvement claim."
+    "workflow_composition": "Earlier-step references, selected outputs, deterministic integer/pointer function replay, invalid-result-path rejection, independent scalar/pointer holdouts, and revocable native workflow permission are implemented. Built-in optimizers retain paired measured timings and require preserved results before promotion; no general native self-improvement claim.",
+    "process_inputs": "Explicit UTF-8 argv/env, absent host environment, native executable agreement, protected input pinning, wrong-lookup rejection and deterministic CPU-state guards passed targeted tests across Unicorn and Qiling."
   },
   "native_live_acceptance": {
     "validated_routes": 0,

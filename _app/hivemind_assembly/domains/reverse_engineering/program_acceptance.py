@@ -34,21 +34,31 @@ class ProgramAcceptance:
                 "max_instructions",
                 "original_memory",
                 "candidate_memory",
-                "runtime", "files", "random_hex",
+                "runtime",
+                "files",
+                "random_hex",
+                "argv",
+                "env",
             }:
                 raise ContractError("Unknown program case field")
             runner = replay
             extra = {}
             if case.get("runtime") == "qiling_linux":
                 from .platform_runtime import replay as qiling_replay
+
                 runner = qiling_replay
-                extra = {"files":case.get("files",{}), "random_hex":case.get("random_hex","")}
+                extra = {
+                    "files": case.get("files", {}),
+                    "random_hex": case.get("random_hex", ""),
+                }
             elif case.get("runtime", "unicorn_linux") != "unicorn_linux":
                 raise ContractError("Unknown program runtime")
             result = runner(
                 original,
                 bytes.fromhex(case.get("input_hex", "")),
                 clock_ns=case.get("clock_ns", 0),
+                argv=case.get("argv"),
+                env=case.get("env"),
                 max_instructions=case.get("max_instructions", 1_000_000),
                 observations=case.get("original_memory", ()),
                 **extra,
@@ -99,8 +109,8 @@ class ProgramAcceptance:
             }
         )
         checks.extend(
-            {"candidate_path": n, "file_sha256": hashlib.sha256(s.encode()).hexdigest()}
-            for n, s in units.items()
+            {"candidate_path": n, "file_sha256": file_hash(scoped(root, n))}
+            for n in units
         )
         compiled = build(
             root,
