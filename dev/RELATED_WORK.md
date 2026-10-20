@@ -280,3 +280,14 @@ https://docs.qiling.io/en/latest/howto/ . The pinned 1.4.6 ELF loader encodes
 strings as Latin-1, so the adapter preserves declared UTF-8 bytes explicitly
 and separates guest argv[0] from the temporary host binary path. No alternate
 loader or host environment inheritance is introduced.
+
+The dynamic Linux extension retains Qiling's ELF interpreter loading, memory
+mapping and architecture handlers, and uses its ABI-specific stat structure
+packer. Inspection of pinned Qiling's two-stage Linux run showed that an early
+interpreter stop could otherwise be followed by application execution. HA selects
+one explicit initial entry and enforces the budget across both phases. Native
+source-known shared-library and glibc/printf fixtures exercise the integration;
+this does not establish arbitrary Linux or Windows runtime compatibility.
+- https://github.com/qilingframework/qiling
+- https://docs.qiling.io/en/latest/memory/
+- https://docs.qiling.io/en/latest/hijack/

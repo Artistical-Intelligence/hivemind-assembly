@@ -142,14 +142,14 @@ class AcceptanceSuite:
     def verifier(self, scope):
         if scope == "x86_64_linked_calls":
             return CallAcceptance()
-        if scope == "static_x86_64_linux_program":
+        if scope in ("static_x86_64_linux_program", "x86_64_linux_program"):
             return ProgramAcceptance()
         if scope == "x86_64_register_regions":
             return RegionAcceptance()
         if scope == "x86_64_c_functions":
             return ReconstructionAcceptance()
         raise ContractError(
-            "Supported acceptance scopes: x86_64_register_regions, x86_64_c_functions, x86_64_linked_calls, static_x86_64_linux_program"
+            "Supported acceptance scopes: x86_64_register_regions, x86_64_c_functions, x86_64_linked_calls, x86_64_linux_program (legacy static scope also supported)"
         )
 
     def prepare(self, root, spec, artifacts, project, context):

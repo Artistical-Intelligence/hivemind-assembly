@@ -35,6 +35,12 @@ long ha_file_read(long fd, void *buffer, ha_size count);
 long ha_file_write(long fd, const void *buffer, ha_size count);
 void *ha_map(ha_size count);
 long ha_unmap(void *address, ha_size count);
+long ha_mkdir(const char *path, long mode);
+long ha_rmdir(const char *path);
+long ha_remove(const char *path);
+long ha_rename(const char *old_path, const char *new_path);
+long ha_clock(long clock_id, long *seconds, long *nanoseconds);
+long ha_random(void *buffer, ha_size count, long flags);
 int ha_main(void);
 """
 RUNTIME = (
@@ -51,6 +57,12 @@ long ha_write(const void *p, ha_size n) { long r; __asm__ volatile("syscall":"=a
 void ha_exit(int n) { __asm__ volatile("syscall"::"a"(60L),"D"((long)n):"rcx","r11","memory"); __builtin_unreachable(); }
 static long ha_call3(long n,long a,long b,long c){long r;__asm__ volatile("syscall":"=a"(r):"a"(n),"D"(a),"S"(b),"d"(c):"rcx","r11","memory");return r;}
 long ha_open(const char *p,long f,long m){return ha_call3(2,(long)p,f,m);}
+long ha_mkdir(const char *p,long m){return ha_call3(83,(long)p,m,0);}
+long ha_rmdir(const char *p){return ha_call3(84,(long)p,0,0);}
+long ha_remove(const char *p){return ha_call3(87,(long)p,0,0);}
+long ha_rename(const char *a,const char *b){return ha_call3(82,(long)a,(long)b,0);}
+long ha_clock(long id,long *seconds,long *nanoseconds){long t[2];long r=ha_call3(228,id,(long)t,0);if(r==0){*seconds=t[0];*nanoseconds=t[1];}return r;}
+long ha_random(void *p,ha_size n,long f){return ha_call3(318,(long)p,n,f);}
 long ha_close(long f){return ha_call3(3,f,0,0);}
 long ha_seek(long f,long o,long w){return ha_call3(8,f,o,w);}
 long ha_file_read(long f,void *p,ha_size n){return ha_call3(0,f,(long)p,n);}
@@ -410,11 +422,14 @@ def replay(
     }
 
 
-def compare(original, candidate, cases, cancel=None):
+def compare(original, candidate, cases, cancel=None, dependencies=None):
     if not isinstance(cases, list) or not 1 <= len(cases) <= 256:
         raise ContractError("Program comparison requires 1–256 cases")
     results = []
     for case in cases:
+        policy = case.get("effect_policy", "strict")
+        if policy not in ("strict", "observable"):
+            raise ContractError("Unknown program effect comparison policy")
         args = {
             "clock_ns": case.get("clock_ns", 0),
             "argv": case.get("argv"),
@@ -429,7 +444,9 @@ def compare(original, candidate, cases, cancel=None):
 
             runner = qiling_replay
             args.update(
-                files=case.get("files", {}), random_hex=case.get("random_hex", "")
+                files=case.get("files", {}),
+                random_hex=case.get("random_hex", ""),
+                dependencies=dependencies,
             )
         elif runtime != "unicorn_linux":
             raise ContractError("Unknown program runtime")
@@ -456,7 +473,9 @@ def compare(original, candidate, cases, cancel=None):
         differences = [key for key in fields if before[key] != after[key]]
         if before.get("files") != after.get("files"):
             differences.append("files")
-        if before.get("random_used") != after.get("random_used"):
+        if before.get("directories") != after.get("directories"):
+            differences.append("directories")
+        if policy == "strict" and before.get("random_used") != after.get("random_used"):
             differences.append("random_used")
         # Memory addresses may move between builds; compare explicitly paired regions.
         if [x["bytes"] for x in before["memory"]] != [
@@ -467,12 +486,13 @@ def compare(original, candidate, cases, cancel=None):
         effects = lambda r: [
             e for e in r["events"] if e["call"] not in ("read", "write")
         ]
-        if effects(before) != effects(after):
+        if policy == "strict" and effects(before) != effects(after):
             differences.append("external_effects")
         passed = before["status"] == after["status"] == "completed" and not differences
         results.append(
             {
                 "id": case.get("id", len(results)),
+                "effect_policy": policy,
                 "passed": passed,
                 "differences": differences,
                 "original": before,
@@ -481,7 +501,7 @@ def compare(original, candidate, cases, cancel=None):
         )
     return {
         "passed": all(r["passed"] for r in results),
-        "scope": "static_x86_64_linux_program",
+        "scope": "x86_64_linux_program",
         "cases": results,
-        "claim": "Deterministic bounded corpus and declared runtime effects; not an all-input proof or arbitrary OS compatibility",
+        "claim": "Deterministic bounded corpus. Strict cases also match application effects and random consumption; observable cases compare streams, exit, input consumption, selected memory and final files/directories. Traces are retained. No all-input proof or arbitrary OS compatibility.",
     }

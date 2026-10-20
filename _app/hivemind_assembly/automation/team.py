@@ -1099,11 +1099,12 @@ TOOL_SCHEMAS = {
         "inputs": "named workflow inputs",
     },
     "build_program": {
-        "manifest_path": "JSON with sources [relative C paths], declarations (shared C declarations), optimization O0 or O2. C entry: int ha_main(void); runtime ha_read, ha_write, ha_exit, ha_argc, ha_argv(index), ha_getenv(name). No preprocessor/inline assembly."
+        "manifest_path": "JSON with sources [relative C paths], declarations (shared C declarations), optimization O0 or O2. C entry: int ha_main(void); runtime ha_read, ha_write, ha_exit, ha_argc, ha_argv(index), ha_getenv(name); filesystem ha_open, ha_close, ha_seek, ha_file_read/write, ha_mkdir/rmdir/remove/rename; ha_clock(clock_id,seconds*,nanoseconds*), ha_random(buffer,count,flags). Qiling is required for file/random effects. No preprocessor/inline assembly."
     },
     "compare_program": {
         "manifest_path": "build manifest",
-        "original_path": "static x86-64 Linux ELF",
+        "original_path": "x86-64 Linux ELF. Dynamic originals require qiling_linux cases and explicit dependencies.",
+        "original_dependencies": "Optional map of absolute guest interpreter/library paths to project files. No host library discovery; protected acceptance pins every dependency.",
         "cases": [
             {"id": "development case", "input_hex": "stdin bytes", "clock_ns": 0, "argv": ["program", "argument"], "env": {"NAME": "value"}}
         ],

@@ -23,9 +23,9 @@ Windows application reconstruction or live GitHub automation acceptance.
    Rollout control, protected truth, resumption and promotion are implemented
    and fixture-tested; genuine native learning gains remain unmeasured.
 4. Extend application reconstruction beyond the implemented static x86-64 Linux
-   contracts. Declared file/memory behavior now uses full Qiling. Dynamic
-   OS linking/initialization beyond the bounded supplied-DLL function lane, broader
-   CPU/OS effects, Windows/game/graphics behavior and target-level
+   and supplied-dependency Linux contracts. Full Qiling now executes bounded
+   ELF interpreter/shared-library startup and explicit process/file/memory inputs.
+   Broader CPU/OS effects, Windows/game/graphics behavior and target-level
    equivalence remain outside the implemented acceptance scope.
 5. Run clean Windows installation/update/restore and complete native REA checks.
    The Windows Python 3.12 wheel closure resolves, and the 96-variant GCC/Clang

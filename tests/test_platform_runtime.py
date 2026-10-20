@@ -1,5 +1,4 @@
 import subprocess
-from pathlib import Path
 from hivemind_assembly.core.jobs import Jobs
 from hivemind_assembly.domains.reverse_engineering.program import build, compare
 from hivemind_assembly.domains.reverse_engineering.platform_runtime import replay
@@ -66,3 +65,41 @@ def test_guest_cannot_write_into_read_only_image_through_syscalls(tmp_path):
     result = replay(binary, b"X")
     assert result["status"] == "invalid_buffer_memory"
     assert result["input_consumed"] == 0
+
+
+def test_directory_effects_clock_and_random_are_observed(tmp_path):
+    source = """int ha_main(void){unsigned char b[4];long s,n;if(ha_clock(1,&s,&n)||s!=2||n!=17)return 8;
+    if(ha_random(b,4,0)!=4)return 9;ha_mkdir("out",448);long f=ha_open("temporary",577,384);
+    ha_file_write(f,b,4);ha_close(f);ha_rename("temporary","out/data");ha_mkdir("gone",448);ha_rmdir("gone");return 0;}"""
+    original = image(tmp_path, source)
+    case = {
+        "runtime": "qiling_linux",
+        "random_hex": "01020304",
+        "clock_ns": 2_000_000_017,
+        "effect_policy": "observable",
+    }
+    result = replay(original, random_hex=case["random_hex"], clock_ns=case["clock_ns"])
+    assert result["status"] == "completed" and result["exit_code"] == 0, result
+    assert result["files"] == {"/out/data": "01020304"}
+    assert result["directories"] == ["/out"]
+    wrong = image(tmp_path, source.replace('ha_rmdir("gone")', "0"))
+    compared = compare(original, wrong, [case])
+    assert (
+        not compared["passed"] and "directories" in compared["cases"][0]["differences"]
+    )
+
+
+def test_unclosed_guest_files_are_closed_before_root_cleanup(tmp_path, monkeypatch):
+    from qiling.os.filestruct import ql_file
+
+    closed = []
+    original_close = ql_file.close
+
+    def close(file):
+        closed.append(str(file.name))
+        return original_close(file)
+
+    monkeypatch.setattr(ql_file, "close", close)
+    binary = image(tmp_path, 'int ha_main(void){ha_open("input.bin",0,0);return 0;}')
+    assert replay(binary, files={"/input.bin": "01"})["status"] == "completed"
+    assert any(path.endswith("/input.bin") for path in closed)

@@ -6,13 +6,13 @@ clock/random input, cancellation and evidence. It never forwards guest process
 creation, networking or arbitrary host file access.
 """
 
+from contextlib import ExitStack
 import hashlib
 import io
 import struct
 import tempfile
 from pathlib import Path, PurePosixPath
 from types import MethodType
-from .program import load_image
 from hivemind_assembly.core.common import Blocked, ContractError
 
 
@@ -23,6 +23,9 @@ ALLOWED = {
     1: "write",
     2: "open",
     3: "close",
+    4: "stat",
+    5: "fstat",
+    6: "lstat",
     8: "lseek",
     9: "mmap",
     10: "mprotect",
@@ -41,6 +44,12 @@ ALLOWED = {
     231: "exit_group",
     257: "openat",
     318: "getrandom",
+    262: "newfstatat",
+    158: "arch_prctl",
+    218: "set_tid_address",
+    273: "set_robust_list",
+    334: "rseq",
+    302: "prlimit64",
 }
 PATH_ARGS = {
     2: (0,),
@@ -106,6 +115,7 @@ def replay(
     input_bytes=b"",
     *,
     files=None,
+    dependencies=None,
     clock_ns=0,
     argv=None,
     env=None,
@@ -118,11 +128,17 @@ def replay(
     from qiling.const import QL_VERBOSE
 
     from .process_inputs import normalize
-    from .guest_cpu import unsupported as unsupported_cpu
+    from .guest_cpu import opcode, unsupported as unsupported_cpu
 
     argv, env = normalize(argv, env)
-    load_image(data)
+    from .linux_dependencies import validate
+    from .linux_abi import LinuxABI
+
+    dependencies = {} if dependencies is None else dependencies
+    info = validate(data, dependencies)
     declared = files_spec(files or {})
+    if set(declared) & set(dependencies):
+        raise ContractError("Guest files cannot replace executable dependencies")
     if (
         len(input_bytes) > 1_000_000
         or type(max_instructions) is not int
@@ -137,19 +153,22 @@ def replay(
     ):
         raise ContractError("Invalid deterministic clock/random inputs")
     random_bytes = bytes.fromhex(random_hex)
-    events = []
+    events, loader_events = [], []
+    phase = {"loading": bool(info["interpreter"])}
     state = {
         "status": "budget_exhausted",
         "exit_code": None,
         "instructions": 0,
         "random_used": 0,
     }
-    with tempfile.TemporaryDirectory(prefix="ha-qiling-") as directory:
+    with tempfile.TemporaryDirectory(
+        prefix="ha-qiling-"
+    ) as directory, ExitStack() as cleanup:
         root = Path(directory).resolve()
         binary = root / ".ha/program"
         binary.parent.mkdir()
         binary.write_bytes(data)
-        for name, content in declared.items():
+        for name, content in {**declared, **dependencies}.items():
             path = root / name.lstrip("/")
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(content)
@@ -178,6 +197,27 @@ def replay(
             console=False,
             multithread=False,
         )
+
+        def close_guest_files():
+            for descriptor in range(3, len(ql.os.fd)):
+                value = ql.os.fd[descriptor]
+                if value is not None:
+                    value.close()
+                    ql.os.fd[descriptor] = None
+
+        cleanup.callback(close_guest_files)
+        from unicorn.x86_const import UC_CPU_X86_HASWELL
+
+        if ql.uc.ctl_get_cpu_model() != UC_CPU_X86_HASWELL:
+            raise Blocked("Unsupported guest CPU model; revalidate the runtime")
+        dependency_paths = {root / name.lstrip("/") for name in dependencies}
+        application_entry = ql.loader.elf_entry
+
+        def entered_application(engine):
+            phase["loading"] = False
+
+        if phase["loading"]:
+            ql.hook_address(entered_application, application_entry)
         if ql.arch.bits != 64 or ql.os.type.name != "LINUX":
             raise Blocked("Platform lane requires Linux x86-64")
         stdin, stdout, stderr = (
@@ -206,20 +246,66 @@ def replay(
                         return True
             return False
 
+        abi = LinuxABI(ql, root, clock_ns, memory_allowed)
+
+        def record(event):
+            if len(events) + len(loader_events) >= 4096:
+                stop("event_limit")
+                return
+            (loader_events if phase["loading"] else events).append(event)
+
+        def replaceable_mapping(address, size):
+            end = address + size
+            for begin, limit, _, label, *_ in sorted(ql.mem.get_mapinfo()):
+                if begin <= address < limit and label.startswith("[mmap"):
+                    address = min(end, limit)
+                    if address == end:
+                        return True
+            return False
+
         def dispatch(os):
             number = os.get_syscall()
             args = [
                 ql.arch.regs.read(r) for r in ("rdi", "rsi", "rdx", "r10", "r8", "r9")
             ]
-            if len(events) >= 4096:
+            if len(events) + len(loader_events) >= 4096:
                 stop("event_limit")
                 return
             name = ALLOWED.get(number)
             if name is None:
-                events.append({"call": "unsupported", "number": number})
+                record({"call": "unsupported", "number": number})
                 stop("unsupported_syscall")
                 return
+            if phase["loading"] and (
+                number
+                not in (
+                    0,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    17,
+                    21,
+                    158,
+                    218,
+                    257,
+                    262,
+                    273,
+                    302,
+                    334,
+                )
+                or (number in (0, 17) and args[0] < 3)
+            ):
+                stop("unsupported_loader_effect")
+                return
             event = {"call": name}
+            host, empty_path = None, False
             for index in PATH_ARGS.get(number, ()):
                 raw = bytearray()
                 for offset in range(4096):
@@ -234,20 +320,41 @@ def replay(
                     stop("path_limit")
                     return
                 text = raw.decode("utf-8", errors="strict")
+                empty_path = not text
                 host = Path(ql.os.path.virtual_to_host_path(text)).resolve()
                 if (
                     not host.is_relative_to(root)
                     or host == binary
                     or binary.parent in host.parents
+                    or text == "/proc"
+                    or text.startswith("/proc/")
                 ):
                     stop("filesystem_boundary")
+                    return
+                flags = args[1] if number == 2 else args[2] if number == 257 else 0
+                writing = number in (82, 83, 84, 87) or (
+                    number in (2, 257) and flags & (3 | 0x40 | 0x200 | 0x400)
+                )
+                affects_dependency = any(
+                    dep == host or host in dep.parents for dep in dependency_paths
+                )
+                if writing and (phase["loading"] or affects_dependency):
+                    stop(
+                        "readonly_dependency"
+                        if affects_dependency
+                        else "unsupported_loader_effect"
+                    )
                     return
                 event.setdefault("paths", []).append(
                     "/" + host.relative_to(root).as_posix()
                 )
             # openat/fstatat may only resolve from CWD here; directory-fd effects
             # require their own declared contract and cannot inherit host FDs.
-            if number in (257, 262) and args[0] not in ((-100) & MASK,):
+            if (
+                number in (257, 262)
+                and (args[0] & 0xFFFFFFFF) != 0xFFFFFF9C
+                and not (number == 262 and empty_path and args[3] & 0x1000)
+            ):
                 stop("unsupported_directory_fd")
                 return
             if number in (0, 1, 17, 18) and args[2] > 1_000_000:
@@ -291,7 +398,9 @@ def replay(
                 owned = [
                     p
                     for p in root.rglob("*")
-                    if p.is_file() and binary.parent not in p.parents
+                    if p.is_file()
+                    and binary.parent not in p.parents
+                    and p not in dependency_paths
                 ]
                 if (
                     offset + args[2] > 2_000_000
@@ -300,16 +409,28 @@ def replay(
                 ):
                     stop("filesystem_limit")
                     return
-            if number == 9 and args[3] & 0x10:
-                stop("unsupported_fixed_mapping")
-                return
+            if number == 9:
+                if args[2] & 4 and (
+                    args[3] & 0x20
+                    or abi.fd_path(args[4] & 0xFFFFFFFF) not in dependency_paths
+                ):
+                    stop("undeclared_executable_mapping")
+                    return
+                if args[3] & 1:
+                    stop("unsupported_shared_mapping")
+                    return
+                if args[3] & 0x10 and not replaceable_mapping(args[0], args[1]):
+                    stop("unsupported_fixed_mapping")
+                    return
             if (
                 number in (2, 257)
                 and len(
                     [
                         p
                         for p in root.rglob("*")
-                        if p.is_file() and binary.parent not in p.parents
+                        if p.is_file()
+                        and binary.parent not in p.parents
+                        and p not in dependency_paths
                     ]
                 )
                 >= 128
@@ -319,12 +440,18 @@ def replay(
                     stop("filesystem_limit")
                     return
             if number in (60, 231):
+                abi.exit()
                 state["exit_code"] = args[0] & 255
                 event["code"] = state["exit_code"]
-                events.append(event)
+                record(event)
                 stop("completed")
                 return
-            if number == 228:
+            if number in (4, 5, 6, 262):
+                abi.stat(number, args, host, empty_path)
+                event["result"] = ql.arch.regs.rax
+            elif abi.setup(number, args):
+                event["result"] = ql.arch.regs.rax
+            elif number == 228:
                 if args[0] not in (0, 1):
                     stop("unsupported_clock")
                     return
@@ -357,16 +484,28 @@ def replay(
                     event["result"] = ql.arch.regs.rax
                 if number in (0, 1, 3, 8, 17, 18):
                     event["fd"] = args[0]
-            events.append(event)
+            record(event)
 
         ql.os.load_syscall = MethodType(dispatch, ql.os)
 
         def instruction(engine, address, size):
             state["instructions"] += 1
-            if not 1 <= size <= 15 or unsupported_cpu(
-                bytes(ql.mem.read(address, size))
-            ):
+            raw = bytes(ql.mem.read(address, size)) if 1 <= size <= 15 else b""
+            op = opcode(raw)
+            if dependencies and op in (b"\x0f\x31", b"\x0f\x01\xf9"):
+                # A fixed 1 GHz guest timestamp counter shares the declared clock.
+                ql.arch.regs.rax = clock_ns & 0xFFFFFFFF
+                ql.arch.regs.rdx = clock_ns >> 32
+                if op == b"\x0f\x01\xf9":
+                    ql.arch.regs.rcx = 0
+                record({"call": "cpu_clock", "value": clock_ns})
+                ql.arch.regs.rip = address + size
+            elif unsupported_cpu(raw, allow_queries=bool(dependencies)):
+                record({"call": "unsupported_cpu", "instruction": raw.hex()})
                 stop("unsupported_cpu_state")
+                return
+            if state["instructions"] >= max_instructions:
+                stop("budget_exhausted")
                 return
             if state["instructions"] % 1024 == 0:
                 if cancel is not None and cancel.is_set():
@@ -381,7 +520,15 @@ def replay(
         ql.hook_code(instruction)
         fault = None
         try:
-            ql.run(count=max_instructions, timeout=5_000_000)
+            # One bounded run spans interpreter and application. Qiling's default
+            # two-stage Linux run would restart at the application after a stopped
+            # interpreter, so explicitly begin at the loader's first entry.
+            ql.run(
+                begin=ql.loader.entry_point, count=max_instructions, timeout=5_000_000
+            )
+        except Blocked as error:
+            state["status"] = str(error)
+            fault = {"kind": type(error).__name__}
         except Exception as error:
             if state["status"] == "budget_exhausted":
                 state["status"] = "fault"
@@ -404,7 +551,11 @@ def replay(
             )
         outputs = {}
         for path in sorted(root.rglob("*")):
-            if path.is_file() and binary.parent not in path.parents:
+            if (
+                path.is_file()
+                and binary.parent not in path.parents
+                and path not in dependency_paths
+            ):
                 if path.stat().st_size > 2_000_000:
                     stop("filesystem_limit")
                     break
@@ -419,9 +570,21 @@ def replay(
             "stderr_hex": stderr.getvalue().hex(),
             "input_consumed": stdin.tell(),
             "events": events,
+            "loader_events": loader_events,
+            "loader_completed": not phase["loading"],
+            "dependencies": {
+                name: hashlib.sha256(value).hexdigest()
+                for name, value in dependencies.items()
+            },
+            "cpu_model": "haswell",
             "memory": memory,
             "fault": fault,
             "files": outputs,
+            "directories": sorted(
+                "/" + p.relative_to(root).as_posix()
+                for p in root.rglob("*")
+                if p.is_dir() and p != binary.parent and binary.parent not in p.parents
+            ),
             "engine": "qiling-1.4.6",
             "image_sha256": hashlib.sha256(data).hexdigest(),
         }

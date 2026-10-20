@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.7.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.8.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -156,7 +156,7 @@ sends batches in OpenInference/OTLP format to a local Phoenix listener on port
 unreported token counts are not invented. Logs are private owner data and are
 not supplied as worker context or included in repository publication.
 
-## Cumulative program reconstruction
+## Cumulative Linux program reconstruction
 
 A build manifest contains `sources` (relative C file paths), optional shared
 `declarations`, and `optimization` (`O0` or `O2`). Define `int ha_main(void)` and
@@ -172,11 +172,28 @@ boundaries to recovered C. Cases may also declare `argv` (including the program
 name) and `env`; both replay engines supply exactly these UTF-8 inputs and never
 inherit host environment variables. Defaults are `["program"]` and `{}`.
 Recovered C reads them through `ha_argc()`, `ha_argv(index)` and `ha_getenv(name)`.
-CPU clock/random instructions and port I/O stop replay explicitly. Host files, process creation and networking are not
-forwarded. Undeclared or unsupported effects cannot pass acceptance. **Complete static Linux program** acceptance pins an original ELF and
-input corpus, rebuilds independently, checks output, exit, input consumption,
-paired memory regions and declared external effects, and retains an executable.
-It rejects unsupported syscalls, dynamic linking, faults and exhausted budgets.
+Direct clock/random instructions and port I/O are rejected in the low-level lane.
+The Qiling dependency lane uses a verified Haswell guest CPU and a fixed timestamp
+counter tied to `clock_ns`; CPU random instructions still stop replay. Host files, process creation and networking are not
+forwarded. `ha_mkdir`, `ha_rmdir`, `ha_remove`, `ha_rename`, `ha_clock` and
+`ha_random` expose the corresponding declared effects to recovered C.
+
+**Complete Linux program** acceptance supports static ELF and bounded dynamic
+ELF/PIE originals under Qiling. `original_dependencies` maps absolute guest
+interpreter/library paths to files in the project. Every dependency is protected
+and hashed; no host libraries are discovered automatically. The rebuilt C
+candidate remains freestanding and static. Loader metadata, mapping, TLS setup
+and single-thread registration use an explicit guest contract. Constructors
+cannot consume standard input or perform external writes before program entry.
+Loader activity is retained separately from application events.
+
+Acceptance pins the original, dependencies and input corpus, rebuilds
+independently, and retains the resulting executable. Strict mode (the default)
+also matches recorded application effects and random consumption. Explicit
+`effect_policy: "observable"` compares stdout/stderr, exit, stdin consumption,
+paired memory and final file/directory contents, allowing a different allocator
+or library implementation. Both modes retain event traces. Neither ignores a
+fault, unsupported syscall, missing dependency or exhausted startup budget.
 This lane is bounded Linux reconstruction, not arbitrary Windows/game/OS
 compatibility or an all-input equivalence proof.
 

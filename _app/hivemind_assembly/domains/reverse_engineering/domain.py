@@ -180,6 +180,7 @@ class ReverseEngineeringDomain:
             return built
         if tool in ("build_program", "compare_program"):
             from .program import build, compare
+            from .linux_dependencies import read_dependencies
 
             manifest_path = scoped(root, args["manifest_path"])
             if manifest_path.stat().st_size > 128000:
@@ -207,6 +208,7 @@ class ReverseEngineeringDomain:
                         machine,
                         args["cases"],
                         context.cancel,
+                        read_dependencies(root, args.get("original_dependencies", {})),
                     )
                     built["passed"] = built["comparison"]["passed"]
                 built["claim"] = (

@@ -1,12 +1,12 @@
 {
-  "version": "0.7.0",
+  "version": "0.8.0",
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 287,
+    "passed": 295,
     "skipped": 1,
     "failed": 0,
-    "elapsed_seconds": 47.65,
+    "elapsed_seconds": 53.27,
     "host": "Linux Python 3.12",
     "hermes_source": "c0015464f0f40d52c5702a84cf58e70361f4a04c",
     "skipped_gate": "Local Chromium DOM fixture. An installed Chromium executable was found, but this host rejects its required socket operation; the fixture is not counted as passed."
@@ -53,7 +53,8 @@
     "pe_dependencies": "Actual Clang/LLD PE fixtures passed explicit DLL linking, absolute-pointer relocation, forwarded exports, missing-import rejection, initialization rejection, and protected dependency pinning. No native Windows execution or Windows API runtime claimed.",
     "reconstruction_planning": "Complete Ghidra inventory and static-callgraph pagination exercised on actual Ghidra; 13-function graph planned. A 4000-function chain, recursion groups, external dependencies and incomplete/changed/truncated graph rejection passed automated tests.",
     "workflow_composition": "Earlier-step references, selected outputs, deterministic integer/pointer function replay, invalid-result-path rejection, independent scalar/pointer holdouts, and revocable native workflow permission are implemented. Built-in optimizers retain paired measured timings and require preserved results before promotion; no general native self-improvement claim.",
-    "process_inputs": "Explicit UTF-8 argv/env, absent host environment, native executable agreement, protected input pinning, wrong-lookup rejection and deterministic CPU-state guards passed targeted tests across Unicorn and Qiling."
+    "process_inputs": "Explicit UTF-8 argv/env, host environment isolation, native executable agreement, protected input pinning, wrong-lookup rejection and CPU-state guards passed tests. The supplied-dependency Qiling lane verifies its Haswell guest CPU and models a fixed timestamp counter from the declared clock.",
+    "dynamic_linux": "Actual source-known shared-library ELF and glibc/printf PIE ran under Qiling and agreed with native outputs. Static reconstruction, wrong-output rejection, protected dependency pinning, readonly dependencies, startup budget/constructor-I/O rejection, and explicit strict/observable comparison passed targeted tests. No arbitrary Linux or Windows compatibility claimed."
   },
   "native_live_acceptance": {
     "validated_routes": 0,
@@ -62,7 +63,7 @@
     "unattended_worker_adviser_ghidra_loop": false
   },
   "remaining_implementation": [
-    "Extend complete-program acceptance beyond the implemented static x86-64 Linux contracts, including broader dynamic/platform/Windows/game effects.",
+    "Extend the controlled Linux application and PE function lanes to broader CPU/platform, Windows/game/graphics effects and target-level equivalence.",
     "Resolve any provider-specific adapter gaps identified by signed-in account validation; current ambiguous controls remain blocked."
   ],
   "remaining_acceptance": [
@@ -76,7 +77,7 @@
   "model_api_inference": false,
   "paid_overage": false,
   "runtime_contract": {
-    "program": "Static x86-64 little-endian Linux ELF, freestanding C. Unicorn read/write/exit/fixed clock; optional Qiling declared rootfs, file descriptors, bounded mapping, fixed clock and supplied random bytes. No dynamic linking, host files, process/network forwarding or unknown syscalls. Memory permissions, file/I/O/memory/instruction limits are enforced.",
+    "program": "x86-64 little-endian Linux ELF. Static Unicorn replay; Qiling also accepts bounded dynamic ELF/PIE with explicitly supplied and pinned interpreter/libraries, process inputs, files, guest metadata, single-thread setup, bounded mappings, fixed clock and supplied random bytes. No host file, process/network forwarding, unknown syscalls or constructor I/O. Strict effects remain the default; explicit observable policy checks streams, exit, input consumption, selected memory and final files/directories. Event traces retained.",
     "data_location": "Existing UnifiedWorkbench user-data path is unchanged",
     "credentials": "OS vault; browser credentials are not copied to code, configuration, releases or backups"
   }

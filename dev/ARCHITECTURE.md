@@ -258,3 +258,24 @@ loader, with a narrow process subclass separating the staged host path from
 the guest program name. Both lanes use the same external-CPU-state rejection
 policy and the recovered C startup exposes arguments/environment without host
 headers. Protected suites retain these inputs without exposing them to workers.
+
+## Declared dynamic Linux applications
+
+`linux_dependencies` preflights bounded ELF64 images and their supplied
+interpreter/library closure. Qiling loads and relocates the actual ELF
+interpreter and libraries. The adapter pins the guest CPU model, supplies a
+fixed timestamp counter, and reuses upstream stat packing and validated TLS/
+memory handlers. Metadata, thread identity and resource limits describe the
+declared guest; host process identity and filesystem metadata are not forwarded.
+The guest has one thread, rseq returns ENOSYS, and nonempty robust-list cleanup
+is unsupported. Executable mappings require supplied dependencies; fixed mapping
+replacement is confined to previous mmap regions. Dependencies stay read-only.
+
+One bounded Qiling run spans loader and application; a stopped interpreter cannot
+be followed by an unconditional jump to the application. Startup I/O side effects
+are rejected. Owner-selected strict/observable comparison policy is sealed in
+the protected corpus. Observable comparison retains files, directories, streams,
+exit, input consumption and selected memory, while syscall/allocation traces
+remain evidence rather than an identical-implementation requirement. The legacy
+static acceptance scope remains supported. Guest file handles are closed before
+removing the isolated filesystem, including when the target fails to close them.

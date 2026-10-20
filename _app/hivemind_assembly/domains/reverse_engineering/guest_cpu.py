@@ -1,15 +1,24 @@
 """Instructions whose external state is outside deterministic replay."""
 
 
-def unsupported(instruction):
-    if not 1 <= len(instruction) <= 15:
-        return True
+def opcode(instruction):
     while instruction and (
         instruction[0]
         in (0x66, 0x67, 0xF0, 0xF2, 0xF3, 0x2E, 0x36, 0x3E, 0x26, 0x64, 0x65)
         or 0x40 <= instruction[0] <= 0x4F
     ):
         instruction = instruction[1:]
+    return instruction
+
+
+def unsupported(instruction, allow_queries=False):
+    if not 1 <= len(instruction) <= 15:
+        return True
+    instruction = opcode(instruction)
+    if allow_queries and (
+        instruction[:2] == b"\x0f\xa2" or instruction[:3] == b"\x0f\x01\xd0"
+    ):
+        return False
     return (
         instruction[:2] in (b"\x0f\x31", b"\x0f\x33", b"\x0f\xa2")
         or instruction[:3] in (b"\x0f\x01\xf9", b"\x0f\x01\xd0")
