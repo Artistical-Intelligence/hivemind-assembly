@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from . import call_images
+from . import call_images, pe_dependencies
 from .program import sources
 from hivemind_assembly.core.common import (
     Blocked,
@@ -21,6 +21,7 @@ class CallAcceptance:
             "original_path",
             "original_symbol",
             "original_address",
+            "original_dependencies",
             "manifest_path",
             "function",
             "candidate_abi",
@@ -43,9 +44,16 @@ class CallAcceptance:
         if path.stat().st_size > call_images.MAX_IMAGE:
             raise Blocked("Original image exceeds bounds")
         original = path.read_bytes()
-        image = call_images.load(
-            original, spec.get("original_symbol"), spec.get("original_address")
+        dependencies = pe_dependencies.read_dependencies(
+            root, spec.get("original_dependencies", {})
         )
+        image = pe_dependencies.load(
+            original,
+            spec.get("original_symbol"),
+            spec.get("original_address"),
+            dependencies,
+        )
+
         scoped(root, spec["manifest_path"])
         cases = spec["cases"]
         if (
@@ -68,16 +76,25 @@ class CallAcceptance:
         suite = artifacts.add(
             canonical(cases), "call-holdouts.json", project, "protected"
         )
+        retained_dependencies = {}
+        for name, data in dependencies.items():
+            item = artifacts.add(data, name, project, "protected")
+            retained_dependencies[name] = {
+                "artifact": item["id"],
+                "sha256": item["sha256"],
+            }
         public = {
             "candidate_path": spec["manifest_path"],
             "function": spec["function"],
             "candidate_abi": spec["candidate_abi"],
             "original_abi": image["abi"],
             "original_entry": image["entry"],
+            "original_symbol": spec.get("original_symbol"),
             "case_count": len(cases),
         }
         return {
             "scope": spec["scope"],
+            "dependencies": retained_dependencies,
             "checks": [public],
             "original_artifact": pinned["id"],
             "original_sha256": pinned["sha256"],
@@ -94,6 +111,12 @@ class CallAcceptance:
             or hashlib.sha256(raw).hexdigest() != contract["cases_sha256"]
         ):
             raise Conflict("Protected linked-call evidence changed")
+        dependencies = {}
+        for name, retained in contract.get("dependencies", {}).items():
+            data = artifacts.read(retained["artifact"], "evaluator", project)
+            if hashlib.sha256(data).hexdigest() != retained["sha256"]:
+                raise Conflict("Protected DLL dependency changed")
+            dependencies[name] = data
         path = scoped(root, check["candidate_path"])
         if path.stat().st_size > 128000:
             raise Blocked("Build manifest exceeds bounds")
@@ -125,7 +148,9 @@ class CallAcceptance:
         if built["passed"]:
             machine = bytes.fromhex(built.pop("image_hex"))
             compared = call_images.compare(
-                call_images.load(original, address=check["original_entry"]),
+                pe_dependencies.load(
+                    original, address=check["original_entry"], dependencies=dependencies
+                ),
                 call_images.load(machine, symbol=check["function"]),
                 json.loads(raw),
                 context.cancel,

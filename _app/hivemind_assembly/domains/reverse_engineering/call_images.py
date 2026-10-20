@@ -40,7 +40,7 @@ def function_name(value):
     return value
 
 
-def load(data, symbol=None, address=None):
+def load(data, symbol=None, address=None, *, _imports_resolved=False):
     """Load at linked addresses; never guess an ABI or relocate untrusted input."""
     if not isinstance(data, bytes) or not 1 <= len(data) <= MAX_IMAGE:
         raise ContractError("Image must contain 1–2000000 bytes")
@@ -106,7 +106,7 @@ def load(data, symbol=None, address=None):
         # These need loader/runtime semantics, not just executable memory.
         if (
             getattr(pe, "DIRECTORY_ENTRY_TLS", None)
-            or getattr(pe, "DIRECTORY_ENTRY_IMPORT", None)
+            or (getattr(pe, "DIRECTORY_ENTRY_IMPORT", None) and not _imports_resolved)
             or getattr(pe, "DIRECTORY_ENTRY_DELAY_IMPORT", None)
         ):
             raise Blocked("PE imports or TLS require a separately modeled runtime")
@@ -241,7 +241,7 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
         ]
         if abi == "win64":
             argv += [
-                "-Wl,/dll,/noentry,/nodefaultlib,/fixed,/base:0x180000000,/timestamp:0",
+                "-Wl,/dll,/noentry,/nodefaultlib,/fixed:no,/base:0x180000000,/timestamp:0",
                 "-Wl,/export:" + function,
             ]
         else:

@@ -1072,7 +1072,8 @@ TOOL_SCHEMAS = {
         "manifest_path": "build manifest",
         "function": "candidate entry symbol",
         "candidate_abi": "sysv or win64",
-        "original_path": "linked ELF or PE image without imports/TLS",
+        "original_path": "linked ELF or PE image; TLS/initialization/OS effects are unsupported",
+        "original_dependencies": "optional map of DLL filenames to project paths, at most 16; explicit supplied DLL exports only, no OS API substitutes",
         "original_symbol": "original function symbol; alternatively original_address integer",
         "cases": "1–256 objects: arguments (unsigned integers or {buffer: id, offset: bytes}), buffers [{id,hex,permissions:r|rw}], output_bits 32|64. Compare all caller buffer bytes; alias pointers by referencing the same buffer. Image-global writes are unsupported.",
     },
@@ -1115,13 +1116,18 @@ TOOL_SCHEMAS = {
         "text": "full text contents; omit when artifact is supplied",
         "artifact": "optional project artifact ID supplying binary or text bytes",
     },
+    "plan_reconstruction": {
+        "graph_path": "JSON array of all contiguous program_context callgraph pages for one unchanged program revision; groups mutual recursion and lists external dependencies"
+    },
     "inspect_program": {
         "program": "binary basename",
         "binary": "relative file only on first import",
+        "offset": "function pagination offset, starting at zero",
+        "limit": "1–2000 functions; follow next_offset while has_more",
     },
     "program_context": {
         "program": "binary basename",
-        "view": "layout, function, references, strings, types or bytes",
+        "view": "layout, function, callgraph, references, strings, types or bytes",
         "address": "required for function, references or bytes",
         "offset": "pagination offset",
         "limit": "1–2000",

@@ -213,8 +213,11 @@ Clang/LLD for Windows DLL builds, and Unicorn for bounded calls. Both SysV and
 Win64 integer/pointer arguments include stack arguments, aliased caller buffers,
 nonvolatile registers, Win64 XMM state and floating-point control registers.
 Every caller buffer is compared. Access outside exact buffer ranges fails even
-when it stays on a mapped page. Image-global writes, imports, TLS and loader
-initialization remain unsupported. Protected `x86_64_linked_calls` acceptance
+when it stays on a mapped page. Image-global writes, unresolved imports, TLS and loader
+initialization remain unsupported. `pe_dependencies` reuses pefile relocation and
+export metadata to link explicit supplied DLLs, including ordinal imports and
+forwarders. It never discovers or downloads DLLs, and pins every dependency in
+protected acceptance. Protected `x86_64_linked_calls` acceptance
 pins the original, seals cases, independently rebuilds every source and rechecks
 source/manifest hashes. This is function reconstruction, not a Windows OS runtime.
 
@@ -236,3 +239,10 @@ protected artifact copies and recognized verbatim restricted source passages.
 This is bounded filtering, not a guarantee of semantic data-loss prevention.
 Remote checkpoint evidence and local model logs remain separate. Local-only
 projects do not require a GitHub connection or repository creation.
+
+`planning` consumes complete, contiguous Ghidra callgraph pages from one binary
+and native revision. Iterative strongly connected components group mutual
+recursion without Python recursion-depth limits; the standard-library topological
+sorter orders groups by dependencies. External targets remain explicit. Native
+Ghidra inventory/callgraph pagination and a complete 13-function plan were tested
+on the installed distribution. Static callgraphs do not establish runtime closure.

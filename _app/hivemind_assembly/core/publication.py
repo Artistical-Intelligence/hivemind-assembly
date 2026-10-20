@@ -356,6 +356,20 @@ class Publications:
             self.repositories._validate(
                 row, self.repositories.client.lookup(row["owner"], row["name"])
             )
+            if not self.enabled(project):
+                observed = self.repositories.client.head(
+                    row["owner"], row["name"], intent["branch"]
+                )
+                if not intent.get("commit") or observed != intent["commit"]:
+                    raise Blocked(
+                        "Checkpoint publication is disabled; retained writes will not be dispatched"
+                    )
+                return {
+                    "status": "saved",
+                    "sha": intent["commit"],
+                    "branch": intent["branch"],
+                    "reconciled": True,
+                }
             # Recheck current sharing/credential restrictions before any retained upload.
             for item in intent["snapshot"]:
                 self._safe_text(item["path"], item["content"].encode())

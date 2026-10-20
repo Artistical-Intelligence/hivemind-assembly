@@ -224,5 +224,12 @@ Cases contain `arguments`, `buffers` and `output_bits`. Pointer arguments use
 Multiple pointers can reference the same buffer. All buffer bytes and the integer
 return are checked; writes to read-only buffers or outside exact bounds fail.
 Protected acceptance requires at least two cases and rebuilds independently.
-Imports, TLS, image-global writes, initializers and operating-system effects are
-not implemented by this lane.
+Optional `original_dependencies` maps DLL filenames to project paths. Supplied
+PE dependencies are relocated and their named/ordinal imports and forwarded
+exports resolved using pefile. Missing imports, TLS, DLL initialization,
+image-global writes and operating-system effects stop verification.
+
+Function inventories and static callgraphs support pagination. The
+`plan_reconstruction` capability validates a complete set of callgraph pages,
+groups mutually recursive functions and orders groups by their dependencies.
+It retains external targets and does not claim to discover all indirect calls.

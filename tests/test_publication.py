@@ -20,7 +20,7 @@ def sha(value):
 class GitFixture(GitHubFixture):
     def __init__(self, empty=False):
         super().__init__()
-        repo = self.create("owner", "existing", "User project")
+        self.create("owner", "existing", "User project")
         self.repos["owner", "existing"]["default_branch"] = "main"
         self.trees = {"base-tree": {"README.md": "Original readme"}}
         self.commits = {"base": {"tree": {"sha": "base-tree"}, "parents": []}}
@@ -228,3 +228,18 @@ def test_no_secret_restricted_or_private_paths(publication, tmp_path):
     ]:
         with pytest.raises(Blocked):
             broker.publications._safe_text(name, raw)
+
+
+def test_disabled_publication_does_not_resume_unpublished_write(publication):
+    c, t, remote, repos, broker, publish = publication
+    remote.fail_initial = True
+    remote.current = None
+    broker.publications._save(
+        "publication_head", t["project_id"], {"sha": None, "branch": "main"}
+    )
+    with pytest.raises(TimeoutError):
+        broker.execute(publish)
+    repos.config["github"]["automatic_checkpoints"] = False
+    with pytest.raises(Blocked, match="disabled"):
+        broker.publications.reconcile(t["project_id"], "publish")
+    assert remote.initializations == 1 and remote.updates == 0

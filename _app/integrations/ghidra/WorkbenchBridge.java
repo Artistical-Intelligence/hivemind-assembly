@@ -32,13 +32,19 @@ public class WorkbenchBridge extends GhidraScript {
         if (action.equals("inventory")) {
             JsonArray functions = new JsonArray();
             FunctionIterator iter = currentProgram.getFunctionManager().getFunctions(true);
-            int cap = req.has("limit") ? Math.min(req.get("limit").getAsInt(), 2000) : 200;
+            int cap = req.has("limit") ? req.get("limit").getAsInt() : 200;
+            int offset = req.has("offset") ? req.get("offset").getAsInt() : 0;
+            if (cap < 1 || cap > 2000 || offset < 0) throw new IllegalArgumentException("Invalid inventory page bounds");
+            int skipped = 0;
+            while (iter.hasNext() && skipped < offset) { monitor.checkCancelled(); iter.next(); skipped++; }
             while (iter.hasNext() && functions.size() < cap && !monitor.isCancelled()) {
                 Function f = iter.next(); JsonObject item = new JsonObject();
                 item.addProperty("name", f.getName()); item.addProperty("entry", f.getEntryPoint().toString());
-                item.addProperty("signature", f.getSignature().toString()); item.addProperty("size", f.getBody().getNumAddresses()); functions.add(item);
+                item.addProperty("signature", f.getSignature().toString()); item.addProperty("size", f.getBody().getNumAddresses()); item.addProperty("external", f.isExternal()); item.addProperty("thunk", f.isThunk()); functions.add(item);
             }
+            monitor.checkCancelled();
             result.add("functions", functions); result.addProperty("total_functions", currentProgram.getFunctionManager().getFunctionCount());
+            result.addProperty("offset", offset); result.addProperty("next_offset", offset + functions.size()); result.addProperty("has_more", iter.hasNext());
         } else if (action.equals("decompile") || action.equals("decompile_batch")) {
             JsonArray addresses = action.equals("decompile_batch") ? req.getAsJsonArray("addresses") : new JsonArray();
             if (action.equals("decompile")) addresses.add(req.get("address"));
@@ -79,6 +85,19 @@ public class WorkbenchBridge extends GhidraScript {
                 JsonArray imports = new JsonArray();var symbols=currentProgram.getSymbolTable().getExternalSymbols();
                 while(symbols.hasNext() && imports.size()<2000){var symbol=symbols.next();JsonObject v=new JsonObject();v.addProperty("name",symbol.getName(true));v.addProperty("address",symbol.getAddress().toString());imports.add(v);}
                 result.add("imports",imports);
+            } else if (action.equals("context_callgraph")) {
+                var functions=currentProgram.getFunctionManager().getFunctions(true);
+                while(functions.hasNext()) {
+                    monitor.checkCancelled(); Function f=functions.next(); if(skipped++<offset)continue;
+                    if(rows.size()>=cap){more=true;break;}
+                    JsonObject node=new JsonObject();node.addProperty("id",f.getEntryPoint().toString());node.addProperty("name",f.getName());
+                    JsonArray calls=new JsonArray();var called=new java.util.ArrayList<Function>(f.getCalledFunctions(monitor));
+                    called.sort(java.util.Comparator.comparing(Function::getEntryPoint));
+                    for(Function target:called) { if(calls.size()>=2000)break;calls.add(target.getEntryPoint().toString()); }
+                    node.add("callees",calls);node.addProperty("calls_truncated",called.size()>2000);
+                    node.addProperty("external",f.isExternal());node.addProperty("thunk",f.isThunk());rows.add(node);
+                }
+                result.addProperty("total_functions",currentProgram.getFunctionManager().getFunctionCount());
             } else if (action.equals("context_function")) {
                 Function f=getFunctionAt(toAddr(req.get("address").getAsString()));
                 if(f==null)throw new IllegalArgumentException("No exact function");
@@ -106,6 +125,7 @@ public class WorkbenchBridge extends GhidraScript {
                 byte[] bytes=new byte[count];int read=currentProgram.getMemory().getBytes(toAddr(req.get("address").getAsString()),bytes);
                 StringBuilder hex=new StringBuilder();for(int i=0;i<read;i++)hex.append(String.format("%02x",bytes[i]&255));result.addProperty("hex",hex.toString());result.addProperty("length",read);
             } else throw new IllegalArgumentException("Unknown context view");
+            monitor.checkCancelled();
             result.add("items",rows);result.addProperty("offset",offset);result.addProperty("has_more",more);result.addProperty("next_offset",offset+rows.size());
         } else if (action.equals("pcode")) {
             Instruction instruction = getInstructionAt(toAddr(req.get("address").getAsString()));

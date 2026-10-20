@@ -34,6 +34,7 @@ class ReverseEngineeringDomain:
     )
     capabilities = (
         Capability("inspect_program"),
+        Capability("plan_reconstruction", recovery="discard"),
         Capability("decompile"),
         Capability("decompile_batch"),
         Capability("program_context"),
@@ -61,6 +62,13 @@ class ReverseEngineeringDomain:
     def execute(self, context: ToolContext, request: dict):
         tool, args = request["tool"], request["args"]
         root = context.workspace
+        if tool == "plan_reconstruction":
+            from .planning import plan
+
+            path = scoped(root, args["graph_path"])
+            if path.stat().st_size > 8_000_000:
+                raise Blocked("Callgraph input exceeds 8 MB")
+            return plan(json.loads(path.read_text()))
         if tool in {
             "inspect_program",
             "decompile",
@@ -126,7 +134,7 @@ class ReverseEngineeringDomain:
                 context.cancel,
             )
         if tool in ("build_linked_function", "compare_linked_function"):
-            from . import call_images
+            from . import call_images, pe_dependencies
 
             path = scoped(root, args["manifest_path"])
             if path.stat().st_size > 128000:
@@ -151,10 +159,13 @@ class ReverseEngineeringDomain:
                     original_path = scoped(root, args["original_path"])
                     if original_path.stat().st_size > call_images.MAX_IMAGE:
                         raise Blocked("Original image exceeds bounds")
-                    original = call_images.load(
+                    original = pe_dependencies.load(
                         original_path.read_bytes(),
                         args.get("original_symbol"),
                         args.get("original_address"),
+                        pe_dependencies.read_dependencies(
+                            root, args.get("original_dependencies", {})
+                        ),
                     )
                     built["comparison"] = call_images.compare(
                         original,

@@ -107,6 +107,7 @@ def test_original_specialist_capabilities_and_proof_are_preserved(ready):
     broker = Broker(c, {"foundations": {}}, domain)
     assert set(broker.capabilities) == {c.name for c in CORE_CAPABILITIES} | {
         "inspect_program",
+        "plan_reconstruction",
         "decompile",
         "decompile_batch",
         "program_context",
