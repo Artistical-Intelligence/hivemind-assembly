@@ -164,7 +164,7 @@ def test_general_tool_against_installed_gzip(tmp_path):
     assert execute(tmp_path, spec, allow_native=True)["passed"]
 
 
-def test_native_compiled_reconstruction(tmp_path):
+def test_native_compiled_reconstruction(tmp_path, record_property):
     compiler = (
         os.environ.get("HA_TEST_CLANG") or shutil.which("clang") or shutil.which("gcc")
     )
@@ -200,6 +200,11 @@ def test_native_compiled_reconstruction(tmp_path):
         ],
     }
     result = execute(tmp_path, spec, allow_native=True, compiler=compiler)
+    if not result["passed"]:
+        # Assertion rendering truncates nested build streams. Keep exact evidence
+        # in the CI artifact so toolchain failures can be diagnosed remotely.
+        record_property("native_compiler", compiler)
+        record_property("native_result", json.dumps(result))
     assert result["passed"], result
     (tmp_path / "candidate.c").write_text(
         (tmp_path / "candidate.c").read_text().replace("v+v+v+1", "v+v+v+2")

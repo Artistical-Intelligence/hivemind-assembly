@@ -7,6 +7,7 @@ permissions:
   contents: read
 jobs:
   contracts:
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -18,17 +19,23 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r _app/requirements.txt pytest
+      - name: Check native Windows compiler
+        if: runner.os == 'Windows'
+        run: python -m pytest tests/test_tool_testing.py::test_native_compiled_reconstruction -q --junitxml=compiler-results.xml
       - run: python -m pytest tests -q --junitxml=contract-results.xml
       - name: Retain contract results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: contract-results-${{ runner.os }}-${{ github.run_id }}
-          path: contract-results.xml
+          path: |
+            contract-results.xml
+            compiler-results.xml
           retention-days: 3
           if-no-files-found: warn
       - run: python _app/launch.py verify
   browser-fixture:
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
