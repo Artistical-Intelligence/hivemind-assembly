@@ -102,6 +102,45 @@ def test_edit_upload_check_and_draft_retention(server, app):
         browser.close()
 
 
+def test_oauth_dashboard_requests_session_default_and_disconnect(
+    server, app, monkeypatch
+):
+    from playwright.sync_api import sync_playwright, expect
+
+    cfg = app.connections.settings()
+    cfg["servers"]["fixture"] = {
+        "transport": "http",
+        "url": "https://mcp.example/service",
+    }
+    app.connections.save(cfg)
+    calls = []
+
+    def start(*args):
+        calls.append(args)
+        app.connections.oauth.states["fixture"] = {"stage": "authorization"}
+        return {"stage": "authorization"}
+
+    monkeypatch.setattr(app.connections.oauth, "start", start)
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ["WORKBENCH_TEST_CHROME"],
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page()
+        page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+        page.locator('[data-tab="connections"]').click()
+        page.locator('#mcp-oauth [name="server"]').fill("fixture")
+        expect(page.locator('#mcp-oauth [name="remember"]')).not_to_be_checked()
+        page.get_by_role("button", name="Connect with browser", exact=True).click()
+        expect(page.locator("#mcp-oauth-status")).to_contain_text("authorization")
+        assert calls == [("fixture", False, None, 0)]
+        page.locator("#mcp-oauth-forget").click()
+        expect(page.locator("#notice")).to_contain_text("removed from HA")
+        assert app.connections.settings()["servers"]["fixture"]["auth"] == "none"
+        browser.close()
+
+
 def test_mcp_and_optional_cloud_settings(server, app):
     from playwright.sync_api import sync_playwright, expect
 

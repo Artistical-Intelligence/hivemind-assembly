@@ -61,7 +61,7 @@ Version 0.12 adds project-scoped inbound MCP, outbound MCP tool grants, configur
 installation, and optional Codespaces lifecycle/parallel snapshot jobs. Local
 SDK exchanges, runner execution, recovery, cancellation, import conflicts and
 HTTP dashboard controls have automated checks. Live GitHub Codespaces delivery,
-web-chat tunnel authorization and external OAuth onboarding remain separate gates.
+web-chat tunnel authorization and live external OAuth interoperability remain separate gates.
 Official private-tunnel installation/configuration/process supervision and explicit
 unlimited goal budgets are now implemented; live tunnel account access is unverified.
 Version 0.13 implements persistent category-only task classification, scoped
@@ -72,3 +72,9 @@ Optional experimental learning now defaults off, with Chat-only workers, observe
 model/effort selection, manual overrides, model pinning across paired trials and
 no default HA usage cap. Policy, selection, and dashboard fixtures have checks;
 live provider model controls and real improvement measurements remain gates.
+
+External HTTP MCP onboarding now uses the official SDK for discovery, public-client
+registration, PKCE, issuer validation and refresh. Session/vault storage, restored
+expiry and token endpoints, repeated connection without duplicate registration,
+state-bound loopback callbacks and cancellation have local protocol checks. Provider
+consent, metadata-document-only registration and live account policies remain gates.

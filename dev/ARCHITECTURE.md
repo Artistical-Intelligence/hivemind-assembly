@@ -343,3 +343,12 @@ checks. Native trials retain a model/effort binding after observed selection in 
 first isolated session, reuse it across paired arms, and never rebind main routes.
 Provider identity/allowance blocks remain effective. Unknown allowance can proceed
 under the owner's selected policy; it is not treated as proof of unlimited service.
+
+External HTTP MCP authorization uses the pinned official SDK rather than a second
+OAuth implementation. HA supplies a dedicated browser profile, a state-bound loopback
+callback, private storage and per-server serialization. Tokens, client secrets,
+absolute expiry and SDK-validated discovery metadata stay in memory or the OS vault.
+The SDK 2.3 adapter restores deadlines and token endpoints when loading a new client.
+Normal worker calls may refresh authorization but cannot launch interactive consent;
+that remains an owner-started Connections action. Endpoint/storage changes, forgetting
+and shutdown invalidate pending writes. Tool/project grants remain independent.

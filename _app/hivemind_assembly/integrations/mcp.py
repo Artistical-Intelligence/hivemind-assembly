@@ -30,6 +30,10 @@ class Connections:
         self.path = store.root / "private" / "mcp.json"
         self.lock = threading.RLock()
         self.session_credentials = {}
+        self.operation_locks = {}
+        from .mcp_oauth import OAuthManager
+
+        self.oauth = OAuthManager(self)
 
     def settings(self):
         if not self.path.exists():
@@ -77,8 +81,16 @@ class Connections:
                 raise ContractError(
                     "Unsupported connection field; keep credentials in the credential store"
                 )
-            if spec.get("auth", "none") not in ("none", "session", "vault"):
-                raise ContractError("MCP authentication must be none, session or vault")
+            if spec.get("auth", "none") not in (
+                "none",
+                "session",
+                "vault",
+                "oauth_session",
+                "oauth_vault",
+            ):
+                raise ContractError(
+                    "Choose none, session/vault bearer, or session/vault OAuth authentication"
+                )
             if spec.get("auth", "none") != "none" and spec.get("transport") != "http":
                 raise ContractError(
                     "HA-managed bearer authentication is for HTTP MCP connections"
@@ -188,8 +200,7 @@ class Connections:
         vault = CredentialVault(self.store.root, service="MCP." + server)
         with self.lock:
             if forget:
-                if spec.get("auth") == "vault":
-                    vault.clear()
+                self.oauth.forget(server)
                 self.session_credentials.pop(server, None)
                 spec["auth"] = "none"
             else:
@@ -198,6 +209,8 @@ class Connections:
                 ):
                     raise ContractError("Provide a bearer token without whitespace")
                 value = {"url": spec["url"], "token": token}
+                if spec.get("auth", "").startswith("oauth_"):
+                    self.oauth.forget(server)
                 if remember:
                     vault.write(value)
                     self.session_credentials.pop(server, None)
@@ -272,7 +285,40 @@ class Connections:
             )
         return result
 
-    async def external(self, server, tool=None, arguments=None, project=None):
+    async def external(
+        self, server, tool=None, arguments=None, project=None, *, oauth_setup=None
+    ):
+        # Setup, refresh and tool use share one per-server reservation even when
+        # dashboard requests and worker calls arrive on separate event loops.
+        with self.lock:
+            lock = self.operation_locks.setdefault(server, threading.Lock())
+        timeout = (
+            600
+            if oauth_setup
+            else self.settings()["servers"].get(server, {}).get("timeout", 120)
+        )
+        async with asyncio.timeout(timeout):
+            while not lock.acquire(blocking=False):
+                await asyncio.sleep(0.05)
+            try:
+                return await self._external(
+                    server, tool, arguments, project, oauth_setup
+                )
+            except Exception as error:
+                spec = self.settings()["servers"].get(server, {})
+                if spec.get("auth", "").startswith("oauth_") and not isinstance(
+                    error, (Blocked, ContractError)
+                ):
+                    raise Blocked(
+                        "MCP OAuth exchange failed ("
+                        + type(error).__name__
+                        + "). Reconnect in Connections if authorization has expired."
+                    ) from None
+                raise
+            finally:
+                lock.release()
+
+    async def _external(self, server, tool, arguments, project, oauth_setup):
         from mcp import Client, StdioServerParameters
 
         settings = self.settings()
@@ -282,16 +328,24 @@ class Connections:
         if tool is not None:
             self.authorize(server, tool, project)
         secret = None
+        oauth_storage = None
         if spec["transport"] == "http":
             from mcp.client.streamable_http import streamable_http_client
             import httpx2
 
-            secret = self.bearer(server, spec)
+            provider = None
+            if spec.get("auth", "").startswith("oauth_"):
+                provider, oauth_storage = oauth_setup or await self.oauth.provider(
+                    server, spec
+                )
+            else:
+                secret = self.bearer(server, spec)
 
             @asynccontextmanager
             async def authenticated_transport():
                 async with httpx2.AsyncClient(
                     headers={"Authorization": "Bearer " + secret} if secret else {},
+                    auth=provider,
                     follow_redirects=False,
                     trust_env=False,
                 ) as http:
@@ -318,7 +372,7 @@ class Connections:
             target = StdioServerParameters(
                 command=spec["command"], args=spec.get("args", []), env=env
             )
-        async with asyncio.timeout(spec.get("timeout", 120)):
+        async with asyncio.timeout(600 if oauth_setup else spec.get("timeout", 120)):
             async with Client(target) as client:
                 if tool is None:
                     inventory = []
@@ -345,6 +399,9 @@ class Connections:
                         inventory = json.loads(
                             canonical(inventory).replace(secret, "[redacted]")
                         )
+                    if oauth_storage:
+                        oauth_storage.check()
+                        inventory = oauth_storage.redact(inventory)
                     key = digest(
                         {
                             "server": server,
@@ -363,6 +420,9 @@ class Connections:
                     return inventory
                 result = await client.call_tool(tool, arguments or {})
                 value = result.model_dump(mode="json", by_alias=True)
+                if oauth_storage:
+                    oauth_storage.check()
+                    value = oauth_storage.redact(value)
                 return (
                     json.loads(canonical(value).replace(secret, "[redacted]"))
                     if secret

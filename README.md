@@ -400,8 +400,15 @@ Workers receive only their authorized connection names and tool names. Calls use
 the existing operation journal and revision fences; an interrupted external
 mutation is not automatically replayed. Connection arguments must not contain
 credentials. HTTP bearer tokens can be held for the session or saved in the OS
-credential store, bound to the exact endpoint. Automatic external OAuth onboarding
-is not implemented yet.
+credential store, bound to the exact endpoint. For an OAuth-enabled HTTP server,
+use **Authorize in browser**: HA discovers the authorization server, registers a
+public client when supported, opens its dedicated browser profile, validates the
+loopback callback, and refreshes tokens. Credentials are session-only unless you
+select OS-vault storage. Existing registrations and verified token endpoints are
+retained for reconnects. Providers requiring pre-registration can use a public
+client ID and registered loopback port in the optional fields. Provider sign-in
+and consent still follow that provider's requirements; HA does not bypass them.
+Disconnect removes HA's local authorization; provider-side revocation is separate.
 
 Codespaces is disabled by default and requires separate execution permission.
 HA can prepare GitHub CLI on Windows, request the Codespaces OAuth scope, list

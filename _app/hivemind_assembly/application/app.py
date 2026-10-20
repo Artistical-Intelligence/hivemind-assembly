@@ -106,6 +106,8 @@ class Application:
         self.token = secrets.token_urlsafe(32)
         self.loop = asyncio.new_event_loop()
         self.browser = NativeBrowser(self.config, root, self.controller)
+        self.connections.oauth.open_page = self.browser.service_page
+        self.connections.oauth.submit = self.submit
         self.team = NativeTeam(self.controller, self.broker, self.browser, self.config)
         from hivemind_assembly.automation.sessions import Sessions
 
@@ -194,6 +196,7 @@ class Application:
             "github": {**self.github_auth.status(), **self.config.get("github", {})},
             "hosted_tests": self.hosted_tests.listing(),
             "connections": self.connections.settings(),
+            "mcp_authorizations": self.connections.oauth.status(),
             "tunnel": self.tunnel.status(),
             "codespaces": {
                 "settings": self.codespaces.settings(),
@@ -372,6 +375,13 @@ class Application:
                 data.get("token"),
                 data.get("remember", False),
                 data.get("forget", False),
+            )
+        if path == "/api/mcp/authorize":
+            return self.connections.oauth.start(
+                data["server"],
+                data.get("remember", False),
+                data.get("client_id") or None,
+                data.get("port", 0),
             )
         if path == "/api/mcp/discover":
             return self.background_job(
@@ -1002,6 +1012,7 @@ class Application:
         if self.shutdown:
             return
         self.tunnel.close()
+        self.connections.oauth.close()
         self.connections.session_credentials.clear()
         self.codespaces.close()
         self.hosted_tests.close()
@@ -1010,6 +1021,7 @@ class Application:
             event.set()
 
         async def close_runtime():
+            await self.connections.oauth.drain()
             for future in self.native_setup_futures.values():
                 future.cancel()
             if self.github_setup_future is not None:

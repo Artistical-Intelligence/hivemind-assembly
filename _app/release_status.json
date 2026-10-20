@@ -3,12 +3,12 @@
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 396,
-    "skipped": 24,
+    "passed": 402,
+    "skipped": 25,
     "failed": 0,
-    "elapsed_seconds": 73.2,
+    "elapsed_seconds": 75.97,
     "host": "Linux Python 3.12",
-    "scope": "Full local suite after tag-scoped knowledge, excerpt grants and optional native-learning policy. Final policy-disable/unknown-allowance refinements have separate targeted checks. Native/Chromium checks unavailable on this host are skipped; signed-in provider acceptance is not claimed."
+    "scope": "Full local suite after tag-scoped knowledge, optional experimental learning and official-SDK HTTP MCP OAuth onboarding. Final callback connection cleanup was separately verified by all five OAuth tests. Native/Chromium checks unavailable on this host are skipped; no signed-in provider acceptance is claimed."
   },
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -17,7 +17,7 @@
     "static": "pyflakes on changed implementation/tests, JavaScript syntax and git diff --check passed. Workflow template matches the source workflow; runtime and source release archives are separately manifest-checked.",
     "goals": "Fixture native responses exercised root goal continuation through real local capture execution and a second fresh independent acceptance run. This is not signed-in native model acceptance.",
     "historical_evidence": "Checks under historical_checks were recorded in earlier development runs and are not newly claimed from this release verification.",
-    "github_ci": "Checkpoint aa47e40 passed all four hosted jobs. Tag checkpoint 1c5ebd1 passed Windows contracts, Chromium and Windows package install/update/restore; Linux caught a test competing with the native scheduler. Its fixture now isolates controller dispatch, with local regression checks. The current checkpoint triggers fresh hosted verification.",
+    "github_ci": "Checkpoint a1880b6 (run 39464837859) passed all four hosted jobs: Linux contracts (410 passed, 11 skipped), Windows contracts, real Chromium flows (4 passed), and Windows packaged installation/update/restore. External OAuth onboarding follows this checkpoint and triggers fresh hosted verification on publication.",
     "windows_runtime": "The extracted Windows package installed its bundled Python and hash-locked dependencies in a fresh data directory, ran register and native Python checks, survived removal/re-extraction of the application folder, and restored a verified backup with project files intact. Paths contained spaces. Tested in GitHub Windows CI, not a manual desktop or complete Ghidra/REA installation.",
     "project_workspace": "Real Chromium and the HTTP controller completed starter creation, uploads, editing, draft preservation, positive/negative checks, byte-exact download, reload persistence, native observations and fresh guided exact-output setup. A separate local jsdom/controller run compiled and checked a C utility through the guided form with automatic compiler discovery. Authenticated streaming, version-checked snapshots, stale edits, immutable references, invalid paths and local-check independence from optional publication passed backend tests.",
     "mcp_codespaces": "Official MCP SDK in-process and real stdio bridge exchanges; outbound stdio discovery/tool/project grants; standalone Linux runner execution, deadline and credential removal; parallel spaces, queued cancellation, interrupted startup, GPU requirement rejection and output import conflict checks. Real HTTP controller with jsdom validated connection settings. No live Codespace or web tunnel acceptance.",
@@ -25,7 +25,8 @@
     "unlimited_goals": "Explicit /goal budget unlimited retains usage tracking, survives pause/resume and can return to a bounded budget; provider allowance checks remain active.",
     "mcp_http_credentials": "Real loopback Streamable HTTP MCP server verified bearer authentication, discovered tool schemas, token-free saved settings/status, response redaction and rejection after endpoint changes. Session-only credentials are cleared on shutdown; OS credential namespaces are separate from GitHub.",
     "knowledge_scoping": "Category-only native classification, existing-tag/no-tag grants, source and lesson filtering, obligation denial, scope-change session renewal, legacy material quarantine, and permission-checked ingestion categorization have automated regression checks. Actual signed-in provider classification remains unverified. Skill content updates and retained source excerpts also recheck context and grants.",
-    "experimental_learning": "Default-off, Chat-only policy; explicit token-limited route opt-in; optional unlimited HA turns; unknown-versus-blocked allowance; idempotent reservations; observed exact model/effort selection; pinned paired-trial identity; unchanged main route targets; and dashboard policy persistence passed local fixtures. Actual provider menu selection and native learning gains remain unverified. Paused evaluations can retry remaining trials without changing model or delivery identities; disabling reflection returns to primary work after delivery reconciliation."
+    "experimental_learning": "Default-off, Chat-only policy; explicit token-limited route opt-in; optional unlimited HA turns; unknown-versus-blocked allowance; idempotent reservations; observed exact model/effort selection; pinned paired-trial identity; unchanged main route targets; and dashboard policy persistence passed local fixtures. Actual provider menu selection and native learning gains remain unverified. Paused evaluations can retry remaining trials without changing model or delivery identities; disabling reflection returns to primary work after delivery reconciliation.",
+    "mcp_oauth": "Local HTTP authorization server plus official MCP SDK exercised registration, PKCE S256, resource binding, browser callback, issuer-mismatch rejection before code exchange, token refresh at the retained non-default endpoint, serialized concurrent calls, reconnect reuse, response secret redaction, endpoint changes and cancellation. OS-vault separation used a fixture; actual OS-vault OAuth storage and provider account consent remain unverified."
   },
   "native_live_acceptance": {
     "validated_routes": 0,
@@ -36,7 +37,7 @@
   "remaining_implementation": [
     "Extend the controlled Linux application and PE function lanes to broader CPU/platform, Windows/game/graphics effects and target-level equivalence.",
     "Resolve any provider-specific adapter gaps identified by signed-in account validation; current ambiguous controls remain blocked.",
-    "Complete account-authorized MCP onboarding where provider permissions allow automation; live tunnel authorization and external OAuth setup remain required gates."
+    "Extend MCP onboarding where provider-specific or metadata-document registration requires additional integration; standard HTTP OAuth setup is implemented, with live account consent and tunnel authorization still acceptance gates."
   ],
   "remaining_acceptance": [
     "Live GitHub browser registration/device authorization and all five exact native routes.",

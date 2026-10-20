@@ -395,3 +395,13 @@ preference, not measured superiority on HA tasks. Only observed selectable contr
 qualify; a manual exact override is available. The chosen pair is pinned throughout
 an evaluation, and no paid API or Work fallback is introduced by Chat-only mode.
 https://help.openai.com/en/articles/20001354-gpt-6-and-other-models-in-chatgpt
+
+### External MCP authorization (2026-10-20)
+
+The official MCP specification and Python SDK already cover discovery, PKCE,
+issuer checks, resource indicators, registration and token refresh. HA integrates
+the SDK and adds application storage/lifecycle handling. Metadata-document client
+registration is not assumed to be available without a public metadata host; servers
+may instead support dynamic registration or an existing public client ID.
+https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization
+https://github.com/modelcontextprotocol/python-sdk/blob/main/src/mcp/client/auth/oauth2.py
