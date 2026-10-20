@@ -1,5 +1,6 @@
 """Bounded, credential-stripped native test processes; NOT a security sandbox."""
 
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -8,6 +9,30 @@ import subprocess
 import sys
 import tempfile
 import time
+
+
+@contextmanager
+def process_directory():
+    directory = tempfile.TemporaryDirectory(prefix="ha-process-")
+    try:
+        yield directory.name
+    finally:
+        # Windows may still release inherited stream handles after job accounting
+        # reaches zero. Retry only transient sharing/lock violations, with a hard
+        # deadline; never hide permissions failures or abandoned live processes.
+        deadline = time.monotonic() + 2
+        while True:
+            try:
+                directory.cleanup()
+                break
+            except PermissionError as error:
+                if (
+                    os.name != "nt"
+                    or getattr(error, "winerror", None) not in (32, 33)
+                    or time.monotonic() >= deadline
+                ):
+                    raise
+                time.sleep(0.025)
 
 
 class WindowsJob:
@@ -137,7 +162,7 @@ def run(argv, cwd, *, stdin=b"", timeout=30, output_limit=1048576, cancel=None):
             "elapsed_seconds": 0.0,
         }
     started = time.monotonic()
-    with tempfile.TemporaryDirectory(prefix="ha-process-") as temp:
+    with process_directory() as temp:
         meta = Path(temp)
         home = meta / "home"
         home.mkdir()
