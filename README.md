@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.13.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.14.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -240,13 +240,23 @@ The Windows branch still requires actual Windows acceptance.
 Current implementation and verification limits are recorded in
 `_app/release_status.json`. The full audit is a separate pass.
 
-## Linked ELF and Windows PE function reconstruction
+## Linked x86-64 and AArch64 function reconstruction
 
-Choose **Linked ELF / Windows PE function calls** in Independent acceptance.
+Choose **Linked x86-64 / AArch64 function calls** in Independent acceptance.
 An original function may be selected by symbol or absolute address. The candidate
 uses a sources/declarations/optimization build manifest, a function symbol and
-`sysv` or `win64` ABI. Windows builds require Clang and LLD. The original and
-candidate may use different ABIs, allowing checks of Windows-to-Linux recovery.
+`sysv`, `win64` or `aapcs64` ABI. Windows and AArch64 builds require Clang and LLD.
+The original and candidate may use different supported architectures and ABIs.
+AArch64 accepts static little-endian ELF images and base AAPCS64 integer/pointer
+calls, with 16 arguments, eight register arguments and aligned stack arguments.
+Callee-saved integer registers and the low 64 bits of v8-v15 are checked; x18 is
+reserved. System-register access, TLS, exceptions, authenticated branches, SVE/SME,
+floating-point parameters, aggregates and variadic interfaces are outside this lane.
+
+After installing Clang/LLD, use **Project files → Create AArch64 example** to
+compile an ARM original and check an editable x86-64 C reconstruction. The example
+includes pinned cases and a deliberate wrong-edit exercise; target code runs only
+in Unicorn. You can run these checks without any model account.
 
 Cases contain `arguments`, `buffers` and `output_bits`. Pointer arguments use
 `{"buffer":"data","offset":0}` and buffers use `{"id":"data","hex":"01000000"}`.

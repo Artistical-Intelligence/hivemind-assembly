@@ -78,7 +78,7 @@ def starter(app, kind, request_id, allow_native=False):
         "[A-Za-z0-9_-]{16,80}", request_id
     ):
         raise ValueError("A stable starter request ID is required")
-    if kind not in ("registers", "native_python"):
+    if kind not in ("registers", "native_python", "linked_arm64"):
         raise ValueError("Unknown starter project")
     if kind == "native_python" and allow_native is not True:
         raise Blocked(
@@ -96,11 +96,11 @@ def starter(app, kind, request_id, allow_native=False):
         task = app.store.task(retained["task"])
     else:
         task = app.store.create_project(
-            (
-                "Register reconstruction"
-                if kind == "registers"
-                else "Native tool reconstruction"
-            ),
+            {
+                "registers": "Register reconstruction",
+                "native_python": "Native tool reconstruction",
+                "linked_arm64": "AArch64 function reconstruction",
+            }[kind],
             "Reconstruct the supplied example and verify its behavior independently.",
             paused=True,
         )
@@ -109,7 +109,10 @@ def starter(app, kind, request_id, allow_native=False):
         "SELECT id FROM records WHERE kind='starter_ready' AND id=?", (request_id,)
     ):
         return task
-    if kind == "registers":
+    image = None
+    if kind == "linked_arm64":
+        files, contract, image = arm64_example(app)
+    elif kind == "registers":
         files = {
             "original.hex": "89f801f0\n",
             "candidate.hex": "8d0437\n",
@@ -151,6 +154,14 @@ def starter(app, kind, request_id, allow_native=False):
         contract = {"scope": "native_tool_tests", "suite": suite}
     for name, text in files.items():
         app.workspace.write(task["id"], name, text)
+    if image is not None:
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory(prefix="ha-example-image-") as folder:
+            path = Path(folder) / "original.elf"
+            path.write_bytes(image)
+            app.workspace.install(task["id"], "original.elf", path)
     if kind == "native_python":
         from hivemind_assembly.core.test_acceptance import NativeTestAcceptance
 
@@ -160,3 +171,88 @@ def starter(app, kind, request_id, allow_native=False):
     Acceptance(app.controller, app.broker).configure(task["id"], contract)
     app.store.put("starter_ready", request_id, {"task": task["id"]})
     return app.store.task(task["id"])
+
+
+def arm64_example(app):
+    """Compile a source-known ARM original; all target execution is emulated."""
+    import tempfile
+    from pathlib import Path
+    from hivemind_assembly.domains.reverse_engineering.call_images import build
+
+    original = """typedef unsigned long long U;
+U recovered(unsigned *p, U count, U salt) {
+    U sum = 0;
+    for (U i = 0; i < count; ++i) {
+        p[i] = (p[i] ^ (unsigned)salt) * 33u;
+        sum += p[i];
+    }
+    return sum;
+}
+"""
+    candidate = """typedef unsigned long long U;
+U recovered(unsigned *p, U count, U salt) {
+    U sum = 0;
+    while (count--) {
+        unsigned x = *p ^ (unsigned)salt;
+        *p = (x << 5) + x;
+        sum += *p++;
+    }
+    return sum;
+}
+"""
+    with tempfile.TemporaryDirectory(prefix="ha-arm64-example-") as folder:
+        root = Path(folder)
+        (root / "original.c").write_text(original, encoding="utf-8")
+        built = build(
+            root,
+            {"sources": ["original.c"], "optimization": "O0"},
+            "recovered",
+            "aapcs64",
+            app.broker.jobs,
+            app.config.get("foundations", {}).get("c_compiler", ""),
+        )
+        if not built["passed"]:
+            raise Blocked(
+                "AArch64 example compilation failed; check the configured Clang/LLD installation: "
+                + str(built.get("build"))
+            )
+    cases = []
+    for index, (values, count, salt) in enumerate(
+        [
+            ([0], 0, 0),
+            ([1], 1, 2),
+            ([0, 1, 0xFFFFFFFF, 0x80000000], 4, 19),
+            ([7, 13, 37], 2, 0xFFFFFFFF),
+        ]
+    ):
+        cases.append(
+            {
+                "id": "case-" + str(index),
+                "arguments": [{"buffer": "data"}, count, salt],
+                "buffers": [
+                    {
+                        "id": "data",
+                        "hex": b"".join(v.to_bytes(4, "little") for v in values).hex(),
+                    }
+                ],
+            }
+        )
+    files = {
+        "original.c": original,
+        "candidate.c": candidate,
+        "manifest.json": json.dumps(
+            {"sources": ["candidate.c"], "optimization": "O2"}, indent=2
+        )
+        + "\n",
+        "README.txt": "This source-known AArch64 original transforms a buffer and returns its sum. The candidate is compiled for x86-64. Run checks, replace (x << 5) + x with (x << 4) + x in candidate.c, save, and rerun to see a mismatch. Original bytes and cases are pinned separately. Clang and LLD are required; target code executes only in Unicorn. The check covers declared integer/pointer calls, not a complete application or all possible inputs.\n",
+    }
+    contract = {
+        "scope": "linked_calls",
+        "original_path": "original.elf",
+        "original_symbol": "recovered",
+        "manifest_path": "manifest.json",
+        "function": "recovered",
+        "candidate_abi": "sysv",
+        "cases": cases,
+    }
+    return files, contract, bytes.fromhex(built["image_hex"])

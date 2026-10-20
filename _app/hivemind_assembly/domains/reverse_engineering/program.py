@@ -183,12 +183,17 @@ def build(root, manifest, jobs, compiler="", cancel=None):
         }
 
 
-def load_image(data):
+def load_image(data, *, machine=62):
     if len(data) < 64 or len(data) > 2_000_000 or data[:7] != b"\x7fELF\x02\x01\x01":
         raise ContractError("Expected a bounded little-endian ELF64 executable")
     h = struct.unpack_from("<16sHHIQQQIHHHHHH", data)
-    if h[1:3] != (2, 62) or h[9] != 56 or not 1 <= h[10] <= 128:
-        raise Blocked("Only static x86-64 ET_EXEC images are supported")
+    if (
+        machine not in (62, 183)
+        or h[1:3] != (2, machine)
+        or h[9] != 56
+        or not 1 <= h[10] <= 128
+    ):
+        raise Blocked("Expected a static ET_EXEC image for the selected architecture")
     segments = []
     total = 0
     for i in range(h[10]):

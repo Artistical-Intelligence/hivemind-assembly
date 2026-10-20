@@ -214,17 +214,23 @@ source archive so source releases can reproduce the launcher dependencies.
 ## Linked function images and checkpoint publication
 
 `call_images` uses upstream pefile and pyelftools for linked PE/ELF inspection,
-Clang/LLD for Windows DLL builds, and Unicorn for bounded calls. Both SysV and
-Win64 integer/pointer arguments include stack arguments, aliased caller buffers,
+Clang/LLD for cross-compilation, and Unicorn for bounded calls. SysV, Win64 and
+AAPCS64 integer/pointer arguments include stack arguments, aliased caller buffers,
 nonvolatile registers, Win64 XMM state and floating-point control registers.
 Every caller buffer is compared. Access outside exact buffer ranges fails even
 when it stays on a mapped page. Image-global writes, unresolved imports, TLS and loader
 initialization remain unsupported. `pe_dependencies` reuses pefile relocation and
 export metadata to link explicit supplied DLLs, including ordinal imports and
 forwarders. It never discovers or downloads DLLs, and pins every dependency in
-protected acceptance. Protected `x86_64_linked_calls` acceptance
+protected acceptance. Protected `linked_calls` acceptance (with the legacy
+`x86_64_linked_calls` scope retained)
 pins the original, seals cases, independently rebuilds every source and rechecks
-source/manifest hashes. This is function reconstruction, not a Windows OS runtime.
+source/manifest hashes. The AArch64 adapter pins a Cortex-A57 CPU, admits static
+little-endian ELF, checks x19-x29/SP and the low halves of v8-v15, and reserves x18.
+System instructions are rejected before execution; ordinary BR/BLR/RET and NOP
+remain supported. Whole-program Linux replay retains its x86-64-only loader.
+The workflow engine fingerprint includes the ARM adapter. This is function
+reconstruction, not a Windows or ARM OS runtime.
 
 GitHub is optional. A project can remain local, connect an existing private
 repository, or explicitly create one. Creation permission does not gate existing

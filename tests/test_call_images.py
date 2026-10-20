@@ -30,7 +30,7 @@ def images(tmp_path):
     (tmp_path / "helper.c").write_text(HELPER)
     manifest = {"sources": ["main.c", "helper.c"]}
     result = {}
-    for abi in ("sysv", "win64"):
+    for abi in ("sysv", "win64", "aapcs64"):
         build = calls.build(tmp_path, manifest, "recovered", abi, Jobs(), CLANG)
         assert build["passed"], build
         result[abi] = (
@@ -83,13 +83,14 @@ def test_both_abis_linked_calls_and_buffers_match_independent_native_oracle(
             assert result["value"] == expected
             assert result["buffers"]["data"] == bytes(buf).hex()
     assert calls.compare(images["win64"][1], images["sysv"][1], cases)["passed"]
+    assert calls.compare(images["aapcs64"][1], images["sysv"][1], cases)["passed"]
 
 
 def test_buffer_aliasing_bounds_and_readonly(tmp_path):
     (tmp_path / "f.c").write_text(
         "unsigned f(unsigned *a,unsigned *b){*a+=1;*b+=2;return *a;}"
     )
-    for abi in ("sysv", "win64"):
+    for abi in ("sysv", "win64", "aapcs64"):
         built = calls.build(tmp_path, {"sources": ["f.c"]}, "f", abi, Jobs(), CLANG)
         image = calls.load(bytes.fromhex(built["image_hex"]), symbol="f")
         case = {
@@ -133,10 +134,20 @@ def test_mutable_image_state_cannot_escape_observation(tmp_path):
     )
 
 
-def test_hidden_cases_pinned_and_rebuilt(images, store, tmp_path):
+@pytest.mark.parametrize(
+    "original_abi,candidate_abi,scope",
+    [
+        ("win64", "sysv", "x86_64_linked_calls"),
+        ("aapcs64", "sysv", "linked_calls"),
+        ("sysv", "aapcs64", "linked_calls"),
+    ],
+)
+def test_hidden_cases_pinned_and_rebuilt(
+    images, store, tmp_path, original_abi, candidate_abi, scope
+):
     artifacts = Artifacts(store)
     project = store.create_project("linked", "reconstruct")["project_id"]
-    (tmp_path / "original.dll").write_bytes(images["win64"][0])
+    (tmp_path / "original.dll").write_bytes(images[original_abi][0])
     (tmp_path / "manifest.json").write_text(
         json.dumps({"sources": ["main.c", "helper.c"]})
     )
@@ -156,12 +167,12 @@ def test_hidden_cases_pinned_and_rebuilt(images, store, tmp_path):
     contract = verifier.prepare(
         tmp_path,
         {
-            "scope": "x86_64_linked_calls",
+            "scope": scope,
             "original_path": "original.dll",
             "original_symbol": "recovered",
             "manifest_path": "manifest.json",
             "function": "recovered",
-            "candidate_abi": "sysv",
+            "candidate_abi": candidate_abi,
             "cases": [case, dict(case, arguments=[{"buffer": "b"}, 0, 2, 3, 4, 5, 6])],
         },
         artifacts,

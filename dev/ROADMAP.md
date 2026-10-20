@@ -78,3 +78,9 @@ registration, PKCE, issuer validation and refresh. Session/vault storage, restor
 expiry and token endpoints, repeated connection without duplicate registration,
 state-bound loopback callbacks and cancellation have local protocol checks. Provider
 consent, metadata-document-only registration and live account policies remain gates.
+
+Version 0.14 adds bounded AArch64 linked-function reconstruction, cross-architecture
+comparison with x86-64, protected acceptance, reusable workflow calls, installed
+runtime probes, and an editable dashboard example. It uses Clang/LLD and Unicorn
+with explicit AAPCS64 integer/pointer contracts. Full ARM process/OS execution,
+console-specific loaders, graphics runtime and target-level equivalence remain work.

@@ -79,6 +79,7 @@ def runner():
         {
             "proof": file_hash(folder / "proof.py"),
             "calls": file_hash(folder / "call_images.py"),
+            "arm64": file_hash(folder / "arm64.py"),
             "semantics": file_hash(folder / "semantics.py"),
             "cpu_boundary": file_hash(folder / "guest_cpu.py"),
             "image_loader": file_hash(folder / "program.py"),

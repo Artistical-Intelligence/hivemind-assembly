@@ -231,3 +231,40 @@ def test_tag_scope_and_optional_learning_controls(server, app, tmp_path):
         expect(page.locator('#experimental-settings [name="enabled"]')).to_be_checked()
         assert errors == []
         browser.close()
+
+
+def test_aarch64_example_to_x86_candidate_checks(server, app):
+    import shutil
+    from playwright.sync_api import sync_playwright, expect
+
+    compiler = os.environ.get("HA_TEST_CLANG") or shutil.which("clang")
+    if not compiler:
+        pytest.skip("Clang/LLD required for the AArch64 example")
+    app.config["foundations"]["c_compiler"] = compiler
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ["WORKBENCH_TEST_CHROME"],
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+        page.locator('[data-tab="workspace"]').click()
+        page.get_by_role("button", name="Create AArch64 example", exact=True).click()
+        expect(page.locator("#file-path")).to_have_value("candidate.c", timeout=30000)
+        page.locator("#workspace-check").click()
+        expect(page.locator("#workspace-result-summary")).to_contain_text(
+            "Checks passed", timeout=30000
+        )
+        code = page.locator("#file-editor").input_value()
+        page.locator("#file-editor").fill(code.replace("x << 5", "x << 4"))
+        page.locator("#file-save").click()
+        expect(page.locator("#file-draft")).to_have_text("Saved on disk")
+        page.locator("#workspace-check").click()
+        expect(page.locator("#workspace-result-summary")).to_contain_text(
+            "Checks did not pass", timeout=30000
+        )
+        assert errors == []
+        browser.close()

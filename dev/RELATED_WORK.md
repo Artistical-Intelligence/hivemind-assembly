@@ -411,3 +411,17 @@ Windows adapter therefore writes bounded OS-vault pieces and atomically switches
 a checked manifest; it keeps legacy records readable and collects abandoned
 generations. Secrets never fall back to a filesystem file.
 https://learn.microsoft.com/en-us/windows/win32/api/wincred/ns-wincred-credentialw
+
+## AArch64 function replay — 2026-10-20
+
+The added architecture reuses Unicorn Cortex-A57 execution, Clang/LLD cross-builds
+and pyelftools symbols. It does not add a handwritten ARM interpreter. The
+[Arm AAPCS64 specification](https://github.com/ARM-software/abi-aa/blob/main/aapcs64/aapcs64.rst)
+defines argument registers, stack alignment and preservation of only the lower
+halves of v8-v15. HA reserves platform register x18 and exposes only the base
+integer/pointer contract. Upstream
+[Unicorn ARM64 API](https://github.com/unicorn-engine/unicorn/blob/master/include/unicorn/arm64.h)
+provides the CPU/register definitions. System effects are rejected explicitly.
+Independent native GCC results, arithmetic expectations, wrong reconstructions
+and exact-boundary failure cases validate the adapter; these are not native ARM
+hardware execution or complete ARM application acceptance.

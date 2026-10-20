@@ -39,7 +39,7 @@ class CallAcceptance:
             )
         call_images.function_name(spec["function"])
         if spec["candidate_abi"] not in call_images.ABIS:
-            raise ContractError("Candidate ABI must be sysv or win64")
+            raise ContractError("Candidate ABI must be sysv, win64 or aapcs64")
         path = scoped(root, spec["original_path"])
         if path.stat().st_size > call_images.MAX_IMAGE:
             raise Blocked("Original image exceeds bounds")

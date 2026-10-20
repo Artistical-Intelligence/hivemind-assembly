@@ -1,4 +1,4 @@
-"""Linked x86-64 function replay: ELF/SysV and PE/Win64, with bounded buffers.
+"""Linked function replay: x86-64 ELF/PE and AArch64 ELF, with bounded buffers.
 
 Uses pefile/pyelftools for symbols and Unicorn for execution. No DLL loading,
 initializers, OS imports, TLS, exceptions or host execution is implied. Each case
@@ -27,6 +27,11 @@ ABIS = {
         ("RBX", "RBP", "RDI", "RSI", "R12", "R13", "R14", "R15"),
         32,
     ),
+    "aapcs64": (
+        tuple("X" + str(i) for i in range(8)),
+        tuple("X" + str(i) for i in range(19, 30)),
+        0,
+    ),
 }
 STACK, STOP, BUFFERS = 0x70000000, 0x71000000, 0x60000000
 MAX_IMAGE = 2_000_000
@@ -54,7 +59,10 @@ def load(data, symbol=None, address=None, *, _imports_resolved=False):
     if data.startswith(b"\x7fELF"):
         from elftools.elf.elffile import ELFFile
 
-        _, parts = load_elf(data)
+        machine = int.from_bytes(data[18:20], "little")
+        if machine not in (62, 183):
+            raise Blocked("Linked ELF calls support x86-64 or little-endian AArch64")
+        _, parts = load_elf(data, machine=machine)
         elf = ELFFile(io.BytesIO(data))
         if any(s["p_type"] == "PT_TLS" for s in elf.iter_segments()):
             raise Blocked("TLS requires a separately modeled runtime")
@@ -82,7 +90,7 @@ def load(data, symbol=None, address=None, *, _imports_resolved=False):
                         and item["st_shndx"] != "SHN_UNDEF"
                     ):
                         matches.append(item["st_value"])
-        abi = "sysv"
+        abi = "aapcs64" if machine == 183 else "sysv"
     elif data.startswith(b"MZ"):
         import pefile
 
@@ -162,6 +170,8 @@ def load(data, symbol=None, address=None, *, _imports_resolved=False):
         if len(set(matches)) != 1:
             raise ContractError("Exactly one defined function symbol is required")
         address = matches[0]
+    if abi == "aapcs64" and address % 4:
+        raise ContractError("AArch64 function entry must be four-byte aligned")
     if not any(
         s["address"] <= address < s["address"] + s["size"] and "x" in s["permissions"]
         for s in segments
@@ -191,7 +201,7 @@ def load(data, symbol=None, address=None, *, _imports_resolved=False):
 def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
     function_name(function)
     if abi not in ABIS:
-        raise ContractError("ABI must be sysv or win64")
+        raise ContractError("ABI must be sysv, win64 or aapcs64")
     units = sources(root, manifest)
     executable = (
         shutil.which(compiler)
@@ -201,8 +211,8 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
     if not executable:
         raise Blocked("Install a C compiler")
     clang = "clang" in Path(executable).name.lower()
-    if abi == "win64" and not clang:
-        raise Blocked("Windows linked reconstruction requires Clang and LLD")
+    if abi in ("win64", "aapcs64") and not clang:
+        raise Blocked("Windows/AArch64 linked reconstruction requires Clang and LLD")
     fingerprint = file_hash(executable)
     hashes = {
         name: hashlib.sha256(text.encode()).hexdigest() for name, text in units.items()
@@ -220,15 +230,16 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
         argv = [executable]
         if clang:
             argv += [
-                (
-                    "--target=x86_64-pc-windows-msvc"
-                    if abi == "win64"
-                    else "--target=x86_64-unknown-linux-gnu"
-                ),
+                "--target="
+                + {
+                    "win64": "x86_64-pc-windows-msvc",
+                    "sysv": "x86_64-unknown-linux-gnu",
+                    "aapcs64": "aarch64-unknown-linux-gnu",
+                }[abi],
                 "-fuse-ld=lld",
             ]
+        argv += ["-march=armv8-a", "-ffixed-x18"] if abi == "aapcs64" else ["-m64"]
         argv += [
-            "-m64",
             "-std=c11",
             "-" + manifest.get("optimization", "O2"),
             "-ffreestanding",
@@ -262,6 +273,8 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
             raise Blocked("Missing or oversized linked image")
         data = path.read_bytes()
         image = load(data, symbol=function)
+        if image["abi"] != abi:
+            raise Blocked("Compiler produced an image for a different ABI")
         if fingerprint != file_hash(executable):
             raise Blocked("Compiler changed during build")
         return {
@@ -346,16 +359,24 @@ def validate_case(case):
 def execute(image, case):
     validate_case(case)
     abi = image["abi"]
+    if abi not in ABIS:
+        raise ContractError("Unknown linked-call ABI")
+    arm = abi == "aapcs64"
     arg_registers, preserved, shadow = ABIS[abi]
     xmm = tuple("XMM" + str(i) for i in range(6, 16)) if abi == "win64" else ()
     registers = {name: 0xA55A12340000 + i for i, name in enumerate(preserved)}
     registers.update(
         {name: 0x112233445566778899AABBCCDDEEFF00 + i for i, name in enumerate(xmm)}
     )
+    vectors = tuple("Q" + str(i) for i in range(8, 16)) if arm else ()
+    registers.update(
+        {name: 0x112233445566778899AABBCCDDEEFF00 + i for i, name in enumerate(vectors)}
+    )
     # Room above return address for shadow space and all stack arguments.
-    rsp = STACK + 0xFEF8
+    rsp = STACK + (0xFEF0 if arm else 0xFEF8)
     stack = bytearray(65536)
-    stack[rsp - STACK : rsp - STACK + 8] = STOP.to_bytes(8, "little")
+    if not arm:
+        stack[rsp - STACK : rsp - STACK + 8] = STOP.to_bytes(8, "little")
     memory, ranges, access, observe = [], [], [], []
     for s in image["segments"]:
         start = s["address"] & ~4095
@@ -397,41 +418,69 @@ def execute(image, case):
     ]
     registers.update(dict(zip(arg_registers, args)))
     for index, value in enumerate(args[len(arg_registers) :]):
-        offset = rsp - STACK + 8 + shadow + index * 8
+        offset = rsp - STACK + (0 if arm else 8) + shadow + index * 8
         stack[offset : offset + 8] = value.to_bytes(8, "little")
-    registers["RSP"] = rsp
-    registers["MXCSR"] = 0x1F80
-    registers["FPCW"] = 0x37F
+    if arm:
+        registers.update(SP=rsp, X30=STOP, X18=0xA55A180000, FPCR=0, FPSR=0)
+    else:
+        registers.update(RSP=rsp, MXCSR=0x1F80, FPCW=0x37F)
     memory += [
         {"address": STACK, "size": 65536, "hex": stack.hex(), "permissions": "rw"},
-        {"address": STOP, "size": 4096, "hex": "90", "permissions": "rx"},
+        {
+            "address": STOP,
+            "size": 4096,
+            "hex": "1f2003d5" if arm else "90",
+            "permissions": "rx",
+        },
     ]
     access.append([STACK, STACK + 65536, "rw"])
-    result = run_reference(
+    replay = run_reference
+    if arm:
+        from .arm64 import replay
+    result = replay(
         {
             "start": image["entry"],
             "stop": STOP,
             "memory": memory,
             "registers": registers,
-            "extra_registers": (*xmm, "MXCSR", "FPCW"),
+            "extra_registers": (
+                (*vectors, "FPCR", "FPSR") if arm else (*xmm, "MXCSR", "FPCW")
+            ),
             "access_ranges": access,
             "code_ranges": ranges,
             "observe_memory": observe,
             "max_instructions": case.get("max_instructions", 100000),
         }
     )
-    abi_ok = result["registers"]["RSP"] == rsp + 8 and all(
+    abi_ok = result["registers"]["SP" if arm else "RSP"] == rsp + (
+        0 if arm else 8
+    ) and all(
         result["registers"][name] == registers[name] for name in (*preserved, *xmm)
     )
-    abi_ok = (
-        abi_ok
-        and result["registers"]["FPCW"] == 0x37F
-        and result["registers"]["MXCSR"] & 0xFFC0 == 0x1F80
-    )
+    if arm:
+        # AAPCS64 preserves only the low 64 bits of v8-v15. Reserve x18 because
+        # its use is platform-specific; the freestanding compiler does likewise.
+        abi_ok = (
+            abi_ok
+            and result["registers"]["X18"] == registers["X18"]
+            and all(
+                result["registers"][name] & ((1 << 64) - 1)
+                == registers[name] & ((1 << 64) - 1)
+                for name in vectors
+            )
+            and result["registers"]["FPCR"] == 0
+        )
+    else:
+        abi_ok = (
+            abi_ok
+            and result["registers"]["FPCW"] == 0x37F
+            and result["registers"]["MXCSR"] & 0xFFC0 == 0x1F80
+        )
     return {
         "status": result["status"],
         "abi_ok": abi_ok,
-        "value": result["registers"]["RAX"] & ((1 << case.get("output_bits", 64)) - 1),
+        "value": result["registers"]["X0" if arm else "RAX"]
+        & ((1 << case.get("output_bits", 64)) - 1),
         "buffers": result["memory"],
         "instructions": len(result["trace"]),
         "fault": result["fault"],
