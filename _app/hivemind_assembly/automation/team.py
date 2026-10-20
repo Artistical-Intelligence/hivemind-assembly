@@ -1026,6 +1026,19 @@ TOOL_SCHEMAS = {
         "owner": "optional authorized account or an organization allowed in settings",
     },
     "repository_status": {},
+    "build_linked_function": {
+        "manifest_path": "JSON sources/declarations/optimization; multiple freestanding C files",
+        "function": "defined entry symbol",
+        "candidate_abi": "sysv or win64 (requires Clang/LLD)",
+    },
+    "compare_linked_function": {
+        "manifest_path": "build manifest",
+        "function": "candidate entry symbol",
+        "candidate_abi": "sysv or win64",
+        "original_path": "linked ELF or PE image without imports/TLS",
+        "original_symbol": "original function symbol; alternatively original_address integer",
+        "cases": "1–256 objects: arguments (unsigned integers or {buffer: id, offset: bytes}), buffers [{id,hex,permissions:r|rw}], output_bits 32|64. Compare all caller buffer bytes; alias pointers by referencing the same buffer. Image-global writes are unsupported.",
+    },
     "validate_c_function": {
         "candidate_path": "relative freestanding C source; no includes or inline assembly",
         "function": "defined C function symbol",

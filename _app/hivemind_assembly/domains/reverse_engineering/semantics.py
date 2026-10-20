@@ -328,6 +328,21 @@ def run_reference(case):
         for i in range(size):
             writes[str(address + i)] = (value >> (8 * i)) & 255
 
+    def on_access(m, access, address, size, value, data):
+        nonlocal unsupported
+        permission = "w" if access == u.UC_MEM_WRITE else "r"
+        if not any(
+            start <= address and address + size <= end and permission in perms
+            for start, end, perms in case["access_ranges"]
+        ):
+            unsupported = {
+                "reason": "Access left the declared memory bounds",
+                "address": address,
+                "size": size,
+                "permission": permission,
+            }
+            m.emu_stop()
+
     def on_fault(m, access, address, size, value, data):
         nonlocal fault
         kinds = {
@@ -343,6 +358,8 @@ def run_reference(case):
 
     machine.hook_add(u.UC_HOOK_MEM_WRITE, on_write)
     machine.hook_add(u.UC_HOOK_MEM_INVALID, on_fault)
+    if "access_ranges" in case:
+        machine.hook_add(u.UC_HOOK_MEM_READ | u.UC_HOOK_MEM_WRITE, on_access)
 
     def on_code(m, address, size, data):
         nonlocal unsupported
@@ -396,7 +413,12 @@ def run_reference(case):
     return {
         "status": status,
         "registers": {
-            k: machine.reg_read(getattr(xc, "UC_X86_REG_" + k)) for k in REGISTERS
+            k: machine.reg_read(getattr(xc, "UC_X86_REG_" + k))
+            for k in (*REGISTERS, *case.get("extra_registers", ()))
+        },
+        "memory": {
+            item["name"]: bytes(machine.mem_read(item["address"], item["size"])).hex()
+            for item in case.get("observe_memory", ())
         },
         "flags": {k: (ef >> b) & 1 for k, b in FLAGS.items()},
         "writes": committed,

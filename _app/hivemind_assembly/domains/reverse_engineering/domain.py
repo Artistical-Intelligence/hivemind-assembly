@@ -44,6 +44,8 @@ class ReverseEngineeringDomain:
         Capability("compare_states", recovery="discard"),
         Capability("check_equivalence", recovery="discard"),
         Capability("validate_c_function", recovery="discard"),
+        Capability("build_linked_function", recovery="discard"),
+        Capability("compare_linked_function", recovery="discard"),
         Capability("build_program", recovery="discard"),
         Capability("compare_program", recovery="discard"),
     )
@@ -123,6 +125,48 @@ class ReverseEngineeringDomain:
                 ("--provider", "ghidra"),
                 context.cancel,
             )
+        if tool in ("build_linked_function", "compare_linked_function"):
+            from . import call_images
+
+            path = scoped(root, args["manifest_path"])
+            if path.stat().st_size > 128000:
+                raise Blocked("Build manifest exceeds bounds")
+            built = call_images.build(
+                root,
+                json.loads(path.read_text()),
+                args["function"],
+                args["candidate_abi"],
+                context.jobs,
+                context.config.get("foundations", {}).get("c_compiler", ""),
+                context.cancel,
+            )
+            if built["passed"]:
+                machine = bytes.fromhex(built.pop("image_hex"))
+                built["_artifact"] = {
+                    "data": machine,
+                    "name": "reconstructed-call."
+                    + ("dll" if args["candidate_abi"] == "win64" else "elf"),
+                }
+                if tool == "compare_linked_function":
+                    original_path = scoped(root, args["original_path"])
+                    if original_path.stat().st_size > call_images.MAX_IMAGE:
+                        raise Blocked("Original image exceeds bounds")
+                    original = call_images.load(
+                        original_path.read_bytes(),
+                        args.get("original_symbol"),
+                        args.get("original_address"),
+                    )
+                    built["comparison"] = call_images.compare(
+                        original,
+                        call_images.load(machine, symbol=args["function"]),
+                        args["cases"],
+                        context.cancel,
+                    )
+                    built["passed"] = built["comparison"]["passed"]
+                built["claim"] = (
+                    "Development evidence only; completion independently rebuilds against the pinned image and protected cases"
+                )
+            return built
         if tool in ("build_program", "compare_program"):
             from .program import build, compare
 

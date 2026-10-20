@@ -117,6 +117,8 @@ def test_original_specialist_capabilities_and_proof_are_preserved(ready):
         "compare_states",
         "check_equivalence",
         "validate_c_function",
+        "build_linked_function",
+        "compare_linked_function",
         "build_program",
         "compare_program",
     }

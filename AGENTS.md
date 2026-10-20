@@ -24,3 +24,8 @@
   out of version control and release artifacts.
 - State what was actually verified. Keep historical evidence separate from
   current-run results; never count fixtures as live provider acceptance.
+
+- Publish coherent, tested implementation checkpoints to the connected private
+  GitHub repository during long runs. Do not defer all publication until the
+  final release. Preserve remote changes; never force-push. Exclude credentials,
+  private runtime data and source material without sharing permission.

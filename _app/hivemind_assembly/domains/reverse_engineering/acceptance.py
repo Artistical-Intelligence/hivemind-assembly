@@ -135,10 +135,13 @@ class ReconstructionAcceptance:
 
 
 from .program_acceptance import ProgramAcceptance
+from .call_acceptance import CallAcceptance
 
 
 class AcceptanceSuite:
     def verifier(self, scope):
+        if scope == "x86_64_linked_calls":
+            return CallAcceptance()
         if scope == "static_x86_64_linux_program":
             return ProgramAcceptance()
         if scope == "x86_64_register_regions":
@@ -146,7 +149,7 @@ class AcceptanceSuite:
         if scope == "x86_64_c_functions":
             return ReconstructionAcceptance()
         raise ContractError(
-            "Supported acceptance scopes: x86_64_register_regions, x86_64_c_functions"
+            "Supported acceptance scopes: x86_64_register_regions, x86_64_c_functions, x86_64_linked_calls, static_x86_64_linux_program"
         )
 
     def prepare(self, root, spec, artifacts, project, context):
@@ -156,7 +159,9 @@ class AcceptanceSuite:
         args = (root, spec, artifacts, project)
         return (
             verifier.prepare(*args, context)
-            if isinstance(verifier, (ReconstructionAcceptance, ProgramAcceptance))
+            if isinstance(
+                verifier, (ReconstructionAcceptance, ProgramAcceptance, CallAcceptance)
+            )
             else verifier.prepare(*args)
         )
 
