@@ -85,7 +85,9 @@ def available(name):
 
 def install_missing():
     required = ["git", "node", "java"]
-    if not shutil.which("clang") and not shutil.which("gcc"):
+    # Windows MinGW GCC cannot supply the Linux ELF/PE cross-target lanes.
+    # LLVM includes Clang and LLD; Unix hosts may use their existing native GCC.
+    if not shutil.which("clang") and (os.name == "nt" or not shutil.which("gcc")):
         required.append("clang")
     missing = [name for name in required if not available(name)]
     if not missing:

@@ -146,6 +146,20 @@ def run(argv, cwd, *, stdin=b"", timeout=30, output_limit=1048576, cancel=None):
             for k in ("PATH", "SystemRoot", "WINDIR")
             if k in os.environ
         }
+        if os.name == "nt":
+            # Installed toolchains use Windows' shared installation roots (in
+            # particular Visual Studio's Setup Configuration service). These are
+            # system paths, not the user's profile or an inherited tool config.
+            for name in (
+                "SystemDrive",
+                "ProgramData",
+                "ALLUSERSPROFILE",
+                "ProgramFiles",
+                "ProgramFiles(x86)",
+                "ProgramW6432",
+            ):
+                if name in os.environ:
+                    environment[name] = os.environ[name]
         environment.update(
             HOME=str(home),
             USERPROFILE=str(home),

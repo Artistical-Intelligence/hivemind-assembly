@@ -339,3 +339,14 @@ and GitHub authentication are reused; no second CI scheduler is implemented.
 This is an optional owner-authorized execution lane. GitHub's spending boundary
 must already be configured. API fixtures establish request recovery and identity
 checks, not available quota, real hosted execution or clean Windows acceptance.
+
+Windows CI exposed an asynchronous Job Object cleanup race: killing descendants
+on handle close can return before inherited output handles are released. Normal
+cleanup now terminates the job and observes its active-process count before
+removing temporary output files. Kill-on-close remains the controller-crash
+fallback. Actual Windows timeout, output-limit and controller-exit checks passed
+after this change. Linux ELF fixtures select Clang/LLD on Windows; native Linux
+oracles remain separate host-specific checks.
+
+- https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_basic_accounting_information
+- https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects
