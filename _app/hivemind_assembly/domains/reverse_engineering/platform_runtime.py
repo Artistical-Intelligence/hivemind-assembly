@@ -133,9 +133,17 @@ def replay(
     argv, env = normalize(argv, env)
     from .linux_dependencies import validate
     from .linux_abi import LinuxABI
+    from .program import image_machine, load_image
 
     dependencies = {} if dependencies is None else dependencies
-    info = validate(data, dependencies)
+    arm = image_machine(data) == 183
+    if arm:
+        load_image(data, machine=183)
+        if dependencies:
+            raise Blocked("AArch64 dynamic loading is outside the platform contract")
+        info = {"interpreter": None, "dynamic": False}
+    else:
+        info = validate(data, dependencies)
     declared = files_spec(files or {})
     if set(declared) & set(dependencies):
         raise ContractError("Guest files cannot replace executable dependencies")
@@ -207,8 +215,9 @@ def replay(
 
         cleanup.callback(close_guest_files)
         from unicorn.x86_const import UC_CPU_X86_HASWELL
+        from unicorn.arm64_const import UC_CPU_ARM64_A72
 
-        if ql.uc.ctl_get_cpu_model() != UC_CPU_X86_HASWELL:
+        if ql.uc.ctl_get_cpu_model() != (UC_CPU_ARM64_A72 if arm else UC_CPU_X86_HASWELL):
             raise Blocked("Unsupported guest CPU model; revalidate the runtime")
         dependency_paths = {root / name.lstrip("/") for name in dependencies}
         application_entry = ql.loader.elf_entry
@@ -218,8 +227,9 @@ def replay(
 
         if phase["loading"]:
             ql.hook_address(entered_application, application_entry)
-        if ql.arch.bits != 64 or ql.os.type.name != "LINUX":
-            raise Blocked("Platform lane requires Linux x86-64")
+        if ql.arch.bits != 64 or ql.os.type.name != "LINUX" or ql.arch.type.name != ("ARM64" if arm else "X8664"):
+            raise Blocked("Platform lane requires the selected Linux x86-64/AArch64 architecture")
+        result_register = "x0" if arm else "rax"
         stdin, stdout, stderr = (
             BoundedStream(input_bytes, 0),
             BoundedStream(fd=1),
@@ -264,16 +274,21 @@ def replay(
             return False
 
         def dispatch(os):
-            number = os.get_syscall()
+            original_number = number = os.get_syscall()
             args = [
-                ql.arch.regs.read(r) for r in ("rdi", "rsi", "rdx", "r10", "r8", "r9")
+                ql.arch.regs.read(r) for r in (("x0", "x1", "x2", "x3", "x4", "x5") if arm else ("rdi", "rsi", "rdx", "r10", "r8", "r9"))
             ]
+            adapted_handler = None
+            if arm:
+                from .program_arm64 import qiling_operation
+
+                number, args, adapted_handler = qiling_operation(number, args)
             if len(events) + len(loader_events) >= 4096:
                 stop("event_limit")
                 return
             name = ALLOWED.get(number)
             if name is None:
-                record({"call": "unsupported", "number": number})
+                record({"call": "unsupported", "number": original_number})
                 stop("unsupported_syscall")
                 return
             if phase["loading"] and (
@@ -448,9 +463,9 @@ def replay(
                 return
             if number in (4, 5, 6, 262):
                 abi.stat(number, args, host, empty_path)
-                event["result"] = ql.arch.regs.rax
+                event["result"] = ql.arch.regs.read(result_register)
             elif abi.setup(number, args):
-                event["result"] = ql.arch.regs.rax
+                event["result"] = ql.arch.regs.read(result_register)
             elif number == 228:
                 if args[0] not in (0, 1):
                     stop("unsupported_clock")
@@ -477,11 +492,15 @@ def replay(
                 os.set_syscall_return(size)
                 event["count"] = size
             else:
-                original()
+                if adapted_handler:
+                    handler, count = adapted_handler
+                    os.set_syscall_return(handler(ql, *args[:count]))
+                else:
+                    original()
                 # Results that expose allocation addresses are implementation
                 # details; actual memory/output observations still compare.
                 if number not in (9, 12):
-                    event["result"] = ql.arch.regs.rax
+                    event["result"] = ql.arch.regs.read(result_register)
                 if number in (0, 1, 3, 8, 17, 18):
                     event["fd"] = args[0]
             record(event)
@@ -491,8 +510,17 @@ def replay(
         def instruction(engine, address, size):
             state["instructions"] += 1
             raw = bytes(ql.mem.read(address, size)) if 1 <= size <= 15 else b""
-            op = opcode(raw)
-            if dependencies and op in (b"\x0f\x31", b"\x0f\x01\xf9"):
+            op = opcode(raw) if not arm else None
+            if arm:
+                from .arm64 import unsupported_instruction
+
+                if size != 4 or address % 4 or ql.arch.regs.sp % 16 or (
+                    raw != b"\x01\x00\x00\xd4" and unsupported_instruction(raw)
+                ):
+                    record({"call": "unsupported_cpu", "instruction": raw.hex()})
+                    stop("unsupported_cpu_state")
+                    return
+            elif dependencies and op in (b"\x0f\x31", b"\x0f\x01\xf9"):
                 # A fixed 1 GHz guest timestamp counter shares the declared clock.
                 ql.arch.regs.rax = clock_ns & 0xFFFFFFFF
                 ql.arch.regs.rdx = clock_ns >> 32
@@ -576,7 +604,7 @@ def replay(
                 name: hashlib.sha256(value).hexdigest()
                 for name, value in dependencies.items()
             },
-            "cpu_model": "haswell",
+            "cpu_model": "cortex-a72" if arm else "haswell",
             "memory": memory,
             "fault": fault,
             "files": outputs,

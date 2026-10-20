@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.15.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.15.1 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -179,7 +179,11 @@ forwarded. `ha_mkdir`, `ha_rmdir`, `ha_remove`, `ha_rename`, `ha_clock` and
 `ha_random` expose the corresponding declared effects to recovered C.
 
 **Complete Linux x64 / AArch64 program** acceptance supports static ELF for both architectures, and bounded x86-64 dynamic
-ELF/PIE originals under Qiling. `original_dependencies` maps absolute guest
+ELF/PIE originals under Qiling. Static AArch64 Qiling replay also supports declared
+files, directories, mappings and supplied random bytes, with a verified Cortex-A72
+guest CPU. Cross-architecture reconstructions can use observable comparison when
+the two ABIs express the same file operation through different syscall sequences.
+`original_dependencies` maps absolute guest
 interpreter/library paths to files in the project. Every dependency is protected
 and hashed; no host libraries are discovered automatically. The rebuilt C
 candidate remains freestanding and static. Loader metadata, mapping, TLS setup

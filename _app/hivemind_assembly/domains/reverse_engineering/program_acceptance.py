@@ -74,8 +74,6 @@ class ProgramAcceptance:
             runner = replay
             extra = {}
             if case.get("runtime") == "qiling_linux":
-                if arm:
-                    raise ContractError("AArch64 programs require unicorn_linux cases")
                 from .platform_runtime import replay as qiling_replay
 
                 runner = qiling_replay
@@ -89,7 +87,7 @@ class ProgramAcceptance:
             elif case.get("runtime", "unicorn_linux") != "unicorn_linux":
                 raise ContractError("Unknown program runtime")
             elif case.get("files") or case.get("random_hex") or dependencies:
-                raise ContractError("Files, random input and ELF dependencies require the x86-64 Qiling lane")
+                raise ContractError("Files, random input and ELF dependencies require the Qiling lane")
             result = runner(
                 original,
                 bytes.fromhex(case.get("input_hex", "")),

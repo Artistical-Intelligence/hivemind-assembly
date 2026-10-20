@@ -1,14 +1,14 @@
 {
-  "version": "0.15.0",
+  "version": "0.15.1",
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 499,
+    "passed": 515,
     "skipped": 10,
     "failed": 0,
-    "elapsed_seconds": 113.45,
+    "elapsed_seconds": 123.04,
     "host": "Linux Python 3.12",
-    "scope": "509-case full local regression; unavailable browser/Windows/native-source dependencies skipped. A subsequent Windows environment preservation refinement passed all 15 prerequisite tests. Signed-in provider acceptance is separate."
+    "scope": "525-case local regression, including static ARM Qiling and cross-architecture protected file acceptance. Browser/Windows/native-source dependencies unavailable here are explicitly skipped; hosted and signed-in acceptance remain separately recorded."
   },
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -17,7 +17,7 @@
     "static": "pyflakes on changed implementation/tests, JavaScript syntax and git diff --check passed. Workflow template matches the source workflow; runtime and source release archives are separately manifest-checked.",
     "goals": "Fixture native responses exercised root goal continuation through real local capture execution and a second fresh independent acceptance run. This is not signed-in native model acceptance.",
     "historical_evidence": "Checks under historical_checks were recorded in earlier development runs and are not newly claimed from this release verification.",
-    "github_ci": "Checkpoint 2f8785b (run 39476662233) passed Linux contracts (458 passed, 14 skipped), Windows contracts (452 passed, 20 skipped), ten Windows native compiler/cleanup tests, all six Chromium checks, and packaged Windows install/update/restore. Full Windows foundation installation is a separate workflow.",
+    "github_ci": "Checkpoint 7eb91d8 (run 39510244450) passed Linux contracts (485 passed, 24 skipped), Windows contracts (487 passed, 22 skipped), ten Windows native checks, seven Chromium dashboard/transport checks and Windows package install/update/restore. Fresh full Windows foundations run 39510244523 also passed. The new ARM Qiling extension will be checked by its own subsequent run; signed-in model acceptance is separate.",
     "windows_runtime": "The extracted Windows package installed its bundled Python and hash-locked dependencies in a fresh data directory, ran register and native Python checks, survived removal/re-extraction of the application folder, and restored a verified backup with project files intact. Paths contained spaces. Tested in GitHub Windows CI, not a manual desktop or complete Ghidra/REA installation.",
     "project_workspace": "Real Chromium and the HTTP controller completed starter creation, uploads, editing, draft preservation, positive/negative checks, byte-exact download, reload persistence, native observations and fresh guided exact-output setup. A separate local jsdom/controller run compiled and checked a C utility through the guided form with automatic compiler discovery. Authenticated streaming, version-checked snapshots, stale edits, immutable references, invalid paths and local-check independence from optional publication passed backend tests.",
     "mcp_codespaces": "Official MCP SDK in-process and real stdio bridge exchanges; outbound stdio discovery/tool/project grants; standalone Linux runner execution, deadline and credential removal; parallel spaces, queued cancellation, interrupted startup, GPU requirement rejection and output import conflict checks. Real HTTP controller with jsdom validated connection settings. No live Codespace or web tunnel acceptance.",
@@ -32,7 +32,7 @@
     "windows_arm64_calls": "Standard ARM64 PE exports and freestanding Clang/LLD builds now reuse bounded ARM replay. Scalar/pointer cases, 16 arguments, cross-ABI comparisons, protected originals, wrong candidates and installed probes pass locally. LP64/LLP64 differences produce mismatches; ARM64EC/ARM64X are explicitly rejected. Full Windows OS services and ARM64 DLL imports remain unsupported.",
     "mcp_client_metadata": "Official SDK client metadata registration added with generated public JSON, fixed loopback callbacks, persisted non-secret configuration and registration-change fencing. Protocol checks cover metadata-only authorization, zero dynamic registrations, reconnect reuse, refresh and credential exclusion; external provider trust policies remain unverified.",
     "arm64_dependencies": "Explicit standard ARM64 PE dependencies use upstream pefile relocation and the existing protected bundle loader. Real Clang/LLD DLL fixtures cover imports, relocated pointers, forwarders, missing dependencies and protected original pinning; mixed architectures and ARM64EC/ARM64X are rejected.",
-    "arm64_program": "Complete static AArch64 Linux ELF build/replay and cross-architecture protected acceptance passed local checks: multiple translation units, globals, streams, explicit argv/env, fixed clock, negative reconstructions, cancellation and unsupported CPU/syscall rejection. Results agreed with a separately executed native GCC binary. An editable dashboard starter and installed-runtime probe are included. Files, dynamic ARM loading and broader OS effects remain unsupported.",
+    "arm64_program": "Complete static AArch64 Linux ELF build/replay and cross-architecture protected acceptance cover multiple units, globals, streams, explicit argv/env and fixed clock. Qiling also covers bounded file/directory/memory effects and supplied random input, with a verified Cortex-A72 guest CPU. Native GCC fixture execution independently agrees with ARM stream/file output; protected file acceptance rejects incorrect reconstructions. Unsupported CPU/syscall/descriptor/flag effects stop execution. Dynamic ARM images and libraries remain unsupported.",
     "windows_prerequisites": "Refreshes registry PATH/JAVA_HOME after installs while preserving valid existing tool selections; Java and javac must be a matching full JDK. Fifteen local prerequisite checks passed. Actual desktop WinGet installation remains unverified."
   },
   "native_live_acceptance": {
@@ -43,7 +43,7 @@
     "hosted_windows_foundations": true
   },
   "remaining_implementation": [
-    "Extend bounded x86-64/AArch64 function lanes and controlled x86-64 Linux application replay to further platforms, full ARM execution, Windows/game/graphics effects and target-level equivalence.",
+    "Extend bounded x86-64/AArch64 function and static Linux application lanes to dynamic ARM loading, broader Windows/game/graphics effects and target-level equivalence.",
     "Resolve any provider-specific adapter gaps identified by signed-in account validation; current ambiguous controls remain blocked.",
     "Extend MCP onboarding where provider-specific requires additional integration; standard HTTP OAuth setup is implemented, with live account consent and tunnel authorization still acceptance gates."
   ],
@@ -59,7 +59,7 @@
   "model_api_inference": false,
   "paid_overage": false,
   "runtime_contract": {
-    "program": "x86-64 little-endian Linux ELF. Static Unicorn replay; Qiling also accepts bounded dynamic ELF/PIE with explicitly supplied and pinned interpreter/libraries, process inputs, files, guest metadata, single-thread setup, bounded mappings, fixed clock and supplied random bytes. No host file, process/network forwarding, unknown syscalls or constructor I/O. Strict effects remain the default; explicit observable policy checks streams, exit, input consumption, selected memory and final files/directories. Event traces retained.",
+    "program": "Static little-endian x86-64 and AArch64 Linux ELF. Unicorn supports streams, exit, argv/env and a fixed clock; Qiling adds bounded files, directories, mappings, deterministic metadata and supplied random input. Qiling also accepts x86-64 dynamic ELF/PIE with explicitly supplied and pinned interpreter/libraries. No host file, process/network forwarding, unknown syscalls or constructor I/O. Strict effects remain the default; explicit observable policy compares streams, exit, input consumption, selected memory and final files/directories. Event traces retained.",
     "data_location": "Existing UnifiedWorkbench user-data path is unchanged",
     "credentials": "OS vault; browser credentials are not copied to code, configuration, releases or backups"
   },

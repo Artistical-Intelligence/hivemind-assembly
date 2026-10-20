@@ -513,7 +513,7 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
         elif runtime != "unicorn_linux":
             raise ContractError("Unknown program runtime")
         elif case.get("files") or case.get("random_hex") or dependencies:
-            raise ContractError("Files, random input and ELF dependencies require the x86-64 Qiling lane")
+            raise ContractError("Files, random input and ELF dependencies require the Qiling lane")
         before = runner(
             original,
             bytes.fromhex(case.get("input_hex", "")),

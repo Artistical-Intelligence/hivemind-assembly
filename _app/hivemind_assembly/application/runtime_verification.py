@@ -53,36 +53,41 @@ def verify_runtime_lanes(root, foundations, jobs=None):
             ha_file_write(f,b,n);ha_close(f);ha_write(b,n);return 0;
         }"""
         )
-        built = program.build(folder, {"sources": ["main.c"]}, jobs, compiler)
-        if not built["passed"]:
-            raise Blocked(
-                "Linux runtime probe compilation failed: " + str(built.get("build"))
+        lanes = {}
+        for architecture in ("x86_64", "aarch64"):
+            built = program.build(folder, {"sources": ["main.c"], "architecture": architecture}, jobs, compiler)
+            if not built["passed"]:
+                raise Blocked(
+                    "Linux runtime probe compilation failed: " + str(built.get("build"))
+                )
+            source = b"known input"
+            expected = bytes(value ^ ord("K") for value in source).hex()
+            result = platform_runtime.replay(
+                bytes.fromhex(built["elf_hex"]),
+                argv=["program", "x"],
+                env={"HA_KEY": "K"},
+                files={"/input": source.hex()},
             )
-        source = b"known input"
-        expected = bytes(value ^ ord("K") for value in source).hex()
-        result = platform_runtime.replay(
-            bytes.fromhex(built["elf_hex"]),
-            argv=["program", "x"],
-            env={"HA_KEY": "K"},
-            files={"/input": source.hex()},
-        )
-        if (
-            result["status"] != "completed"
-            or result["exit_code"] != 0
-            or result["stdout_hex"] != expected
-            or result["files"] != {"/input": source.hex(), "/out/result": expected}
-            or result["directories"] != ["/out"]
-        ):
-            raise Blocked(
-                "Declared Linux process/files probe did not match known results"
-            )
-        checks["qiling_runtime"] = {
-            "passed": True,
-            "engine": result["engine"],
-            "process_inputs": True,
-            "file_effects": True,
-            "image_sha256": built["sha256"],
-        }
+            if (
+                result["status"] != "completed"
+                or result["exit_code"] != 0
+                or result["stdout_hex"] != expected
+                or result["files"] != {"/input": source.hex(), "/out/result": expected}
+                or result["directories"] != ["/out"]
+            ):
+                raise Blocked(
+                    "Declared Linux process/files probe did not match known results"
+                )
+            lanes[architecture] = {
+                "passed": True,
+                "engine": result["engine"],
+                "cpu_model": result["cpu_model"],
+                "process_inputs": True,
+                "file_effects": True,
+                "image_sha256": built["sha256"],
+            }
+        checks["qiling_runtime"] = {"passed": True, "architectures": lanes}
+
     except Exception as error:
         checks["qiling_runtime"] = {"passed": False, "reason": str(error)}
 

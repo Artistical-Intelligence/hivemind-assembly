@@ -45,8 +45,8 @@ Windows application reconstruction or live GitHub automation acceptance.
 3. Measure native knowledge/procedure improvements across independent projects.
    Rollout control, protected truth, resumption and promotion are implemented
    and fixture-tested; genuine native learning gains remain unmeasured.
-4. Extend application reconstruction beyond the implemented static x86-64 Linux
-   and supplied-dependency Linux contracts. Full Qiling now executes bounded
+4. Extend application reconstruction beyond the implemented static x86-64/AArch64 Linux
+   and supplied-dependency x86-64 Linux contracts. Full Qiling now executes bounded
    ELF interpreter/shared-library startup and explicit process/file/memory inputs.
    Broader CPU/OS effects, Windows/game/graphics behavior and target-level
    equivalence remain outside the implemented acceptance scope.
@@ -82,7 +82,7 @@ consent and live account policies remain gates. Hosted client metadata document 
 Version 0.14 adds bounded AArch64 linked-function reconstruction, cross-architecture
 comparison with x86-64, protected acceptance, reusable workflow calls, installed
 runtime probes, and an editable dashboard example. It uses Clang/LLD and Unicorn
-with explicit AAPCS64 integer/pointer contracts. Version 0.15 also executes complete static ARM Linux programs with explicit streams, argv/env and clock. Broader ARM OS/dynamic execution, console-specific loaders, graphics runtime and target-level equivalence remain work.
+with explicit AAPCS64 integer/pointer contracts. Version 0.15 also executes complete static ARM Linux programs with explicit streams, argv/env and clock. Static ARM Qiling replay now also covers bounded file/directory/memory effects and supplied random input. Broader ARM dynamic execution, console-specific loaders, graphics runtime and target-level equivalence remain work.
 
 The Windows foundation verification fixture now uses PE for Ghidra/REA while
 retaining the separate ELF runtime probe. A dedicated hosted workflow exercises
@@ -96,3 +96,10 @@ exports and Clang/LLD builds. Cross-platform C data models remain distinct.
 ARM64EC/ARM64X and Windows OS services are unsupported. Version 0.15 adds explicit ARM64 DLL import linking, same-architecture validation, relocation, forwarders and protected dependency pinning.
 
 Version 0.15 adds a source-known full-program ARM-to-x64 dashboard starter, multi-unit ARM builds, protected cross-architecture program acceptance and an installed probe. The Linux static stream/clock contract now covers x64 and ARM64. Windows setup refreshes newly installed paths without downgrading working tool selections, and verifies a matched full JDK. Desktop WinGet and signed-in routes still need acceptance.
+
+The installed Qiling probe checks both x86-64 and AArch64 with the same declared
+process and filesystem inputs. Cross-architecture file replay agrees with a
+separately executed native fixture; protected acceptance rejects incorrect code.
+ARM directory-at calls use the existing guarded upstream Qiling handlers because
+its pinned release lacks those handlers or ignores unlinkat removal flags.
+Unknown effects, non-CWD directory descriptors and unsupported flags stop replay.

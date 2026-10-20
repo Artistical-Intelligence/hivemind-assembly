@@ -1374,7 +1374,7 @@ TOOL_SCHEMAS = {
         "inputs": "named workflow inputs",
     },
     "build_program": {
-        "manifest_path": "JSON with sources [relative C paths], declarations (shared C declarations), optimization O0 or O2, architecture x86_64 (default) or aarch64 (requires Clang/LLD). C entry: int ha_main(void); runtime ha_read, ha_write, ha_exit, ha_argc, ha_argv(index), ha_getenv(name); filesystem ha_open, ha_close, ha_seek, ha_file_read/write, ha_mkdir/rmdir/remove/rename; ha_clock(clock_id,seconds*,nanoseconds*), ha_random(buffer,count,flags). Only x86-64 Qiling supports file/random effects. AArch64 static programs support streams, exit, explicit argv/env and fixed clock. No preprocessor/inline assembly."
+        "manifest_path": "JSON with sources [relative C paths], declarations (shared C declarations), optimization O0 or O2, architecture x86_64 (default) or aarch64 (requires Clang/LLD). C entry: int ha_main(void); runtime ha_read, ha_write, ha_exit, ha_argc, ha_argv(index), ha_getenv(name); filesystem ha_open, ha_close, ha_seek, ha_file_read/write, ha_mkdir/rmdir/remove/rename; ha_clock(clock_id,seconds*,nanoseconds*), ha_random(buffer,count,flags). Qiling supports bounded file/random/memory effects for static x86-64 and AArch64 programs. Both architectures support streams, exit, explicit argv/env and fixed clock. Supplied ELF dependencies and dynamic loading require x86-64. No preprocessor/inline assembly."
     },
     "compare_program": {
         "manifest_path": "build manifest",

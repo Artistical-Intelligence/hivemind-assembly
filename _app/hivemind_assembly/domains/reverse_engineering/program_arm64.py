@@ -5,6 +5,47 @@ the static replay dispatcher admits only streams, exit and an explicit clock.
 Other effects fail closed rather than reaching the host.
 """
 
+# Canonical operation IDs used by HA's existing Linux dispatcher. Qiling still
+# receives the original ARM syscall number and supplies the ABI-specific handler.
+QILING_OPERATIONS = {
+    63: 0, 64: 1, 56: 257, 57: 3, 62: 8, 222: 9, 226: 10,
+    215: 11, 214: 12, 67: 17, 68: 18, 93: 60, 94: 231,
+    17: 79, 113: 228, 278: 318, 79: 262, 80: 5,
+    96: 218, 99: 273, 293: 334, 261: 302,
+}
+
+
+def qiling_operation(number, args):
+    """Normalize CWD-only *at forms to existing, guarded Qiling operations.
+
+    Qiling 1.4.6 lacks mkdirat/renameat and ignores unlinkat's removal flag.
+    Reuse its existing mkdir/rename/unlink/rmdir handlers after the same path
+    guards. No host descriptors or unknown flags are accepted.
+    """
+    from hivemind_assembly.core.common import Blocked
+
+    handler = None
+    if number in (34, 35, 38):
+        if args[0] & 0xFFFFFFFF != 0xFFFFFF9C or (
+            number == 38 and args[2] & 0xFFFFFFFF != 0xFFFFFF9C
+        ):
+            raise Blocked("unsupported_directory_fd")
+        if number == 34:
+            from qiling.os.posix.syscall.stat import ql_syscall_mkdir
+            return 83, [args[1], args[2], 0, 0, 0, 0], (ql_syscall_mkdir, 2)
+        if number == 38:
+            from qiling.os.posix.syscall.fcntl import ql_syscall_rename
+            return 82, [args[1], args[3], 0, 0, 0, 0], (ql_syscall_rename, 2)
+        if args[2] == 0:
+            from qiling.os.posix.syscall.unistd import ql_syscall_unlink
+            return 87, [args[1], 0, 0, 0, 0, 0], (ql_syscall_unlink, 1)
+        if args[2] == 512:
+            from qiling.os.posix.syscall.stat import ql_syscall_rmdir
+            return 84, [args[1], 0, 0, 0, 0, 0], (ql_syscall_rmdir, 1)
+        raise Blocked("unsupported_unlink_flags")
+    return QILING_OPERATIONS.get(number), args, handler
+
+
 SYSCALL_RUNTIME = r"""
 static long ha_call6(long n,long a,long b,long c,long d,long e,long f){
     register long x8 __asm__("x8")=n;

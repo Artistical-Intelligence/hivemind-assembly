@@ -127,3 +127,25 @@ def test_arm_program_cancel_and_protected_cross_architecture_acceptance(tmp_path
     assert not verifier.verify(tmp_path, contract, artifacts, task['project_id'], context)['passed']
     with pytest.raises(Blocked, match='architecture'):
         program.load_image(original)  # Existing default remains x86-64.
+
+
+def test_arm_qiling_protected_cross_architecture_files(tmp_path, store):
+    source = '''int ha_main(void){unsigned char b[32];long f=ha_open("input",0,0);
+    long n=ha_file_read(f,b,32);ha_close(f);for(long i=0;i<n;i++)b[i]^=13;
+    f=ha_open("result",577,384);ha_file_write(f,b,n);ha_close(f);return 0;}'''
+    (tmp_path / 'main.c').write_text(source)
+    manifest = {'sources': ['main.c']}
+    (tmp_path / 'original.elf').write_bytes(compile_arm(tmp_path, manifest))
+    (tmp_path / 'build.json').write_text(json.dumps(manifest))
+    task = store.create_project('ARM filesystem reconstruction', 'Reconstruct file transformation')
+    artifacts = Artifacts(store)
+    context = SimpleNamespace(jobs=Jobs(), config={'foundations': {'c_compiler': CLANG}}, cancel=threading.Event())
+    spec = {'scope': 'linux_program', 'original_path': 'original.elf', 'manifest_path': 'build.json',
+            'cases': [{'runtime': 'qiling_linux', 'files': {'/input': data.hex()}, 'effect_policy': 'observable'}
+                      for data in (b'', bytes(range(32)))]}
+    verifier = ProgramAcceptance()
+    contract = verifier.prepare(tmp_path, spec, artifacts, task['project_id'], context)
+    (tmp_path / 'original.elf').write_bytes(b'edited oracle')
+    assert verifier.verify(tmp_path, contract, artifacts, task['project_id'], context)['passed']
+    (tmp_path / 'main.c').write_text(source.replace('^=13', '^=12'))
+    assert not verifier.verify(tmp_path, contract, artifacts, task['project_id'], context)['passed']

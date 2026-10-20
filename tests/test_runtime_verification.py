@@ -11,6 +11,8 @@ def test_actual_installation_runtime_probes(tmp_path):
     checks = verify_runtime_lanes(tmp_path, {"c_compiler": CLANG})
     assert checks["arm64_program"]["passed"], checks
     assert checks["qiling_runtime"]["passed"], checks
+    assert set(checks["qiling_runtime"]["architectures"]) == {"x86_64", "aarch64"}
+    assert all(lane["file_effects"] for lane in checks["qiling_runtime"]["architectures"].values())
     assert checks["linked_functions"]["passed"], checks
     assert checks["linked_functions"]["abis"] == [
         "sysv",

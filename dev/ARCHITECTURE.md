@@ -358,3 +358,12 @@ The SDK 2.3 adapter restores deadlines and token endpoints when loading a new cl
 Normal worker calls may refresh authorization but cannot launch interactive consent;
 that remains an owner-started Connections action. Endpoint/storage changes, forgetting
 and shutdown invalidate pending writes. Tool/project grants remain independent.
+
+Static AArch64 Linux files/memory replay also uses the complete Qiling engine.
+The adapter verifies its Cortex-A72 CPU and maps Linux asm-generic syscall IDs
+to the existing guarded operation contract. Qiling receives original ARM syscall
+registers, except CWD-only mkdirat/renameat/unlinkat forms normalized to upstream
+mkdir/rename/unlink/rmdir after the same path checks. This supplies missing pinned
+upstream handlers and respects removal flags. Dynamic ARM images and dependencies
+remain unsupported. Both architectures share deterministic guest metadata,
+resource bounds, filesystem isolation, cancellation and protected acceptance.
