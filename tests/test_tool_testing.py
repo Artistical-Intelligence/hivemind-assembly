@@ -279,3 +279,53 @@ def test_nonportable_paths_rejected(name):
     spec["programs"]["candidate"]["files"] = [name]
     with pytest.raises(ContractError):
         validate(spec)
+
+
+@pytest.mark.parametrize("winerror", [5, 32, 33])
+def test_private_process_cleanup_retries_windows_locks(monkeypatch, winerror):
+    from types import SimpleNamespace
+    from hivemind_assembly.core import native_process
+
+    calls = []
+    error = PermissionError("transient Windows file lock")
+    error.winerror = winerror
+
+    def cleanup():
+        calls.append(True)
+        if len(calls) == 1:
+            raise error
+
+    monkeypatch.setattr(native_process, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(
+        native_process.tempfile,
+        "TemporaryDirectory",
+        lambda **kwargs: SimpleNamespace(name="private-test-dir", cleanup=cleanup),
+    )
+    with native_process.process_directory() as name:
+        assert name == "private-test-dir"
+    assert len(calls) == 2
+
+
+def test_private_process_cleanup_does_not_hide_persistent_denial(monkeypatch):
+    from types import SimpleNamespace
+    from hivemind_assembly.core import native_process
+
+    error = PermissionError("persistent denial")
+    error.winerror = 5
+
+    def cleanup():
+        raise error
+
+    clock = iter([0, 3])
+    monkeypatch.setattr(native_process, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(
+        native_process, "time", SimpleNamespace(monotonic=lambda: next(clock))
+    )
+    monkeypatch.setattr(
+        native_process.tempfile,
+        "TemporaryDirectory",
+        lambda **kwargs: SimpleNamespace(name="private-test-dir", cleanup=cleanup),
+    )
+    with pytest.raises(PermissionError, match="persistent denial"):
+        with native_process.process_directory():
+            pass

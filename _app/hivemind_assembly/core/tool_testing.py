@@ -11,10 +11,9 @@ from pathlib import Path, PurePosixPath
 import platform
 import shutil
 import sys
-import tempfile
 import time
 from .common import Blocked, ContractError, canonical, digest
-from .native_process import run
+from .native_process import process_directory, run
 from .observations import validate_comparators, compare_observation, capture_size
 
 LIMIT = 2 * 1024 * 1024
@@ -322,7 +321,7 @@ def execute(
                         "input_hashes": hashes,
                     }
                 program = spec["programs"][kind]
-                with tempfile.TemporaryDirectory(prefix="ha-test-") as temp:
+                with process_directory(prefix="ha-test-") as temp:
                     stage = Path(temp)
                     if kind not in built_files:
                         for name in program["files"]:

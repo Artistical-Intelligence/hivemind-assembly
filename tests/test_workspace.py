@@ -100,9 +100,23 @@ def test_streamed_binary_upload_auth_hash_and_overwrite(server, app):
         "X-HA-Task": t["id"],
         "X-HA-Path": quote(path),
     }
-    with pytest.raises(urllib.error.HTTPError) as error:
-        urllib.request.urlopen(urllib.request.Request(url, data=data, headers=headers))
-    assert error.value.code == 403
+    # The server rejects unauthenticated headers without draining an upload.
+    # Sending a multi-megabyte body first races that deliberate early close:
+    # urllib can report BrokenPipe before it reads the valid 403 response.
+    import http.client
+
+    connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+    try:
+        connection.putrequest("POST", "/api/workspace/upload")
+        for name, value in {**headers, "Content-Length": str(len(data))}.items():
+            connection.putheader(name, value)
+        connection.endheaders()
+        response = connection.getresponse()
+        assert response.status == 403
+        response.read()
+    finally:
+        connection.close()
+    assert not app.workspace.path(t["id"], path).exists()
     headers["X-Workbench-Token"] = app.token
     result = json.load(
         urllib.request.urlopen(urllib.request.Request(url, data=data, headers=headers))

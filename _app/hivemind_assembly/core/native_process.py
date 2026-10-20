@@ -12,14 +12,15 @@ import time
 
 
 @contextmanager
-def process_directory():
-    directory = tempfile.TemporaryDirectory(prefix="ha-process-")
+def process_directory(*, prefix="ha-process-"):
+    directory = tempfile.TemporaryDirectory(prefix=prefix)
     try:
         yield directory.name
     finally:
         # Windows may still release inherited stream handles after job accounting
-        # reaches zero. Retry only transient sharing/lock violations, with a hard
-        # deadline; never hide permissions failures or abandoned live processes.
+        # reaches zero. Delete-pending compiler files can also report access denied
+        # (5), not just sharing/lock violations (32/33). Retry only this private
+        # directory with a hard deadline; persistent failures still propagate.
         deadline = time.monotonic() + 2
         while True:
             try:
@@ -28,7 +29,7 @@ def process_directory():
             except PermissionError as error:
                 if (
                     os.name != "nt"
-                    or getattr(error, "winerror", None) not in (32, 33)
+                    or getattr(error, "winerror", None) not in (5, 32, 33)
                     or time.monotonic() >= deadline
                 ):
                     raise
