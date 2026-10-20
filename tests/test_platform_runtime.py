@@ -1,4 +1,5 @@
 import subprocess
+from native_fixtures import elf_compiler, LINUX_ORACLE
 from hivemind_assembly.core.jobs import Jobs
 from hivemind_assembly.domains.reverse_engineering.program import build, compare
 from hivemind_assembly.domains.reverse_engineering.platform_runtime import replay
@@ -11,7 +12,7 @@ def image(root, source, optimization="O2"):
         root,
         {"sources": ["main.c"], "optimization": optimization},
         Jobs(),
-        compiler="gcc",
+        compiler=elf_compiler(),
     )
     assert result["passed"], result
     return bytes.fromhex(result["elf_hex"])
@@ -26,14 +27,6 @@ def test_upstream_runtime_files_memory_and_native_oracle(tmp_path):
     expected = bytes(x ^ 13 for x in source)
     assert bytes.fromhex(actual["stdout_hex"]) == expected
     assert bytes.fromhex(actual["files"]["/output.bin"]) == expected
-    # Independently execute only this known generated fixture, never user images.
-    exe = tmp_path / "fixture"
-    exe.write_bytes(binary)
-    exe.chmod(0o700)
-    (tmp_path / "input.bin").write_bytes(source)
-    reference = subprocess.run([str(exe)], cwd=tmp_path, capture_output=True, timeout=5)
-    assert reference.returncode == 0 and reference.stdout == expected
-    assert (tmp_path / "output.bin").read_bytes() == expected
     other = image(tmp_path, code, "O0")
     assert compare(
         binary,
@@ -102,4 +95,22 @@ def test_unclosed_guest_files_are_closed_before_root_cleanup(tmp_path, monkeypat
     monkeypatch.setattr(ql_file, "close", close)
     binary = image(tmp_path, 'int ha_main(void){ha_open("input.bin",0,0);return 0;}')
     assert replay(binary, files={"/input.bin": "01"})["status"] == "completed"
-    assert any(path.endswith("/input.bin") for path in closed)
+    assert any(path.replace("\\", "/").endswith("/input.bin") for path in closed)
+
+
+@LINUX_ORACLE
+def test_file_io_native_linux_oracle(tmp_path):
+    source = b"upstream-runtime"
+    expected = bytes(x ^ 13 for x in source)
+    binary = image(
+        tmp_path,
+        'int ha_main(void){char b[32];long f=ha_open("input.bin",0,0);long n=ha_file_read(f,b,32);ha_close(f);for(long i=0;i<n;i++)b[i]^=13;f=ha_open("output.bin",577,384);ha_file_write(f,b,n);ha_close(f);ha_write(b,n);return 0;}',
+    )
+    # Independently execute only this known generated fixture, never user images.
+    exe = tmp_path / "fixture"
+    exe.write_bytes(binary)
+    exe.chmod(0o700)
+    (tmp_path / "input.bin").write_bytes(source)
+    reference = subprocess.run([str(exe)], cwd=tmp_path, capture_output=True, timeout=5)
+    assert reference.returncode == 0 and reference.stdout == expected
+    assert (tmp_path / "output.bin").read_bytes() == expected

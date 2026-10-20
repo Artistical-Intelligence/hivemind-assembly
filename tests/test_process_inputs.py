@@ -3,6 +3,7 @@ import subprocess
 from types import SimpleNamespace
 
 import pytest
+from native_fixtures import elf_compiler, LINUX_ORACLE
 from hivemind_assembly.core.artifacts import Artifacts
 from hivemind_assembly.core.common import ContractError
 from hivemind_assembly.core.jobs import Jobs
@@ -21,7 +22,7 @@ int ha_main(void){for(long i=0;i<ha_argc();i++)emit(ha_argv(i));emit(ha_getenv("
 def compiled(tmp_path):
     (tmp_path / "main.c").write_text(SOURCE)
     manifest = {"sources": ["main.c"]}
-    built = program.build(tmp_path, manifest, Jobs(), compiler="gcc")
+    built = program.build(tmp_path, manifest, Jobs(), compiler=elf_compiler())
     assert built["passed"], built
     binary = bytes.fromhex(built["elf_hex"])
     exe = tmp_path / "fixture"
@@ -36,18 +37,14 @@ def test_arguments_environment_utf8_and_native_oracle(compiled, monkeypatch):
     argv = ["recovered", "", "café λ"]
     env = {"HA_VALUE": "résumé", "HA_VALUE_SUFFIX": "wrong"}
     expected = "recovered||café λ|résumé||".encode()
-    native = subprocess.run(
-        argv, executable=str(exe), env=env, capture_output=True, timeout=5
-    )
-    assert native.returncode == 3 and native.stdout == expected
     for replay in (program.replay, platform_runtime.replay):
         result = replay(binary, argv=argv, env=env)
         assert result["status"] == "completed", result
-        assert result["exit_code"] == native.returncode
-        assert bytes.fromhex(result["stdout_hex"]) == native.stdout
+        assert result["exit_code"] == 3
+        assert bytes.fromhex(result["stdout_hex"]) == expected
         assert bytes.fromhex(replay(binary)["stdout_hex"]) == b"program|||"
     other = program.build(
-        root, {**manifest, "optimization": "O0"}, Jobs(), compiler="gcc"
+        root, {**manifest, "optimization": "O0"}, Jobs(), compiler=elf_compiler()
     )
     cases = [
         {"argv": argv, "env": env, "runtime": runtime}
@@ -63,7 +60,7 @@ def test_protected_process_inputs_and_wrong_environment_lookup(compiled, store):
     task = store.create_project("Arguments", "Recover CLI behavior")
     artifacts = Artifacts(store)
     context = SimpleNamespace(
-        jobs=Jobs(), config={"foundations": {"c_compiler": "gcc"}}, cancel=None
+        jobs=Jobs(), config={"foundations": {"c_compiler": elf_compiler()}}, cancel=None
     )
     service = ProgramAcceptance()
     contract = service.prepare(
@@ -130,3 +127,19 @@ def test_program_cpu_external_state_is_rejected(compiled, opcode):
     for replay in (program.replay, platform_runtime.replay):
         result = replay(patched)
         assert result["status"] == "unsupported_cpu_state", result
+
+
+@LINUX_ORACLE
+def test_process_input_native_linux_oracle(compiled):
+    root, manifest, binary, exe = compiled
+    result = subprocess.run(
+        ["recovered", "", "café λ"],
+        executable=str(exe),
+        env={"HA_VALUE": "résumé"},
+        capture_output=True,
+        timeout=5,
+    )
+    assert (
+        result.returncode == 3
+        and result.stdout == "recovered||café λ|résumé||".encode()
+    )

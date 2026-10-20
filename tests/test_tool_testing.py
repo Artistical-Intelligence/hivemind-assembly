@@ -199,7 +199,8 @@ def test_native_compiled_reconstruction(tmp_path):
             }
         ],
     }
-    assert execute(tmp_path, spec, allow_native=True, compiler=compiler)["passed"]
+    result = execute(tmp_path, spec, allow_native=True, compiler=compiler)
+    assert result["passed"], result
     (tmp_path / "candidate.c").write_text(
         (tmp_path / "candidate.c").read_text().replace("v+v+v+1", "v+v+v+2")
     )

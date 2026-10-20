@@ -53,6 +53,20 @@ class WindowsJob:
                 ("peak_job", c.c_size_t),
             ]
 
+        class Accounting(c.Structure):
+            _fields_ = [
+                ("user_time", c.c_int64),
+                ("kernel_time", c.c_int64),
+                ("period_user_time", c.c_int64),
+                ("period_kernel_time", c.c_int64),
+                ("page_faults", w.DWORD),
+                ("total_processes", w.DWORD),
+                ("active_processes", w.DWORD),
+                ("terminated_processes", w.DWORD),
+            ]
+
+        self.accounting_type = Accounting
+
         self.api = c.WinDLL("kernel32", use_last_error=True)
         for name, args, result in (
             ("CreateJobObjectW", [c.c_void_p, w.LPCWSTR], w.HANDLE),
@@ -63,6 +77,12 @@ class WindowsJob:
             ),
             ("AssignProcessToJobObject", [w.HANDLE, w.HANDLE], w.BOOL),
             ("CloseHandle", [w.HANDLE], w.BOOL),
+            ("TerminateJobObject", [w.HANDLE, w.UINT], w.BOOL),
+            (
+                "QueryInformationJobObject",
+                [w.HANDLE, c.c_int, c.c_void_p, w.DWORD, c.c_void_p],
+                w.BOOL,
+            ),
         ):
             fn = getattr(self.api, name)
             fn.argtypes, fn.restype = args, result
@@ -80,8 +100,30 @@ class WindowsJob:
 
     def close(self):
         if self.handle:
-            self.api.CloseHandle(self.handle)
-            self.handle = None
+            import ctypes as c
+
+            try:
+                # Kill-on-close is the crash fallback. Normal cleanup must also
+                # wait for descendants to release inherited output-file handles.
+                if not self.api.TerminateJobObject(self.handle, 1):
+                    raise c.WinError(c.get_last_error())
+                deadline = time.monotonic() + 5
+                while True:
+                    accounting = self.accounting_type()
+                    if not self.api.QueryInformationJobObject(
+                        self.handle, 1, c.byref(accounting), c.sizeof(accounting), None
+                    ):
+                        raise c.WinError(c.get_last_error())
+                    if accounting.active_processes == 0:
+                        break
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError(
+                            "Windows test process tree did not terminate"
+                        )
+                    time.sleep(0.01)
+            finally:
+                self.api.CloseHandle(self.handle)
+                self.handle = None
 
 
 def run(argv, cwd, *, stdin=b"", timeout=30, output_limit=1048576, cancel=None):

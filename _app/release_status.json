@@ -18,7 +18,7 @@
     "static": "pyflakes on changed implementation/tests, JavaScript syntax and git diff --check passed. Workflow template matches the source workflow; runtime and source release archives are separately manifest-checked.",
     "goals": "Fixture native responses exercised root goal continuation through real local capture execution and a second fresh independent acceptance run. This is not signed-in native model acceptance.",
     "historical_evidence": "Checks under historical_checks were recorded in earlier development runs and are not newly claimed from this release verification.",
-    "github_ci": "Capture checkpoint 3e603b81: hosted Linux contract job and real Chromium DOM fixture passed; Windows pytest job failed. Job-log retrieval through the connected service failed twice, so its cause is not yet established. CI now retains structured test reports for inspection."
+    "github_ci": "Hosted CI for ccb0839: Linux JUnit report verified against the GitHub artifact SHA-256: 344 passed, 7 skipped (optional Hermes/PE dependencies/browser fixture). The separate real Chromium DOM transport job passed. Windows run is still being investigated; no clean-install acceptance claimed."
   },
   "native_live_acceptance": {
     "validated_routes": 0,

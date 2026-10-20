@@ -155,7 +155,9 @@ class HostedTests:
                     )
                 except ValueError as error:
                     raise Blocked("Invalid workflow response") from error
-                if raw.replace(b"\r\n", b"\n") != TEMPLATE.read_bytes().replace(b"\r\n", b"\n"):
+                if raw.replace(b"\r\n", b"\n") != TEMPLATE.read_bytes().replace(
+                    b"\r\n", b"\n"
+                ):
                     raise Conflict(
                         "Install this HA release's managed native-tests.yml workflow before dispatch"
                     )

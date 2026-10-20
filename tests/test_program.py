@@ -1,6 +1,6 @@
-import shutil
 import subprocess
 import pytest
+from native_fixtures import elf_compiler, LINUX_ORACLE
 from hivemind_assembly.core.jobs import Jobs
 from hivemind_assembly.core.common import Blocked, ContractError
 from hivemind_assembly.domains.reverse_engineering.program import (
@@ -27,25 +27,19 @@ def example(root, wrong=False):
     }
 
 
-@pytest.mark.skipif(not shutil.which("gcc"), reason="GCC unavailable")
 def test_multifunction_program_memory_io_and_negative(tmp_path):
-    original = build(tmp_path, example(tmp_path), Jobs(), compiler="gcc")
+    original = build(tmp_path, example(tmp_path), Jobs(), compiler=elf_compiler())
     assert original["passed"], original
     machine = bytes.fromhex(original["elf_hex"])
     result = replay(machine, b"abc")
     assert result["status"] == "completed", result
     expected = bytes([97, (97 * 3 + 98) % 251, (((97 * 3 + 98) % 251) * 3 + 99) % 251])
     assert bytes.fromhex(result["stdout_hex"]) == expected
-    # Execute this source-known fixture on the host as an independent oracle.
-    executable = tmp_path / "fixture"
-    executable.write_bytes(machine)
-    executable.chmod(0o700)
-    live = subprocess.run(
-        [str(executable)], input=b"abc", capture_output=True, timeout=5
-    )
-    assert live.returncode == 0 and live.stdout == expected
     other = build(
-        tmp_path, {**example(tmp_path), "optimization": "O0"}, Jobs(), compiler="gcc"
+        tmp_path,
+        {**example(tmp_path), "optimization": "O0"},
+        Jobs(),
+        compiler=elf_compiler(),
     )
     cases = [
         {"id": "empty", "input_hex": ""},
@@ -53,15 +47,28 @@ def test_multifunction_program_memory_io_and_negative(tmp_path):
         {"id": "limits", "input_hex": bytes(range(32)).hex()},
     ]
     assert compare(machine, bytes.fromhex(other["elf_hex"]), cases)["passed"]
-    wrong = build(tmp_path, example(tmp_path, True), Jobs(), compiler="gcc")
+    wrong = build(tmp_path, example(tmp_path, True), Jobs(), compiler=elf_compiler())
     assert not compare(machine, bytes.fromhex(wrong["elf_hex"]), cases)["passed"]
     endless = tmp_path / "main.c"
     endless.write_text("int ha_main(void) { for(;;) {} }")
-    loop = build(tmp_path, {"sources": ["main.c"]}, Jobs(), compiler="gcc")
+    loop = build(tmp_path, {"sources": ["main.c"]}, Jobs(), compiler=elf_compiler())
     assert (
         replay(bytes.fromhex(loop["elf_hex"]), max_instructions=100)["status"]
         == "budget_exhausted"
     )
+
+
+@LINUX_ORACLE
+def test_multifunction_native_linux_oracle(tmp_path):
+    original = build(tmp_path, example(tmp_path), Jobs(), compiler=elf_compiler())
+    executable = tmp_path / "fixture"
+    executable.write_bytes(bytes.fromhex(original["elf_hex"]))
+    executable.chmod(0o700)
+    live = subprocess.run(
+        [str(executable)], input=b"abc", capture_output=True, timeout=5
+    )
+    expected = bytes([97, (97 * 3 + 98) % 251, (((97 * 3 + 98) % 251) * 3 + 99) % 251])
+    assert live.returncode == 0 and live.stdout == expected
 
 
 def test_image_and_build_boundaries(tmp_path):
@@ -90,12 +97,14 @@ def test_program_acceptance_pins_original_and_rechecks_all_sources(store):
     )
     root = store.root / "projects" / task["project_id"] / "workspace"
     manifest = example(root)
-    original = build(root, manifest, Jobs(), compiler="gcc")
+    original = build(root, manifest, Jobs(), compiler=elf_compiler())
     (root / "original.elf").write_bytes(bytes.fromhex(original["elf_hex"]))
     (root / "build.json").write_text(json.dumps(manifest))
     controller = Controller(store)
     broker = Broker(
-        controller, {"foundations": {"c_compiler": "gcc"}}, ReverseEngineeringDomain()
+        controller,
+        {"foundations": {"c_compiler": elf_compiler()}},
+        ReverseEngineeringDomain(),
     )
     service = Acceptance(controller, broker)
     contract = service.configure(
