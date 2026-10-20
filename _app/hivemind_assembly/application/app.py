@@ -233,6 +233,20 @@ class Application:
             "operations": self.store.rows(
                 "SELECT id,task_id,tool,state,updated,result FROM operations ORDER BY updated DESC LIMIT 50"
             ),
+            "knowledge_curations": [
+                {"id": row["id"], **self.team.curation.status(row["id"])}
+                for row in self.store.rows(
+                    "SELECT id FROM records WHERE kind='knowledge_curation'"
+                )
+            ],
+            "knowledge_catalog": self.team.scopes.catalog(),
+            "knowledge_scopes": [
+                self.team.scopes.status(row["id"])
+                for row in self.store.rows("SELECT id FROM tasks")
+            ],
+            "knowledge_assignments": self.store.rows(
+                "SELECT * FROM knowledge_assignments ORDER BY kind,item_id"
+            ),
             "sources": self.store.rows(
                 "SELECT id,name,revision,external_allowed,extraction FROM sources"
             ),
@@ -288,6 +302,31 @@ class Application:
             return self._action(path, data)
 
     def _action(self, path, data):
+        if path == "/api/knowledge/curate":
+            return self.team.curation.queue(data["kind"], data["id"])
+        if path in (
+            "/api/knowledge/tag",
+            "/api/knowledge/assign",
+            "/api/knowledge/scope",
+        ):
+            if any(not p.done() for p in self.team.active.values()):
+                raise Blocked("Pause active tasks before changing knowledge access")
+            if path.endswith("/tag"):
+                self.team.scopes.create_tag(
+                    data["id"], data["label"], data.get("description", "")
+                )
+                return self.team.scopes.catalog()
+            if path.endswith("/assign"):
+                return self.team.scopes.assign(data["kind"], data["id"], data["tags"])
+            task = self.store.task(data["task"])
+            if task["status"] != "paused":
+                raise Blocked("Pause the task before changing its knowledge scope")
+            return self.team.scopes.select(
+                task["id"],
+                data["tags"],
+                data["catalog_revision"],
+                data.get("reason", "Owner selection"),
+            )
         if path == "/api/tunnel/install":
             return self.background_job(
                 "Install official MCP tunnel", self.tunnel.install
@@ -384,7 +423,12 @@ class Application:
                     )
             return {"started": True}
         if path == "/api/learning/share":
-            return Learning(self.store).share(data["lesson"], data["allowed"])
+            result = Learning(self.store).share(data["lesson"], data["allowed"])
+            if data["allowed"] and self.team.scopes.tags("lesson", data["lesson"]) == [
+                "unclassified"
+            ]:
+                result["tagging"] = self.team.curation.queue("lesson", data["lesson"])
+            return result
         if path == "/api/learning/native-corpus":
             if not self.native_learning:
                 raise Blocked(self.native_learning_error)
@@ -691,9 +735,14 @@ class Application:
                 "original_artifact": original["id"],
             }
         if path == "/api/source":
-            return Knowledge(self.store).ingest(
-                data["path"], bool(data.get("external_allowed", False))
+            result = Knowledge(self.store).ingest(
+                data["path"],
+                bool(data.get("external_allowed", False)),
+                data.get("tags"),
             )
+            if data.get("external_allowed") and not data.get("tags"):
+                result["tagging"] = self.team.curation.queue("source", result["id"])
+            return result
         if path == "/api/settings":
             if any(
                 not p.done()
@@ -1017,6 +1066,7 @@ def make_server(app, port=0):
                 "/": ("index.html", "text/html; charset=utf-8"),
                 "/app.js": ("app.js", "text/javascript"),
                 "/native_captures.js": ("native_captures.js", "text/javascript"),
+                "/knowledge.js": ("knowledge.js", "text/javascript"),
                 "/connections.js": ("connections.js", "text/javascript"),
                 "/workspace.js": ("workspace.js", "text/javascript"),
                 "/style.css": ("style.css", "text/css"),

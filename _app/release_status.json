@@ -1,5 +1,5 @@
 {
-  "version": "0.12.0",
+  "version": "0.13.0",
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
@@ -23,7 +23,8 @@
     "mcp_codespaces": "Official MCP SDK in-process and real stdio bridge exchanges; outbound stdio discovery/tool/project grants; standalone Linux runner execution, deadline and credential removal; parallel spaces, queued cancellation, interrupted startup, GPU requirement rejection and output import conflict checks. Real HTTP controller with jsdom validated connection settings. No live Codespace or web tunnel acceptance.",
     "private_mcp_tunnel": "Downloaded official tunnel-client v0.0.16, verified its published archive digest and installed binary hash. Official doctor accepted the generated configuration with a fixture credential; no real account or tunnel was connected. Session-only credential exclusion, OS-vault separation, checksum changes, process supervision and log redaction passed targeted tests.",
     "unlimited_goals": "Explicit /goal budget unlimited retains usage tracking, survives pause/resume and can return to a bounded budget; provider allowance checks remain active.",
-    "mcp_http_credentials": "Real loopback Streamable HTTP MCP server verified bearer authentication, discovered tool schemas, token-free saved settings/status, response redaction and rejection after endpoint changes. Session-only credentials are cleared on shutdown; OS credential namespaces are separate from GitHub."
+    "mcp_http_credentials": "Real loopback Streamable HTTP MCP server verified bearer authentication, discovered tool schemas, token-free saved settings/status, response redaction and rejection after endpoint changes. Session-only credentials are cleared on shutdown; OS credential namespaces are separate from GitHub.",
+    "knowledge_scoping": "Category-only native classification, existing-tag/no-tag grants, source and lesson filtering, obligation denial, scope-change session renewal, legacy material quarantine, and permission-checked ingestion categorization have automated regression checks. Actual signed-in provider classification remains unverified."
   },
   "native_live_acceptance": {
     "validated_routes": 0,
@@ -34,7 +35,6 @@
   "remaining_implementation": [
     "Extend the controlled Linux application and PE function lanes to broader CPU/platform, Windows/game/graphics effects and target-level equivalence.",
     "Resolve any provider-specific adapter gaps identified by signed-in account validation; current ambiguous controls remain blocked.",
-    "Tag-first knowledge access: classify from existing tag categories only, then grant scoped retrieval; support ingestion tagging and fresh sessions when scope changes.",
     "Optional chat-only experimental learning with automatic best eligible chat model selection, manual override, and explicit unlimited use.",
     "Complete account-authorized MCP onboarding where provider permissions allow automation; live tunnel authorization and external OAuth setup remain required gates."
   ],

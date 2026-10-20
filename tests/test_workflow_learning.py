@@ -301,7 +301,19 @@ def test_revoked_workflow_cannot_be_used_or_revised_by_native_worker(
         == [{"value": 16}] * 3
     )
     learning.learning.share(candidate, False)
-    assert learning.learning.applicable("reverse_engineering", external=True) == []
+    from hivemind_assembly.learning.scopes import KnowledgeScopes
+
+    scopes = KnowledgeScopes(store)
+    scopes.create_tag("workflow", "Workflow")
+    scopes.assign("lesson", candidate, ["workflow"])
+    task = store.create_project("workflow", "check workflow")
+    scopes.select(task["id"], ["workflow"], scopes.catalog()["revision"])
+    assert (
+        learning.learning.applicable(
+            "reverse_engineering", external=True, task=task["id"]
+        )
+        == []
+    )
     with pytest.raises(Blocked, match="not authorized"):
         learning.execute(candidate, {"n": 4}, external=True)
     with pytest.raises(Blocked, match="externally authorized"):

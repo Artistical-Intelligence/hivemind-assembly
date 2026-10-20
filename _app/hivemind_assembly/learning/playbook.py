@@ -161,6 +161,10 @@ class Playbook:
                     time.time(),
                 ),
             )
+            c.execute(
+                "INSERT INTO knowledge_assignments SELECT 'lesson',?,tags FROM knowledge_assignments WHERE kind='lesson' AND item_id=?",
+                (key, base_id),
+            )
             self.store.event(
                 task, "playbook_candidate", {"lesson": key, "base": base_id}, c
             )
@@ -172,16 +176,25 @@ class Playbook:
 
 
 def select_context(
-    store, domain, query="", external=False, route=None, max_chars=16000
+    store, domain, query="", external=False, route=None, max_chars=16000, task=None
 ):
     """Rank applicable assets, retain exceptions, and explain every exclusion."""
     if type(max_chars) is not int or not 512 <= max_chars <= 128000:
         raise ContractError("Learning context budget must be 512–128000 characters")
+    from .scopes import KnowledgeScopes
+
+    scopes = KnowledgeScopes(store)
+    if task is not None or external:
+        scopes.require(task)
     terms = set(re.findall(r"[a-z0-9_]+", query.lower()))
     candidates, omitted = [], []
     for row in store.rows(
         "SELECT * FROM lessons WHERE status='active' ORDER BY created DESC,id"
     ):
+        if (task is not None or external) and not scopes.allowed(
+            task, "lesson", row["id"]
+        ):
+            continue
         payload = json.loads(row["payload"])
         reason = None
         if domain not in payload["scope"]:

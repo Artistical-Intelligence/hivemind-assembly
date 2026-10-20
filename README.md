@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.12.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.13.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -444,3 +444,14 @@ a retained creation to its repository, machine, display name and requested ref;
 an uncertain request is never replaced automatically. Worker `cloud_status` can
 reconcile a job ID and returns output artifact IDs for the existing guarded
 `write_file` operation. A stale status response cannot overwrite a completed result.
+
+
+Task knowledge is now tag-gated. The initial classification turn receives only
+the task and category catalog; it selects existing tags or none. Source reading,
+lesson retrieval and skill briefings then enforce those grants. Changed access
+starts a fresh conversation and briefing. Existing untagged material is retained
+as unclassified and remains unavailable to task models until categorized.
+The Knowledge page manages categories, material assignments and paused-task
+scope overrides. Authorized source ingestion queues an isolated native adviser
+categorization turn; ingestion may create reusable categories, while project
+classification cannot. External-processing permission remains a separate gate.

@@ -93,8 +93,19 @@ class Sessions:
         )["n"]
         return count >= limit
 
-    async def ensure(self, task, route, allowance):
-        if not await self.due(route):
+    async def ensure(self, task, route, allowance, *, context=None):
+        cfg = self.browser.config["routes"][route]
+        binding_key = digest(
+            {"route": route, "conversation": cfg.get("conversation_url")}
+        )
+        rows = self.store.rows(
+            "SELECT payload FROM records WHERE kind='session_knowledge_scope' AND id=?",
+            (binding_key,),
+        )
+        same_context = context is None or (
+            rows and json.loads(rows[0]["payload"])["context"] == context
+        )
+        if same_context and not await self.due(route):
             return
         if allowance is None or not allowance.eligible():
             from hivemind_assembly.core.common import AllowanceUnavailable
@@ -103,6 +114,15 @@ class Sessions:
                 "Session renewal requires verified sufficient allowance"
             )
         await self.renew(task, route)
+        if context is not None:
+            binding_key = digest(
+                {"route": route, "conversation": cfg.get("conversation_url")}
+            )
+            self.store.put(
+                "session_knowledge_scope",
+                binding_key,
+                {"context": context, "task": task},
+            )
 
     async def renew(self, task, route, *, isolated=False, identity=None):
         async with self.locks.setdefault(route, asyncio.Lock()):

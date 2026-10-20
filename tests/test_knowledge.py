@@ -34,7 +34,7 @@ def test_non_destructive_ingest(store, tmp_path):
         k.source(s["id"], "worker")
     with pytest.raises(Blocked):
         k.source(s["id"], "adviser", external=True)
-    assert "overflow" in k.search("overflow")[0]["text"]
+    assert "overflow" in k.search("overflow", role="controller")[0]["text"]
 
 
 def test_required_revision_and_missing_section(store, tmp_path):
@@ -43,9 +43,13 @@ def test_required_revision_and_missing_section(store, tmp_path):
     k = Knowledge(store)
     s = k.ingest(p, True)
     item = {"source": s["id"], "revision": s["revision"], "section": "1"}
-    assert not k.reading([item])["critical_gaps"]
-    assert k.reading([{**item, "section": "missing"}])["critical_gaps"]
-    assert k.reading([{**item, "revision": "wrong"}])["critical_gaps"]
+    assert not k.reading([item], role="controller")["critical_gaps"]
+    assert k.reading([{**item, "section": "missing"}], role="controller")[
+        "critical_gaps"
+    ]
+    assert k.reading([{**item, "revision": "wrong"}], role="controller")[
+        "critical_gaps"
+    ]
 
 
 def test_missing_source(store):

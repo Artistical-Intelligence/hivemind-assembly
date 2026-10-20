@@ -43,8 +43,8 @@ The existing seven operations are preserved: `inspect_program`, `decompile`,
 headless invocation, semantic libraries and the reopened annotation ledger
 remain the implementation, with no compulsory MCP or HTTP intermediate step.
 
-MCP and other harness adapters are future integrations, not prerequisites for
-the initial application. The small text-counting test domain only verifies
+Bidirectional MCP is an optional execution interface supported by the application.
+Direct specialist operations remain available without an MCP hop. The small text-counting test domain only verifies
 dependency boundaries; it is not a second application or a claim of cross-domain
 learning. Selected donor optimizer modules are integrated; broad cross-project improvement remains unverified.
 
@@ -311,3 +311,25 @@ It records commit/run/runner identity and observations. Remote results are not t
 automatically as local acceptance. Account billing policy is external to the workflow.
 The Mesa fixture compares actual offscreen GL readback with independent expected
 pixels; it does not emulate arbitrary games or establish hardware performance.
+
+
+## Tag-first knowledge and isolated classification
+
+`learning.scopes` stores a category catalog, material assignments and task grants.
+The classifier sees task/project objectives and category metadata only. It cannot
+create tags or request content. A source/lesson/skill must match a selected tag;
+source permissions, lesson export permissions and evaluator/dependency validity
+continue to apply. Unclassified legacy content remains private. Selecting no tags
+is a durable valid decision, not a signal to retrieve everything.
+
+Native message envelopes and retained tool requests bind the knowledge fingerprint.
+Scope or material-access changes invalidate briefing context. Route-level locking
+covers session selection through response delivery; sessions renew on context changes,
+including task changes, regardless of remaining context capacity. Unresolved sends
+or operations must reconcile before a scope change can discard old working context.
+
+`learning.curation` uses a separate isolated native adviser session. Only material
+already authorized for external processing can enter it. The curator may reuse or
+create bounded category metadata and assign it to the selected stored item; permission
+and content hashes are checked again before applying its response. It cannot change
+project grants. Full source reading is never inferred from the bounded tagging excerpt.

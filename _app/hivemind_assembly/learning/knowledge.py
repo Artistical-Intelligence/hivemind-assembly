@@ -9,14 +9,18 @@ from hivemind_assembly.core.common import (
     Blocked,
 )
 from hivemind_assembly.core.artifacts import Artifacts
+from .scopes import KnowledgeScopes
 
 
 class Knowledge:
     def __init__(self, store):
         self.store = store
         self.artifacts = Artifacts(store)
+        self.scopes = KnowledgeScopes(store)
+        self.scopes.migrate()
 
-    def ingest(self, path, external_allowed=False):
+    def ingest(self, path, external_allowed=False, tags=None):
+        tags = self.scopes.validate_tags(tags if tags is not None else ["unclassified"])
         p = Path(path)
         raw = p.read_bytes()
         revision = file_hash(p)
@@ -94,16 +98,20 @@ class Knowledge:
                     time.time(),
                 ),
             )
+        self.scopes.assign("source", key, tags)
         return {
+            "tags": tags,
             "id": key,
             "revision": revision,
             **extraction,
             "sections": len(sections),
         }
 
-    def source(self, key, role, external=False):
+    def source(self, key, role, external=False, task=None):
         if role not in ("adviser", "ingestion", "controller"):
             raise Blocked("Source collection is restricted")
+        if role == "adviser":
+            self.scopes.check(task, "source", key)
         row = self.store.one("SELECT * FROM sources WHERE id=?", (key,))
         if external and not row["external_allowed"]:
             raise Blocked("Source not authorized for external processing")
@@ -111,14 +119,16 @@ class Knowledge:
         row["extraction"] = json.loads(row["extraction"])
         return row
 
-    def search(self, query, role="adviser", external=False):
+    def search(self, query, role="adviser", external=False, task=None):
         if role not in ("adviser", "controller"):
             raise Blocked("Restricted search")
+        if role == "adviser":
+            self.scopes.require(task)
         terms = query.lower().split()
         hits = []
         for row in self.store.rows("SELECT id FROM sources"):
             try:
-                src = self.source(row["id"], role, external)
+                src = self.source(row["id"], role, external, task)
             except Blocked:
                 continue
             for section in src["sections"]:
@@ -135,12 +145,12 @@ class Knowledge:
                     )
         return sorted(hits, key=lambda h: -h["score"])[:30]
 
-    def reading(self, obligations, role="adviser", external=True):
+    def reading(self, obligations, role="adviser", external=True, task=None):
         records = []
         gaps = []
         for item in obligations:
             try:
-                s = self.source(item["source"], role, external)
+                s = self.source(item["source"], role, external, task)
                 if s["revision"] != item["revision"]:
                     raise Blocked("Required source revision changed")
                 matches = [p for p in s["sections"] if p["id"] == item["section"]]
@@ -173,8 +183,10 @@ class Knowledge:
         self.store.put("reading", key, result)
         return result
 
-    def authorize_excerpt(self, source, revision, section, project):
-        src = self.source(source, "adviser", external=True)
+    def authorize_excerpt(self, source, revision, section, project, task=None):
+        if not task or self.store.task(task)["project_id"] != project:
+            raise Blocked("Excerpt requires a matching scoped task")
+        src = self.source(source, "adviser", external=True, task=task)
         if src["revision"] != revision:
             raise Blocked("Stale source")
         items = [p for p in src["sections"] if p["id"] == section]

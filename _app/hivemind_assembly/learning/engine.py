@@ -1,5 +1,6 @@
 import time, json, math
 from hivemind_assembly.core.common import uid, canonical, ContractError, Blocked
+from .scopes import KnowledgeScopes
 
 
 class Learning:
@@ -34,6 +35,9 @@ class Learning:
             raise ContractError(
                 "Learning requires scope, conditions and actual evidence"
             )
+        scopes = KnowledgeScopes(self.store)
+        scopes.migrate()
+        tags = scopes.validate_tags(payload.get("tags", ["unclassified"]))
         key = identity or uid("lesson")
         with self.store.tx() as c:
             existing = c.execute(
@@ -64,6 +68,7 @@ class Learning:
                     time.time(),
                 ),
             )
+        scopes.assign("lesson", key, tags)
         return key
 
     def evaluate(
@@ -162,11 +167,18 @@ class Learning:
                 )
             self.store.event(candidate, "rolled_back", {}, c)
 
-    def applicable(self, domain, external=False):
+    def applicable(self, domain, external=False, task=None):
+        scopes = KnowledgeScopes(self.store)
+        if external or task is not None:
+            scopes.require(task)
         result = []
         for row in self.store.rows(
             "SELECT * FROM lessons WHERE status='active' ORDER BY created DESC"
         ):
+            if (external or task is not None) and not scopes.allowed(
+                task, "lesson", row["id"]
+            ):
+                continue
             payload = json.loads(row["payload"])
             if domain not in payload["scope"] or (
                 external and not self.external_allowed(row)
@@ -204,8 +216,10 @@ class Learning:
             (task_id,),
         )
         evidence = [acceptance["artifact"], *[op["id"] for op in operations]]
+        scope = KnowledgeScopes(self.store).status(task_id)
         common = {
-            "scope": ["reverse_engineering"],
+            "tags": scope["tags"] or ["unclassified"],
+            "scope": ["reverse_engineering", "core"],
             "preconditions": [acceptance["scope"]],
             "exclusions": ["unverified platforms", "whole-program equivalence"],
             "evidence": evidence,

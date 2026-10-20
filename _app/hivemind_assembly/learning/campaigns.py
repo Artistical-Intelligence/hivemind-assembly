@@ -170,12 +170,19 @@ class Campaigns:
         source = self.store.one(
             "SELECT asset_key FROM lessons WHERE id=?", (row["baseline"],)
         )
+        from .scopes import KnowledgeScopes
+
+        payload["tags"] = KnowledgeScopes(self.store).tags("lesson", row["baseline"])
         candidate = Learning(self.store).propose(
             source["asset_key"],
             row["kind"],
             {
                 **payload,
-                "external_allowed": Learning(self.store).external_allowed(self.store.one("SELECT * FROM lessons WHERE id=?", (row["baseline"],))),
+                "external_allowed": Learning(self.store).external_allowed(
+                    self.store.one(
+                        "SELECT * FROM lessons WHERE id=?", (row["baseline"],)
+                    )
+                ),
                 "content": content,
                 "campaign": key,
                 "baseline": row["baseline"],

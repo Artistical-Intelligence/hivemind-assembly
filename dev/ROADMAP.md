@@ -64,6 +64,9 @@ HTTP dashboard controls have automated checks. Live GitHub Codespaces delivery,
 web-chat tunnel authorization and external OAuth onboarding remain separate gates.
 Official private-tunnel installation/configuration/process supervision and explicit
 unlimited goal budgets are now implemented; live tunnel account access is unverified.
-The agreed tag-first knowledge gate, optional chat-only experimental learning,
-best eligible chat-model selection remain
-implementation work; existing keyword retrieval is not the requested access gate.
+Version 0.13 implements persistent category-only task classification, scoped
+source/lesson/skill access, scope-bound native conversations, explicit no-tag
+selection, and separately authorized ingestion categorization. Tagged material
+is ranked within the selected scope; permissions and evaluator validity still apply.
+Optional chat-only experimental learning and best eligible chat-model selection
+remain implementation work.

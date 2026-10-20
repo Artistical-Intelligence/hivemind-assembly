@@ -11,6 +11,22 @@ from hivemind_assembly.automation.team import NativeTeam
 from hivemind_assembly.automation.policy import Availability, Window
 
 
+@pytest.fixture(autouse=True)
+def established_task_scope(store, monkeypatch):
+    # These tests exercise delivery/lease behavior after classification.
+    from hivemind_assembly.learning.scopes import KnowledgeScopes
+
+    create = store.create_project
+
+    def scoped_project(*args, **kwargs):
+        task = create(*args, **kwargs)
+        scopes = KnowledgeScopes(store)
+        scopes.select(task["id"], [], scopes.catalog()["revision"])
+        return task
+
+    monkeypatch.setattr(store, "create_project", scoped_project)
+
+
 def make_team(store, native):
     cfg = json.loads(
         (Path(__file__).parents[1] / "_app/config/default.json").read_text()
@@ -388,7 +404,7 @@ def test_already_validated_response_is_consumed_without_new_allowance(store):
         t["id"],
         "worker.opus",
         team.config["routes"]["worker.opus"]["conversation_url"],
-        {"revision": 0},
+        {"revision": 0, "knowledge_scope": team.scopes.fingerprint(t["id"])},
         key,
     )
     team.controller.message_state(

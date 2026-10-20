@@ -172,7 +172,7 @@ def test_native_goal_continues_to_actual_acceptance(store):
     asyncio.run(run())
     assert store.task(task["id"])["status"] == "accepted"
     assert team.goals.status(task["id"])["status"] == "achieved"
-    assert "standing_goal" in json.loads(team.host.messages[0][3])
+    assert "standing_goal" in json.loads(team.host.messages[2][3])
 
 
 def test_rejected_goal_uses_resumable_reviewer_request(store):

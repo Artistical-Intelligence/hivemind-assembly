@@ -499,6 +499,8 @@ def parse_response(raw, request_id):
     if not isinstance(data, dict) or data.get("request_id") != request_id:
         raise ContractError("Wrong response identity")
     if data.get("type") not in (
+        "knowledge_scope",
+        "knowledge_tags",
         "step_intent",
         "task_plan",
         "brief",

@@ -186,6 +186,13 @@ def test_native_team_file_proof_acceptance_and_learning_loop(store):
         async def exchange(self, route, message):
             body = json.loads(message["payload"])["body"]
             common = {"request_id": message["id"]}
+            if "catalog" in body:
+                return {
+                    **common,
+                    "type": "knowledge_scope",
+                    "tags": [],
+                    "catalog_revision": body["catalog"]["revision"],
+                }
             if route.startswith("adviser"):
                 return {
                     **common,
@@ -227,7 +234,7 @@ def test_native_team_file_proof_acceptance_and_learning_loop(store):
         )
 
     async def run():
-        for _ in range(7):
+        for _ in range(8):
             await team.tick(task["id"])
 
     asyncio.run(run())

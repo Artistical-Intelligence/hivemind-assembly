@@ -94,6 +94,16 @@ class Broker:
         )
 
     def execute(self, request):
+        if request.get("knowledge_scope"):
+            from hivemind_assembly.learning.scopes import KnowledgeScopes
+
+            if (
+                KnowledgeScopes(self.store).fingerprint(request["task_id"])
+                != request["knowledge_scope"]
+            ):
+                raise Blocked(
+                    "Tool request has a stale knowledge scope; rebrief required"
+                )
         op, new = self.controller.begin(request, self.capabilities)
         if not new:
             if op["state"] in ("completed", "saved", "failed"):
@@ -294,6 +304,9 @@ class Broker:
                 )
                 verifier.recheck(root, result)
             elif tool == "propose_workflow":
+                from hivemind_assembly.learning.scopes import KnowledgeScopes
+
+                KnowledgeScopes(self.store).check(task, "lesson", args["baseline"])
                 if not self.domain or not hasattr(self.domain, "workflow_runner"):
                     raise Blocked("No executable workflow evaluator for this domain")
                 from hivemind_assembly.learning.workflows import WorkflowLearning
@@ -308,6 +321,9 @@ class Broker:
                     request["id"],
                 )
             elif tool == "run_workflow":
+                from hivemind_assembly.learning.scopes import KnowledgeScopes
+
+                KnowledgeScopes(self.store).check(task, "lesson", args["lesson"])
                 if not self.domain or not hasattr(self.domain, "workflow_runner"):
                     raise Blocked("No executable workflow engine for this domain")
                 from hivemind_assembly.learning.workflows import WorkflowLearning

@@ -23,6 +23,13 @@ class FixtureNative:
         p = json.loads(m["payload"])
         body = p["body"]
         x = {"request_id": m["id"]}
+        if "catalog" in body:
+            return {
+                **x,
+                "type": "knowledge_scope",
+                "tags": [t["id"] for t in body["catalog"]["tags"]],
+                "catalog_revision": body["catalog"]["revision"],
+            }
         if route == "adviser.extra":
             return {
                 **x,
@@ -78,15 +85,20 @@ def test_durable_brief_execute_result_loop(store):
     t = store.create_project("fixture", "Compare the named scalar arithmetic regions")
 
     async def run():
-        for _ in range(6):
+        for _ in range(7):
             await team.tick(t["id"])
 
     asyncio.run(run())
     assert store.task(t["id"])["status"] == "awaiting_acceptance"
-    assert native.calls[:3] == ["worker.opus", "adviser.extra", "worker.opus"]
+    assert native.calls[:4] == [
+        "worker.opus",
+        "worker.opus",
+        "adviser.extra",
+        "worker.opus",
+    ]
     op = store.one("SELECT * FROM operations")
     assert json.loads(op["result"])["status"] == "region_proved"
-    assert len(team.host.messages) == 8
+    assert len(team.host.messages) == 10
 
 
 def test_promotion_retains_flow_and_rebriefs(store):
@@ -105,6 +117,7 @@ def test_promotion_retains_flow_and_rebriefs(store):
             route, True, True, False, time.time(), [Window("daily", 50)]
         )
     t = store.create_project("x", "y")
+    team.scopes.select(t["id"], [], team.scopes.catalog()["revision"])
     old = c.acquire(t["id"], "worker.extra")
     team.save_flow(
         t["id"],
@@ -133,13 +146,21 @@ def test_retained_reply_survives_conversation_renewal_without_new_send(store):
     task = store.create_project("recovery", "consume the saved result")
     c.acquire(task["id"], route)
     task = store.task(task["id"])
+    from hivemind_assembly.learning.scopes import KnowledgeScopes
+
+    scopes = KnowledgeScopes(store)
+    scopes.select(task["id"], [], scopes.catalog()["revision"])
     flow = {"seq": 4, "phase": "tool"}
     key = (
         "msg_"
         + digest({"task": task["id"], "flow": 4, "phase": "tool", "route": route})[:32]
     )
     message = c.prepare_message(
-        task["id"], route, "https://chatgpt.com/c/original", {"revision": 0}, key
+        task["id"],
+        route,
+        "https://chatgpt.com/c/original",
+        {"revision": 0, "knowledge_scope": scopes.fingerprint(task["id"])},
+        key,
     )
     response = {
         "request_id": key,

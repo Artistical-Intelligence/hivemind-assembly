@@ -138,9 +138,8 @@ def test_worker_proposal_is_not_active_and_requires_real_evidence(ready):
                 }
             ],
         )
-    assert (
-        select_context(c.store, "reverse_engineering", external=True)["selected"] == []
-    )
+    with pytest.raises(Blocked, match="scope"):
+        select_context(c.store, "reverse_engineering", external=True)
 
 
 def test_context_prioritizes_relevance_and_preserves_exceptions(store):
@@ -156,8 +155,21 @@ def test_context_prioritizes_relevance_and_preserves_exceptions(store):
         {"entries": {"y": entry("Unrelated strings")}},
         external_allowed=True,
     )
+    from hivemind_assembly.learning.scopes import KnowledgeScopes
+
+    scopes = KnowledgeScopes(store)
+    scopes.create_tag("arithmetic", "Arithmetic")
+    for row in store.rows("SELECT id FROM lessons"):
+        scopes.assign("lesson", row["id"], ["arithmetic"])
+    task = store.create_project("context", "overflow")
+    scopes.select(task["id"], ["arithmetic"], scopes.catalog()["revision"])
     context = select_context(
-        store, "reverse_engineering", "overflow", external=True, max_chars=512
+        store,
+        "reverse_engineering",
+        "overflow",
+        external=True,
+        max_chars=512,
+        task=task["id"],
     )
     assert context["selected"][0]["id"] == first
     assert context["selected"][0]["exclusions"] == ["platform effects"]

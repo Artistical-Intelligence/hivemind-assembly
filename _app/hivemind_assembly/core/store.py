@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS traces(seq INTEGER PRIMARY KEY AUTOINCREMENT,identity
 CREATE INDEX IF NOT EXISTS trace_task ON traces(task_id,seq);
 CREATE INDEX IF NOT EXISTS trace_correlation ON traces(correlation,seq);
 CREATE TABLE IF NOT EXISTS retry_schedule(task_id TEXT PRIMARY KEY REFERENCES tasks(id),attempt INTEGER NOT NULL,due REAL NOT NULL,reason TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS knowledge_tags(id TEXT PRIMARY KEY,label TEXT NOT NULL,description TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS knowledge_assignments(kind TEXT NOT NULL,item_id TEXT NOT NULL,tags TEXT NOT NULL,PRIMARY KEY(kind,item_id));
+CREATE TABLE IF NOT EXISTS knowledge_scopes(task_id TEXT PRIMARY KEY REFERENCES tasks(id),tags TEXT NOT NULL,objective_hash TEXT NOT NULL,catalog_hash TEXT NOT NULL,revision INTEGER NOT NULL,reason TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sources(id TEXT PRIMARY KEY,name TEXT NOT NULL,revision TEXT NOT NULL,external_allowed INTEGER NOT NULL,extraction TEXT NOT NULL,sections TEXT NOT NULL,created REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS lessons(id TEXT PRIMARY KEY,asset_key TEXT NOT NULL,version INTEGER NOT NULL,kind TEXT NOT NULL,status TEXT NOT NULL,payload TEXT NOT NULL,predecessor TEXT,created REAL NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS one_active_lesson ON lessons(asset_key) WHERE status='active';
