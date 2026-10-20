@@ -86,3 +86,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Updated launcher verification failed' }
           & "$data/runtime-python312/python.exe" dev/check_package.py $app $data verify-update
           if ($LASTEXITCODE -ne 0) { throw 'Update or backup restoration lost project data' }
+      - name: Retain verified installation packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: Hivemind-Assembly-packages-${{ github.sha }}
+          path: ${{ runner.temp }}/ha-packages/*.zip
+          retention-days: 14
+          if-no-files-found: error

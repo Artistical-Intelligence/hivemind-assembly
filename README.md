@@ -4,7 +4,7 @@ A local reverse-engineering workspace for collaborative agents, independent veri
 
 ## Start on Windows
 
-1. Extract the Windows release ZIP and open `Start_Hivemind_Assembly.cmd`.
+1. Download **Hivemind-Assembly-packages** from a successful [GitHub Actions run](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/workflows/test.yml). Extract the artifact, then the Windows ZIP inside it, and open `Start_Hivemind_Assembly.cmd`. The repository source ZIP is for development and lacks the bundled runtime.
 2. The launcher installs the bundled Python runtime and the hash-locked Windows dependency set into your user data directory, then opens the dashboard. The first dependency installation needs internet access.
 3. Open **Project files** and choose **Create register example**. Run checks, edit `candidate.hex`, save, and check again. The native Python example also works without a compiler after you authorize its supplied recipes. **Semantic self-check** exercises the verifier separately.
 4. Use **Setup & settings → Install pinned foundations**. On Windows, setup uses WinGet to install missing Git, Node.js 24+, Java 21+ and a C compiler, then installs and automatically checks the pinned foundations on a source-known fixture. Windows may require system authorization or a restart. Existing installations can be configured in settings.
