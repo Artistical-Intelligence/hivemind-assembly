@@ -115,5 +115,6 @@ Version 0.15.3 makes retained authority and recovery follow journal append order
 Clock ties and rollback no longer select older permission grants, skill versions,
 workflow/setup states, publication heads or intermediate conversation bindings.
 MCP check completion and polling share a lock to prevent false interruptions.
-The Windows and Linux hosted suites passed the MCP completion fix; full local
-regression also passed the journal-order changes. Live account gates above remain.
+Final run 39515502062 at aa5f79f passed the Linux and Windows contract suites,
+Chromium checks, and packaged Windows installation/update/restore with both fixes.
+Local regression passed 538 cases with ten skips. Live account gates above remain.
