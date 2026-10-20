@@ -4,7 +4,15 @@ from hivemind_assembly.core import native_process
 
 
 @pytest.mark.parametrize(
-    "code,locks,success", [(32, 2, True), (33, 2, True), (32, 99, False), (5, 1, False)]
+    "code,locks,success",
+    [
+        (32, 2, True),
+        (33, 2, True),
+        (5, 2, True),
+        (32, 99, False),
+        (5, 99, False),
+        (13, 1, False),
+    ],
 )
 def test_windows_file_cleanup_is_bounded_and_does_not_hide_errors(
     monkeypatch, code, locks, success
@@ -39,7 +47,7 @@ def test_windows_file_cleanup_is_bounded_and_does_not_hide_errors(
         with pytest.raises(PermissionError, match="fixture file lock"):
             with native_process.process_directory():
                 pass
-        assert directory.attempts == (1 if code == 5 else 4)
+        assert directory.attempts == (4 if code in (5, 32, 33) else 1)
 
 
 @pytest.mark.skipif(
