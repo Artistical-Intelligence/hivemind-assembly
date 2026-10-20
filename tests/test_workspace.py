@@ -119,3 +119,70 @@ def test_streamed_binary_upload_auth_hash_and_overwrite(server, app):
         urllib.request.Request(url, data=b"new", headers=headers)
     ).close()
     assert app.workspace.path(t["id"], path).read_bytes() == b"new"
+
+
+def test_download_snapshot_matches_opened_file_and_rejects_stale(server, app):
+    task = app.store.create_project("download", "download", paused=True)
+    saved = app.workspace.write(task["id"], "a.txt", "kept bytes")
+    url = f"http://127.0.0.1:{server.server_port}/api/workspace/download"
+    body = json.dumps(
+        {"task": task["id"], "path": "a.txt", "sha256": saved["sha256"]}
+    ).encode()
+    headers = {"X-Workbench-Token": app.token, "Content-Type": "application/json"}
+    response = urllib.request.urlopen(
+        urllib.request.Request(url, data=body, headers=headers)
+    )
+    assert response.read() == b"kept bytes"
+    assert response.headers["Content-Disposition"].startswith("attachment;")
+    app.workspace.write(task["id"], "a.txt", "changed", saved["sha256"])
+    with pytest.raises(urllib.error.HTTPError) as error:
+        urllib.request.urlopen(urllib.request.Request(url, data=body, headers=headers))
+    assert error.value.code == 400
+
+
+def test_native_recipe_rejects_shared_original_candidate_before_pinning(app):
+    task = app.store.create_project("overlap", "overlap", paused=True)
+    app.workspace.write(task["id"], "same.py", "print(1)")
+    spec = {
+        "version": 1,
+        "programs": {
+            k: {"files": ["same.py"], "argv": ["{python}", "same.py"]}
+            for k in ("original", "candidate")
+        },
+        "cases": [{"id": "empty"}],
+    }
+    with pytest.raises(Conflict, match="separate input"):
+        app.action(
+            "/api/native-tests/configure",
+            {"task": task["id"], "suite": spec, "allow_native": True},
+        )
+    assert not app.store.rows(
+        "SELECT id FROM records WHERE kind='acceptance_contract' AND id=?",
+        (task["id"],),
+    )
+
+
+def test_local_valid_check_is_not_blocked_by_publication_restriction(app):
+    task = app.store.create_project("local comparison", "local comparison", paused=True)
+    for name in ("original.py", "candidate.py"):
+        app.workspace.write(task["id"], name, "print(42)\n")
+    suite = {
+        "version": 1,
+        "programs": {
+            kind: {"files": [kind + ".py"], "argv": ["{python}", kind + ".py"]}
+            for kind in ("original", "candidate")
+        },
+        "cases": [{"id": "empty"}],
+    }
+    app.action(
+        "/api/native-tests/configure",
+        {"task": task["id"], "suite": suite, "allow_native": True},
+    )
+    assert run_checks(app, task["id"])["passed"] is True
+    assert not app.store.rows(
+        "SELECT id FROM records WHERE kind='publication_validation'"
+    )
+    assert app.store.rows(
+        "SELECT seq FROM events WHERE entity=? AND kind='checkpoint_source_excluded'",
+        (task["id"],),
+    )

@@ -284,8 +284,17 @@ def execute(
     files = snapshot(root, spec) if retained_files is None else retained_files
     hashes = {p: hashlib.sha256(data).hexdigest() for p, data in files.items()}
     tools = {"{python}": sys.executable}
+    compiler = compiler or shutil.which("clang") or shutil.which("gcc")
     if compiler:
         tools["{cc}"] = str(Path(shutil.which(compiler) or compiler).resolve())
+    elif any(
+        command[0] == "{cc}"
+        for program in spec["programs"].values()
+        for command in [*program["build"], program["argv"]]
+    ):
+        raise Blocked(
+            "Install Clang or GCC, or configure foundations.c_compiler before running this recipe"
+        )
     started = time.monotonic()
     deadline = started + min(max(deadline_seconds, 1), 3600)
     results, builds, built_files = [], [], {}

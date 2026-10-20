@@ -44,6 +44,12 @@ class NativeTestAcceptance:
         ):
             raise Blocked("Only an owner-pinned native test recipe may run")
         spec = tool_testing.validate(specification["suite"])
+        if set(spec["programs"].get("original", {}).get("files", [])) & set(
+            spec["programs"]["candidate"]["files"]
+        ):
+            raise Conflict(
+                "Original and candidate native recipes must use separate input paths"
+            )
         pinned = {}
         for name in spec["programs"].get("original", {}).get("files", []):
             pinned[name] = artifacts.add(

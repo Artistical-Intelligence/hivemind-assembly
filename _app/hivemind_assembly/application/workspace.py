@@ -1,6 +1,8 @@
 """Owner file access with project-wide writer guards and retained prior versions."""
 
 import os
+import hashlib
+from contextlib import contextmanager
 import re
 import tempfile
 from pathlib import Path, PurePosixPath
@@ -68,6 +70,8 @@ class Workspace:
         return task
 
     def listing(self, task_id):
+        from hivemind_assembly.core.acceptance import Acceptance
+
         task = self.store.task(task_id)
         root = self.broker.workspace(task_id)
         rows = []
@@ -108,6 +112,9 @@ class Workspace:
             "truncated": truncated,
             "editable": not reason,
             "reason": reason,
+            "acceptance": Acceptance(self.broker.controller, self.broker).describe(
+                task_id
+            ),
         }
 
     def read(self, task_id, name):
@@ -129,6 +136,33 @@ class Workspace:
         if file_hash(path) != digest:
             raise Conflict("File changed while it was read; reload it")
         return result
+
+    @contextmanager
+    def download(self, task_id, name, expected_sha):
+        if not isinstance(expected_sha, str) or not re.fullmatch(
+            "[0-9a-f]{64}", expected_sha
+        ):
+            raise ContractError("Open the file before downloading it")
+        source = self.path(task_id, name)
+        if not source.is_file() or source.stat().st_size > UPLOAD_LIMIT:
+            raise ContractError("Dashboard downloads support files up to 256 MiB")
+        # Send a stable snapshot. A concurrent edit cannot change bytes after
+        # the response headers or produce a partial mixture of file versions.
+        with tempfile.TemporaryDirectory(prefix="ha-download-") as folder:
+            stage = Path(folder) / "content"
+            digest, size = hashlib.sha256(), 0
+            with source.open("rb") as inp, stage.open("wb") as out:
+                while chunk := inp.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > UPLOAD_LIMIT:
+                        raise Conflict("File grew beyond the dashboard download limit")
+                    digest.update(chunk)
+                    out.write(chunk)
+            if digest.hexdigest() != expected_sha:
+                raise Conflict(
+                    "File changed since it was opened. Reload before downloading."
+                )
+            yield stage
 
     def install(self, task_id, name, stage, expected_sha=None):
         if expected_sha is not None and (

@@ -2,7 +2,7 @@
 const {JSDOM}=require('jsdom'), fs=require('fs'), assert=require('node:assert/strict');
 const [root,url,token]=process.argv.slice(2);
 const dom=new JSDOM(fs.readFileSync(root+'/application/static/index.html','utf8'),{url:url+'/#'+token,runScripts:'outside-only'}), w=dom.window;
-w.fetch=(path,opts)=>fetch(url+path,opts); w.HTMLElement.prototype.scrollIntoView=()=>{};
+w.TextEncoder=TextEncoder;w.fetch=(path,opts)=>fetch(url+path,opts); w.HTMLElement.prototype.scrollIntoView=()=>{};
 w.eval(['native_captures.js','app.js','workspace.js'].map(file=>fs.readFileSync(root+'/application/static/'+file,'utf8')).join('\n')+'\nwindow.fixtureRefresh=refresh;');
 const $=s=>w.document.querySelector(s), click=s=>$(s).click();
 const until=async fn=>{for(let n=0;n<200;n++){if(fn())return;await new Promise(r=>setTimeout(r,50));}throw Error('Timeout: '+fn+'\n'+$('#workspace-message').textContent+'\n'+$('#notice').textContent)};
@@ -20,5 +20,17 @@ const until=async fn=>{for(let n=0;n<200;n++){if(fn())return;await new Promise(r
  click('#workspace-check');await until(()=>$('#workspace-result-summary').textContent.startsWith('Checks passed'));
  assert.equal($('#workspace-task').options.length,2);
  click('#workspace-last-result');await until(()=>$('#workspace-result').textContent.includes('native_tool_tests'));
- console.log('Real controller dashboard flow passed: two starters, editing, dirty draft guard, passing and failing checks, retained native observations.');dom.window.close();
+ const form=$('#project-form');form.elements.name.value='Guided utility';form.elements.objective.value='Uppercase text';
+ form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+ await until(()=>$('#workspace-task').selectedOptions[0]?.textContent.includes('Guided utility'));
+ await until(()=>!$('#file-new').disabled);
+ $('#file-path').value='tool.py';click('#file-new');
+ $('#file-editor').value='import sys\nsys.stdout.buffer.write(sys.stdin.buffer.read().upper())\n';$('#file-editor').dispatchEvent(new w.Event('input'));
+ click('#file-save');await until(()=>!!$('[data-file="tool.py"]'));
+ $('#guided-candidate').value='tool.py';$('#guided-native-allow').checked=true;
+ $('#guided-cases [data-field=stdin]').value='hello\n';$('#guided-cases [data-field=stdout]').value='HELLO\n';
+ $('#guided-test-form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+ await until(()=>$('#guided-status').textContent.includes('Checks pinned'));
+ click('#workspace-check');await until(()=>$('#workspace-result-summary').textContent.startsWith('Checks passed'));
+ console.log('Real controller dashboard flow passed: two starters, editing, dirty draft guard, passing and failing checks, retained native observations, and a fresh project with guided exact-output checks.');dom.window.close();
 })().catch(e=>{console.error(e);dom.window.close();process.exitCode=1});

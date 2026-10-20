@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio, json, os, secrets, shutil, threading, time, webbrowser, tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit, unquote
+from urllib.parse import urlsplit, unquote, quote
 from hivemind_assembly import __version__
 from hivemind_assembly.paths import APP_ROOT
 from hivemind_assembly.domains.reverse_engineering.domain import (
@@ -203,6 +203,12 @@ class Application:
                 for row in self.store.rows("SELECT task_id FROM goals")
             ],
             "tasks": self.store.rows("SELECT * FROM tasks ORDER BY updated DESC"),
+            "configured_tasks": [
+                row["id"]
+                for row in self.store.rows(
+                    "SELECT id FROM records WHERE kind='acceptance_contract'"
+                )
+            ],
             "events": self.store.rows(
                 "SELECT * FROM events ORDER BY seq DESC LIMIT 60"
             ),
@@ -571,8 +577,8 @@ class Application:
                         "UPDATE projects SET revision=revision+1 WHERE id=?",
                         (current["project_id"],),
                     )
-            original = self.broker.artifacts.add(
-                target.read_bytes(),
+            original = self.broker.artifacts.add_file(
+                target,
                 source.name,
                 self.store.task(task)["project_id"],
                 "protected",
@@ -965,6 +971,24 @@ def make_server(app, port=0):
                 ):
                     raise ContractError("JSON required")
                 value = json.loads(self.rfile.read(n))
+                if urlsplit(self.path).path == "/api/workspace/download":
+                    with app.workspace.download(
+                        value["task"], value["path"], value["sha256"]
+                    ) as stage:
+                        self.send_response(200)
+                        self.send_header("Content-Type", "application/octet-stream")
+                        self.send_header("Content-Length", str(stage.stat().st_size))
+                        self.send_header("Cache-Control", "no-store")
+                        self.send_header("X-Content-Type-Options", "nosniff")
+                        self.send_header(
+                            "Content-Disposition",
+                            "attachment; filename*=UTF-8''"
+                            + quote(Path(value["path"]).name),
+                        )
+                        self.end_headers()
+                        with stage.open("rb") as source:
+                            shutil.copyfileobj(source, self.wfile, length=1024 * 1024)
+                    return
                 result = app.action(urlsplit(self.path).path, value)
                 self.send(200, result)
             except (ContractError, KeyError, ValueError, FileNotFoundError) as e:

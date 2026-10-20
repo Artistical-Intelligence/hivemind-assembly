@@ -36,9 +36,9 @@ class Publications:
                     ".h",
                     ".cc",
                     ".cpp",
-                ".cc",
-                ".rs",
-                ".cmake",
+                    ".cc",
+                    ".rs",
+                    ".cmake",
                     ".hpp",
                     ".py",
                     ".rs",
@@ -53,7 +53,18 @@ class Publications:
                 raw = scoped(root, name).read_bytes()
                 if hashlib.sha256(raw).hexdigest() != expected:
                     raise Conflict("Native-tested source changed before checkpoint")
-                self._safe_text(name, raw)
+                try:
+                    self._safe_text(name, raw)
+                except (Blocked, UnicodeDecodeError) as error:
+                    self.store.event(
+                        task,
+                        "checkpoint_source_excluded",
+                        {"operation": operation, "path": name, "reason": str(error)},
+                    )
+                    # Publication is optional. A valid local comparison remains
+                    # valid even when its sources cannot leave this workspace.
+                    # Skip the complete snapshot rather than publish a partial set.
+                    return
                 files[name] = expected
             self.retain_validation(task, operation, files)
             return

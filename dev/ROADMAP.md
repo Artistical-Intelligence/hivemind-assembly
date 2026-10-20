@@ -18,8 +18,8 @@ game equivalence or hardware timing.
 Optional hosted test requests now dispatch and track the managed GitHub workflow
 at a reviewed commit, with durable lost-response recovery and cancellation.
 Dashboard controls and project-scoped worker status are implemented. Windows CI
-has exercised native compilation, process cleanup and runtime probes. Live HA
-account dispatch and clean Windows installation remain unverified; remote
+has exercised native compilation, process cleanup and runtime probes. The bundled Windows runtime installation, project execution, drop-in update
+and backup restore passed hosted CI. Live HA account dispatch remains unverified; remote
 workflow success does not replace local independent acceptance.
 
 Earlier additions: persistent project goals, shared native turn budgets, owner-pinned
@@ -50,8 +50,9 @@ Windows application reconstruction or live GitHub automation acceptance.
    ELF interpreter/shared-library startup and explicit process/file/memory inputs.
    Broader CPU/OS effects, Windows/game/graphics behavior and target-level
    equivalence remain outside the implemented acceptance scope.
-5. Run clean Windows installation/update/restore and complete native REA checks.
-   The Windows Python 3.12 wheel closure resolves, and the 96-variant GCC/Clang
-   corpus passed 5,472 independent native comparisons; neither establishes a
-   clean Windows installation or arbitrary target reconstruction.
+5. Complete Windows foundation installation and native REA acceptance. The
+   extracted release now passes fresh embedded-runtime installation, actual
+   register/native checks, drop-in replacement and backup restoration in hosted
+   Windows CI. That does not establish complete WinGet/Ghidra/REA setup or
+   arbitrary Windows application reconstruction.
 6. Perform the separately requested full audit, then revise its findings.

@@ -3,10 +3,10 @@
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 375,
+    "passed": 378,
     "skipped": 3,
     "failed": 0,
-    "elapsed_seconds": 80.46,
+    "elapsed_seconds": 80.78,
     "host": "Linux Python 3.12",
     "hermes_source": "c0015464f0f40d52c5702a84cf58e70361f4a04c",
     "skipped_gate": "Local Chromium transport and dashboard tests, and Windows-only cleanup stress. Each has a dedicated GitHub CI job; no signed-in provider acceptance inferred."
@@ -18,9 +18,9 @@
     "static": "pyflakes on changed implementation/tests, JavaScript syntax and git diff --check passed. Workflow template matches the source workflow; runtime and source release archives are separately manifest-checked.",
     "goals": "Fixture native responses exercised root goal continuation through real local capture execution and a second fresh independent acceptance run. This is not signed-in native model acceptance.",
     "historical_evidence": "Checks under historical_checks were recorded in earlier development runs and are not newly claimed from this release verification.",
-    "github_ci": "Hosted CI run 39426873106 at b92018f passed Windows and Linux contracts, semantic checks, Windows native execution preflight, and a separate real Chromium provider-transport fixture. These predate the dashboard workspace changes. New dashboard and packaged-runtime CI gates are pending.",
-    "windows_runtime": "Windows CI at b92018f passed native C compilation/execution, process cleanup, portable guest runtime probes and repeated cleanup stress. New clean packaged-runtime install/update/restore checks are pending.",
-    "project_workspace": "Real owner file API and streamed authenticated binary upload passed. The actual HTTP controller and jsdom dashboard completed register/native starters, editing, draft preservation, passing/failing checks and retained observation review. Chromium dashboard and bundled Windows launcher verification are pending."
+    "github_ci": "Hosted CI run 39433815769 at b3bf1e0 passed Windows and Linux contracts, semantic checks, real Chromium provider transport and dashboard workflows, and the bundled Windows install/update/restore job. Guided recipe setup and downloads are undergoing the next CI run.",
+    "windows_runtime": "The extracted Windows package installed its bundled Python and hash-locked dependencies in a fresh data directory, ran register and native Python checks, survived removal/re-extraction of the application folder, and restored a verified backup with project files intact. Paths contained spaces. Tested in GitHub Windows CI, not a manual desktop or complete Ghidra/REA installation.",
+    "project_workspace": "Real HTTP and jsdom workflows passed register/native examples, draft preservation, saved edits, positive/negative independent checks, raw observations, and a fresh guided exact-output project. Streamed upload, version-checked snapshot download, stale-edit conflicts, immutable reference, invalid paths and local-check independence from publication eligibility passed backend tests. Chromium covered the published base workspace; guided setup/download CI is pending."
   },
   "native_live_acceptance": {
     "validated_routes": 0,

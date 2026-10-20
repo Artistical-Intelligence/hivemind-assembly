@@ -71,5 +71,30 @@ def test_edit_upload_check_and_draft_retention(server, app):
         )
         page.locator("#workspace-last-result").click()
         expect(page.locator("#workspace-result")).to_contain_text("native_tool_tests")
+        page.locator('[data-tab="projects"]').click()
+        page.locator('#project-form [name="name"]').fill("Guided utility")
+        page.locator('#project-form [name="objective"]').fill("Uppercase text")
+        page.locator("#project-form button").click()
+        expect(page.locator("#workspace-task option:checked")).to_contain_text(
+            "Guided utility"
+        )
+        expect(page.locator("#file-new")).to_be_enabled()
+        page.locator("#file-path").fill("tool.py")
+        page.locator("#file-new").click()
+        page.locator("#file-editor").fill(
+            "import sys\nsys.stdout.buffer.write(sys.stdin.buffer.read().upper())\n"
+        )
+        page.locator("#file-save").click()
+        expect(page.locator('[data-file="tool.py"]')).to_be_visible()
+        page.locator("#guided-candidate").select_option("tool.py")
+        page.locator('#guided-cases [data-field="stdin"]').fill("hello\n")
+        page.locator('#guided-cases [data-field="stdout"]').fill("HELLO\n")
+        page.locator("#guided-native-allow").check()
+        page.locator("#guided-pin").click()
+        expect(page.locator("#guided-status")).to_contain_text("Checks pinned")
+        page.locator("#workspace-check").click()
+        expect(page.locator("#workspace-result-summary")).to_contain_text(
+            "Checks passed", timeout=20000
+        )
         assert errors == []
         browser.close()

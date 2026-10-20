@@ -20,10 +20,11 @@
     byId('file-save').disabled = !editable || !opened || byId('file-editor').hidden;
     byId('file-upload').disabled = !editable;
     byId('file-new').disabled = !editable;
-    byId('workspace-check').disabled = !editable || !!pendingJob;
+    byId('workspace-check').disabled = !editable || !!pendingJob || !listing?.acceptance;
     byId('file-editor').readOnly = !editable;
     byId('file-draft').textContent = dirty ? 'Unsaved draft' : opened ? 'Saved on disk' : '';
     byId('file-discard').disabled = !dirty || busy;
+    byId('file-download').disabled = !opened?.sha256 || busy;
   }
   function clearEditor() {
     opened = null; dirty = false;
@@ -38,6 +39,9 @@
     const data = await api('workspace/list', {task});
     if (seq !== generation || task !== selected) return;
     listing = data;
+    updateRecipeFiles(data.files);
+    byId('guided-test-form').hidden = !!data.acceptance;
+    byId('workspace-contract').textContent = data.acceptance ? 'Pinned checks: ' + data.acceptance.scope.replaceAll('_',' ') + '. The reference and recipe are immutable. Edit the candidate and rerun checks below.' : 'No checks are pinned yet. Configure a native comparison here, or choose another check type in Projects & tasks.';
     byId('workspace-location').textContent = data.root;
     byId('workspace-readiness').textContent = data.reason || 'Paused and ready to edit. Independent checks leave the task paused.';
     byId('workspace-files').innerHTML = data.files.map(f => `<button type="button" data-file="${esc(f.path)}" class="file-entry"><span>${esc(f.path)}</span><small>${f.size.toLocaleString()} B</small></button>`).join('') || '<p class="muted">No files yet.</p>';
@@ -63,6 +67,8 @@
     requireClean();
     selected = task; signature = ''; listing = null; generation++;
     byId('workspace-task').value = task; clearEditor();
+    byId('guided-test-form').reset(); byId('guided-status').textContent = '';
+    byId('guided-cases').replaceChildren(); addInputCase();
     byId('workspace-result-summary').textContent = 'No check result loaded. Run checks or view the last retained result.';
     byId('workspace-result').textContent = '';
     for (const id of ['target-task','acceptance-task','native-test-task','goal-task','repository-task','hosted-test-task']) {
@@ -85,7 +91,7 @@
     if (select.innerHTML !== options) { select.innerHTML = options; select.value = selected; }
     if (!selected && s.tasks.length) guarded(() => selectTask(s.tasks[0].id))();
     const t = s.tasks.find(t => t.id === selected);
-    const key = t ? [selected, s.projects.find(p => p.id === t.project_id)?.revision, t.status, t.owner].join(':') : '';
+    const key = t ? [selected, s.projects.find(p => p.id === t.project_id)?.revision, t.status, t.owner, (s.configured_tasks || []).includes(selected)].join(':') : '';
     if (key && key !== signature) { signature = key; guarded(listFiles)(); }
     if (pendingJob) {
       const job = s.jobs[pendingJob.id];
@@ -125,6 +131,17 @@
       byId('workspace-result-summary').textContent = 'Files changed. Rerun checks to verify the current version.';
       await listFiles();
     } finally { busy = false; controls(); }
+  });
+  byId('file-download').onclick = guarded(async () => {
+    if (!opened?.sha256) throw Error('Open a saved file first.');
+    const name = opened.path.split('/').pop();
+    const response = await fetch('/api/workspace/download',{method:'POST',headers:{'X-Workbench-Token':token||'','Content-Type':'application/json'},body:JSON.stringify({task:selected,path:opened.path,sha256:opened.sha256})});
+    if (!response.ok) throw Error((await response.json()).error || 'Download failed');
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a'); link.href = url; link.download = name;
+    document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    message('Downloaded the saved file.');
   });
   byId('file-discard').onclick = guarded(async () => {
     const path = opened?.path, isNew = opened?.sha256 === null;
@@ -181,6 +198,63 @@
       message('Example ready. Run checks, edit the candidate, and check again.');
     } finally { b.disabled = false; }
   }));
+  function updateRecipeFiles(files) {
+    for (const id of ['guided-candidate', 'guided-original']) {
+      const select = byId(id), old = select.value;
+      select.innerHTML = '<option value="">Choose a file</option>' + files.map(f => `<option value="${esc(f.path)}">${esc(f.path)}</option>`).join('');
+      select.value = old;
+    }
+  }
+  function updateReferenceMode() {
+    const reference = byId('guided-original-kind').value !== 'expected';
+    byId('guided-original').disabled = !reference;
+    byId('guided-original').required = reference;
+    document.querySelectorAll('.guided-expected').forEach(e => e.hidden = reference);
+  }
+  function addInputCase() {
+    if (byId('guided-cases').children.length >= 20) throw Error('Use the advanced recipe form for more than 20 cases.');
+    const row = document.createElement('div'); row.className = 'guided-case';
+    row.innerHTML = '<label>Input text<textarea data-field="stdin" spellcheck="false" placeholder="Empty input is allowed"></textarea></label><div class="guided-expected"><label>Expected stdout<textarea data-field="stdout" spellcheck="false" placeholder="Exact output, including any newline"></textarea></label><label>Expected stderr<textarea data-field="stderr" spellcheck="false"></textarea></label><label>Expected exit code<input data-field="exit" type="number" value="0" step="1" required></label></div><button type="button" data-remove-case>Remove case</button>';
+    row.querySelector('[data-remove-case]').onclick = () => row.remove();
+    byId('guided-cases').append(row); updateReferenceMode();
+  }
+  byId('guided-original-kind').onchange = updateReferenceMode;
+  byId('guided-add-case').onclick = guarded(addInputCase);
+  addInputCase();
+  byId('guided-test-form').onsubmit = guarded(async e => {
+    e.preventDefault(); requireClean();
+    if (!selected) throw Error('Create or select a project first.');
+    if (!byId('guided-native-allow').checked) throw Error('Authorize the selected native recipes first.');
+    const program = (kind, path, role) => {
+      if (!path) throw Error('Choose the ' + role + ' file.');
+      const args = byId('guided-arguments').value === '' ? [] : byId('guided-arguments').value.replace(/\r\n/g,'\n').split('\n');
+      const spec = {files:[path], argv:kind === 'python' ? ['{python}',path,...args] : [path,...args]};
+      if (kind === 'c') { spec.build = [['{cc}',path,'-O2','-o','ha-'+role+'.exe']]; spec.argv = ['ha-'+role+'.exe',...args]; }
+      return spec;
+    };
+    const reference = byId('guided-original-kind').value !== 'expected';
+    const suite = {version:1,repeats:3,programs:{candidate:program(byId('guided-candidate-kind').value,byId('guided-candidate').value,'candidate')},cases:[]};
+    if (reference) suite.programs.original = program(byId('guided-original-kind').value,byId('guided-original').value,'original');
+    const hex = text => [...new TextEncoder().encode(text)].map(n=>n.toString(16).padStart(2,'0')).join('');
+    for (const [i,row] of [...byId('guided-cases').children].entries()) {
+      const field = name => row.querySelector('[data-field="'+name+'"]');
+      const test = {id:'case-'+(i+1),stdin_hex:hex(field('stdin').value)};
+      if (!reference) test.expected = {exit_code:Number(field('exit').value),stdout_hex:hex(field('stdout').value),stderr_hex:hex(field('stderr').value),files:{}};
+      suite.cases.push(test);
+    }
+    if (!suite.cases.length) throw Error('Add at least one input case.');
+    busy = true; controls(); byId('guided-pin').disabled = true;
+    try {
+      await api('native-tests/configure',{task:selected,suite,allow_native:true});
+      byId('guided-status').textContent = 'Checks pinned. Use Run checks below to execute this recipe.';
+      byId('native-test-task').value = selected;
+      document.querySelector('#native-test-form [name=suite]').value = JSON.stringify(suite,null,2);
+      message('Native recipe pinned for this task.');
+      await listFiles();
+    } finally { busy = false; byId('guided-pin').disabled = false; controls(); }
+  });
+  window.openWorkspaceTask = async task => { await selectTask(task); tab('workspace'); };
+
   window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
   controls();
 })();
