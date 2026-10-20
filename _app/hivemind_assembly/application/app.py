@@ -395,6 +395,43 @@ class Application:
                 paused=bool(data.get("start_paused", False)),
             )
             return t
+        if path == "/api/native-tests/results":
+            task = self.store.task(data["task"])
+            rows = self.store.rows(
+                "SELECT id FROM artifacts WHERE project_id=? AND logical_name='native-test-observations.json' AND classification='protected' ORDER BY created DESC LIMIT 1",
+                (task["project_id"],),
+            )
+            return (
+                json.loads(
+                    self.broker.artifacts.read(
+                        rows[0]["id"], "evaluator", task["project_id"]
+                    )
+                )
+                if rows
+                else {"status": "not_run"}
+            )
+        if path == "/api/native-tests/run":
+            return self.background_job(
+                "Run pinned native tests", lambda: self.run_native_tests(data["task"])
+            )
+        if path == "/api/native-tests/permission":
+            from hivemind_assembly.core.test_acceptance import NativeTestAcceptance
+
+            NativeTestAcceptance(self.store).allow(data["project"], data["allowed"])
+            return {"allowed": data["allowed"]}
+        if path == "/api/native-tests/configure":
+            from hivemind_assembly.core.test_acceptance import NativeTestAcceptance
+
+            if data.get("allow_native") is not True:
+                raise Blocked(
+                    "Enable trusted native execution for this project before pinning a recipe"
+                )
+            task = self.store.task(data["task"])
+            verifier = NativeTestAcceptance(self.store)
+            spec = {"scope": "native_tool_tests", "suite": data["suite"]}
+            verifier.authorize_recipe(task["project_id"], spec)
+            verifier.allow(task["project_id"], True)
+            return Acceptance(self.controller, self.broker).configure(task["id"], spec)
         if path == "/api/goal":
             return self.team.goals.command(data["task"], data.get("command", "/goal"))
         if path == "/api/acceptance":
@@ -621,6 +658,51 @@ class Application:
                 lambda: install_foundations(self.store.root, self.config_path),
             )
         raise ContractError("Unknown action")
+
+    def run_native_tests(self, task_id):
+        with self.store.lock:
+            with self.store.tx() as db:
+                task = self.store.task(task_id)
+                if task["status"] != "paused" or task["owner"]:
+                    raise Blocked(
+                        "Manual tests require a paused, unassigned task; active workers use test_programs"
+                    )
+                db.execute("UPDATE tasks SET status='queued' WHERE id=?", (task_id,))
+            try:
+                epoch = self.controller.acquire(task_id, "user.testing", seconds=1200)
+            except BaseException:
+                self.store.state(task_id, "paused")
+                raise
+        try:
+            revision = self.store.project(task["project_id"])["revision"]
+            self.broker.cancel.setdefault(task_id, threading.Event()).clear()
+            self.controller.brief(
+                task_id,
+                {"revision": revision},
+                {
+                    "procedure": "Run the owner-pinned native recipe",
+                    "acceptance": "Exact repeated observations must match the protected oracle",
+                },
+                {"critical_gaps": []},
+                [],
+            )
+            return self.broker.execute(
+                {
+                    "id": uid("native_test"),
+                    "task_id": task_id,
+                    "owner": "user.testing",
+                    "epoch": epoch,
+                    "revision": revision,
+                    "tool": "test_programs",
+                    "args": {},
+                }
+            )
+        finally:
+            with self.store.tx() as db:
+                db.execute(
+                    "UPDATE tasks SET status=CASE WHEN status='cancelled' THEN status ELSE 'paused' END,owner=NULL,lease_until=0,brief_id=NULL WHERE id=? AND epoch=? AND owner='user.testing'",
+                    (task_id, epoch),
+                )
 
     def create_repository(self, task_id, args, link=False):
         """User-initiated provisioning uses the same journal and writer fences."""

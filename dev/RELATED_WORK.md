@@ -301,3 +301,6 @@ this does not establish arbitrary Linux or Windows runtime compatibility.
 - Browser ports: https://emscripten.org/docs/porting/emscripten-runtime-environment.html . Reconstructed C/C++ may be compiled to WebAssembly with supported SDL/WebGL APIs; a browser port is not a native Windows execution oracle.
 - Software rendering: https://docs.mesa3d.org/drivers/llvmpipe.html . Headless CPU rendering can exercise graphics functionality; it is not GPU performance or complete driver equivalence.
 - Alive2: https://github.com/AliveToolkit/alive2 . LLVM translation validation complements executable testing; it does not establish whole-application/OS equivalence.
+
+- EGL surfaceless specification: https://registry.khronos.org/EGL/extensions/MESA/EGL_MESA_platform_surfaceless.txt . The included source-known probe uses a real pbuffer and OpenGL pixel readback, without substituting synthetic rendering.
+- Windows Job Objects: https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects . Use process-tree membership before starting the target, with kill-on-close; test the Windows branch on Windows before claiming platform acceptance.

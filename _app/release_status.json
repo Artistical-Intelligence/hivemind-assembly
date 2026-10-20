@@ -1,12 +1,12 @@
 {
-  "version": "0.8.0",
+  "version": "0.9.0",
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 297,
+    "passed": 317,
     "skipped": 1,
     "failed": 0,
-    "elapsed_seconds": 53.68,
+    "elapsed_seconds": 60.95,
     "host": "Linux Python 3.12",
     "hermes_source": "c0015464f0f40d52c5702a84cf58e70361f4a04c",
     "skipped_gate": "Local Chromium DOM fixture. An installed Chromium executable was found, but this host rejects its required socket operation; the fixture is not counted as passed."
@@ -18,7 +18,7 @@
     "program_reconstruction": "Complete Qiling 1.4.6 replay of declared files, descriptors and mapped memory agreed with a separately executed source-known native fixture. Wrong reconstruction, host-file access and syscall writes to read-only code were rejected. Static Unicorn multi-unit reconstruction remains supported.",
     "learning": "ACE prompt/curation path, SkillOpt patch/gate and Shinka parent selection integrated. Protected generic evaluator rejected a wrong held-out result and promoted a measured correctness gain across separate fixture families/projects. Executable workflow timing/rollback tests passed. These are not native cross-project learning acceptance.",
     "backups": "Complete owned workspace snapshot and offline restore verified; project/native files and transcripts preserved, private browser/credential storage excluded.",
-    "dashboard": "jsdom interaction checks passed for native setup, permission changes, protected corpus/evaluation forms, foundation verification, existing-repository binding, creation policy, uncertain checkpoint reconciliation, proof/function workflow selection, and project/acceptance controls. Native DOM/WebMCP fixtures reject injected identity, duplicate controls and wrong origin/schema.",
+    "dashboard": "jsdom interaction checks passed for native setup, permission changes, protected corpus/evaluation forms, foundation verification, existing-repository binding, creation policy, uncertain checkpoint reconciliation, proof/function workflow selection, and project/acceptance controls. Native DOM/WebMCP fixtures reject injected identity, duplicate controls and wrong origin/schema. Standing-goal commands, native test recipe configuration and observation retrieval also passed jsdom checks; owner native-test API and permission checks passed Python tests.",
     "static": "pyflakes on implementation and development verification scripts, JavaScript syntax and git diff --check passed.",
     "native_lifecycle": "Session intent/commit, crash recovery without duplicate send, protected binding restoration, two-way canary verification paths and pending-delivery renewal guard passed local fixtures. Actual signed-in routes remain unverified.",
     "native_learning": "Resumable paired knowledge/procedure trials, protected expected outputs, isolated conversation IDs, permission revocation, evaluator fingerprinting and promotion passed local fixtures. Real model gains and provider-wide memory isolation remain unverified.",
@@ -49,13 +49,17 @@
       "actual_windows_execution": false
     },
     "linked_function_reconstruction": "Linked ELF/SysV and PE/Win64 compilation, seven-argument calls, cross-ABI comparisons, aliased pointer buffers, exact bounds, read-only writes, nonvolatile XMM and FP controls passed local tests. Pointer results compared against independently compiled native GCC execution. Protected acceptance rebuilds and rejects wrong code; no Windows OS runtime claimed.",
-    "checkpoint_publication": "Optional existing-repository binding and local-only operation; automatic publication scheduling after trusted comparisons; exact source hashes, append-only journal, non-force branch updates, remote-change rejection, and lost initialization/ref response recovery passed fixtures. HA live publication remains unverified; development snapshots were pushed separately through the connected GitHub tools.",
+    "checkpoint_publication": "Optional existing-repository binding and local-only operation; automatic publication scheduling after trusted comparisons; exact source hashes, append-only journal, non-force branch updates, remote-change rejection, and lost initialization/ref response recovery passed fixtures. HA live publication remains unverified; development snapshots were pushed separately through the connected GitHub tools. Owner-pinned native tests now also retain exact checked source hashes for publication; binaries remain excluded.",
     "pe_dependencies": "Actual Clang/LLD PE fixtures passed explicit DLL linking, absolute-pointer relocation, forwarded exports, missing-import rejection, initialization rejection, and protected dependency pinning. No native Windows execution or Windows API runtime claimed.",
     "reconstruction_planning": "Complete Ghidra inventory and static-callgraph pagination exercised on actual Ghidra; 13-function graph planned. A 4000-function chain, recursion groups, external dependencies and incomplete/changed/truncated graph rejection passed automated tests.",
     "workflow_composition": "Earlier-step references, selected outputs, deterministic integer/pointer function replay, invalid-result-path rejection, independent scalar/pointer holdouts, and revocable native workflow permission are implemented. Built-in optimizers retain paired measured timings and require preserved results before promotion; no general native self-improvement claim.",
     "process_inputs": "Explicit UTF-8 argv/env, host environment isolation, native executable agreement, protected input pinning, wrong-lookup rejection and CPU-state guards passed tests. The supplied-dependency Qiling lane verifies its Haswell guest CPU and models a fixed timestamp counter from the declared clock.",
     "dynamic_linux": "Actual source-known shared-library ELF and glibc/printf PIE ran under Qiling and agreed with native outputs. Static reconstruction, wrong-output rejection, protected dependency pinning, readonly dependencies, startup budget/constructor-I/O rejection, and explicit strict/observable comparison passed targeted tests. No arbitrary Linux or Windows compatibility claimed.",
-    "installed_runtime_probes": "Automatic installation/foundation checks now compile and exercise declared process/file replay and both ELF/PE pointer-call ABIs, with a native shared-library oracle. Actual probes passed on this Linux host. The generated-DLL native oracle branch is implemented but has not run on Windows."
+    "installed_runtime_probes": "Automatic installation/foundation checks now compile and exercise declared process/file replay and both ELF/PE pointer-call ABIs, with a native shared-library oracle. Actual probes passed on this Linux host. The generated-DLL native oracle branch is implemented but has not run on Windows.",
+    "standing_goals": "Persistent root objectives, project-wide native request budgets, idempotent reservation across restart, pause/clear/resume, automatic continuation, root-only independent completion and reviewer recovery request resumption passed. No extra model API judge. Native signed-in goal execution is not verified.",
+    "native_tool_testing": "Actual native original/candidate C builds with different implementations and optimization levels passed three repeated oracle cases. Source-known wrong candidates were rejected. An installed gzip oracle agreed with a Python decompression utility on three byte-stream cases. Expected-output/file tests, repeated-run instability, deadlines, output limits, process-tree cleanup after timeout and controller exit, environment credential stripping, owner-only recipes, protected original/corpus, permission revocation and source rechecks passed. Native execution is explicitly owner-authorized and is not a security sandbox.",
+    "offscreen_graphics": "Actual EGL 1.5 pbuffer/OpenGL readback passed three repeated comparisons of a 16x16 RGBA frame against independent expected pixels. Observed renderer: llvmpipe (LLVM 20.1.2, 256 bits); Mesa 25.2.8 OpenGL 4.5 compatibility. This verifies the source-known graphics probe, not arbitrary game behavior or GPU performance.",
+    "hosted_testing": "Manual Linux/Windows GitHub Actions workflow and dependency-free runner implemented, with exact commit/run metadata, no persisted checkout credentials, bounded runtime and short artifact retention. Actual hosted dispatch and Windows Job Object execution remain unverified. Account spending policy is not set or inferred by the workflow. The local bubblewrap probe failed because this host denies a required NETLINK_ROUTE socket; no sandbox was claimed."
   },
   "native_live_acceptance": {
     "validated_routes": 0,
@@ -73,7 +77,8 @@
     "Native cross-project learning gains, provider account-wide memory isolation and repeated timing evidence.",
     "Clean Windows install/update/restore and native REA execution on a compatible host.",
     "Target-level broader application reconstruction.",
-    "Separately requested full audit and revision pass."
+    "Separately requested full audit and revision pass.",
+    "Run the new native test workflow on hosted Linux/Windows with a verified account spending boundary; validate Windows process-tree cleanup and representative target recipes."
   ],
   "model_api_inference": false,
   "paid_overage": false,
@@ -81,5 +86,12 @@
     "program": "x86-64 little-endian Linux ELF. Static Unicorn replay; Qiling also accepts bounded dynamic ELF/PIE with explicitly supplied and pinned interpreter/libraries, process inputs, files, guest metadata, single-thread setup, bounded mappings, fixed clock and supplied random bytes. No host file, process/network forwarding, unknown syscalls or constructor I/O. Strict effects remain the default; explicit observable policy checks streams, exit, input consumption, selected memory and final files/directories. Event traces retained.",
     "data_location": "Existing UnifiedWorkbench user-data path is unchanged",
     "credentials": "OS vault; browser credentials are not copied to code, configuration, releases or backups"
+  },
+  "supplementary_tests": {
+    "goal_controls_and_reviewer_recovery": {
+      "passed": 4,
+      "failed": 0,
+      "note": "Includes one added reviewer-retry regression after the full suite; the other three goal tests are also in the full suite."
+    }
   }
 }

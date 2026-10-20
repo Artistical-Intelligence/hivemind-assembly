@@ -14,6 +14,7 @@ def main():
             "serve",
             "verify",
             "check-function",
+            "test-programs",
             "learn",
             "setup",
             "doctor",
@@ -40,9 +41,35 @@ def main():
         "--backup",
         help="Workspace ZIP for offline restore into an empty data directory",
     )
+    p.add_argument("--suite", help="Owner-defined native test suite JSON")
+    p.add_argument(
+        "--workspace", help="Directory containing the suite's explicit program inputs"
+    )
+    p.add_argument(
+        "--allow-native",
+        action="store_true",
+        help="Authorize the recipes to execute with this host's access (not a sandbox)",
+    )
     args = p.parse_args()
     if args.command == "serve":
         serve(args.data_dir, args.port, not args.no_browser)
+    elif args.command == "test-programs":
+        from pathlib import Path
+        from hivemind_assembly.core.tool_testing import execute
+
+        if not args.suite or not args.workspace or not args.allow_native:
+            p.error("test-programs requires --suite, --workspace and --allow-native")
+        source = Path(args.suite)
+        if source.stat().st_size > 16 * 1024 * 1024:
+            p.error("Test suite exceeds 16 MiB")
+        result = execute(
+            args.workspace,
+            json.loads(source.read_text("utf-8")),
+            allow_native=True,
+            compiler=args.compiler or None,
+        )
+        print(json.dumps(result, indent=2))
+        raise SystemExit(0 if result["passed"] else 1)
     elif args.command == "restore":
         from hivemind_assembly.core.backups import restore
         from hivemind_assembly.core.common import InstanceLock

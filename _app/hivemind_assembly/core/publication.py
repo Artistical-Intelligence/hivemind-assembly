@@ -28,6 +28,35 @@ class Publications:
         )
 
     def record_checked_result(self, task, operation, tool, args, result, root):
+        if tool == "test_programs" and result.get("passed") is True:
+            files = {}
+            for name, expected in result.get("candidate_hashes", {}).items():
+                if PurePosixPath(name).suffix.lower() not in {
+                    ".c",
+                    ".h",
+                    ".cc",
+                    ".cpp",
+                ".cc",
+                ".rs",
+                ".cmake",
+                    ".hpp",
+                    ".py",
+                    ".rs",
+                    ".js",
+                    ".ts",
+                    ".json",
+                    ".toml",
+                    ".cmake",
+                    ".txt",
+                }:
+                    continue
+                raw = scoped(root, name).read_bytes()
+                if hashlib.sha256(raw).hexdigest() != expected:
+                    raise Conflict("Native-tested source changed before checkpoint")
+                self._safe_text(name, raw)
+                files[name] = expected
+            self.retain_validation(task, operation, files)
+            return
         if result.get("passed") is not True or tool not in (
             "validate_c_function",
             "compare_program",
@@ -98,6 +127,9 @@ class Publications:
                 ".c",
                 ".h",
                 ".cpp",
+                ".cc",
+                ".rs",
+                ".cmake",
                 ".hpp",
                 ".py",
                 ".js",

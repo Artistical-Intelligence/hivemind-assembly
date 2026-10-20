@@ -21,6 +21,7 @@ CORE_CAPABILITIES = (
     Capability("checkpoint", recovery="discard"),
     Capability("read_artifact", recovery="discard"),
     Capability("run_workflow", recovery="discard"),
+    Capability("test_programs", recovery="external"),
     Capability("propose_workflow", recovery="discard"),
 )
 
@@ -192,6 +193,25 @@ class Broker:
                     "data": base64.b64encode(data[start : start + length]).decode(),
                     "complete": start == 0 and length >= len(data),
                 }
+            elif tool == "test_programs":
+                from .test_acceptance import NativeTestAcceptance
+
+                contract = self.store.get("acceptance_contract", task)
+                if contract["scope"] != "native_tool_tests" or args:
+                    raise Blocked(
+                        "test_programs runs only this task's pinned native test recipe, without arguments"
+                    )
+                verifier = NativeTestAcceptance(self.store)
+                verifier.require_permission(self.store.task(task)["project_id"])
+                effect_started = True
+                result = verifier.verify(
+                    root,
+                    contract,
+                    self.artifacts,
+                    self.store.task(task)["project_id"],
+                    self.context(task),
+                )
+                verifier.recheck(root, result)
             elif tool == "propose_workflow":
                 if not self.domain or not hasattr(self.domain, "workflow_runner"):
                     raise Blocked("No executable workflow evaluator for this domain")

@@ -80,7 +80,14 @@ class Recovery:
         self.store.put("attempt:" + task, uid("attempt"), entry)
         return {"needs_reviewer": unchanged >= 3, "attempt": entry}
 
-    def request(self, task, reason, permissions):
+    def request(self, task, reason, permissions, request_id=None):
+        if request_id:
+            existing = self.store.rows(
+                "SELECT payload FROM records WHERE kind=? AND id=?",
+                ("recovery:" + task, request_id),
+            )
+            if existing:
+                return json.loads(existing[0]["payload"])
         requests = self.store.rows(
             "SELECT id FROM records WHERE kind=?", ("recovery:" + task,)
         )
@@ -101,7 +108,7 @@ class Recovery:
             ],
             "question": "Identify one discriminating next action and stopping condition. Do not weaken acceptance.",
         }
-        self.store.put("recovery:" + task, uid("recovery"), value)
+        self.store.put("recovery:" + task, request_id or uid("recovery"), value)
         return value
 
     @staticmethod

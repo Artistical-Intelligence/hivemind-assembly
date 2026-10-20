@@ -1,0 +1,59 @@
+name: Native reconstructed program tests
+on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        type: choice
+        options: [ubuntu-latest, windows-latest]
+        default: ubuntu-latest
+        description: Standard disposable runner
+      suite:
+        type: string
+        default: _app/examples/native_cli/suite.json
+        description: Reviewed test suite in this checkout
+      workspace:
+        type: string
+        default: _app/examples/native_cli
+        description: Reviewed program input folder in this checkout
+      spending_control_confirmed:
+        type: boolean
+        default: false
+        description: I have configured an account spending boundary and authorize this run
+permissions:
+  contents: read
+jobs:
+  native:
+    if: ${{ inputs.spending_control_confirmed }}
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run exact recipe and retain observations
+        shell: python
+        env:
+          HA_TEST_SUITE: ${{ inputs.suite }}
+          HA_TEST_WORKSPACE: ${{ inputs.workspace }}
+        run: |
+          import os, pathlib, shutil, subprocess, sys
+          root = pathlib.Path.cwd().resolve()
+          paths = [root / os.environ[k] for k in ('HA_TEST_SUITE', 'HA_TEST_WORKSPACE')]
+          if any(not p.resolve().is_relative_to(root) for p in paths):
+              raise SystemExit('Test inputs must remain inside the checkout')
+          compiler = shutil.which('clang') or shutil.which('gcc')
+          if not compiler:
+              raise SystemExit('Required compiler was not found; no test pass inferred')
+          raise SystemExit(subprocess.call([sys.executable, 'dev/run_native_tests.py',
+              '--suite', str(paths[0]), '--workspace', str(paths[1]), '--compiler', compiler,
+              '--output', 'native-results.json', '--allow-native']))
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: native-observations-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: native-results.json
+          if-no-files-found: error
+          retention-days: 3

@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.8.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.9.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -262,3 +262,66 @@ Function inventories and static callgraphs support pagination. The
 `plan_reconstruction` capability validates a complete set of callgraph pages,
 groups mutually recursive functions and orders groups by their dependencies.
 It retains external targets and does not claim to discover all indirect calls.
+
+## Standing goals
+
+In Projects, select the root task under **Standing goal** and enter `/goal`.
+HA retains the objective across restarts and continues through incomplete turns.
+All worker, adviser and reviewer requests, including project children, share a
+1,000-request default budget. Retrying the same retained request counts once.
+Use `/goal status`, `/goal pause`, `/goal resume`, `/goal clear`, or
+`/goal budget 2000`. Pause/clear stop new work at the next step boundary; task
+pause/cancel can interrupt active work. Increasing a spent budget does not
+silently resume it. A root goal is achieved only when independent acceptance
+passes. Child completion, summaries and checkpoints do not finish it. Exact
+native routes and usage limits still apply; no auxiliary API judge is used.
+
+## Native executable and tool testing
+
+**Projects → Native program & tool tests** supports an owner-defined JSON recipe
+for a reconstructed application or general-purpose utility. Pin the recipe before
+starting the task, including its original program or exact expected outputs.
+The original and cases remain protected; workers request `test_programs` with
+empty arguments and cannot substitute commands or rewrite the oracle. Completion
+rebuilds/retests and checks source hashes. Permission can be revoked per project.
+Passing publishable source checks feed automatic GitHub checkpoints when enabled.
+
+Native testing executes real code with the host account's access. It is optional
+and requires explicit owner permission. Fresh working folders, stripped environment
+credentials and process cleanup are not a security sandbox. Use trusted code on
+your installation or an appropriately isolated disposable runner. Emulated and
+symbolic verification remain available without this permission.
+
+Each recipe declares program files, command argument arrays, optional build
+commands, cases, observed output paths and repetitions. `{python}` selects this
+installation's Python; `{cc}` selects the configured compiler. Programs build once
+per suite; every execution receives fresh files. Comparisons include exact binary
+stdin/stdout/stderr, exit status and selected output-file hashes. Repetitions detect
+unstable observations; matching crashes, timeouts and incomplete output never pass.
+Raw streams, selected file bytes, build logs, timings, source hashes and optional
+diagnostic files are retained for review. Tests establish sampled observations,
+not equivalence for all inputs or unobserved effects. Programs needing services,
+interactive input or hardware require a corresponding test recipe/environment.
+
+Bundled examples:
+
+- `_app/examples/native_cli`: independently written C implementations, different
+  optimization levels and three exact input/output cases, including unsigned overflow.
+- `_app/examples/offscreen_gl`: a Linux Mesa/EGL fixture that creates a real offscreen
+  OpenGL context, reads back RGBA pixels and compares them with an independent buffer.
+  It needs EGL/OpenGL libraries; unsupported graphics setup is a failure, not a fake frame.
+
+For CLI use, run `python _app/launch.py test-programs --suite SUITE.json
+--workspace INPUT_FOLDER --compiler COMPILER --allow-native` on one line.
+The source distribution also provides the dependency-free
+`dev/run_native_tests.py` runner with a required `--output RESULTS.json` argument.
+
+The **Native reconstructed program tests** GitHub Actions workflow is manually
+dispatched on a standard Linux or Windows runner. It checks out the selected commit
+without retaining repository credentials, runs the reviewed recipe and retains
+observations for three days. Inputs are passed as data, never interpolated into a
+shell command. The owner must confirm an account spending boundary before dispatch;
+the workflow does not configure billing and does not prove remaining quota.
+No repository creation is required. The default recipe is the bundled C fixture;
+select the offscreen example on a compatible Linux runner for graphics checks.
+Hosted runs are not automatically accepted as local task completion.

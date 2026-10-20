@@ -112,3 +112,74 @@ def test_native_goal_continues_to_actual_acceptance(store):
     assert store.task(task["id"])["status"] == "accepted"
     assert team.goals.status(task["id"])["status"] == "achieved"
     assert "standing_goal" in json.loads(team.host.messages[0][3])
+
+
+def test_rejected_goal_uses_resumable_reviewer_request(store):
+    c = Controller(store)
+    broker = Broker(c, {})
+    team = NativeTeam(c, broker, None, {"routes": {}, "foundations": {}})
+    task = store.create_project("review", "Recover addition")
+    root = broker.workspace(task["id"])
+    (root / "original.hex").write_text("89f801f0")
+    (root / "candidate.hex").write_text("89f829f0")
+    Acceptance(c, broker).configure(
+        task["id"],
+        {
+            "scope": "x86_64_register_regions",
+            "checks": [
+                {
+                    "original_path": "original.hex",
+                    "candidate_path": "candidate.hex",
+                    "original_format": "hex",
+                    "candidate_format": "hex",
+                }
+            ],
+        },
+    )
+    team.goals.command(task["id"], "/goal")
+    epoch = c.acquire(task["id"], "worker.opus")
+    c.brief(
+        task["id"],
+        {"revision": 0},
+        {"procedure": "Check reconstruction", "acceptance": "Independent equivalence"},
+        {"critical_gaps": []},
+        [],
+    )
+    broker.execute(
+        {
+            "id": "checkpoint",
+            "task_id": task["id"],
+            "owner": "worker.opus",
+            "epoch": epoch,
+            "revision": 0,
+            "tool": "checkpoint",
+            "args": {"reason": "Candidate ready"},
+        }
+    )
+    for i in range(3):
+        result = team.acceptance(
+            store.task(task["id"]),
+            {"result_operations": ["checkpoint"], "summary": str(i)},
+        )
+        assert not result["passed"]
+    flow = team.flow(task["id"])
+    assert flow["phase"] == "recovery" and flow["failure"]
+    assert store.task(task["id"])["status"] == "running"
+    first = team.recovery.request(
+        task["id"], flow["failure"], [], request_id="same-turn"
+    )
+    for _ in range(4):
+        assert (
+            team.recovery.request(
+                task["id"], flow["failure"], [], request_id="same-turn"
+            )
+            == first
+        )
+    assert (
+        len(
+            store.rows(
+                "SELECT * FROM records WHERE kind=?", ("recovery:" + task["id"],)
+            )
+        )
+        == 1
+    )

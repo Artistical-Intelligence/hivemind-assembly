@@ -279,3 +279,35 @@ exit, input consumption and selected memory, while syscall/allocation traces
 remain evidence rather than an identical-implementation requirement. The legacy
 static acceptance scope remains supported. Guest file handles are closed before
 removing the isolated filesystem, including when the target fails to close them.
+
+## Persistent goals and native tool verification
+
+`core.goals` adds a project-wide standing objective over existing tasks and Hermes
+planning. SQLite owns one root goal and unique native request reservations. All
+roles and children consume the same explicit budget; retries reuse reservations.
+Pause/clear stop dispatch at step boundaries. Root acceptance updates goal status
+inside its existing fenced transaction. Repeated failed completion proposals route
+to the existing reviewer; review-request identity survives retries. There is no
+new inference runtime or model API judge.
+
+`core.tool_testing` builds owner-declared recipes and repeatedly executes original
+and candidate snapshots with identical explicit inputs. It is domain-independent.
+`core.test_acceptance` seals recipes and original files, requires project permission
+and a separate owner authorization for the exact recipe, and rechecks candidate
+hashes at acceptance. Child planning cannot authorize new native commands. Detailed
+observations remain protected from workers; owner controls expose them for debugging.
+Successful source checks enter the existing append-only publication journal.
+
+`native_process` uses file-backed streams, deadlines, output bounds and process-tree
+cleanup. Windows assigns a Job Object before its cooperative launcher starts target
+code; Unix monitors parent lifetime and cleans the process group. These are process
+management controls, not security isolation. Native recipes must be trusted with
+host access or run in a disposable, suitably isolated environment. All programs are
+executed as argument arrays without a shell; no inherited model/GitHub credentials
+are passed through the environment. This does not hide host files from native code.
+
+The standalone source runner also works in the manually dispatched GitHub workflow.
+It records commit/run/runner identity and observations. Remote results are not trusted
+automatically as local acceptance. Account billing policy is external to the workflow.
+The Mesa fixture compares actual offscreen GL readback with independent expected
+pixels; it does not emulate arbitrary games or establish hardware performance.

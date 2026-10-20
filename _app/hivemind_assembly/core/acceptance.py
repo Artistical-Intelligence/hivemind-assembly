@@ -10,8 +10,15 @@ class Acceptance:
         self.controller, self.broker = controller, broker
         self.store = controller.store
 
+    def verifier(self, scope):
+        if scope == "native_tool_tests":
+            from .test_acceptance import NativeTestAcceptance
+
+            return NativeTestAcceptance(self.store)
+        return getattr(self.broker.domain, "acceptance", None)
+
     def configure(self, task_id, specification):
-        verifier = getattr(self.broker.domain, "acceptance", None)
+        verifier = self.verifier(specification.get("scope"))
         if verifier is None:
             raise Blocked("This domain has no independent acceptance verifier")
         task = self.store.task(task_id)
@@ -41,7 +48,11 @@ class Acceptance:
         )
         contract.update(
             task_id=task_id,
-            domain=self.broker.domain.id,
+            domain=(
+                "core.native_tests"
+                if specification.get("scope") == "native_tool_tests"
+                else self.broker.domain.id
+            ),
             specification_hash=digest(specification),
         )
         with self.store.tx() as c:
@@ -134,9 +145,13 @@ class Acceptance:
             }
         else:
             retained = self.store.get("acceptance_contract", task["id"])
-            if retained["domain"] != self.broker.domain.id:
+            if retained["domain"] != (
+                "core.native_tests"
+                if retained["scope"] == "native_tool_tests"
+                else self.broker.domain.id
+            ):
                 raise Blocked("Acceptance domain changed")
-            result = self.broker.domain.acceptance.verify(
+            result = self.verifier(retained["scope"]).verify(
                 self.broker.workspace(task["id"]),
                 retained,
                 self.broker.artifacts,
@@ -157,7 +172,7 @@ class Acceptance:
             ):
                 raise Conflict("Project changed during independent acceptance")
             if contract is not None:
-                self.broker.domain.acceptance.recheck(
+                self.verifier(retained["scope"]).recheck(
                     self.broker.workspace(task["id"]), result
                 )
             if c.execute(

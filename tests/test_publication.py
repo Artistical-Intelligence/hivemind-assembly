@@ -17,6 +17,37 @@ def sha(value):
     return hashlib.sha1(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
 
+def test_native_checked_source_publication_record(publication):
+    c, t, remote, repos, broker, publish = publication
+    root = broker.workspace(t["id"])
+    (root / "tool.py").write_bytes(b"print('tool')\r\n")
+    (root / "tool.exe").write_bytes(b"binary")
+    hashes = {
+        name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+        for name in ("tool.py", "tool.exe")
+    }
+    broker.publications.record_checked_result(
+        t["id"],
+        "native-check",
+        "test_programs",
+        {},
+        {"passed": True, "candidate_hashes": hashes},
+        root,
+    )
+    retained = c.store.get("publication_validation", "native-check")
+    assert retained["files"] == {"tool.py": hashes["tool.py"]}
+    (root / "tool.py").write_text("changed")
+    with pytest.raises(Conflict):
+        broker.publications.record_checked_result(
+            t["id"],
+            "native-changed",
+            "test_programs",
+            {},
+            {"passed": True, "candidate_hashes": hashes},
+            root,
+        )
+
+
 class GitFixture(GitHubFixture):
     def __init__(self, empty=False):
         super().__init__()

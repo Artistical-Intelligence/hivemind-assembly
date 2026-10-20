@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "programs": {
+    "original": {
+      "files": ["original.c"],
+      "build": [["{cc}", "original.c", "-O0", "-o", "program.exe"]],
+      "argv": ["program.exe"]
+    },
+    "candidate": {
+      "files": ["reconstructed.c"],
+      "build": [["{cc}", "reconstructed.c", "-O2", "-o", "program.exe"]],
+      "argv": ["program.exe"]
+    }
+  },
+  "cases": [
+    {"id": "empty", "stdin_hex": "", "expected": {"exit_code": 0, "stdout_hex": "", "stderr_hex": "", "files": {}}},
+    {"id": "values", "stdin_hex": "300a310a37370a", "expected": {"exit_code": 0, "stdout_hex": "310a340a3233320a", "stderr_hex": "", "files": {}}},
+    {"id": "unsigned-boundary", "stdin_hex": "343239343936373239350a", "expected": {"exit_code": 0, "stdout_hex": "343239343936373239340a", "stderr_hex": "", "files": {}}}
+  ],
+  "repeats": 3,
+  "timeout_seconds": 15
+}

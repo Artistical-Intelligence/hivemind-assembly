@@ -5,7 +5,13 @@ checks, protected knowledge/procedure rollouts, shared learning reservations,
 Qiling file/memory replay, deeper Ghidra/REA queries and installed-tool checks.
 It is not a declaration that the requested product has passed all gates.
 
-Recent additions: linked ELF/PE integer and pointer-function reconstruction,
+Recent additions: persistent project goals, shared native turn budgets, owner-pinned
+general-purpose native test recipes, protected native acceptance, automatic
+publication of tested sources, and portable disposable-runner workflows. Real
+Linux C/CLI and offscreen Mesa frame probes passed locally. Hosted Windows and
+GitHub dispatch remain unverified.
+
+Earlier additions: linked ELF/PE integer and pointer-function reconstruction,
 protected cross-ABI acceptance, optional existing repository binding, and
 automatic verified source checkpoint publication, complete static callgraph planning,
 declared DLL dependencies and composed executable workflow learning. These do not establish

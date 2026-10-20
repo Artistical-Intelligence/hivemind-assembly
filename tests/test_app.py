@@ -205,3 +205,41 @@ def test_github_credentials_rejected_from_settings(app):
             {"allow_repository_creation": True, "access_token": "do-not-save"},
         )
     assert app.config_path.read_bytes() == old
+
+
+def test_owner_native_recipe_and_observations(app):
+    from test_tool_testing import SOURCE, suite
+    from workbench.common import Blocked
+
+    task = app.store.create_project("trusted tools", "Check tool behavior", paused=True)
+    root = app.broker.workspace(task["id"])
+    (root / "candidate.py").write_text(SOURCE)
+    payload = {"task": task["id"], "suite": suite(False), "allow_native": False}
+    with pytest.raises(Blocked):
+        app.action("/api/native-tests/configure", payload)
+    payload["allow_native"] = True
+    app.action("/api/native-tests/configure", payload)
+    assert app.run_native_tests(task["id"])["passed"]
+    assert app.store.task(task["id"])["status"] == "paused"
+    observations = app.action("/api/native-tests/results", {"task": task["id"]})
+    assert (
+        observations["passed"]
+        and observations["cases"][0]["runs"]["candidate"][0]["file_contents_hex"]
+    )
+    app.action(
+        "/api/native-tests/permission",
+        {"project": task["project_id"], "allowed": False},
+    )
+    with pytest.raises(Blocked):
+        app.run_native_tests(task["id"])
+
+
+def test_goal_http_commands(app):
+    task = app.store.create_project("goals", "Persist the task", paused=True)
+    result = app.action("/api/goal", {"task": task["id"], "command": "/goal"})
+    assert (
+        result["status"] == "active"
+        and app.store.task(task["id"])["status"] == "queued"
+    )
+    app.action("/api/goal", {"task": task["id"], "command": "/goal pause"})
+    assert app.status()["goals"][0]["status"] == "paused"
