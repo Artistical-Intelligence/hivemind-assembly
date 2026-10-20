@@ -194,4 +194,7 @@ class Acceptance:
                 {"evidence": evidence["id"], "scope": result.get("scope")},
                 c,
             )
+            from .goals import Goals
+
+            Goals(self.store).accepted(task["id"], value, c)
         return value

@@ -190,6 +190,10 @@ class Application:
                 for p in self.store.rows("SELECT id FROM projects")
             ],
             "projects": self.store.rows("SELECT * FROM projects ORDER BY created DESC"),
+            "goals": [
+                self.team.goals.status(row["task_id"])
+                for row in self.store.rows("SELECT task_id FROM goals")
+            ],
             "tasks": self.store.rows("SELECT * FROM tasks ORDER BY updated DESC"),
             "events": self.store.rows(
                 "SELECT * FROM events ORDER BY seq DESC LIMIT 60"
@@ -391,6 +395,8 @@ class Application:
                 paused=bool(data.get("start_paused", False)),
             )
             return t
+        if path == "/api/goal":
+            return self.team.goals.command(data["task"], data.get("command", "/goal"))
         if path == "/api/acceptance":
             return Acceptance(self.controller, self.broker).configure(
                 data["task"], data["contract"]

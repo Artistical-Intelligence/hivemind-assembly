@@ -7,6 +7,7 @@ from hivemind_assembly.automation.policy import Availability, Window, UsagePolic
 from hivemind_assembly.learning.knowledge import Knowledge
 from hivemind_assembly.automation.recovery import Recovery
 from .hermes import HermesHost
+from hivemind_assembly.core.goals import Goals, GoalStopped
 from hivemind_assembly.core.acceptance import Acceptance
 from hivemind_assembly.core.common import (
     atomic_write,
@@ -31,6 +32,7 @@ class NativeTeam:
         self.broker = broker
         self.browser = browser
         self.config = config
+        self.goals = Goals(self.store)
         self.usage = UsagePolicy(self.store)
         self.knowledge = Knowledge(self.store)
         self.host = None
@@ -147,6 +149,7 @@ class NativeTeam:
                     "Retained request belongs to an older project revision; rebrief required"
                 )
             return json.loads(old[0]["response"])
+        self.goals.reserve(task["id"], key)
         if not old and self.sessions is not None:
             await self.sessions.ensure(task["id"], route, self.observations.get(route))
         role = (
@@ -202,6 +205,7 @@ class NativeTeam:
                 else None
             ),
             "objective": task["objective"],
+            "standing_goal": self.goals.context(task["id"]),
             "acceptance": Acceptance(self.controller, self.broker).describe(task["id"]),
             "revision": self.store.project(task["project_id"])["revision"],
             "capabilities": (
@@ -281,6 +285,8 @@ class NativeTeam:
 
     async def _tick(self, task_id):
         task = self.store.task(task_id)
+        if not self.goals.runnable(task_id):
+            return
         if task["status"] in ("paused", "cancelled", "accepted", "awaiting_acceptance"):
             return
         if task["status"] == "waiting_retry" and not self.recovery.retry_due(task_id):
@@ -864,7 +870,10 @@ class NativeTeam:
                 },
             )
             self.save_flow(task["id"], flow, task["owner"], task["epoch"])
-            if attempts >= 3:
+            if attempts >= 3 and self.goals.status(task["id"]):
+                flow["phase"] = "recovery"
+                self.save_flow(task["id"], flow, task["owner"], task["epoch"])
+            elif attempts >= 3:
                 self.usage.release(task["id"])
                 self.store.state(
                     task["id"],
@@ -902,6 +911,8 @@ class NativeTeam:
                 self.recovery.clear_retry(task)
         except asyncio.CancelledError:
             raise
+        except GoalStopped:
+            return
         except Exception as e:
             current = self.store.task(task)
             if current["status"] in (
@@ -1106,7 +1117,13 @@ TOOL_SCHEMAS = {
         "original_path": "x86-64 Linux ELF. Dynamic originals require qiling_linux cases and explicit dependencies.",
         "original_dependencies": "Optional map of absolute guest interpreter/library paths to project files. No host library discovery; protected acceptance pins every dependency.",
         "cases": [
-            {"id": "development case", "input_hex": "stdin bytes", "clock_ns": 0, "argv": ["program", "argument"], "env": {"NAME": "value"}}
+            {
+                "id": "development case",
+                "input_hex": "stdin bytes",
+                "clock_ns": 0,
+                "argv": ["program", "argument"],
+                "env": {"NAME": "value"},
+            }
         ],
     },
     "list_files": {},

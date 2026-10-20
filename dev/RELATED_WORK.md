@@ -291,3 +291,13 @@ this does not establish arbitrary Linux or Windows runtime compatibility.
 - https://github.com/qilingframework/qiling
 - https://docs.qiling.io/en/latest/memory/
 - https://docs.qiling.io/en/latest/hijack/
+
+## Persistent goals and executable validation
+
+- Hermes persistent goals: https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/features/goals.md . Inspected the pinned local implementation/documentation. HA uses the standing-objective, continuation, pause and turn-budget behavior over its existing native team and acceptance controller. It does not invoke Hermes' auxiliary model API judge. Project children share the root budget; their completion cannot finish the root goal.
+- DIFFER: https://github.com/trailofbits/differ . Reuse the paired original/transformed input-and-output testing approach, retaining explicit limits and reproducible failures. Its fuzzing/comparator implementation is a useful future integration; it is not bundled or claimed as implemented here.
+- GitHub hosted runners: https://docs.github.com/en/actions/reference/runners/github-hosted-runners . Native Linux/Windows execution is appropriate for supported binaries, toolchains and headless checks.
+- Billing: https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions . Private repository usage beyond included amounts is billed; dispatch needs an owner-configured spending boundary. Larger runners are not included-quota runners.
+- Browser ports: https://emscripten.org/docs/porting/emscripten-runtime-environment.html . Reconstructed C/C++ may be compiled to WebAssembly with supported SDL/WebGL APIs; a browser port is not a native Windows execution oracle.
+- Software rendering: https://docs.mesa3d.org/drivers/llvmpipe.html . Headless CPU rendering can exercise graphics functionality; it is not GPU performance or complete driver equivalence.
+- Alive2: https://github.com/AliveToolkit/alive2 . LLVM translation validation complements executable testing; it does not establish whole-application/OS equivalence.
