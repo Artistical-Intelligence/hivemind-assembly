@@ -19,7 +19,7 @@ def export_local(store, port=6006, limit=200):
     ):
         raise ContractError("Invalid local viewer port or batch size")
     cursor = store.rows(
-        "SELECT payload FROM records WHERE kind=? ORDER BY created DESC LIMIT 1",
+        "SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1",
         ("otlp_cursor:" + str(port),),
     )
     after = json.loads(cursor[0]["payload"])["seq"] if cursor else 0

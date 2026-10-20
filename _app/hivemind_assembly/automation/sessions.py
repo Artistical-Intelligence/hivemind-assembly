@@ -39,7 +39,7 @@ class Sessions:
     def accepted(self, route):
         cfg = self.browser.config["routes"][route]
         for row in self.store.rows(
-            "SELECT payload FROM records WHERE kind='session_commit' ORDER BY created DESC"
+            "SELECT payload FROM records WHERE kind='session_commit' ORDER BY rowid DESC"
         ):
             value = json.loads(row["payload"])
             if (
@@ -66,7 +66,7 @@ class Sessions:
     def restore_bindings(self):
         # A crash between durable commit and settings write must not lose a session.
         for row in self.store.rows(
-            "SELECT payload FROM records WHERE kind='session_commit' ORDER BY created"
+            "SELECT payload FROM records WHERE kind='session_commit' ORDER BY rowid"
         ):
             saved = json.loads(row["payload"])
             if saved.get("isolated"):

@@ -25,7 +25,7 @@ class NativeSetup:
 
     def status(self, route):
         rows = self.store.rows(
-            "SELECT payload FROM records WHERE kind=? ORDER BY created DESC LIMIT 1",
+            "SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1",
             ("native_setup:" + route,),
         )
         return json.loads(rows[0]["payload"]) if rows else {"stage": "not_started"}

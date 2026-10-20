@@ -59,7 +59,7 @@ class EvolutionArchive:
         rows = [
             json.loads(r["payload"])
             for r in self.store.rows(
-                "SELECT payload FROM records WHERE kind='evolution_program' ORDER BY created"
+                "SELECT payload FROM records WHERE kind='evolution_program' ORDER BY rowid"
             )
         ]
         rows = [r for r in rows if r["asset"] == asset and r["engine"] == engine]

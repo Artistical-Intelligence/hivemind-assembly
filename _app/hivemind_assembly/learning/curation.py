@@ -60,7 +60,7 @@ class KnowledgeCuration:
 
     def status(self, key):
         rows = self.store.rows(
-            "SELECT payload FROM records WHERE kind=? ORDER BY created DESC LIMIT 1",
+            "SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1",
             ("knowledge_curation_state:" + key,),
         )
         return json.loads(rows[0]["payload"]) if rows else {"stage": "queued"}

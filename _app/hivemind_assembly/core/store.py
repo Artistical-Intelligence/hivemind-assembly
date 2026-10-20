@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS goal_turns(goal_id TEXT NOT NULL REFERENCES goals(id)
 CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY,name TEXT NOT NULL,objective TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 0,created REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS tasks(id TEXT PRIMARY KEY,project_id TEXT NOT NULL REFERENCES projects(id),objective TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'queued',owner TEXT,epoch INTEGER NOT NULL DEFAULT 0,lease_until REAL NOT NULL DEFAULT 0,step INTEGER NOT NULL DEFAULT 0,brief_id TEXT,next_action TEXT NOT NULL DEFAULT '',blocker TEXT NOT NULL DEFAULT '',updated REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS records(kind TEXT NOT NULL,id TEXT NOT NULL,payload TEXT NOT NULL,created REAL NOT NULL,PRIMARY KEY(kind,id));
+CREATE INDEX IF NOT EXISTS record_kind_order ON records(kind);
 CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY AUTOINCREMENT,entity TEXT NOT NULL,kind TEXT NOT NULL,payload TEXT NOT NULL,created REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS operations(id TEXT PRIMARY KEY,task_id TEXT NOT NULL,owner TEXT NOT NULL,epoch INTEGER NOT NULL,revision INTEGER NOT NULL,tool TEXT NOT NULL,payload_hash TEXT NOT NULL,args TEXT NOT NULL,state TEXT NOT NULL,result TEXT,created REAL NOT NULL,updated REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY,task_id TEXT NOT NULL,route TEXT NOT NULL,conversation TEXT NOT NULL,payload_hash TEXT NOT NULL,payload TEXT NOT NULL,state TEXT NOT NULL,response TEXT,created REAL NOT NULL,updated REAL NOT NULL);
@@ -89,6 +90,8 @@ class Store:
         )
 
     def put(self, kind, key, payload, conn=None):
+        # Append-only rowid is journal order; created is an audit timestamp, not
+        # authority precedence. Clocks can tie or move backwards after restart.
         if conn is None:
             with self.tx() as c:
                 return self.put(kind, key, payload, c)

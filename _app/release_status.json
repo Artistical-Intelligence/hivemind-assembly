@@ -1,14 +1,14 @@
 {
-  "version": "0.15.2",
+  "version": "0.15.3",
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 522,
+    "passed": 538,
     "skipped": 10,
     "failed": 0,
-    "elapsed_seconds": 121.6,
+    "elapsed_seconds": 122.24,
     "host": "Linux Python 3.12",
-    "scope": "532-case local regression. Subsequent pre-execution revision fences passed 56 focused application/MCP/goal/workspace checks, including two added cases; final shutdown cleanup also passed all seven MCP check-request cases. Hosted acceptance is recorded separately."
+    "scope": "548-case local regression including journal ordering under tied and rolled-back clocks. Hosted results below describe the preceding MCP completion fix checkpoint; signed-in account acceptance remains separate."
   },
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -17,7 +17,7 @@
     "static": "pyflakes on changed implementation/tests, JavaScript syntax and git diff --check passed. Workflow template matches the source workflow; runtime and source release archives are separately manifest-checked.",
     "goals": "Fixture native responses exercised root goal continuation through real local capture execution and a second fresh independent acceptance run. This is not signed-in native model acceptance.",
     "historical_evidence": "Checks under historical_checks were recorded in earlier development runs and are not newly claimed from this release verification.",
-    "github_ci": "Checkpoint e8fb42e (run 39511467289) passed Linux contracts (501 passed, 24 skipped), Windows contracts (503 passed, 22 skipped), ten Windows native checks, seven Chromium dashboard/transport checks, and package install/update/restore. Full installed Windows foundations run 39511467123 passed all seven checks, including both x64 and ARM64 Qiling process/file probes. The later inbound MCP check tools will be checked by their own hosted run.",
+    "github_ci": "Run 39514465594 at 667a276 passed all four jobs: Linux 512 passed/24 skipped; Windows 514 passed/22 skipped plus ten native execution/cleanup cases; seven actual Chromium cases; packaged Windows installation, drop-in update and backup restoration. The completion/poll race regression passed on both operating systems.",
     "windows_runtime": "The extracted Windows package installed its bundled Python and hash-locked dependencies in a fresh data directory, ran register and native Python checks, survived removal/re-extraction of the application folder, and restored a verified backup with project files intact. Paths contained spaces. Tested in GitHub Windows CI, not a manual desktop or complete Ghidra/REA installation.",
     "project_workspace": "Real Chromium and the HTTP controller completed starter creation, uploads, editing, draft preservation, positive/negative checks, byte-exact download, reload persistence, native observations and fresh guided exact-output setup. A separate local jsdom/controller run compiled and checked a C utility through the guided form with automatic compiler discovery. Authenticated streaming, version-checked snapshots, stale edits, immutable references, invalid paths and local-check independence from optional publication passed backend tests.",
     "mcp_codespaces": "Official MCP SDK in-process and real stdio bridge exchanges; outbound stdio discovery/tool/project grants; standalone Linux runner execution, deadline and credential removal; parallel spaces, queued cancellation, interrupted startup, GPU requirement rejection and output import conflict checks. Real HTTP controller with jsdom validated connection settings. No live Codespace or web tunnel acceptance.",
@@ -35,7 +35,8 @@
     "arm64_program": "Complete static AArch64 Linux ELF build/replay and cross-architecture protected acceptance cover multiple units, globals, streams, explicit argv/env and fixed clock. Qiling also covers bounded file/directory/memory effects and supplied random input, with a verified Cortex-A72 guest CPU. Native GCC fixture execution independently agrees with ARM stream/file output; protected file acceptance rejects incorrect reconstructions. Unsupported CPU/syscall/descriptor/flag effects stop execution. Dynamic ARM images and libraries remain unsupported.",
     "windows_prerequisites": "Refreshes registry PATH/JAVA_HOME after installs while preserving valid existing tool selections; Java and javac must be a matching full JDK. Fifteen local prerequisite checks passed. Actual desktop WinGet installation remains unverified.",
     "mcp_check_requests": "Official SDK and real stdio-to-authenticated-controller exchanges run owner-pinned checks and poll durable summaries. Lost-response retries retain identity, interrupted requests do not rerun, pre-execution revision changes are rejected, stale outcomes are labeled, project revocation and prior native-execution grants are enforced, and shutdown cancels and joins checks before store closure. Protected evaluator data stays outside MCP responses; detailed errors are protected artifacts. Concurrent polling is serialized with request startup so retained-but-not-yet-started work cannot be reported as interrupted; all 14 MCP connection/check-request tests passed after this refinement. Windows CI exposed a second completion/poll race: result absence and worker termination could be observed across a just-committed completion. A deterministic regression reproduced the false interruption locally. Completion now uses the polling lock, and all 30 focused MCP/application tests passed after the fix.",
-    "goal_program_integration": "Scripted worker/adviser responses exercised the real goal controller, ARM-original/x64-candidate Qiling file comparison and fresh protected acceptance. Valid code completes; a mutation after the worker check does not accept the task or achieve the goal. This is not signed-in model acceptance."
+    "goal_program_integration": "Scripted worker/adviser responses exercised the real goal controller, ARM-original/x64-candidate Qiling file comparison and fresh protected acceptance. Valid code completes; a mutation after the worker check does not accept the task or achieve the goal. This is not signed-in model acceptance.",
+    "journal_order": "Authoritative permission, skill, workflow, setup, evaluation, publication and session-recovery records follow durable append order rather than wall-clock timestamps. Ten paired tie/rollback cases cover revocations and scope changes, skill updates/reverts, retained states, session binding chains and repeated-attempt escalation; two further cases protect export cursor ordering. Nine of the first ten cases reproduced failures before the fix. All twelve and the full 548-case local regression pass after it."
   },
   "native_live_acceptance": {
     "validated_routes": 0,

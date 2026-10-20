@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.15.2 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.15.3 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 

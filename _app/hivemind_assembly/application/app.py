@@ -271,7 +271,7 @@ class Application:
             "acceptance": [
                 json.loads(r["payload"])
                 for r in self.store.rows(
-                    "SELECT payload FROM records WHERE kind='acceptance_result' ORDER BY created DESC LIMIT 30"
+                    "SELECT payload FROM records WHERE kind='acceptance_result' ORDER BY rowid DESC LIMIT 30"
                 )
             ],
             "jobs": self.background,

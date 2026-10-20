@@ -110,3 +110,10 @@ requests require explicit review, and results expose no protected corpus data.
 Local official-SDK and stdio-to-HTTP exchanges cover this path; signed-in web-chat
 tunnel acceptance remains separate. The goal/controller/ARM-to-x64 file workflow
 was exercised with scripted native responses and rejects post-check mutations.
+
+Version 0.15.3 makes retained authority and recovery follow journal append order.
+Clock ties and rollback no longer select older permission grants, skill versions,
+workflow/setup states, publication heads or intermediate conversation bindings.
+MCP check completion and polling share a lock to prevent false interruptions.
+The Windows and Linux hosted suites passed the MCP completion fix; full local
+regression also passed the journal-order changes. Live account gates above remain.

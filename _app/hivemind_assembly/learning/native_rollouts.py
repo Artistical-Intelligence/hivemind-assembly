@@ -135,7 +135,7 @@ class NativeRollouts:
 
     def status(self, key):
         rows = self.store.rows(
-            "SELECT payload FROM records WHERE kind=? ORDER BY created DESC LIMIT 1",
+            "SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1",
             ("native_evaluation_state:" + key,),
         )
         return (

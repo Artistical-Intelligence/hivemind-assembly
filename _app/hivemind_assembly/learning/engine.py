@@ -9,7 +9,7 @@ class Learning:
 
     def external_allowed(self, row):
         rows = self.store.rows(
-            "SELECT payload FROM records WHERE kind=? ORDER BY created DESC LIMIT 1",
+            "SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1",
             ("lesson_permission:" + row["id"],),
         )
         return (

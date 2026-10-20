@@ -120,7 +120,7 @@ class KnowledgeScopes:
             )
             version = digest(skill)
             prior = self.store.rows(
-                "SELECT payload FROM records WHERE kind=? ORDER BY created DESC LIMIT 1",
+                "SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1",
                 ("knowledge_skill_version:" + key,),
             )
             if not prior or json.loads(prior[0]["payload"])["hash"] != version:
@@ -238,12 +238,12 @@ class KnowledgeScopes:
                     "SELECT status,payload FROM lessons WHERE id=?", (key,)
                 )
                 evidence += self.store.rows(
-                    "SELECT payload FROM records WHERE kind=? ORDER BY created DESC LIMIT 1",
+                    "SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1",
                     ("lesson_permission:" + key,),
                 )
             else:
                 evidence = self.store.rows(
-                    "SELECT payload FROM records WHERE kind=? ORDER BY created DESC LIMIT 1",
+                    "SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1",
                     ("knowledge_skill_version:" + key,),
                 )
             items.append({**row, "version": digest(evidence)})

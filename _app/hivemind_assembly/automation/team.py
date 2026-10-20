@@ -62,7 +62,7 @@ class NativeTeam:
         self.task_locks = {}
         self.blocking_tasks = set()
         for row in self.store.rows(
-            "SELECT payload FROM records WHERE kind='availability' ORDER BY created"
+            "SELECT payload FROM records WHERE kind='availability' ORDER BY rowid"
         ):
             x = json.loads(row["payload"])
             self.observations[x["route"]] = Availability(
@@ -84,7 +84,7 @@ class NativeTeam:
 
     def flow(self, task):
         rows = self.store.rows(
-            "SELECT payload FROM records WHERE kind=? ORDER BY created DESC LIMIT 1",
+            "SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1",
             ("flow:" + task,),
         )
         return (
@@ -1193,7 +1193,7 @@ class NativeTeam:
             return None
         row = self.store.one("SELECT asset_key FROM lessons WHERE id=?", (candidate,))
         binding = self.store.rows(
-            "SELECT payload FROM records WHERE kind=? ORDER BY created DESC LIMIT 1",
+            "SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1",
             ("native_suite:" + row["asset_key"],),
         )
         if binding:

@@ -61,7 +61,7 @@ class Recovery:
             {"method": method, "inputs": inputs, "failure": result.get("error", result)}
         )
         rows = self.store.rows(
-            "SELECT payload FROM records WHERE kind=? ORDER BY created DESC LIMIT 8",
+            "SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 8",
             ("attempt:" + task,),
         )
         unchanged = 1
@@ -102,7 +102,7 @@ class Recovery:
             "attempts": [
                 json.loads(r["payload"])
                 for r in self.store.rows(
-                    "SELECT payload FROM records WHERE kind=? ORDER BY created DESC LIMIT 6",
+                    "SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 6",
                     ("attempt:" + task,),
                 )
             ],
