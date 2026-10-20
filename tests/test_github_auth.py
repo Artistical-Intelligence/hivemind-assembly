@@ -213,3 +213,24 @@ def test_http_denial_redirect_and_secret_redaction(monkeypatch):
             )
         assert error.value.status == status and "secret-access" not in str(error.value)
     assert len(calls) == 3  # No retries or redirects for a write.
+
+
+@pytest.mark.parametrize("status", [202, 204])
+def test_http_empty_success_is_not_misclassified_as_unknown_write(monkeypatch, status):
+    original = httpx.Client
+    monkeypatch.setattr(
+        httpx,
+        "Client",
+        lambda **kw: original(
+            transport=httpx.MockTransport(lambda req: httpx.Response(status)), **kw
+        ),
+    )
+    assert (
+        GitHubHTTP().request(
+            "POST",
+            "/repos/owner/repo/actions/workflows/native-tests.yml/dispatches",
+            token="private",
+            data={},
+        )
+        == {}
+    )

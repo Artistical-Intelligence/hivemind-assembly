@@ -22,6 +22,7 @@ from hivemind_assembly.core.store import Store
 from hivemind_assembly.core.controller import Controller
 from hivemind_assembly.core.broker import Broker
 from hivemind_assembly.core.repositories import Repositories
+from hivemind_assembly.core.hosted_tests import HostedTests
 from hivemind_assembly.integrations.github import GitHubAuth, GitHubClient
 from hivemind_assembly.core.acceptance import Acceptance
 from hivemind_assembly.learning.engine import Learning
@@ -77,11 +78,13 @@ class Application:
         self.github_auth = GitHubAuth(self.store.root)
         self.github_client = GitHubClient(self.github_auth)
         self.repositories = Repositories(self.store, self.github_client, self.config)
+        self.hosted_tests = HostedTests(self.store, self.repositories)
         self.broker = Broker(
             self.controller,
             self.config,
             domain=ReverseEngineeringDomain(),
             repositories=self.repositories,
+            hosted_tests=self.hosted_tests,
         )
         recovery = self.broker.recover_pending()
         if recovery:
@@ -112,6 +115,7 @@ class Application:
         self.learning_lock = threading.Lock()
         self.action_lock = threading.RLock()
         self.thread.start()
+        self.hosted_tests.start_monitor()
 
     def configure_learning(self):
         self.team.learning_trials = None
@@ -173,6 +177,7 @@ class Application:
             "application": "Hivemind Assembly",
             "domain": self.broker.domain.id,
             "github": {**self.github_auth.status(), **self.config.get("github", {})},
+            "hosted_tests": self.hosted_tests.listing(),
             "native_evaluations": (
                 [
                     self.native_learning.status(r["id"])
@@ -411,6 +416,21 @@ class Application:
                 )
                 if rows
                 else {"status": "not_run"}
+            )
+        if path == "/api/hosted-tests/start":
+            return self.background_job(
+                "Start hosted native tests",
+                lambda: self.hosted_tests.start(data["task"], data["specification"]),
+            )
+        if path == "/api/hosted-tests/refresh":
+            return self.background_job(
+                "Check hosted native tests",
+                lambda: self.hosted_tests.refresh(data["request_id"]),
+            )
+        if path == "/api/hosted-tests/cancel":
+            return self.background_job(
+                "Cancel hosted native tests",
+                lambda: self.hosted_tests.cancel(data["request_id"]),
             )
         if path == "/api/native-tests/run":
             return self.background_job(
@@ -767,6 +787,7 @@ class Application:
     def close(self):
         if self.shutdown:
             return
+        self.hosted_tests.close()
         self.shutdown = True
         for event in self.broker.cancel.values():
             event.set()

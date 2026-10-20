@@ -1,7 +1,16 @@
 name: Native reconstructed program tests
+run-name: HA native ${{ inputs.request_id || github.run_id }}
 on:
   workflow_dispatch:
     inputs:
+      request_id:
+        type: string
+        default: ''
+        description: HA request identifier for lost-response recovery
+      expected_sha:
+        type: string
+        default: ''
+        description: Exact reviewed commit; mismatches stop before native execution
       runner:
         type: choice
         options: [ubuntu-latest, windows-latest]
@@ -23,13 +32,14 @@ permissions:
   contents: read
 jobs:
   native:
-    if: ${{ inputs.spending_control_confirmed }}
+    if: ${{ inputs.spending_control_confirmed && (inputs.expected_sha == '' || inputs.expected_sha == github.sha) }}
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          ref: ${{ inputs.expected_sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -38,6 +48,8 @@ jobs:
         env:
           HA_TEST_SUITE: ${{ inputs.suite }}
           HA_TEST_WORKSPACE: ${{ inputs.workspace }}
+          HA_TEST_REQUEST: ${{ inputs.request_id }}
+          HA_TEST_EXPECTED_SHA: ${{ inputs.expected_sha }}
         run: |
           import os, pathlib, shutil, subprocess, sys
           root = pathlib.Path.cwd().resolve()

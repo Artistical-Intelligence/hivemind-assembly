@@ -321,3 +321,21 @@ this does not establish arbitrary Linux or Windows runtime compatibility.
 
 Source-known C/Python pulse replay and real EGL readback exercise these contracts.
 They are capture checks, not claims of arbitrary game, audio-device or GPU parity.
+
+## Resumable hosted execution
+
+GitHub documents `return_run_details` for workflow dispatch, including a returned
+workflow run ID, while an ordinary dispatch can return HTTP 204. HA accepts both,
+correlates ambiguous responses through a unique `run-name`, and never resends an
+uncertain dispatch. The documented `ref` is a branch or tag, so HA creates a unique
+tag at the reviewed SHA and also checks that SHA in the managed workflow before
+native execution. Branch publication is unaffected. Existing repository setup
+and GitHub authentication are reused; no second CI scheduler is implemented.
+
+- https://docs.github.com/en/rest/actions/workflows
+- https://docs.github.com/en/rest/actions/workflow-runs
+- https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax
+
+This is an optional owner-authorized execution lane. GitHub's spending boundary
+must already be configured. API fixtures establish request recovery and identity
+checks, not available quota, real hosted execution or clean Windows acceptance.

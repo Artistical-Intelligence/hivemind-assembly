@@ -263,3 +263,34 @@ def test_goal_http_commands(app):
     )
     app.action("/api/goal", {"task": task["id"], "command": "/goal pause"})
     assert app.status()["goals"][0]["status"] == "paused"
+
+
+def test_hosted_test_owner_actions_and_status(app, monkeypatch):
+    from test_hosted_tests import HostedGitHub, SHA
+
+    remote = HostedGitHub()
+    app.repositories.client = remote
+    app.config["github"]["allow_repository_creation"] = True
+    task = app.store.create_project("hosted", "Native check", paused=True)
+    app.repositories.create(task["project_id"], "repo", {"name": "hosted-fixture"})
+    # Run jobs synchronously here to exercise the API result and state binding.
+    monkeypatch.setattr(app, "background_job", lambda name, fn: fn())
+    spec = {
+        "request_id": "owner-hosted-request",
+        "expected_sha": SHA,
+        "runner": "ubuntu-latest",
+        "suite": "_app/examples/native_cli/suite.json",
+        "workspace": "_app/examples/native_cli",
+        "spending_control_confirmed": True,
+        "trusted_commit_confirmed": True,
+    }
+    result = app.action(
+        "/api/hosted-tests/start", {"task": task["id"], "specification": spec}
+    )
+    assert (
+        result["run_id"] == 1
+        and app.status()["hosted_tests"][0]["id"] == spec["request_id"]
+    )
+    app.action("/api/hosted-tests/cancel", {"request_id": spec["request_id"]})
+    result = app.action("/api/hosted-tests/refresh", {"request_id": spec["request_id"]})
+    assert result["conclusion"] == "cancelled" and not result["local_acceptance"]

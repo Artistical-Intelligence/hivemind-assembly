@@ -27,7 +27,9 @@ CORE_CAPABILITIES = (
 
 
 class Broker:
-    def __init__(self, controller, config, domain=None, repositories=None):
+    def __init__(
+        self, controller, config, domain=None, repositories=None, hosted_tests=None
+    ):
         self.controller = controller
         self.store = controller.store
         self.config = config
@@ -36,6 +38,7 @@ class Broker:
         self.cancel = {}
         self.domain = domain
         self.repositories = repositories
+        self.hosted_tests = hosted_tests
         from .publication import Publications
 
         self.publications = Publications(repositories) if repositories else None
@@ -52,6 +55,11 @@ class Broker:
         specs = (
             *CORE_CAPABILITIES,
             *repository_specs,
+            *(
+                (Capability("hosted_test_status", recovery="discard"),)
+                if hosted_tests
+                else ()
+            ),
             *(domain.capabilities if domain else ()),
         )
         self.capabilities = {spec.name: spec for spec in specs}
@@ -192,6 +200,34 @@ class Broker:
                     "encoding": "base64",
                     "data": base64.b64encode(data[start : start + length]).decode(),
                     "complete": start == 0 and length >= len(data),
+                }
+            elif tool == "hosted_test_status":
+                if args:
+                    raise ContractError("hosted_test_status takes no arguments")
+                project = self.store.task(task)["project_id"]
+                result = {
+                    "runs": [
+                        {
+                            k: r.get(k)
+                            for k in (
+                                "id",
+                                "task_id",
+                                "expected_sha",
+                                "runner",
+                                "status",
+                                "remote_status",
+                                "conclusion",
+                                "run_id",
+                                "run_url",
+                                "error",
+                                "artifacts",
+                                "local_acceptance",
+                            )
+                        }
+                        for r in self.hosted_tests.listing()
+                        if r["project_id"] == project
+                    ],
+                    "claim": "Retained hosted workflow metadata, not local task acceptance",
                 }
             elif tool == "test_programs":
                 from .test_acceptance import NativeTestAcceptance

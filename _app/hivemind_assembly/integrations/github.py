@@ -62,6 +62,8 @@ class GitHubHTTP:
             ) from None
         if not 200 <= response.status_code < 300:
             raise GitHubError(response.status_code)
+        if response.status_code in (202, 204) and not response.content:
+            return {}
         try:
             result = response.json()
             if not isinstance(result, dict):

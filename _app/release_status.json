@@ -1,17 +1,61 @@
 {
-  "version": "0.9.0",
+  "version": "0.10.0",
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 333,
+    "passed": 350,
     "skipped": 1,
     "failed": 0,
-    "elapsed_seconds": 78.71,
+    "elapsed_seconds": 76.87,
     "host": "Linux Python 3.12",
     "hermes_source": "c0015464f0f40d52c5702a84cf58e70361f4a04c",
     "skipped_gate": "Local Chromium fixture not enabled on this restored host; no browser acceptance inferred."
   },
   "current_checks": {
+    "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
+    "capture_preview": "jsdom checks passed for exact RGBA bytes delivered to canvas, per-channel PCM waveform samples, invalid shapes and escaped labels. Dashboard interactions passed. Actual browser rendering remains unverified.",
+    "hosted_requests": "Durable exact-commit tag selection, managed workflow validation, optional owner-authorized dispatch, 30-second tracking, lost tag/dispatch responses across restart, bounded run discovery, identity/attempt checks, cancellation, artifact metadata recovery and project-only worker status passed API fixtures. Dashboard submit/retry identity and refresh/cancel controls passed jsdom. No live hosted run was dispatched in this release validation.",
+    "static": "pyflakes on changed implementation/tests, JavaScript syntax and git diff --check passed. Workflow template matches the source workflow; runtime and source release archives are separately manifest-checked.",
+    "goals": "Fixture native responses exercised root goal continuation through real local capture execution and a second fresh independent acceptance run. This is not signed-in native model acceptance.",
+    "historical_evidence": "Checks under historical_checks were recorded in earlier development runs and are not newly claimed from this release verification.",
+    "github_ci": "Capture checkpoint 3e603b81: hosted Linux contract job and real Chromium DOM fixture passed; Windows pytest job failed. Job-log retrieval through the connected service failed twice, so its cause is not yet established. CI now retains structured test reports for inspection."
+  },
+  "native_live_acceptance": {
+    "validated_routes": 0,
+    "required_routes": 5,
+    "windows_clean_install": false,
+    "unattended_worker_adviser_ghidra_loop": false
+  },
+  "remaining_implementation": [
+    "Extend the controlled Linux application and PE function lanes to broader CPU/platform, Windows/game/graphics effects and target-level equivalence.",
+    "Resolve any provider-specific adapter gaps identified by signed-in account validation; current ambiguous controls remain blocked."
+  ],
+  "remaining_acceptance": [
+    "Live GitHub browser registration/device authorization and all five exact native routes.",
+    "Unattended real worker/adviser/reviewer/Ghidra/REA artifact, recovery and acceptance loops.",
+    "Native cross-project learning gains, provider account-wide memory isolation and repeated timing evidence.",
+    "Clean Windows install/update/restore and native REA execution on a compatible host.",
+    "Target-level broader application reconstruction.",
+    "Separately requested full audit and revision pass.",
+    "Run the managed native workflow on hosted Linux/Windows using a live authorized account with a configured spending boundary; verify Windows process-tree cleanup and representative target recipes."
+  ],
+  "model_api_inference": false,
+  "paid_overage": false,
+  "runtime_contract": {
+    "program": "x86-64 little-endian Linux ELF. Static Unicorn replay; Qiling also accepts bounded dynamic ELF/PIE with explicitly supplied and pinned interpreter/libraries, process inputs, files, guest metadata, single-thread setup, bounded mappings, fixed clock and supplied random bytes. No host file, process/network forwarding, unknown syscalls or constructor I/O. Strict effects remain the default; explicit observable policy checks streams, exit, input consumption, selected memory and final files/directories. Event traces retained.",
+    "data_location": "Existing UnifiedWorkbench user-data path is unchanged",
+    "credentials": "OS vault; browser credentials are not copied to code, configuration, releases or backups"
+  },
+  "historical_automated_tests": {
+    "passed": 317,
+    "skipped": 1,
+    "failed": 0,
+    "elapsed_seconds": 60.95,
+    "host": "Linux Python 3.12",
+    "hermes_source": "c0015464f0f40d52c5702a84cf58e70361f4a04c",
+    "skipped_gate": "Local Chromium DOM fixture. An installed Chromium executable was found, but this host rejects its required socket operation; the fixture is not counted as passed."
+  },
+  "historical_checks": {
     "github_setup": "Resumable registration, lost acknowledgement, reuse, missing uncertain registration, account/origin guards and non-secret retained state passed automated fixtures. Live browser reached GitHub sign-in; live registration was not executed.",
     "logging": "Raw malformed and partial replies retained before parsing; deduplication, search pagination, annotations and JSONL export passed.",
     "hermes": "Actual upstream Kanban dependency/claim/completion APIs exercised, including interruption and restart during plan publication. SessionDB recording exercised against the same checkout.",
@@ -59,43 +103,6 @@
     "standing_goals": "Persistent root objectives, project-wide native request budgets, idempotent reservation across restart, pause/clear/resume, automatic continuation, root-only independent completion and reviewer recovery request resumption passed. No extra model API judge. Native signed-in goal execution is not verified.",
     "native_tool_testing": "Actual native original/candidate C builds with different implementations and optimization levels passed three repeated oracle cases. Source-known wrong candidates were rejected. An installed gzip oracle agreed with a Python decompression utility on three byte-stream cases. Expected-output/file tests, repeated-run instability, deadlines, output limits, process-tree cleanup after timeout and controller exit, environment credential stripping, owner-only recipes, protected original/corpus, permission revocation and source rechecks passed. Native execution is explicitly owner-authorized and is not a security sandbox.",
     "offscreen_graphics": "Actual EGL 1.5 pbuffer/OpenGL readback passed three repeated comparisons of a 16x16 RGBA frame against independent expected pixels. Observed renderer: llvmpipe (LLVM 20.1.2, 256 bits); Mesa 25.2.8 OpenGL 4.5 compatibility. This verifies the source-known graphics probe, not arbitrary game behavior or GPU performance.",
-    "hosted_testing": "Manual Linux/Windows GitHub Actions workflow and dependency-free runner implemented, with exact commit/run metadata, no persisted checkout credentials, bounded runtime and short artifact retention. Actual hosted dispatch and Windows Job Object execution remain unverified. Account spending policy is not set or inferred by the workflow. The local bubblewrap probe failed because this host denies a required NETLINK_ROUTE socket; no sandbox was claimed.",
-    "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
-    "capture_preview": "jsdom checks passed for exact RGBA bytes delivered to canvas, per-channel PCM waveform samples, invalid shapes and escaped labels. Dashboard interactions passed. Actual browser rendering remains unverified."
-  },
-  "native_live_acceptance": {
-    "validated_routes": 0,
-    "required_routes": 5,
-    "windows_clean_install": false,
-    "unattended_worker_adviser_ghidra_loop": false
-  },
-  "remaining_implementation": [
-    "Extend the controlled Linux application and PE function lanes to broader CPU/platform, Windows/game/graphics effects and target-level equivalence.",
-    "Resolve any provider-specific adapter gaps identified by signed-in account validation; current ambiguous controls remain blocked."
-  ],
-  "remaining_acceptance": [
-    "Live GitHub browser registration/device authorization and all five exact native routes.",
-    "Unattended real worker/adviser/reviewer/Ghidra/REA artifact, recovery and acceptance loops.",
-    "Native cross-project learning gains, provider account-wide memory isolation and repeated timing evidence.",
-    "Clean Windows install/update/restore and native REA execution on a compatible host.",
-    "Target-level broader application reconstruction.",
-    "Separately requested full audit and revision pass.",
-    "Run the new native test workflow on hosted Linux/Windows with a verified account spending boundary; validate Windows process-tree cleanup and representative target recipes."
-  ],
-  "model_api_inference": false,
-  "paid_overage": false,
-  "runtime_contract": {
-    "program": "x86-64 little-endian Linux ELF. Static Unicorn replay; Qiling also accepts bounded dynamic ELF/PIE with explicitly supplied and pinned interpreter/libraries, process inputs, files, guest metadata, single-thread setup, bounded mappings, fixed clock and supplied random bytes. No host file, process/network forwarding, unknown syscalls or constructor I/O. Strict effects remain the default; explicit observable policy checks streams, exit, input consumption, selected memory and final files/directories. Event traces retained.",
-    "data_location": "Existing UnifiedWorkbench user-data path is unchanged",
-    "credentials": "OS vault; browser credentials are not copied to code, configuration, releases or backups"
-  },
-  "historical_automated_tests": {
-    "passed": 317,
-    "skipped": 1,
-    "failed": 0,
-    "elapsed_seconds": 60.95,
-    "host": "Linux Python 3.12",
-    "hermes_source": "c0015464f0f40d52c5702a84cf58e70361f4a04c",
-    "skipped_gate": "Local Chromium DOM fixture. An installed Chromium executable was found, but this host rejects its required socket operation; the fixture is not counted as passed."
+    "hosted_testing": "Manual Linux/Windows GitHub Actions workflow and dependency-free runner implemented, with exact commit/run metadata, no persisted checkout credentials, bounded runtime and short artifact retention. Actual hosted dispatch and Windows Job Object execution remain unverified. Account spending policy is not set or inferred by the workflow. The local bubblewrap probe failed because this host denies a required NETLINK_ROUTE socket; no sandbox was claimed."
   }
 }

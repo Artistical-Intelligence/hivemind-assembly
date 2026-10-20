@@ -38,6 +38,8 @@ def main():
             "GITHUB_RUN_ATTEMPT",
             "RUNNER_OS",
             "RUNNER_ARCH",
+            "HA_TEST_REQUEST",
+            "HA_TEST_EXPECTED_SHA",
         )
         if k in os.environ
     }

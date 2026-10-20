@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.9.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.10.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -352,3 +352,30 @@ the workflow does not configure billing and does not prove remaining quota.
 No repository creation is required. The default recipe is the bundled C fixture;
 select the offscreen example on a compatible Linux runner for graphics checks.
 Hosted runs are not automatically accepted as local task completion.
+
+**Projects → Hosted native tests** manages these runs from HA. Connect the
+project's existing private repository, select a full reviewed commit SHA, choose
+the suite and program folder, and confirm the trusted code and configured spending
+boundary. The repository must already contain this release's managed
+`.github/workflows/native-tests.yml` and the test runner/runtime from the source
+distribution. The installed workflow template is also available under
+`_app/hivemind_assembly/integrations/native-tests.yml`.
+
+HA creates a unique `ha-native-…` tag at the reviewed commit, dispatches once and
+checks retained requests every 30 seconds while the application is open. Requests
+survive restarts. **Check / reconcile** looks up a lost response; it never repeats
+an uncertain dispatch. The same request ID keeps retries idempotent. Use **New
+request ID** for an intentional later run after the existing request has settled.
+Cancellation is retained and checked; it cannot be confirmed until GitHub reports
+the run completed. A request interrupted before dispatch can be stopped locally.
+Tags remain for traceability; HA does not delete them or move the source branch.
+Tag creation can trigger other workflows in that repository, so review those too.
+HA's own contract workflow is restricted to branch pushes and pull requests.
+
+The dashboard links to the identified run and its artifacts. It retains the exact
+commit, run attempt, conclusion and artifact metadata. Workers can read their own
+project's retained status using `hosted_test_status` without causing a network call
+or starting a paid run. Hosted success is not silently imported as local acceptance.
+Wrong repository/commit/workflow identities, duplicate matching runs and external
+reruns stop automatic adoption. No live hosted or Windows acceptance is claimed
+from the API fixtures used to validate this integration.

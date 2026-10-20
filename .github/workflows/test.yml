@@ -1,10 +1,14 @@
 name: Hivemind Assembly contracts
-on: [push, pull_request]
+on:
+  push:
+    branches: ['**']
+  pull_request:
 permissions:
   contents: read
 jobs:
   contracts:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -14,7 +18,15 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r _app/requirements.txt pytest
-      - run: python -m pytest tests -q
+      - run: python -m pytest tests -q --junitxml=contract-results.xml
+      - name: Retain contract results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-results-${{ runner.os }}-${{ github.run_id }}
+          path: contract-results.xml
+          retention-days: 3
+          if-no-files-found: warn
       - run: python _app/launch.py verify
   browser-fixture:
     runs-on: ubuntu-latest

@@ -10,6 +10,12 @@ audio replay, frame/waveform review and task-specific evidence. Exact byte defau
 and per-program repeatability are preserved. These do not establish arbitrary
 game equivalence or hardware timing.
 
+Optional hosted test requests now dispatch and track the managed GitHub workflow
+at a reviewed commit, with durable lost-response recovery and cancellation.
+Dashboard controls and project-scoped worker status are implemented. Live account
+dispatch, artifact review and Windows execution remain unverified; remote workflow
+success does not replace local independent acceptance.
+
 Earlier additions: persistent project goals, shared native turn budgets, owner-pinned
 general-purpose native test recipes, protected native acceptance, automatic
 publication of tested sources, and portable disposable-runner workflows. Real
