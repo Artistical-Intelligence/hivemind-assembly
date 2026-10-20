@@ -152,6 +152,7 @@ class Application:
                 evaluator,
                 evaluator.fingerprint,
                 budget=self.team.learning_budget,
+                policy=self.team.experimental,
             )
             self.team.learning_trials = self.native_learning
             with self.store.tx() as db:
@@ -233,6 +234,13 @@ class Application:
             "operations": self.store.rows(
                 "SELECT id,task_id,tool,state,updated,result FROM operations ORDER BY updated DESC LIMIT 50"
             ),
+            "experimental_learning": self.team.experimental.settings(),
+            "experimental_models": [
+                {"evaluation": row["id"], **json.loads(row["payload"])}
+                for row in self.store.rows(
+                    "SELECT id,payload FROM records WHERE kind='native_evaluation_model'"
+                )
+            ],
             "knowledge_curations": [
                 {"id": row["id"], **self.team.curation.status(row["id"])}
                 for row in self.store.rows(
@@ -302,6 +310,13 @@ class Application:
             return self._action(path, data)
 
     def _action(self, path, data):
+        if path == "/api/learning/settings":
+            from hivemind_assembly.learning.policy import validate as validate_learning
+
+            settings = validate_learning(data)
+            self.config["experimental_learning"] = settings
+            atomic_write(self.config_path, canonical(self.config))
+            return settings
         if path == "/api/knowledge/curate":
             return self.team.curation.queue(data["kind"], data["id"])
         if path in (
@@ -446,13 +461,21 @@ class Application:
                 )
             )
             return {"suite": suite}
+        if path == "/api/learning/native-resume":
+            if not self.native_learning:
+                raise Blocked(self.native_learning_error)
+            key = data["evaluation"]
+            pending = self.team.learning_jobs.get(key)
+            if pending and not pending.done():
+                raise Blocked("The evaluation is already running")
+            return self.native_learning.resume(key)
         if path == "/api/learning/native-evaluate":
             if not self.native_learning:
                 raise Blocked(self.native_learning_error)
             key = self.native_learning.bind(
                 data["candidate"],
                 data["suite"],
-                data.get("route", "worker.extra"),
+                data.get("route") or None,
                 data.get("repeats", 3),
             )
             row = self.store.one(
@@ -463,7 +486,7 @@ class Application:
                 uid("binding"),
                 {
                     "suite": data["suite"],
-                    "route": data.get("route", "worker.extra"),
+                    "route": data.get("route") or None,
                     "repeats": data.get("repeats", 3),
                 },
             )

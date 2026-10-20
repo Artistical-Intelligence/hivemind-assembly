@@ -333,3 +333,13 @@ already authorized for external processing can enter it. The curator may reuse o
 create bounded category metadata and assign it to the selected stored item; permission
 and content hashes are checked again before applying its response. It cannot change
 project grants. Full source reading is never inferred from the bounded tagging excerpt.
+
+
+`learning.policy` separates optional experimentation from ordinary lesson reuse.
+The application defaults experiments off and Chat-only on. Optional durable turn
+reservations count bootstrap and trial requests once; unlimited means no added HA
+turn ceiling. Existing protected-corpus exposure bounds remain evaluation-validity
+checks. Native trials retain a model/effort binding after observed selection in their
+first isolated session, reuse it across paired arms, and never rebind main routes.
+Provider identity/allowance blocks remain effective. Unknown allowance can proceed
+under the owner's selected policy; it is not treated as proof of unlimited service.

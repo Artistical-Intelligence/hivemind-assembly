@@ -2,7 +2,9 @@
 
 import os
 import pytest
-from test_app import app, server
+import test_app
+
+app, server = test_app.app, test_app.server
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("WORKBENCH_TEST_CHROME"), reason="Requires real Chromium"
@@ -136,5 +138,57 @@ def test_mcp_and_optional_cloud_settings(server, app):
         )
         assert app.connections.settings()["enabled"]
         assert not app.codespaces.settings()["enabled"]
+        assert errors == []
+        browser.close()
+
+
+def test_tag_scope_and_optional_learning_controls(server, app, tmp_path):
+    from playwright.sync_api import sync_playwright, expect
+
+    source_path = tmp_path / "learning.txt"
+    source_path.write_text("Integer arithmetic documentation")
+    task = app.store.create_project("Scoped project", "Integer arithmetic", paused=True)
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ["WORKBENCH_TEST_CHROME"],
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+        page.locator('[data-tab="knowledge"]').click()
+        page.locator('#knowledge-tag-form [name="id"]').fill("integer-arithmetic")
+        page.locator('#knowledge-tag-form [name="label"]').fill("Integer arithmetic")
+        page.locator("#knowledge-tag-form button").click()
+        expect(page.locator("#knowledge-catalog")).to_contain_text("integer-arithmetic")
+        page.locator('#source-form [name="path"]').fill(str(source_path))
+        page.locator('#source-form [name="tags"]').fill("integer-arithmetic")
+        page.locator("#source-form button").click()
+        expect(page.locator("#source-list")).to_contain_text("learning.txt")
+        page.locator("#knowledge-task").select_option(task["id"])
+        page.locator('#knowledge-scope-form [name="tags"]').fill("integer-arithmetic")
+        page.locator("#knowledge-scope-form button").click()
+        expect(page.locator("#knowledge-scope-list")).to_contain_text(
+            "Integer arithmetic: integer-arithmetic"
+        )
+        expect(
+            page.locator('#experimental-settings [name="enabled"]')
+        ).not_to_be_checked()
+        expect(
+            page.locator('#experimental-settings [name="chat_only"]')
+        ).to_be_checked()
+        page.locator('#experimental-settings [name="enabled"]').check()
+        # Refresh must not overwrite an unsaved policy edit.
+        page.evaluate("refresh()")
+        expect(page.locator('#experimental-settings [name="enabled"]')).to_be_checked()
+        page.locator("#experimental-settings button").click()
+        expect(page.locator("#notice")).to_contain_text("Learning settings saved")
+        assert app.team.experimental.settings()["enabled"]
+        assert app.team.experimental.settings()["max_turns_per_evaluation"] is None
+        page.reload()
+        page.locator('[data-tab="knowledge"]').click()
+        expect(page.locator('#experimental-settings [name="enabled"]')).to_be_checked()
         assert errors == []
         browser.close()

@@ -65,7 +65,7 @@ async def exact_control(page, text):
         """text => {
       const skip='[data-message-author-role], [data-testid="user-message"], [data-testid="assistant-message"], main article';
       const nodes=[...document.querySelectorAll('button,[role="combobox"],[aria-selected="true"],[aria-checked="true"],[data-testid="account-email"],[data-testid="user-email"],[data-ha-field]')];
-      const hits=nodes.filter(e=>!e.closest(skip) && e.getClientRects().length &&
+      const hits=nodes.filter(e=>!e.closest(skip) && (!e.closest('[role="menu"], [role="listbox"]') || e.matches('[data-testid="account-email"], [data-testid="user-email"]')) && e.getClientRects().length &&
         (e.innerText.trim()===text || e.getAttribute('aria-label')===text));
       if(hits.length!==1)return null;
       let e=hits[0], parts=[];
@@ -98,18 +98,62 @@ async def select_exact(page, field, expected):
             re.I,
         ),
     )
-    if await triggers.count() == 1 and await triggers.is_visible():
+    if (
+        await triggers.count() == 1
+        and await triggers.is_visible()
+        and await triggers.is_enabled()
+    ):
         await triggers.click()
         options = (
             page.get_by_role("option", name=expected, exact=True)
             .or_(page.get_by_role("menuitemradio", name=expected, exact=True))
             .or_(page.get_by_role("menuitem", name=expected, exact=True))
         )
-        if await options.count() == 1 and await options.is_visible():
+        if (
+            await options.count() == 1
+            and await options.is_visible()
+            and await options.is_enabled()
+        ):
             await options.click()
         else:
             await page.keyboard.press("Escape")
     return await exact_control(page, expected)
+
+
+async def select_preferred_chat(page, cfg, preferences):
+    """Select only observed exact controls in a fresh Chat session, without sending."""
+    if cfg.get("provider") != "openai" or cfg.get("mode") != "Chat":
+        raise Blocked("Automatic chat-model selection requires the Chat surface")
+    if not isinstance(preferences, list) or not 1 <= len(preferences) <= 20:
+        raise Blocked("A bounded model preference list is required")
+    if not await select_exact(page, "mode", "Chat"):
+        raise Blocked("Chat mode could not be verified before model selection")
+    for target in preferences:
+        if (
+            not isinstance(target, dict)
+            or set(target) != {"model", "effort"}
+            or any(
+                not isinstance(v, str) or not 1 <= len(v) <= 100
+                for v in target.values()
+            )
+        ):
+            raise Blocked("Invalid model preference")
+        model = await select_exact(page, "model", target["model"])
+        if not model:
+            continue
+        effort = await select_exact(page, "effort", target["effort"])
+        if effort:
+            return {
+                **target,
+                "selectors": {
+                    **cfg.get("selectors", {}),
+                    "model": model,
+                    "effort": effort,
+                },
+            }
+    raise Blocked(
+        "No supported preferred Chat model/effort is visible; configure an exact manual override"
+    )
 
 
 async def discover(page, cfg):

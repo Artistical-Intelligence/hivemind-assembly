@@ -191,7 +191,10 @@ class Broker:
                     args.get("text")
                     if "text" in args
                     else self.artifacts.read(
-                        args["artifact"], "worker", self.store.task(task)["project_id"]
+                        args["artifact"],
+                        "worker",
+                        self.store.task(task)["project_id"],
+                        task=task,
                     )
                 )
                 if not isinstance(data, (str, bytes)):
@@ -234,7 +237,10 @@ class Broker:
                 }
             elif tool == "read_artifact":
                 data = self.artifacts.read(
-                    args["artifact"], "worker", self.store.task(task)["project_id"]
+                    args["artifact"],
+                    "worker",
+                    self.store.task(task)["project_id"],
+                    task=task,
                 )
                 start, length = args.get("offset", 0), args.get("length", 32000)
                 if (

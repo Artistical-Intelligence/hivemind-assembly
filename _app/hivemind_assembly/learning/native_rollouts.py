@@ -31,6 +31,7 @@ class NativeRollouts:
         verifier,
         fingerprint,
         budget=None,
+        policy=None,
     ):
         self.store, self.controller, self.sessions = store, controller, sessions
         self.availability, self.verifier, self.fingerprint = (
@@ -41,11 +42,18 @@ class NativeRollouts:
         self.experiments = Experiments(store, None, fingerprint)
         self.locks = {}
         self.budget = budget or (lambda *_: nullcontext())
+        self.policy = policy
 
     def protect(self, cases):
         return self.experiments.protect(cases)
 
-    def bind(self, candidate, suite, route="worker.extra", repeats=3):
+    def bind(self, candidate, suite, route=None, repeats=3):
+        route = (
+            self.policy.choose(route)
+            if self.policy is not None
+            else route or "worker.extra"
+        )
+        selection = self.policy.selection(route) if self.policy is not None else {}
         if route not in ("worker.opus", "worker.astra", "worker.extra"):
             raise ContractError("Native learning requires a designated worker route")
         if type(repeats) is not int or not 3 <= repeats <= 15:
@@ -88,6 +96,7 @@ class NativeRollouts:
                     "route": route,
                     "repeats": repeats,
                     "engine": self.fingerprint,
+                    "model_selection": selection,
                 }
             )[:32]
         )
@@ -95,6 +104,7 @@ class NativeRollouts:
             "candidate": candidate,
             "suite": suite,
             "route": route,
+            "model_selection": selection,
             "repeats": repeats,
             "engine": self.fingerprint,
             "baseline": baseline,
@@ -132,7 +142,22 @@ class NativeRollouts:
             json.loads(rows[0]["payload"]) if rows else {"id": key, "stage": "queued"}
         )
 
+    def resume(self, key):
+        spec = self.store.get("native_evaluation", key)
+        if self.status(key)["stage"] not in (
+            "attention",
+            "paused_policy",
+            "waiting_quota",
+        ):
+            raise Blocked("Only a paused or blocked evaluation can be resumed")
+        self.check_current(spec)
+        # Keep the evaluation, pinned model, sample IDs and retained deliveries.
+        # Retrying must never create a fresh trial to evade an uncertain send.
+        return self.state(key, "queued")
+
     def check_current(self, spec, *, promoting=False):
+        if self.policy is not None:
+            self.policy.require(spec["route"])
         if spec["engine"] != self.fingerprint:
             raise Blocked("Native evaluator changed; trial cannot resume")
         candidate = self.store.one(
@@ -203,7 +228,12 @@ class NativeRollouts:
                         else:
                             self.check_current(spec)
                             available = self.availability(route)
-                            if available is None or not available.eligible():
+                            eligible = (
+                                self.policy.eligible(route, available)
+                                if self.policy is not None
+                                else available is not None and available.eligible()
+                            )
+                            if not eligible:
                                 self.state(
                                     key, "waiting_quota", completed=done, total=total
                                 )
@@ -212,12 +242,56 @@ class NativeRollouts:
                                 )
                             # All samples get a fresh context, including the baseline.
                             # Neither active project conversation nor another trial is reused.
-                            with self.budget(route, trial_id, available):
+                            reservation = (
+                                self.policy.reservation_observation(available)
+                                if self.policy is not None
+                                else available
+                            )
+                            with self.budget(route, trial_id, reservation):
+                                if self.policy is not None:
+                                    self.policy.reserve(key, trial_id + "_session")
+                                    self.policy.reserve(key, trial_id)
+                                pinned = self.store.rows(
+                                    "SELECT payload FROM records WHERE kind='native_evaluation_model' AND id=?",
+                                    (key,),
+                                )
+                                selection = (
+                                    {"target": json.loads(pinned[0]["payload"])}
+                                    if pinned
+                                    else spec.get("model_selection", {})
+                                )
                                 browser = await self.sessions.isolated_browser(
-                                    key, route, trial_id + "_session"
+                                    key, route, trial_id + "_session", **selection
                                 )
                                 self.check_current(spec)
                                 cfg = browser.config["routes"][route]
+                                if self.policy is not None:
+                                    selected = {
+                                        field: cfg[field]
+                                        for field in ("model", "effort")
+                                    }
+                                    if (
+                                        pinned
+                                        and json.loads(pinned[0]["payload"]) != selected
+                                    ):
+                                        raise Blocked(
+                                            "Experimental model changed within the paired evaluation"
+                                        )
+                                    self.store.put(
+                                        "native_evaluation_model", key, selected
+                                    )
+                                    self.store.event(
+                                        key,
+                                        "experimental_model_selected",
+                                        {
+                                            **selected,
+                                            "route": route,
+                                            "allowance_known": available.allowance_known,
+                                            "ha_turn_limit": self.policy.settings()[
+                                                "max_turns_per_evaluation"
+                                            ],
+                                        },
+                                    )
                                 payload = {
                                     "instruction": "Solve the bounded task below using the supplied method when applicable. Return one JSON object with request_id, type rollout_result and output. Do not evaluate or score your response. Do not claim any external execution.",
                                     "task": case["inputs"],
@@ -247,6 +321,7 @@ class NativeRollouts:
                                 else:
                                     response = await browser.exchange(route, message)
                                 elapsed = time.perf_counter() - started
+                                self.check_current(spec)
                                 if response.get("type") != "rollout_result":
                                     output = None
                                 else:

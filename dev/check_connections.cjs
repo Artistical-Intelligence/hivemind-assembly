@@ -2,7 +2,7 @@ const {JSDOM}=require('jsdom'),fs=require('fs'),assert=require('node:assert/stri
 const [root,url,token]=process.argv.slice(2);
 const dom=new JSDOM(fs.readFileSync(root+'/application/static/index.html','utf8'),{url:url+'/#'+token,runScripts:'outside-only'}),w=dom.window;
 w.TextEncoder=TextEncoder;w.fetch=(path,opts)=>fetch(url+path,opts);w.HTMLElement.prototype.scrollIntoView=()=>{};
-w.eval(['native_captures.js','app.js','workspace.js','connections.js'].map(f=>fs.readFileSync(root+'/application/static/'+f,'utf8')).join('\n'));
+w.eval(['native_captures.js','app.js','knowledge.js','workspace.js','connections.js'].map(f=>fs.readFileSync(root+'/application/static/'+f,'utf8')).join('\n'));
 const $=s=>w.document.querySelector(s),click=s=>$(s).click(),submit=s=>$(s).dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
 const until=async fn=>{for(let n=0;n<100;n++){if(fn())return;await new Promise(r=>setTimeout(r,50));}throw Error('Timeout: '+fn+' '+$('#notice').textContent)};
 (async()=>{
@@ -16,5 +16,14 @@ const until=async fn=>{for(let n=0;n<100;n++){if(fn())return;await new Promise(r
  await until(()=>$('#notice').textContent.includes('Codespaces settings saved'));
  const response=await fetch(url+'/api/status',{headers:{'X-Workbench-Token':token}}),state=await response.json();
  assert.deepEqual(state.codespaces.settings.spaces,['runner-one','runner-two']);assert.equal(state.codespaces.settings.allow_execution,false);
+ click('[data-tab="knowledge"]');
+ $('#knowledge-tag-form').elements.id.value='arithmetic';$('#knowledge-tag-form').elements.label.value='Arithmetic';submit('#knowledge-tag-form');
+ await until(()=>$('#knowledge-catalog').textContent.includes('arithmetic'));
+ const lf=$('#experimental-settings').elements;assert.equal(lf.enabled.checked,false);assert.equal(lf.chat_only.checked,true);assert.equal(lf.max_turns_per_evaluation.value,'');
+ lf.enabled.checked=true;lf.enabled.dispatchEvent(new w.Event('input',{bubbles:true}));submit('#experimental-settings');
+ await until(()=>$('#notice').textContent.includes('Learning settings saved'));
+ const lr=await fetch(url+'/api/status',{headers:{'X-Workbench-Token':token}}),ls=await lr.json();
+ assert.equal(ls.experimental_learning.enabled,true);assert.equal(ls.experimental_learning.max_turns_per_evaluation,null);
+ console.log('Knowledge category and optional unlimited learning controls passed.');
  console.log('Connections dashboard passed against real HTTP controller: MCP access, client configuration, optional cloud settings.');dom.window.close();
 })().catch(e=>{console.error(e);dom.window.close();process.exitCode=1});

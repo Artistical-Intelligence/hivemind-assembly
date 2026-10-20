@@ -142,6 +142,9 @@ class UsagePolicy:
 
 
 def validate_config(config):
+    from hivemind_assembly.learning.policy import validate as validate_learning
+
+    validate_learning(config.get("experimental_learning", {}))
     github = config.get("github", {})
     if not isinstance(github, dict) or set(github) - {
         "allow_repository_creation",

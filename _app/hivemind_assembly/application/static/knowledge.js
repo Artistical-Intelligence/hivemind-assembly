@@ -1,6 +1,9 @@
 'use strict';
 (() => {
   let catalogRevision = '';
+  const learningForm = document.querySelector('#experimental-settings');
+  let learningDirty = false;
+  learningForm.addEventListener('input', () => {learningDirty = true;});
   const tags = value => value.split(',').map(x => x.trim()).filter(Boolean);
   function options(select, items) {
     const prior = select.value;
@@ -16,6 +19,14 @@
   window.renderKnowledge = status => {
     const catalog = status.knowledge_catalog || {tags: [], revision: ''};
     catalogRevision = catalog.revision;
+    if (!learningDirty && status.experimental_learning) {
+      for (const [key, value] of Object.entries(status.experimental_learning)) {
+        const field = learningForm.elements.namedItem(key);
+        if (field?.type === 'checkbox') field.checked = value;
+        else if (field) field.value = value ?? '';
+      }
+    }
+    document.querySelector('#experimental-models').textContent = (status.experimental_models || []).map(x => `${x.model} · ${x.effort} (pinned for ${x.evaluation})`).join(' · ');
     document.querySelector("#knowledge-curations").textContent = (status.knowledge_curations || []).map(x => `${x.stage}: ${x.reason || x.assignment?.tags.join(", ") || "categorization queued"}`).join(" · ");
     document.querySelector('#knowledge-catalog').textContent = catalog.tags.map(t => `${t.id}: ${t.label}`).join(' · ') || 'No categories yet.';
     const material = (status.knowledge_assignments || []).map(row => {
@@ -45,7 +56,21 @@
       await api('knowledge/curate', {kind, id}); notice('Automatic categorization queued.'); await refresh();
     } catch (error) { notice(error.message, true); }
   };
-  submit('#knowledge-tag-form' , 'knowledge/tag', f => Object.fromEntries(f));
+  learningForm.onsubmit = async event => {
+    event.preventDefault();
+    const f = new FormData(learningForm);
+    const value = {
+      enabled: f.has('enabled'), chat_only: f.has('chat_only'),
+      allow_unknown_allowance: f.has('allow_unknown_allowance'),
+      route_override: f.get('route_override') || null,
+      model_override: f.get('model_override').trim() || null,
+      effort_override: f.get('effort_override').trim() || null,
+      max_turns_per_evaluation: f.get('max_turns_per_evaluation') ? Number(f.get('max_turns_per_evaluation')) : null,
+    };
+    try { await api('learning/settings', value); learningDirty = false; notice('Learning settings saved.'); await refresh(); }
+    catch (error) { notice(error.message, true); }
+  };
+  submit('#knowledge-tag-form'  , 'knowledge/tag', f => Object.fromEntries(f));
   submit('#knowledge-assignment-form', 'knowledge/assign', f => {
     const [kind, id] = JSON.parse(f.get('item')); return {kind, id, tags: tags(f.get('tags'))};
   });

@@ -68,5 +68,7 @@ Version 0.13 implements persistent category-only task classification, scoped
 source/lesson/skill access, scope-bound native conversations, explicit no-tag
 selection, and separately authorized ingestion categorization. Tagged material
 is ranked within the selected scope; permissions and evaluator validity still apply.
-Optional chat-only experimental learning and best eligible chat-model selection
-remain implementation work.
+Optional experimental learning now defaults off, with Chat-only workers, observed
+model/effort selection, manual overrides, model pinning across paired trials and
+no default HA usage cap. Policy, selection, and dashboard fixtures have checks;
+live provider model controls and real improvement measurements remain gates.

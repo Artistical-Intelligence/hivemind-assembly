@@ -109,6 +109,49 @@ def test_changed_catalog_rejects_stale_classification(store):
         scopes.select(task["id"], [], revision)
 
 
+def test_skill_updates_and_reverts_invalidate_context_without_resetting_tags(store):
+    scopes = KnowledgeScopes(store)
+    skill = {"id": "method", "scope": ["core"], "content": "first"}
+    scopes.register_skills("domain", [skill])
+    scopes.create_tag("chosen", "Chosen")
+    scopes.assign("skill", "domain:method", ["chosen"])
+    task = store.create_project("skill", "test")
+    scopes.select(task["id"], ["chosen"], scopes.catalog()["revision"])
+    original = scopes.fingerprint(task["id"])
+    scopes.register_skills("domain", [{**skill, "content": "changed"}])
+    assert scopes.fingerprint(task["id"]) != original
+    assert scopes.tags("skill", "domain:method") == ["chosen"]
+    scopes.register_skills("domain", [skill])
+    assert scopes.fingerprint(task["id"]) == original
+
+
+def test_retained_excerpts_follow_current_task_scope_and_permission(store, tmp_path):
+    scopes, knowledge, sources, task = scoped_sources(store, tmp_path)
+    scopes.select(task["id"], ["arithmetic"], scopes.catalog()["revision"])
+    source = sources[0]
+    excerpt = knowledge.authorize_excerpt(
+        source["id"], source["revision"], "1", task["project_id"], task["id"]
+    )
+
+    def read(task_id=task["id"]):
+        return knowledge.artifacts.read(
+            excerpt["id"], "worker", task["project_id"], task=task_id
+        )
+
+    assert b"SECRET-arithmetic" in read()
+    with pytest.raises(Blocked, match="scoped task"):
+        read(None)
+    scopes.select(task["id"], [], scopes.catalog()["revision"])
+    with pytest.raises(Blocked, match="outside"):
+        read()
+    scopes.select(task["id"], ["arithmetic"], scopes.catalog()["revision"])
+    with store.tx() as db:
+        db.execute("UPDATE sources SET external_allowed=0 WHERE id=?", (source["id"],))
+    with pytest.raises(Blocked, match="revoked"):
+        read()
+    assert b"SECRET-arithmetic" in knowledge.artifacts.read(excerpt["id"], "controller")
+
+
 def test_scope_change_renews_session_even_below_context_limit(store, tmp_path):
     config = {"routes": {"worker.extra": {"conversation_url": "old"}}}
     sessions = Sessions(

@@ -68,7 +68,10 @@ class Learning:
                     time.time(),
                 ),
             )
-        scopes.assign("lesson", key, tags)
+            c.execute(
+                "INSERT INTO knowledge_assignments VALUES('lesson',?,?)",
+                (key, canonical(tags)),
+            )
         return key
 
     def evaluate(

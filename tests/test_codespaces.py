@@ -68,6 +68,9 @@ def test_remote_deadline_and_credentials_removed(tmp_path):
 @pytest.fixture
 def app(tmp_path):
     a = Application(tmp_path / "state")
+    # These tests own controller dispatch; the native scheduler must not claim
+    # or suspend their fixture tasks concurrently on faster/slower CI hosts.
+    a.team.pause_dispatch = True
     yield a
     a.close()
 

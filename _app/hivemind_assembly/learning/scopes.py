@@ -8,6 +8,7 @@ from hivemind_assembly.core.common import (
     ContractError,
     canonical,
     digest,
+    uid,
 )
 
 
@@ -117,6 +118,17 @@ class KnowledgeScopes:
             self.store.put(
                 "knowledge_skill", key, {"domain": domain, "id": skill["id"]}
             )
+            version = digest(skill)
+            prior = self.store.rows(
+                "SELECT payload FROM records WHERE kind=? ORDER BY created DESC LIMIT 1",
+                ("knowledge_skill_version:" + key,),
+            )
+            if not prior or json.loads(prior[0]["payload"])["hash"] != version:
+                self.store.put(
+                    "knowledge_skill_version:" + key,
+                    uid("skill_version"),
+                    {"hash": version},
+                )
             if self.store.rows(
                 "SELECT 1 FROM knowledge_assignments WHERE kind='skill' AND item_id=?",
                 (key,),
@@ -230,6 +242,9 @@ class KnowledgeScopes:
                     ("lesson_permission:" + key,),
                 )
             else:
-                evidence = []
+                evidence = self.store.rows(
+                    "SELECT payload FROM records WHERE kind=? ORDER BY created DESC LIMIT 1",
+                    ("knowledge_skill_version:" + key,),
+                )
             items.append({**row, "version": digest(evidence)})
         return digest({"task": task, "scope": scope, "items": items})

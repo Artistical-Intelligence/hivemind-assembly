@@ -455,3 +455,16 @@ The Knowledge page manages categories, material assignments and paused-task
 scope overrides. Authorized source ingestion queues an isolated native adviser
 categorization turn; ingestion may create reusable categories, while project
 classification cannot. External-processing permission remains a separate gate.
+
+
+Experimental learning is optional and off by default. Its controls are on the
+Knowledge page. Chat-only is the default; Work or other limited worker routes
+require turning that restriction off. The controller tries the documented model
+and effort preferences against actual visible Chat controls, or uses an exact
+manual override, and pins the selected model for all paired samples. Main work
+routes keep their exact configured targets. There is no default HA turn cap;
+an optional per-evaluation cap counts session verification and trial messages,
+with retries counted once. Unknown remaining allowance can be allowed explicitly;
+observed provider blocks and identity mismatches still stop delivery. Statistical
+holdout exposure and correctness requirements are separate from usage limits.
+Stored approved lessons remain available to matching tasks when experiments are off.

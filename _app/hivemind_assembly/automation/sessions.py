@@ -11,7 +11,7 @@ import json
 import secrets
 from pathlib import Path
 from .native import NativeBrowser
-from .providers import CONTRACTS, discover, conversation_url
+from .providers import CONTRACTS, discover, conversation_url, select_preferred_chat
 from hivemind_assembly.core.common import (
     Blocked,
     Retryable,
@@ -124,7 +124,34 @@ class Sessions:
                 {"context": context, "task": task},
             )
 
-    async def renew(self, task, route, *, isolated=False, identity=None):
+    async def renew(
+        self,
+        task,
+        route,
+        *,
+        isolated=False,
+        identity=None,
+        target=None,
+        preferences=None
+    ):
+        if (target is not None or preferences is not None) and not isolated:
+            raise Blocked(
+                "Experimental model selection cannot rebind a main work route"
+            )
+        if target is not None and (
+            not isinstance(target, dict)
+            or set(target) != {"model", "effort"}
+            or any(
+                not isinstance(v, str) or not 1 <= len(v) <= 100
+                for v in target.values()
+            )
+        ):
+            raise ContractError(
+                "Experimental target requires exact model and effort labels"
+            )
+        if target is not None and preferences is not None:
+            raise ContractError("Choose a manual target or automatic preferences")
+        selection = {"target": target, "preferences": preferences}
         async with self.locks.setdefault(route, asyncio.Lock()):
             cfg = self.browser.config["routes"][route]
             previous = cfg.get("conversation_url", "")
@@ -155,6 +182,11 @@ class Sessions:
             )
             if retained:
                 intent = json.loads(retained[0]["payload"])
+                if (
+                    intent.get("selection", {"target": None, "preferences": None})
+                    != selection
+                ):
+                    raise Blocked("Retained session model selection changed")
                 if (intent["route"], intent["isolated"]) != (route, isolated) or (
                     not isolated and intent["previous"] != previous
                 ):
@@ -168,6 +200,7 @@ class Sessions:
                     "task": task,
                     "isolated": isolated,
                     "nonce": secrets.token_hex(24),
+                    "selection": selection,
                 }
                 self.store.put("session_intent", key, intent)
             clone = self.drafts.get(key)
@@ -220,6 +253,37 @@ class Sessions:
                         cfg["profile"], CONTRACTS[cfg["provider"]]["new_url"]
                     )
                 clone.pages[route] = page
+                chosen = self.store.rows(
+                    "SELECT payload FROM records WHERE kind='session_model_selection' AND id=?",
+                    (key,),
+                )
+                if chosen:
+                    clone.config["routes"][route].update(
+                        json.loads(chosen[0]["payload"])
+                    )
+                elif target is not None or preferences is not None:
+                    selected = (
+                        target
+                        if target is not None
+                        else await select_preferred_chat(
+                            page, clone.config["routes"][route], preferences
+                        )
+                    )
+                    clone.config["routes"][route].update(selected)
+                    self.store.put(
+                        "session_model_selection",
+                        key,
+                        {field: selected[field] for field in ("model", "effort")},
+                    )
+                    if target is not None:
+                        # Positional selectors from the old model must be rediscovered.
+                        clone.config["routes"][route]["selectors"] = {
+                            k: v
+                            for k, v in clone.config["routes"][route]
+                            .get("selectors", {})
+                            .items()
+                            if k not in ("model", "effort")
+                        }
                 discovered = await discover(page, clone.config["routes"][route])
                 if discovered["missing"]:
                     raise Blocked(
@@ -314,8 +378,10 @@ class Sessions:
                 atomic_write(self.config_path, canonical(self.browser.config))
             return value
 
-    async def isolated_browser(self, task, route, identity):
-        value = await self.renew(task, route, isolated=True, identity=identity)
+    async def isolated_browser(self, task, route, identity, **selection):
+        value = await self.renew(
+            task, route, isolated=True, identity=identity, **selection
+        )
         clone = self.drafts.get(identity)
         if clone is None:
             config = copy.deepcopy(self.browser.config)

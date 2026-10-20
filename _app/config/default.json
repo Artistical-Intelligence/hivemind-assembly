@@ -200,5 +200,14 @@
     "automatic_checkpoints": true,
     "allowed_organizations": []
   },
-  "isolation": "broker_only_no_arbitrary_execution"
+  "isolation": "broker_only_no_arbitrary_execution",
+  "experimental_learning": {
+    "enabled": false,
+    "chat_only": true,
+    "route_override": null,
+    "model_override": null,
+    "effort_override": null,
+    "max_turns_per_evaluation": null,
+    "allow_unknown_allowance": true
+  }
 }

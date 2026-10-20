@@ -204,4 +204,5 @@ class Knowledge:
             "excerpt.json",
             project,
             "task",
+            knowledge_grant={"task": task, "source": source, "revision": revision},
         )

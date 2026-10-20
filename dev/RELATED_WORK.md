@@ -376,3 +376,22 @@ The local application remains authoritative for project access and writes.
 
 Codespaces contributes optional execution capacity. It is not assumed to offer a
 GPU, and a cloud job's successful exit does not replace protected acceptance.
+
+
+### Context selection and native experimental model choice (2026-10-20)
+
+Anthropic's context-engineering article recommends selective, just-in-time context
+rather than assuming larger context removes relevance problems. HA now combines
+that approach with a stricter access boundary: category-only classification precedes
+material retrieval, and matching tags permit scoped retrieval rather than disclosing
+the complete store. Ingestion curation runs in a separate authorized conversation.
+https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+
+OpenAI's current Chat model documentation distinguishes model selection, effort,
+Chat versus Work allowances, and account-dependent availability. HA's initial
+capability preference is GPT-6 Pro, GPT-5.6 Sol Pro, then GPT-6 and GPT-5.6 Sol
+at supported thinking levels. This order is a capability-oriented engineering
+preference, not measured superiority on HA tasks. Only observed selectable controls
+qualify; a manual exact override is available. The chosen pair is pinned throughout
+an evaluation, and no paid API or Work fallback is introduced by Chat-only mode.
+https://help.openai.com/en/articles/20001354-gpt-6-and-other-models-in-chatgpt

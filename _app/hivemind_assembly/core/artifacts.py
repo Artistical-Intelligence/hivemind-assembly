@@ -1,5 +1,5 @@
 from __future__ import annotations
-import hashlib, re, time, zipfile, os, tempfile
+import hashlib, json, re, time, zipfile, os, tempfile
 from pathlib import Path
 from hivemind_assembly.core.common import (
     atomic_write,
@@ -16,7 +16,9 @@ class Artifacts:
         self.store = store
         self.root = store.root / "artifacts"
 
-    def add(self, data, name, project=None, classification="task"):
+    def add(
+        self, data, name, project=None, classification="task", *, knowledge_grant=None
+    ):
         if classification not in ("task", "shared", "restricted", "protected"):
             raise ContractError("Unknown artifact classification")
         if isinstance(data, str):
@@ -39,6 +41,8 @@ class Artifacts:
                     time.time(),
                 ),
             )
+            if knowledge_grant is not None:
+                self.store.put("artifact_knowledge_grant", key, knowledge_grant, c)
         return self.store.one("SELECT * FROM artifacts WHERE id=?", (key,))
 
     def add_file(self, source, name, project=None, classification="task"):
@@ -81,7 +85,7 @@ class Artifacts:
         finally:
             Path(stage).unlink(missing_ok=True)
 
-    def read(self, key, role, project=None):
+    def read(self, key, role, project=None, *, task=None):
         row = self.store.one("SELECT * FROM artifacts WHERE id=?", (key,))
         cls = row["classification"]
         if cls == "protected" and role != "evaluator":
@@ -90,6 +94,33 @@ class Artifacts:
             raise Blocked("Restricted artifact")
         if cls == "task" and row["project_id"] != project and role != "controller":
             raise Blocked("Artifact belongs to another project")
+        if role != "controller":
+            grants = self.store.rows(
+                "SELECT payload FROM records WHERE kind='artifact_knowledge_grant' AND id=?",
+                (key,),
+            )
+            if grants:
+                grant = json.loads(grants[0]["payload"])
+                if task != grant["task"]:
+                    raise Blocked("Knowledge excerpt requires its scoped task")
+                from hivemind_assembly.learning.scopes import KnowledgeScopes
+
+                KnowledgeScopes(self.store).check(task, "source", grant["source"])
+                source = self.store.one(
+                    "SELECT revision,external_allowed FROM sources WHERE id=?",
+                    (grant["source"],),
+                )
+                if (
+                    not source["external_allowed"]
+                    or source["revision"] != grant["revision"]
+                ):
+                    raise Blocked(
+                        "Knowledge excerpt is stale or permission was revoked"
+                    )
+            elif cls == "task" and row["logical_name"] == "excerpt.json":
+                raise Blocked(
+                    "Legacy knowledge excerpt must be reissued for a scoped task"
+                )
         p = self.root / row["sha256"][:2] / row["sha256"]
         if file_hash(p) != row["sha256"]:
             raise ContractError("Artifact content hash mismatch")
