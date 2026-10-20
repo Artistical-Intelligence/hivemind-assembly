@@ -12,6 +12,7 @@ def main():
         default="serve",
         choices=[
             "serve",
+            "mcp",
             "verify",
             "check-function",
             "test-programs",
@@ -51,7 +52,10 @@ def main():
         help="Authorize the recipes to execute with this host's access (not a sandbox)",
     )
     args = p.parse_args()
-    if args.command == "serve":
+    if args.command == "mcp":
+        from hivemind_assembly.integrations.mcp import serve_bridge
+        serve_bridge(args.data_dir)
+    elif args.command == "serve":
         serve(args.data_dir, args.port, not args.no_browser)
     elif args.command == "test-programs":
         from pathlib import Path

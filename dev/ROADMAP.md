@@ -56,3 +56,12 @@ Windows application reconstruction or live GitHub automation acceptance.
    Windows CI. That does not establish complete WinGet/Ghidra/REA setup or
    arbitrary Windows application reconstruction.
 6. Perform the separately requested full audit, then revise its findings.
+
+Version 0.12 adds project-scoped inbound MCP, outbound MCP tool grants, configuration
+installation, and optional Codespaces lifecycle/parallel snapshot jobs. Local
+SDK exchanges, runner execution, recovery, cancellation, import conflicts and
+HTTP dashboard controls have automated checks. Live GitHub Codespaces delivery,
+web-chat tunnel authorization and external OAuth onboarding remain separate gates.
+The agreed tag-first knowledge gate, optional chat-only experimental learning,
+best eligible chat-model selection and explicit unlimited-use setting remain
+implementation work; existing keyword retrieval is not the requested access gate.

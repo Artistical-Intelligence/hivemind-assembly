@@ -213,6 +213,8 @@ class NativeTeam:
                 if role == "worker"
                 else []
             ),
+            "external_tools": (self.broker.mcp_connections.manifest(task["project_id"])
+                               if getattr(self.broker, "mcp_connections", None) else []),
             "recent_operations": self.store.rows(
                 "SELECT id,tool,state FROM operations WHERE task_id=? ORDER BY created DESC LIMIT 12",
                 (task["id"],),

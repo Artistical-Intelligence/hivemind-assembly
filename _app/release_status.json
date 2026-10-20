@@ -1,15 +1,14 @@
 {
-  "version": "0.11.0",
+  "version": "0.12.0",
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 378,
-    "skipped": 3,
+    "passed": 368,
+    "skipped": 22,
     "failed": 0,
-    "elapsed_seconds": 80.78,
+    "elapsed_seconds": 79.58,
     "host": "Linux Python 3.12",
-    "hermes_source": "c0015464f0f40d52c5702a84cf58e70361f4a04c",
-    "skipped_gate": "Local Chromium transport and dashboard tests, and Windows-only cleanup stress. Each has a dedicated GitHub CI job; no signed-in provider acceptance inferred."
+    "scope": "Full local suite before final queue/import regression additions; targeted follow-up checks recorded below. Missing native/Chromium runtimes are skipped, not inferred."
   },
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -20,7 +19,8 @@
     "historical_evidence": "Checks under historical_checks were recorded in earlier development runs and are not newly claimed from this release verification.",
     "github_ci": "Hosted CI run 39435386278 at 99f7d45 passed Windows and Linux contracts, semantic checks, Windows native execution preflight, real Chromium provider transport and dashboard workflows, and the bundled Windows install/update/restore job. This is automated hosted verification, not signed-in model acceptance.",
     "windows_runtime": "The extracted Windows package installed its bundled Python and hash-locked dependencies in a fresh data directory, ran register and native Python checks, survived removal/re-extraction of the application folder, and restored a verified backup with project files intact. Paths contained spaces. Tested in GitHub Windows CI, not a manual desktop or complete Ghidra/REA installation.",
-    "project_workspace": "Real Chromium and the HTTP controller completed starter creation, uploads, editing, draft preservation, positive/negative checks, byte-exact download, reload persistence, native observations and fresh guided exact-output setup. A separate local jsdom/controller run compiled and checked a C utility through the guided form with automatic compiler discovery. Authenticated streaming, version-checked snapshots, stale edits, immutable references, invalid paths and local-check independence from optional publication passed backend tests."
+    "project_workspace": "Real Chromium and the HTTP controller completed starter creation, uploads, editing, draft preservation, positive/negative checks, byte-exact download, reload persistence, native observations and fresh guided exact-output setup. A separate local jsdom/controller run compiled and checked a C utility through the guided form with automatic compiler discovery. Authenticated streaming, version-checked snapshots, stale edits, immutable references, invalid paths and local-check independence from optional publication passed backend tests.",
+    "mcp_codespaces": "Official MCP SDK in-process and real stdio bridge exchanges; outbound stdio discovery/tool/project grants; standalone Linux runner execution, deadline and credential removal; parallel spaces, queued cancellation, interrupted startup, GPU requirement rejection and output import conflict checks. Real HTTP controller with jsdom validated connection settings. No live Codespace or web tunnel acceptance."
   },
   "native_live_acceptance": {
     "validated_routes": 0,
@@ -105,6 +105,15 @@
     "standing_goals": "Persistent root objectives, project-wide native request budgets, idempotent reservation across restart, pause/clear/resume, automatic continuation, root-only independent completion and reviewer recovery request resumption passed. No extra model API judge. Native signed-in goal execution is not verified.",
     "native_tool_testing": "Actual native original/candidate C builds with different implementations and optimization levels passed three repeated oracle cases. Source-known wrong candidates were rejected. An installed gzip oracle agreed with a Python decompression utility on three byte-stream cases. Expected-output/file tests, repeated-run instability, deadlines, output limits, process-tree cleanup after timeout and controller exit, environment credential stripping, owner-only recipes, protected original/corpus, permission revocation and source rechecks passed. Native execution is explicitly owner-authorized and is not a security sandbox.",
     "offscreen_graphics": "Actual EGL 1.5 pbuffer/OpenGL readback passed three repeated comparisons of a 16x16 RGBA frame against independent expected pixels. Observed renderer: llvmpipe (LLVM 20.1.2, 256 bits); Mesa 25.2.8 OpenGL 4.5 compatibility. This verifies the source-known graphics probe, not arbitrary game behavior or GPU performance.",
-    "hosted_testing": "Manual Linux/Windows GitHub Actions workflow and dependency-free runner implemented, with exact commit/run metadata, no persisted checkout credentials, bounded runtime and short artifact retention. Actual hosted dispatch and Windows Job Object execution remain unverified. Account spending policy is not set or inferred by the workflow. The local bubblewrap probe failed because this host denies a required NETLINK_ROUTE socket; no sandbox was claimed."
+    "hosted_testing": "Manual Linux/Windows GitHub Actions workflow and dependency-free runner implemented, with exact commit/run metadata, no persisted checkout credentials, bounded runtime and short artifact retention. Actual hosted dispatch and Windows Job Object execution remain unverified. Account spending policy is not set or inferred by the workflow. The local bubblewrap probe failed because this host denies a required NETLINK_ROUTE socket; no sandbox was claimed.",
+    "pre_0_12_automated_tests": {
+      "passed": 378,
+      "skipped": 3,
+      "failed": 0,
+      "elapsed_seconds": 80.78,
+      "host": "Linux Python 3.12",
+      "hermes_source": "c0015464f0f40d52c5702a84cf58e70361f4a04c",
+      "skipped_gate": "Local Chromium transport and dashboard tests, and Windows-only cleanup stress. Each has a dedicated GitHub CI job; no signed-in provider acceptance inferred."
+    }
   }
 }

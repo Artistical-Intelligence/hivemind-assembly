@@ -89,6 +89,12 @@ class Application:
         from .workspace import Workspace
 
         self.workspace = Workspace(self.broker)
+        from hivemind_assembly.integrations.mcp import Connections, Gateway
+        from hivemind_assembly.integrations.codespaces import Codespaces
+        self.connections = Connections(self.store)
+        self.mcp_gateway = Gateway(self)
+        self.broker.mcp_connections = self.connections
+        self.codespaces = Codespaces(self)
         recovery = self.broker.recover_pending()
         if recovery:
             self.store.put("startup_recovery", uid("startup"), {"operations": recovery})
@@ -181,6 +187,8 @@ class Application:
             "domain": self.broker.domain.id,
             "github": {**self.github_auth.status(), **self.config.get("github", {})},
             "hosted_tests": self.hosted_tests.listing(),
+            "connections": self.connections.settings(),
+            "codespaces": {"settings": self.codespaces.settings(), "jobs": self.codespaces.jobs()},
             "native_evaluations": (
                 [
                     self.native_learning.status(r["id"])
@@ -270,6 +278,44 @@ class Application:
             return self._action(path, data)
 
     def _action(self, path, data):
+        if path == "/api/mcp/settings":
+            return self.connections.save(data)
+        if path == "/api/mcp/config":
+            return self.connections.client_config()
+        if path == "/api/mcp/install":
+            return self.connections.install_config(data["path"])
+        if path == "/api/mcp/call":
+            return self.mcp_gateway.call(data["tool"], data.get("arguments", {}))
+        if path == "/api/mcp/discover":
+            return self.background_job("Discover MCP tools", lambda: asyncio.run(self.connections.external(data["server"])))
+        if path == "/api/codespaces/setup":
+            from .prerequisites import install_missing
+            return self.background_job("Prepare Codespaces tools", lambda: install_missing(extra=("gh",)))
+        if path == "/api/codespaces/connect":
+            saved = self.github_auth.credentials()
+            return self.github_auth.start(saved["client_id"], codespaces=True)
+        if path == "/api/codespaces/settings":
+            return self.codespaces.save(data)
+        if path == "/api/codespaces/list":
+            return self.codespaces.listing()
+        if path == "/api/codespaces/machines":
+            return self.codespaces.machines(data["owner"], data["repo"])
+        if path == "/api/codespaces/create":
+            return self.codespaces.create(data["owner"], data["repo"], data["machine"], data["request_id"], data.get("ref"))
+        if path == "/api/codespaces/control":
+            return self.codespaces.control(data["space"], data["action"])
+        if path == "/api/codespaces/probe":
+            return self.background_job("Check Codespace capabilities", lambda: self.codespaces.probe(data["space"]))
+        if path == "/api/codespaces/run":
+            return self.codespaces.submit(data)
+        if path == "/api/codespaces/reconcile":
+            return self.background_job("Reconcile Codespace job", lambda: self.codespaces.reconcile(data["id"]))
+        if path == "/api/codespaces/cancel":
+            return self.codespaces.cancel(data["id"])
+        if path == "/api/codespaces/result":
+            return self.codespaces.result(data["id"])
+        if path == "/api/codespaces/import":
+            return self.codespaces.import_output(data["id"], data["path"], data.get("expected_sha"))
         if path == "/api/native/setup-all":
             if any(
                 not p.done()
@@ -382,7 +428,7 @@ class Application:
                     stream.write(line)
             return {"path": str(target), "sha256": file_hash(target)}
         if path == "/api/github/connect":
-            return self.github_auth.start(data["client_id"])
+            return self.github_auth.start(data["client_id"], codespaces=data.get("codespaces", False))
         if path == "/api/github/poll":
             return self.github_auth.poll()
         if path == "/api/github/cancel":
@@ -827,6 +873,7 @@ class Application:
     def close(self):
         if self.shutdown:
             return
+        self.codespaces.close()
         self.hosted_tests.close()
         self.shutdown = True
         for event in self.broker.cancel.values():
@@ -912,6 +959,7 @@ def make_server(app, port=0):
                 "/": ("index.html", "text/html; charset=utf-8"),
                 "/app.js": ("app.js", "text/javascript"),
                 "/native_captures.js": ("native_captures.js", "text/javascript"),
+                "/connections.js": ("connections.js", "text/javascript"),
                 "/workspace.js": ("workspace.js", "text/javascript"),
                 "/style.css": ("style.css", "text/css"),
             }
@@ -996,7 +1044,13 @@ def make_server(app, port=0):
             except Exception as e:
                 self.send(500, {"error": str(e)})
 
-    return ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    private = app.store.root / "private"
+    private.mkdir(parents=True, exist_ok=True)
+    atomic_write(private / "endpoint.json", canonical({"port": server.server_port, "token": app.token}))
+    if os.name != "nt":
+        (private / "endpoint.json").chmod(0o600)
+    return server
 
 
 def serve(root=None, port=0, open_browser=True):

@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.11.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.12.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -385,3 +385,37 @@ or starting a paid run. Hosted success is not silently imported as local accepta
 Wrong repository/commit/workflow identities, duplicate matching runs and external
 reruns stop automatic adoption. No live hosted or Windows acceptance is claimed
 from the API fixtures used to validate this integration.
+
+## MCP and optional Codespaces
+
+Open **Connections & cloud** to enable the official-SDK MCP bridge, select shared
+projects, and optionally allow clients to create paused projects. HA can merge its
+connection into a JSON MCP client configuration while preserving other entries
+and saving a backup. Keep HA running; the bridge connects to its authenticated
+local controller. Web chat needs a supported private tunnel in addition to this
+local connection. Provider account authorization is a separate setup step.
+
+External stdio and HTTP MCP connections have explicit project and tool grants.
+Workers receive only their authorized connection names and tool names. Calls use
+the existing operation journal and revision fences; an interrupted external
+mutation is not automatically replayed. Connection arguments must not contain
+credentials. Automatic external OAuth onboarding is not implemented yet.
+
+Codespaces is disabled by default and requires separate execution permission.
+HA can prepare GitHub CLI on Windows, request the Codespaces OAuth scope, list
+machines, create a Codespace for an **existing** repository, start/stop it, and
+probe its installed tools and GPU. Repository creation is never required.
+A cloud job snapshots explicit source-text paths from a paused project and runs
+explicit argument arrays. Up to four separate Codespaces execute concurrently;
+jobs within one Codespace queue in submission order. Source export checks reject
+protected/private paths and recognized secrets. The runner is not a security
+sandbox: submitted commands run with the Codespace account's permissions.
+
+Results survive lost connections. Use **reconcile** rather than submitting a new
+job ID after an uncertain delivery. Requested output files can be imported into
+a paused local project, with a current-file hash required for replacement.
+Cloud execution does not accept a task or replace independent project checks.
+GPU requirements are checked both against the capability probe and at execution.
+GitHub compute/storage quotas and charges apply; HA does not enable paid usage.
+Live account authorization, cloud SSH delivery and web-chat tunnel access still
+need integration acceptance; local SDK and runner tests do not establish them.

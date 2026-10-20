@@ -9,6 +9,7 @@ from hivemind_assembly.core.common import Blocked
 
 PACKAGES = {
     "git": "Git.Git",
+    "gh": "GitHub.cli",
     "node": "OpenJS.NodeJS.LTS",
     "java": "EclipseAdoptium.Temurin.21.JDK",
     "clang": "LLVM.LLVM",
@@ -83,8 +84,10 @@ def available(name):
         return False
 
 
-def install_missing():
-    required = ["git", "node", "java"]
+def install_missing(extra=()):
+    if set(extra) - {"gh"}:
+        raise Blocked("Unknown optional prerequisite")
+    required = ["git", "node", "java", *extra]
     # Windows MinGW GCC cannot supply the Linux ELF/PE cross-target lanes.
     # LLVM includes Clang and LLD; Unix hosts may use their existing native GCC.
     if not shutil.which("clang") and (os.name == "nt" or not shutil.which("gcc")):

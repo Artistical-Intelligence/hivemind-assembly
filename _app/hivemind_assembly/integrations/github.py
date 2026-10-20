@@ -149,7 +149,9 @@ class GitHubAuth:
     def status(self):
         return dict(self.cached)
 
-    def start(self, client_id):
+    def start(self, client_id, codespaces=False):
+        if type(codespaces) is not bool:
+            raise ContractError("Codespaces permission must be a boolean")
         if not isinstance(client_id, str) or not re.fullmatch(
             r"[A-Za-z0-9_.-]{5,100}", client_id
         ):
@@ -164,7 +166,7 @@ class GitHubAuth:
                 "POST",
                 "/login/device/code",
                 oauth=True,
-                data={"client_id": client_id, "scope": "repo"},
+                data={"client_id": client_id, "scope": "repo codespace" if codespaces else "repo"},
             )
             if result.get("error"):
                 raise Blocked(

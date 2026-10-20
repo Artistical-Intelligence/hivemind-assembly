@@ -1,0 +1,20 @@
+const {JSDOM}=require('jsdom'),fs=require('fs'),assert=require('node:assert/strict');
+const [root,url,token]=process.argv.slice(2);
+const dom=new JSDOM(fs.readFileSync(root+'/application/static/index.html','utf8'),{url:url+'/#'+token,runScripts:'outside-only'}),w=dom.window;
+w.TextEncoder=TextEncoder;w.fetch=(path,opts)=>fetch(url+path,opts);w.HTMLElement.prototype.scrollIntoView=()=>{};
+w.eval(['native_captures.js','app.js','workspace.js','connections.js'].map(f=>fs.readFileSync(root+'/application/static/'+f,'utf8')).join('\n'));
+const $=s=>w.document.querySelector(s),click=s=>$(s).click(),submit=s=>$(s).dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+const until=async fn=>{for(let n=0;n<100;n++){if(fn())return;await new Promise(r=>setTimeout(r,50));}throw Error('Timeout: '+fn+' '+$('#notice').textContent)};
+(async()=>{
+ click('[data-tab="connections"]');await until(()=>$('#cloud-job').elements.request_id.value.startsWith('job-'));
+ await new Promise(r=>setTimeout(r,150));
+ assert.equal($('#cloud-settings').elements.enabled.checked,false);
+ $('#mcp-access').elements.enabled.checked=true;submit('#mcp-access');await until(()=>$('#notice').textContent.includes('MCP project access saved'));
+ click('#mcp-config');await until(()=>$('#mcp-config-result').textContent.includes('hivemind-assembly'));
+ const cfg=JSON.parse($('#mcp-config-result').textContent);assert.equal(cfg.mcpServers['hivemind-assembly'].args[2],'mcp');
+ const cf=$('#cloud-settings').elements;cf.enabled.checked=true;cf.spaces.value='runner-one, runner-two';submit('#cloud-settings');
+ await until(()=>$('#notice').textContent.includes('Codespaces settings saved'));
+ const response=await fetch(url+'/api/status',{headers:{'X-Workbench-Token':token}}),state=await response.json();
+ assert.deepEqual(state.codespaces.settings.spaces,['runner-one','runner-two']);assert.equal(state.codespaces.settings.allow_execution,false);
+ console.log('Connections dashboard passed against real HTTP controller: MCP access, client configuration, optional cloud settings.');dom.window.close();
+})().catch(e=>{console.error(e);dom.window.close();process.exitCode=1});

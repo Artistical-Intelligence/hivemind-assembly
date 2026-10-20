@@ -16,6 +16,7 @@ from .domain import Capability, ToolContext
 
 CORE_CAPABILITIES = (
     Capability("list_files", recovery="discard"),
+    Capability("mcp_call", True, "external"),
     Capability("read_file", recovery="discard"),
     Capability("write_file", True, "reconcile"),
     Capability("checkpoint", recovery="discard"),
@@ -108,7 +109,15 @@ class Broker:
             )
             if cancel.is_set():
                 raise Blocked("Task cancelled")
-            if tool == "list_files":
+            if tool == "mcp_call":
+                import asyncio
+                connections = getattr(self, "mcp_connections", None)
+                if not connections:
+                    raise Blocked("No external MCP connections configured")
+                connections.authorize(args["server"], args["tool"], self.store.task(task)["project_id"])
+                effect_started = True
+                result = asyncio.run(connections.external(args["server"], args["tool"], args.get("arguments", {}), self.store.task(task)["project_id"]))
+            elif tool == "list_files":
                 result = {
                     "files": [
                         str(p.relative_to(root))
