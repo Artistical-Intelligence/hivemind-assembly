@@ -33,7 +33,10 @@
   },
   "remaining_implementation": [
     "Extend the controlled Linux application and PE function lanes to broader CPU/platform, Windows/game/graphics effects and target-level equivalence.",
-    "Resolve any provider-specific adapter gaps identified by signed-in account validation; current ambiguous controls remain blocked."
+    "Resolve any provider-specific adapter gaps identified by signed-in account validation; current ambiguous controls remain blocked.",
+    "Tag-first knowledge access: classify from existing tag categories only, then grant scoped retrieval; support ingestion tagging and fresh sessions when scope changes.",
+    "Optional chat-only experimental learning with automatic best eligible chat model selection, manual override, and explicit unlimited use.",
+    "Complete account-authorized MCP onboarding where provider permissions allow automation; live tunnel authorization and external OAuth setup remain required gates."
   ],
   "remaining_acceptance": [
     "Live GitHub browser registration/device authorization and all five exact native routes.",
