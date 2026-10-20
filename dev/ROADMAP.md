@@ -5,6 +5,11 @@ checks, protected knowledge/procedure rollouts, shared learning reservations,
 Qiling file/memory replay, deeper Ghidra/REA queries and installed-tool checks.
 It is not a declaration that the requested product has passed all gates.
 
+Recent additions: linked ELF/PE integer and pointer-function reconstruction,
+protected cross-ABI acceptance, optional existing repository binding, and
+automatic verified source checkpoint publication. These do not establish
+Windows application reconstruction or live GitHub automation acceptance.
+
 1. Validate all five exact routes on the actual signed-in accounts, including
    model/mode/effort, account, allowance, completion, transfers and renewal.
    Discovery stops at ambiguous or unavailable controls. Confirm provider

@@ -145,11 +145,14 @@ def validate_config(config):
     github = config.get("github", {})
     if not isinstance(github, dict) or set(github) - {
         "allow_repository_creation",
+        "automatic_checkpoints",
         "allowed_organizations",
     }:
         raise ContractError(
-            "GitHub settings accept creation permission and allowed organizations only; credentials belong in the OS credential store."
+            "GitHub settings accept creation permission, automatic checkpoints and allowed organizations only; credentials belong in the OS credential store."
         )
+    if type(github.get("automatic_checkpoints", True)) is not bool:
+        raise ContractError("automatic_checkpoints must be a boolean")
     if type(github.get("allow_repository_creation", False)) is not bool:
         raise ContractError(
             "GitHub repository creation permission must be true or false."

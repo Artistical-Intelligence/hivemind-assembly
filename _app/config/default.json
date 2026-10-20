@@ -197,6 +197,7 @@
   "publication": "private",
   "github": {
     "allow_repository_creation": false,
+    "automatic_checkpoints": true,
     "allowed_organizations": []
   },
   "isolation": "broker_only_no_arbitrary_execution"

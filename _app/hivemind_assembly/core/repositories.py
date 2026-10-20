@@ -54,6 +54,61 @@ class Repositories:
         self.store, self.client, self.config = store, client, config
         self.lock = threading.RLock()
 
+    def link(self, project, operation_id, args):
+        """Owner-requested binding to an existing private repository; no creation."""
+        args = repository_args(args)
+        with self.lock:
+            user = self._identity()
+            owner = args["owner"] or user["login"]
+            repo = self.client.lookup(owner, args["name"])
+            row = {"owner": owner, "name": args["name"], "repository_id": ""}
+            self._validate(row, repo)
+            existing = self.status(project)
+            if existing.get("state"):
+                if (
+                    existing.get("repository_id") == str(repo["id"])
+                    and existing["state"] == "verified"
+                ):
+                    self._identity(self._row(project))
+                    self._bind(self._row(project), operation_id)
+                    return {"status": "saved", **existing}
+                raise Conflict(
+                    "Project already has a repository binding; it cannot be replaced automatically"
+                )
+            branch = repo.get("default_branch", "main")
+            head = self.client.head(owner, args["name"], branch)
+            with self.store.tx() as db:
+                db.execute(
+                    "INSERT INTO project_repositories(project_id,operation_id,owner,name,description,account_id,marker,state,repository_id,url,error,created,updated) VALUES(?,?,?,?,?,?,?,'verified',?,?,?, ?,?)",
+                    (
+                        project,
+                        operation_id,
+                        owner,
+                        args["name"],
+                        repo.get("description") or "",
+                        user["id"],
+                        "",
+                        str(repo["id"]),
+                        f"https://github.com/{owner}/{args['name']}",
+                        "",
+                        time.time(),
+                        time.time(),
+                    ),
+                )
+                self.store.put(
+                    "publication_head:" + project,
+                    uid("state"),
+                    {"branch": branch, "sha": head},
+                    db,
+                )
+                self.store.put(
+                    "repository_operation",
+                    operation_id,
+                    {"project_id": project, "marker": ""},
+                    db,
+                )
+            return {"status": "saved", **self.status(project)}
+
     def status(self, project):
         rows = self.store.rows(
             "SELECT * FROM project_repositories WHERE project_id=?", (project,)
@@ -265,7 +320,7 @@ class Repositories:
                 row["project_id"], state="identified", repository_id=str(observed["id"])
             )
             row = self._row(row["project_id"])
-        if observed.get("description") == self._marked(row):
+        if row["marker"] and observed.get("description") == self._marked(row):
             self.client.describe(row["owner"], row["name"], row["description"])
             observed = self.client.lookup(row["owner"], row["name"])
             self._validate(row, observed)

@@ -127,8 +127,8 @@ brief. Reconciliation retains writer epoch and revision checks, result artifacts
 and immutable operation bindings. Repeated deliveries and concurrent requests
 reuse a project's recorded repository. Definite GitHub rejections are distinct
 from transport uncertainty. Organization creation is restricted by local
-allowlist and GitHub permissions. Automatic public publication, deletion,
-source upload and arbitrary GitHub API access are not exposed by this capability.
+allowlist and GitHub permissions. Automatic public publication, deletion and arbitrary GitHub API access are not
+exposed. Verified source checkpoint publication is a separate fenced capability.
 
 References:
 - https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps
@@ -205,3 +205,34 @@ results when a foundation is blocked. Ghidra context export and batched
 reconstruction do not modify the complete upstream distributions. The Windows
 wheel closure includes a hash-verified unmodified unicodecsv wheel and original
 source archive so source releases can reproduce the launcher dependencies.
+
+## Linked function images and checkpoint publication
+
+`call_images` uses upstream pefile and pyelftools for linked PE/ELF inspection,
+Clang/LLD for Windows DLL builds, and Unicorn for bounded calls. Both SysV and
+Win64 integer/pointer arguments include stack arguments, aliased caller buffers,
+nonvolatile registers, Win64 XMM state and floating-point control registers.
+Every caller buffer is compared. Access outside exact buffer ranges fails even
+when it stays on a mapped page. Image-global writes, imports, TLS and loader
+initialization remain unsupported. Protected `x86_64_linked_calls` acceptance
+pins the original, seals cases, independently rebuilds every source and rechecks
+source/manifest hashes. This is function reconstruction, not a Windows OS runtime.
+
+GitHub is optional. A project can remain local, connect an existing private
+repository, or explicitly create one. Creation permission does not gate existing
+repository connections. Connecting an existing repository is an owner action.
+
+`core.publication` records exact source hashes after successful host comparisons.
+The native controller queues publication before its next model turn. Only the
+checked source/manifest snapshot is uploaded; compilation alone is insufficient.
+Checkpoint state is append-only. The Git data API retains unrelated remote files,
+uses the observed parent and never force-pushes. Concurrent remote changes block
+publication. Lost ref-update responses reconcile the saved commit instead of
+creating a second visible commit. Empty repositories require one initial verified
+source-file Contents API commit before Git tree publication is possible.
+
+Publication excludes runtime/private paths, binaries, detected credentials,
+protected artifact copies and recognized verbatim restricted source passages.
+This is bounded filtering, not a guarantee of semantic data-loss prevention.
+Remote checkpoint evidence and local model logs remain separate. Local-only
+projects do not require a GitHub connection or repository creation.

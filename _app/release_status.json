@@ -3,10 +3,10 @@
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 229,
+    "passed": 248,
     "skipped": 1,
     "failed": 0,
-    "elapsed_seconds": 39.24,
+    "elapsed_seconds": 44.64,
     "host": "Linux Python 3.12",
     "hermes_source": "c0015464f0f40d52c5702a84cf58e70361f4a04c",
     "skipped_gate": "Local Chromium DOM fixture. An installed Chromium executable was found, but this host rejects its required socket operation; the fixture is not counted as passed."
@@ -47,7 +47,9 @@
       "marker_aware_closure": true,
       "wheel_hash_verification": true,
       "actual_windows_execution": false
-    }
+    },
+    "linked_function_reconstruction": "Linked ELF/SysV and PE/Win64 compilation, seven-argument calls, cross-ABI comparisons, aliased pointer buffers, exact bounds, read-only writes, nonvolatile XMM and FP controls passed local tests. Pointer results compared against independently compiled native GCC execution. Protected acceptance rebuilds and rejects wrong code; no Windows OS runtime claimed.",
+    "checkpoint_publication": "Optional existing-repository binding and local-only operation; automatic publication scheduling after trusted comparisons; exact source hashes, append-only journal, non-force branch updates, remote-change rejection, and lost initialization/ref response recovery passed fixtures. HA live publication remains unverified; development snapshots were pushed separately through the connected GitHub tools."
   },
   "native_live_acceptance": {
     "validated_routes": 0,

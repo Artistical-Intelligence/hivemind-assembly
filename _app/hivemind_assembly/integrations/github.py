@@ -341,3 +341,25 @@ class GitHubClient:
             token=self.session.token,
             data={"description": description},
         )
+
+    def git(self, owner, name, method, endpoint, data=None):
+        """Repository-scoped Git data calls. No redirects or mutation retry."""
+        return self.auth.http.request(
+            method,
+            f"/repos/{owner}/{name}/{endpoint}",
+            token=self.session.token,
+            data=data,
+        )
+
+    def head(self, owner, name, branch):
+        from urllib.parse import quote
+
+        try:
+            ref = self.git(
+                owner, name, "GET", "git/ref/heads/" + quote(branch, safe="")
+            )
+            return ref["object"]["sha"]
+        except GitHubError as error:
+            if error.status in (404, 409):
+                return None
+            raise

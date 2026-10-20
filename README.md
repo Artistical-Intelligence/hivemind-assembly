@@ -100,7 +100,9 @@ macOS Keychain or Linux Secret Service, outside projects, settings and backups.
 An unlocked supported OS credential store is required; there is no plaintext
 fallback. **Check saved connection** verifies an authorization after restart.
 
-Enable **Allow private repository creation for projects**. Use **Projects &
+Repository creation is optional. Choose **Connect existing private repository**
+to use an existing repository, or leave the project local without GitHub.
+To create a new one, enable **Allow private repository creation for projects**. Use **Projects &
 tasks → Project repository** while preparing a project, or let its assigned
 worker request `create_repository` through the broker. Workers also have
 `repository_status`, and the verified repository is included in their project
@@ -109,8 +111,12 @@ The personal account is the default owner; organizations must be explicitly
 listed in GitHub settings and permit the connected account to create repositories.
 
 Each project has one primary repository, reused across tasks and experiments.
-Repositories are private and empty: creation does not initialize a README,
-commit code, upload binaries or change existing repositories. A name collision
+New repositories start private and empty. With **Automatically push verified source
+checkpoints** enabled (the default), successful supported reconstruction comparisons
+queue checked source and manifest snapshots during the run. Local-only projects
+continue without GitHub. Compilation alone does not trigger publication.
+Publication never force-pushes or uploads binaries, private runtime logs or protected
+evaluation data. Remote conflicts stop publication for reconciliation. A name collision
 is reported without modifying the existing repository. GitHub may reject an
 organization request because of its policy or the account's permissions.
 
@@ -204,3 +210,19 @@ moving or clearing its external user data directory.
 
 Current implementation and verification limits are recorded in
 `_app/release_status.json`. The full audit is a separate pass.
+
+## Linked ELF and Windows PE function reconstruction
+
+Choose **Linked ELF / Windows PE function calls** in Independent acceptance.
+An original function may be selected by symbol or absolute address. The candidate
+uses a sources/declarations/optimization build manifest, a function symbol and
+`sysv` or `win64` ABI. Windows builds require Clang and LLD. The original and
+candidate may use different ABIs, allowing checks of Windows-to-Linux recovery.
+
+Cases contain `arguments`, `buffers` and `output_bits`. Pointer arguments use
+`{"buffer":"data","offset":0}` and buffers use `{"id":"data","hex":"01000000"}`.
+Multiple pointers can reference the same buffer. All buffer bytes and the integer
+return are checked; writes to read-only buffers or outside exact bounds fail.
+Protected acceptance requires at least two cases and rebuilds independently.
+Imports, TLS, image-global writes, initializers and operating-system effects are
+not implemented by this lane.

@@ -35,9 +35,14 @@ class Broker:
         self.cancel = {}
         self.domain = domain
         self.repositories = repositories
+        from .publication import Publications
+
+        self.publications = Publications(repositories) if repositories else None
         repository_specs = (
             (
                 Capability("create_repository", True, "reconcile"),
+                Capability("link_repository", True, "reconcile"),
+                Capability("publish_checkpoint", True, "reconcile"),
                 Capability("repository_status", recovery="discard"),
             )
             if repositories
@@ -209,6 +214,18 @@ class Broker:
                 result = WorkflowLearning(
                     self.store, self.domain.workflow_runner()
                 ).execute(args["lesson"], args.get("inputs", {}))
+            elif tool == "link_repository" and self.repositories:
+                if request["owner"] != "user.repository":
+                    raise Blocked("Existing repositories must be selected by the owner")
+                result = self.repositories.link(
+                    self.store.task(task)["project_id"], request["id"], args
+                )
+                effect_started = True
+            elif tool == "publish_checkpoint" and self.publications:
+                result = self.publications.publish(
+                    task, request["id"], args["validation"], root, cancel
+                )
+                effect_started = self.publications.uncertain(request["id"])
             elif tool == "create_repository" and self.repositories:
                 result = self.repositories.create(
                     self.store.task(task)["project_id"], request["id"], args, cancel
@@ -221,6 +238,10 @@ class Broker:
                 result = self.domain.execute(self.context(task), request)
             else:
                 raise Blocked("Unknown capability")
+            if self.publications:
+                self.publications.record_checked_result(
+                    task, request["id"], tool, args, result, root
+                )
             emitted = result.pop("_artifact", None)
             if emitted is not None:
                 result["executable_artifact"] = self.artifacts.add(
@@ -241,10 +262,12 @@ class Broker:
             )
             return result
         except BaseException as e:
-            if tool == "create_repository" and self.repositories:
+            if tool in ("create_repository", "link_repository") and self.repositories:
                 effect_started = self.repositories.uncertain(
                     self.store.task(task)["project_id"], request["id"]
                 )
+            if tool == "publish_checkpoint" and self.publications:
+                effect_started = self.publications.uncertain(request["id"])
             self.controller.fail(request["id"], e, uncertain=effect_started)
             self.controller.traces.append(
                 task,
@@ -309,7 +332,12 @@ class Broker:
         spec = self.capabilities.get(op["tool"])
         if (
             not (
-                self.domain or (op["tool"] == "create_repository" and self.repositories)
+                self.domain
+                or (
+                    op["tool"]
+                    in ("create_repository", "link_repository", "publish_checkpoint")
+                    and self.repositories
+                )
             )
             or not spec
             or not spec.mutates_project
@@ -317,7 +345,13 @@ class Broker:
             or op["state"] != "uncertain"
         ):
             raise ContractError("Not an uncertain reconcilable domain mutation")
-        if op["tool"] == "create_repository" and self.repositories:
+        if op["tool"] == "publish_checkpoint" and self.publications:
+            observed = self.publications.reconcile(
+                self.store.task(op["task_id"])["project_id"], op_id
+            )
+        elif (
+            op["tool"] in ("create_repository", "link_repository") and self.repositories
+        ):
             observed = self.repositories.reconcile(
                 self.store.task(op["task_id"])["project_id"], op_id
             )

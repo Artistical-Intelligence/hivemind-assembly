@@ -256,3 +256,21 @@ Further integration decisions:
   Ghidra's actual native decompiler/context/annotation paths and Hermes's actual
   database modules were also executed. These checks do not replace signed-in
   provider or clean-Windows acceptance.
+
+### Linked Windows function recovery and incremental checkpointing
+
+Reuse pefile/pyelftools for image/symbol parsing and LLVM Clang/LLD for PE linking.
+The Win64 call setup follows Microsoft's register, shadow-space and preservation
+rules. Neither PE parsing nor a successful bounded call substitutes for the OS
+loader, imports, TLS or graphics/audio/input support.
+
+- https://learn.microsoft.com/en-us/cpp/build/x64-calling-convention
+- https://learn.microsoft.com/en-us/cpp/build/x64-software-conventions
+- https://lld.llvm.org/windows_support.html
+- https://docs.github.com/en/rest/guides/using-the-rest-api-to-interact-with-your-git-database
+- https://docs.github.com/en/rest/git/trees
+
+GitHub's Git database API rejects empty repositories. The checkpoint publisher
+initializes a verified source file through Contents with retained intent, then
+uses tree/commit/ref objects for incremental multi-file checkpoints. It never
+force-pushes and preserves unrelated files in the base tree.

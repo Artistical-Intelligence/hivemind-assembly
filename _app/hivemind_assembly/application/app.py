@@ -378,6 +378,8 @@ class Application:
             atomic_write(self.config_path, canonical(cfg))
             self.config["github"] = cfg["github"]
             return {"saved": True}
+        if path == "/api/github/link":
+            return self.create_repository(data["task"], data["repository"], link=True)
         if path == "/api/github/repository":
             return self.create_repository(data["task"], data["repository"])
         if path == "/api/project":
@@ -587,7 +589,12 @@ class Application:
             op = self.store.one(
                 "SELECT tool FROM operations WHERE id=?", (data["operation"],)
             )
-            if op["tool"] in ("propose_annotation", "create_repository"):
+            if op["tool"] in (
+                "propose_annotation",
+                "create_repository",
+                "link_repository",
+                "publish_checkpoint",
+            ):
                 return self.broker.reconcile_native(data["operation"])
             return self.broker.reconcile_file(data["operation"])
         if path == "/api/setup":
@@ -599,7 +606,7 @@ class Application:
             )
         raise ContractError("Unknown action")
 
-    def create_repository(self, task_id, args):
+    def create_repository(self, task_id, args, link=False):
         """User-initiated provisioning uses the same journal and writer fences."""
         from hivemind_assembly.core.repositories import repository_args
 
@@ -645,7 +652,7 @@ class Application:
                     "owner": "user.repository",
                     "epoch": epoch,
                     "revision": revision,
-                    "tool": "create_repository",
+                    "tool": "link_repository" if link else "create_repository",
                     "args": args,
                 }
             )

@@ -12,7 +12,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from hivemind_assembly.core.common import Blocked, ContractError, file_hash, uid
+from hivemind_assembly.core.common import Blocked, ContractError, file_hash, uid, digest
 from .program import sources, load_image as load_elf
 from .semantics import run_reference
 
@@ -272,6 +272,7 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
             "image_sha256": image["sha256"],
             "entry": image["entry"],
             "source_hashes": hashes,
+            "manifest_sha256": digest(manifest),
             "compiler_sha256": fingerprint,
             "build": result,
         }
@@ -399,6 +400,8 @@ def execute(image, case):
         offset = rsp - STACK + 8 + shadow + index * 8
         stack[offset : offset + 8] = value.to_bytes(8, "little")
     registers["RSP"] = rsp
+    registers["MXCSR"] = 0x1F80
+    registers["FPCW"] = 0x37F
     memory += [
         {"address": STACK, "size": 65536, "hex": stack.hex(), "permissions": "rw"},
         {"address": STOP, "size": 4096, "hex": "90", "permissions": "rx"},
@@ -410,7 +413,7 @@ def execute(image, case):
             "stop": STOP,
             "memory": memory,
             "registers": registers,
-            "extra_registers": xmm,
+            "extra_registers": (*xmm, "MXCSR", "FPCW"),
             "access_ranges": access,
             "code_ranges": ranges,
             "observe_memory": observe,
@@ -419,6 +422,11 @@ def execute(image, case):
     )
     abi_ok = result["registers"]["RSP"] == rsp + 8 and all(
         result["registers"][name] == registers[name] for name in (*preserved, *xmm)
+    )
+    abi_ok = (
+        abi_ok
+        and result["registers"]["FPCW"] == 0x37F
+        and result["registers"]["MXCSR"] & 0xFFC0 == 0x1F80
     )
     return {
         "status": result["status"],
