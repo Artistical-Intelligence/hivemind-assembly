@@ -88,7 +88,7 @@ For linked PE/ELF tests, install Clang and LLD on PATH or set `HA_TEST_CLANG` an
 
 Set `WORKBENCH_TEST_CHROME` to a Chromium executable to run the local browser transport/upload/download fixture. Run `npm install`, `npm run test:dom` and `npm run test:native-dom` inside `dev` for dashboard interaction checks. `_app/release_status.json` records verification evidence.
 
-Local scripted team and browser fixtures do not constitute live-provider acceptance. The five signed-in routes, unattended native orchestration, clean Windows installation/update behavior and broader application reconstruction remain unfinished acceptance or implementation work. Actual Hermes SessionDB/Kanban and Ghidra import/decompile/context/annotation paths have passed local native checks. REA execution is blocked on this development host by its process-inspection environment. The OpenAI Python package is an upstream Hermes import dependency; this application does not instantiate model API clients.
+Local scripted team and browser fixtures do not constitute live-provider acceptance. The five signed-in routes, unattended native orchestration, desktop prerequisite setup and broader application reconstruction remain unfinished acceptance or implementation work. Hosted Windows checks passed package install/update/restore and fresh installation of the full pinned foundations, including actual Hermes SessionDB/Kanban, Ghidra import/decompile/context/annotation and REA analysis. The runner supplied Git, Node, Java and the compiler; WinGet installation remains unverified. The OpenAI Python package is an upstream Hermes import dependency; this application does not instantiate model API clients.
 
 ## GitHub project repositories
 
@@ -235,7 +235,7 @@ Installation and **Check installed foundations** now run source-known process/fi
 replay and ELF/PE pointer probes. A native shared library supplies an independent
 result on the installed host (including a generated DLL on Windows). Each probe
 retains its own result, so a missing runtime does not hide the other failures.
-The Windows branch still requires actual Windows acceptance.
+These probes passed on hosted Windows, including the native DLL oracle and all four function ABIs.
 
 Current implementation and verification limits are recorded in
 `_app/release_status.json`. The full audit is a separate pass.
@@ -495,3 +495,5 @@ source-known verification probes. It runs for installer/adapter changes and can
 be started manually. The Windows analysis fixture is a native PE DLL because
 REA’s experimental Windows provider does not admit Linux ELF targets. This gate
 does not sign into model accounts or replace live autonomous acceptance.
+
+The full foundation check passed at checkpoint `2f8785b` in [hosted run 39476662077](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39476662077), using default Ghidra analyzers and upstream REA process/filesystem controls. The runner supplied prerequisite tools; this does not establish desktop WinGet setup.

@@ -39,9 +39,9 @@ Windows application reconstruction or live GitHub automation acceptance.
    Discovery stops at ambiguous or unavailable controls. Confirm provider
    account-wide memory/personalization isolation for learning trials.
 2. Exercise an unattended worker/adviser/Ghidra/REA reconstruction with actual
-   native responses, interruptions and handoffs. Real local Ghidra and Hermes
-   checks have passed; this host cannot run REA's required process inspection
-   or launch its local Chromium fixture.
+   native responses, interruptions and handoffs. Real Ghidra, REA and Hermes checks passed on a fresh hosted Windows
+   installation. Their successful source-known probes do not establish the
+   signed-in model loop.
 3. Measure native knowledge/procedure improvements across independent projects.
    Rollout control, protected truth, resumption and promotion are implemented
    and fixture-tested; genuine native learning gains remain unmeasured.
@@ -50,11 +50,11 @@ Windows application reconstruction or live GitHub automation acceptance.
    ELF interpreter/shared-library startup and explicit process/file/memory inputs.
    Broader CPU/OS effects, Windows/game/graphics behavior and target-level
    equivalence remain outside the implemented acceptance scope.
-5. Complete Windows foundation installation and native REA acceptance. The
-   extracted release now passes fresh embedded-runtime installation, actual
-   register/native checks, drop-in replacement and backup restoration in hosted
-   Windows CI. That does not establish complete WinGet/Ghidra/REA setup or
-   arbitrary Windows application reconstruction.
+5. Validate desktop prerequisite installation through WinGet. Hosted Windows
+   has passed fresh embedded-runtime installation, register/native checks,
+   drop-in replacement and backup restoration, plus full pinned-foundation
+   installation and actual Ghidra/REA/Hermes adapter probes. The runner supplied
+   prerequisite tools. Arbitrary Windows application reconstruction remains work.
 6. Perform the separately requested full audit, then revise its findings.
 
 Version 0.12 adds project-scoped inbound MCP, outbound MCP tool grants, configuration
@@ -87,8 +87,10 @@ console-specific loaders, graphics runtime and target-level equivalence remain w
 
 The Windows foundation verification fixture now uses PE for Ghidra/REA while
 retaining the separate ELF runtime probe. A dedicated hosted workflow exercises
-the actual pinned installation; its result must be reviewed before closing the
-Windows foundation gate. Node prerequisites follow the pinned REA engine range.
+the actual pinned installation. Run 39476662077 passed all six foundation
+checks on Windows at checkpoint 2f8785b, including real REA/Ghidra analysis with
+default analyzers and the four ABI/native-oracle probe. Node prerequisites
+follow the pinned REA engine range. Desktop WinGet setup remains unverified.
 
 The same bounded AArch64 call lane also supports standard Windows ARM64 PE
 exports and Clang/LLD builds. Cross-platform C data models remain distinct.

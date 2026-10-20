@@ -3,12 +3,12 @@
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 448,
+    "passed": 463,
     "skipped": 9,
     "failed": 0,
-    "elapsed_seconds": 95.98,
+    "elapsed_seconds": 102.35,
     "host": "Linux Python 3.12",
-    "scope": "457 collected cases: full run passed 443 and skipped 9, with five DLL fixture setup errors from a local ld.lld override. Correcting that override to lld-link passed all five; the targeted rerun also passed installed runtime probes and the ARM example (8 passed). No product failure remained. Chromium and Windows checks require hosted CI; no signed-in model acceptance claimed."
+    "scope": "One complete local run of all 472 cases using the configured Clang and Windows LLD linker. The nine skips cover unavailable host-specific dependencies and browser/Windows checks; hosted results are recorded separately. No signed-in model acceptance claimed."
   },
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -17,7 +17,7 @@
     "static": "pyflakes on changed implementation/tests, JavaScript syntax and git diff --check passed. Workflow template matches the source workflow; runtime and source release archives are separately manifest-checked.",
     "goals": "Fixture native responses exercised root goal continuation through real local capture execution and a second fresh independent acceptance run. This is not signed-in native model acceptance.",
     "historical_evidence": "Checks under historical_checks were recorded in earlier development runs and are not newly claimed from this release verification.",
-    "github_ci": "Previous checkpoint 5b9118d (run 39468433939) passed Linux contracts (417 passed, 13 skipped), Windows contracts (411 passed, 19 skipped), five Chromium checks, and packaged Windows install/update/restore. Large OAuth records also passed real Windows Credential Manager storage. Current AArch64 changes are recorded separately below.",
+    "github_ci": "Checkpoint 2f8785b (run 39476662233) passed Linux contracts (458 passed, 14 skipped), Windows contracts (452 passed, 20 skipped), ten Windows native compiler/cleanup tests, all six Chromium checks, and packaged Windows install/update/restore. Full Windows foundation installation is a separate workflow.",
     "windows_runtime": "The extracted Windows package installed its bundled Python and hash-locked dependencies in a fresh data directory, ran register and native Python checks, survived removal/re-extraction of the application folder, and restored a verified backup with project files intact. Paths contained spaces. Tested in GitHub Windows CI, not a manual desktop or complete Ghidra/REA installation.",
     "project_workspace": "Real Chromium and the HTTP controller completed starter creation, uploads, editing, draft preservation, positive/negative checks, byte-exact download, reload persistence, native observations and fresh guided exact-output setup. A separate local jsdom/controller run compiled and checked a C utility through the guided form with automatic compiler discovery. Authenticated streaming, version-checked snapshots, stale edits, immutable references, invalid paths and local-check independence from optional publication passed backend tests.",
     "mcp_codespaces": "Official MCP SDK in-process and real stdio bridge exchanges; outbound stdio discovery/tool/project grants; standalone Linux runner execution, deadline and credential removal; parallel spaces, queued cancellation, interrupted startup, GPU requirement rejection and output import conflict checks. Real HTTP controller with jsdom validated connection settings. No live Codespace or web tunnel acceptance.",
@@ -28,14 +28,15 @@
     "experimental_learning": "Default-off, Chat-only policy; explicit token-limited route opt-in; optional unlimited HA turns; unknown-versus-blocked allowance; idempotent reservations; observed exact model/effort selection; pinned paired-trial identity; unchanged main route targets; and dashboard policy persistence passed local fixtures. Actual provider menu selection and native learning gains remain unverified. Paused evaluations can retry remaining trials without changing model or delivery identities; disabling reflection returns to primary work after delivery reconciliation.",
     "mcp_oauth": "Local HTTP authorization server plus official MCP SDK exercised registration, PKCE S256, resource binding, browser callback, issuer-mismatch rejection before code exchange, token refresh at the retained non-default endpoint, serialized concurrent calls, reconnect reuse, response secret redaction, endpoint changes and cancellation. OS-vault separation used a fixture; actual OS-vault OAuth storage and provider account consent remain unverified. Callback endpoint changes now block code exchange. Large Windows credentials use atomic, hash-checked OS-vault generations; legacy migration and interrupted/uncertain writes passed local backend fixtures.",
     "aarch64_calls": "Local targeted checks passed AArch64-to-x86 linked calls against independent native GCC results, O0/O2 16-argument calls, aliasing and exact buffer bounds, callee preservation including low-only v8-v15, rejection of system instructions and stack violations, protected pinned originals and wrong-mutant rejection. The dashboard example builds a known ARM original and checks an editable x86 candidate. Full local regression plus corrected-linker rerun covers 448 passing tests and 9 skipped cases. Dashboard form interactions passed jsdom. Checkpoint 171830f hosted Linux passed 443 tests with 14 skips; all six actual Chromium checks passed, including the ARM-to-x86 example edit/check flow. Windows package install/update/restore passed. Windows contracts also passed: 437 passed, 20 skipped, including all ARM replay tests.",
-    "windows_foundations": "Fresh hosted installation at 9ea1ab5 installed all pinned foundations and passed the compiler, Qiling, linked-function/native-oracle and Hermes checks. Real Ghidra and REA startup exposed missing APPDATA and uppercase SYSTEMROOT in the child environment. The environment allowlist now retains both while excluding model/GitHub credentials; managed Node crypto startup and the environment contract pass locally. The full hosted installation is rerun for this correction.",
+    "windows_foundations": "Checkpoint 2f8785b, hosted run 39476662077, passed a fresh installation of the full pinned Ghidra 12.1.4, REA 6.7.0 and Hermes sources/package. Real Ghidra import/decompile, six context views, persisted annotation reopen and duplicate reconciliation passed. REA analyzed the PE fixture through its actual Ghidra provider with default analyzers and retained target identity. Compiler, Qiling process/file replay, all four linked-function ABIs with a native Windows oracle, and Hermes task lifecycle also passed. Git/Node/JDK/compiler were provisioned by the runner; WinGet setup and signed-in model operation were not exercised.",
     "windows_arm64_calls": "Standard ARM64 PE exports and freestanding Clang/LLD builds now reuse bounded ARM replay. Scalar/pointer cases, 16 arguments, cross-ABI comparisons, protected originals, wrong candidates and installed probes pass locally. LP64/LLP64 differences produce mismatches; ARM64EC/ARM64X are explicitly rejected. Full Windows OS services and ARM64 DLL imports remain unsupported."
   },
   "native_live_acceptance": {
     "validated_routes": 0,
     "required_routes": 5,
     "windows_clean_install": false,
-    "unattended_worker_adviser_ghidra_loop": false
+    "unattended_worker_adviser_ghidra_loop": false,
+    "hosted_windows_foundations": true
   },
   "remaining_implementation": [
     "Extend bounded x86-64/AArch64 function lanes and controlled x86-64 Linux application replay to further platforms, full ARM execution, Windows/game/graphics effects and target-level equivalence.",
@@ -46,7 +47,7 @@
     "Live GitHub browser registration/device authorization and all five exact native routes.",
     "Unattended real worker/adviser/reviewer/Ghidra/REA artifact, recovery and acceptance loops.",
     "Native cross-project learning gains, provider account-wide memory isolation and repeated timing evidence.",
-    "Clean Windows install/update/restore and native REA execution on a compatible host.",
+    "Desktop prerequisite installation through WinGet; hosted Windows package install/update/restore and full foundation installation/basic native adapters have passed.",
     "Target-level broader application reconstruction.",
     "Separately requested full audit and revision pass.",
     "Run the managed native workflow through HA using a live authorized account with a configured spending boundary; review representative Linux/Windows target recipes and retained artifacts."
