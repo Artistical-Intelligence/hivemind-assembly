@@ -425,3 +425,10 @@ provides the CPU/register definitions. System effects are rejected explicitly.
 Independent native GCC results, arithmetic expectations, wrong reconstructions
 and exact-boundary failure cases validate the adapter; these are not native ARM
 hardware execution or complete ARM application acceptance.
+
+The pinned [REA Windows P0 guide](https://github.com/morluto/rea/blob/ca71e91d23672646af917ede8ae82c7fea395341/docs/windows-ghidra-p0.md)
+restricts Windows Ghidra analysis to its admitted native PE/raw targets. HA now
+builds a PE fixture on Windows rather than sending the Linux ELF runtime probe
+to that provider. The hosted installation gate preserves REA’s native authority
+and cleanup checks; unavailable prerequisites are reported, not bypassed. The
+pinned package requires Node 24.11+ on HA’s 24.x LTS line or Node 26+.

@@ -7,7 +7,7 @@ A local reverse-engineering workspace for collaborative agents, independent veri
 1. Download **Hivemind-Assembly-packages** from a successful [GitHub Actions run](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/workflows/test.yml). Extract the artifact, then the Windows ZIP inside it, and open `Start_Hivemind_Assembly.cmd`. The repository source ZIP is for development and lacks the bundled runtime.
 2. The launcher installs the bundled Python runtime and the hash-locked Windows dependency set into your user data directory, then opens the dashboard. The first dependency installation needs internet access.
 3. Open **Project files** and choose **Create register example**. Run checks, edit `candidate.hex`, save, and check again. The native Python example also works without a compiler after you authorize its supplied recipes. **Semantic self-check** exercises the verifier separately.
-4. Use **Setup & settings → Install pinned foundations**. On Windows, setup uses WinGet to install missing Git, Node.js 24+, Java 21+ and a C compiler, then installs and automatically checks the pinned foundations on a source-known fixture. Windows may require system authorization or a restart. Existing installations can be configured in settings.
+4. Use **Setup & settings → Install pinned foundations**. On Windows, setup uses WinGet to install missing Git, Node.js 24.11+ (24.x) or 26+, Java 21+ and a C compiler, then installs and automatically checks the pinned foundations on a source-known fixture. Windows may require system authorization or a restart. Existing installations can be configured in settings.
 5. Use **Set up all native sessions** on Overview. Setup reuses dedicated sign-ins, discovers exact controls, creates separate conversations and verifies two-way attachment transfers. Unrecognized controls or allowance mappings remain unverified; `_app/NATIVE_SETUP.md` describes the recovery path. Each role retains its designated provider, surface, model and effort. Inference APIs, paid overage and manual relay are not fallbacks.
 
 The application uses dedicated Edge, Chrome or Playwright profiles. It does not copy your everyday browser credentials. User data remains in `%LOCALAPPDATA%\UnifiedWorkbench`, outside the application folder. The host must remain running for autonomous work.
@@ -485,3 +485,10 @@ with retries counted once. Unknown remaining allowance can be allowed explicitly
 observed provider blocks and identity mismatches still stop delivery. Statistical
 holdout exposure and correctness requirements are separate from usage limits.
 Stored approved lessons remain available to matching tasks when experiments are off.
+
+The separate **Installed Windows foundations** workflow installs the full pinned
+Ghidra, REA and Hermes foundations on a fresh Windows runner and executes the
+source-known verification probes. It runs for installer/adapter changes and can
+be started manually. The Windows analysis fixture is a native PE DLL because
+REA’s experimental Windows provider does not admit Linux ELF targets. This gate
+does not sign into model accounts or replace live autonomous acceptance.

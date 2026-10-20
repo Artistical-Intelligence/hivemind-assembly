@@ -84,3 +84,8 @@ comparison with x86-64, protected acceptance, reusable workflow calls, installed
 runtime probes, and an editable dashboard example. It uses Clang/LLD and Unicorn
 with explicit AAPCS64 integer/pointer contracts. Full ARM process/OS execution,
 console-specific loaders, graphics runtime and target-level equivalence remain work.
+
+The Windows foundation verification fixture now uses PE for Ghidra/REA while
+retaining the separate ELF runtime probe. A dedicated hosted workflow exercises
+the actual pinned installation; its result must be reviewed before closing the
+Windows foundation gate. Node prerequisites follow the pinned REA engine range.

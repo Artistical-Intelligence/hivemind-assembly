@@ -21,3 +21,19 @@ def test_probe_failures_are_reported_independently(tmp_path):
     )
     assert set(checks) == {"qiling_runtime", "linked_functions"}
     assert all(not v["passed"] and v["reason"] for v in checks.values())
+
+
+@pytest.mark.skipif(not CLANG, reason="Clang required; set HA_TEST_CLANG")
+@pytest.mark.parametrize(
+    "host,abi,format", [("nt", "win64", "PE"), ("posix", "sysv", "ELF")]
+)
+def test_foundation_fixture_matches_admitted_native_format(tmp_path, host, abi, format):
+    from hivemind_assembly.application.verification import build_analysis_fixture
+    from hivemind_assembly.core.jobs import Jobs
+    from hivemind_assembly.domains.reverse_engineering.call_images import load
+
+    path, evidence = build_analysis_fixture(
+        tmp_path, {"c_compiler": CLANG}, Jobs(), host
+    )
+    assert evidence["passed"] and evidence["analysis_format"] == format
+    assert load(path.read_bytes(), symbol="transform")["abi"] == abi

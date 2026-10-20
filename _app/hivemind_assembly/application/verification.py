@@ -1,6 +1,7 @@
 """Run installed foundations on source-known fixtures without model inference."""
 
 import json
+import os
 from pathlib import Path
 from hivemind_assembly.core.common import atomic_write, canonical, digest, uid, Blocked
 from hivemind_assembly.core.jobs import Jobs
@@ -9,6 +10,44 @@ from hivemind_assembly.domains.reverse_engineering.bridges import (
     ReaBridge,
 )
 from hivemind_assembly.domains.reverse_engineering.program import build, replay
+
+
+def build_analysis_fixture(root, foundations, jobs, host=None):
+    """Use a source-known native PE on Windows, ELF elsewhere.
+
+    REA's Windows P0 provider does not admit ELF. The ordinary x86 Linux runtime
+    probe remains independent and must still execute successfully on every host.
+    """
+    from hivemind_assembly.domains.reverse_engineering import call_images
+
+    root = Path(root)
+    source = "unsigned state; __attribute__((noinline)) unsigned transform(unsigned a){state=state*3+a;return state;} int ha_main(void){return transform(7)==7?0:1;}"
+    (root / "fixture.c").write_text(source, encoding="utf-8")
+    manifest = {"sources": ["fixture.c"]}
+    compiler = foundations.get("c_compiler", "")
+    built = build(root, manifest, jobs, compiler)
+    if not built["passed"]:
+        raise Blocked("Source-known fixture compilation failed: " + json.dumps(built))
+    raw = bytes.fromhex(built["elf_hex"])
+    executed = replay(raw)
+    if executed["status"] != "completed" or executed["exit_code"] != 0:
+        raise Blocked("Source-known fixture execution failed")
+    windows = (host or os.name) == "nt"
+    binary = root / ("fixture.dll" if windows else "fixture")
+    if windows:
+        pe = call_images.build(root, manifest, "transform", "win64", jobs, compiler)
+        if not pe["passed"]:
+            raise Blocked(
+                "Windows PE analysis fixture compilation failed: " + json.dumps(pe)
+            )
+        raw = bytes.fromhex(pe["image_hex"])
+    binary.write_bytes(raw)
+    return binary, {
+        "passed": True,
+        "compiler_sha256": built["compiler_sha256"],
+        "analysis_fixture": binary.name,
+        "analysis_format": "PE" if windows else "ELF",
+    }
 
 
 def verify_foundations(root, foundations, jobs=None):
@@ -20,25 +59,11 @@ def verify_foundations(root, foundations, jobs=None):
     def save():
         atomic_write(root / "verification.json", canonical(result))
 
-    source = "unsigned state; __attribute__((noinline)) unsigned transform(unsigned a){state=state*3+a;return state;} int ha_main(void){return transform(7)==7?0:1;}"
-    (root / "fixture.c").write_text(source, encoding="utf-8")
-    binary = root / "fixture"
+    binary = None
     try:
-        built = build(
-            root, {"sources": ["fixture.c"]}, jobs, foundations.get("c_compiler", "")
+        binary, result["checks"]["compiler_runtime"] = build_analysis_fixture(
+            root, foundations, jobs
         )
-        if not built["passed"]:
-            raise Blocked(
-                "Source-known fixture compilation failed: " + json.dumps(built)
-            )
-        binary.write_bytes(bytes.fromhex(built["elf_hex"]))
-        executed = replay(binary.read_bytes())
-        if executed["status"] != "completed" or executed["exit_code"] != 0:
-            raise Blocked("Source-known fixture execution failed")
-        result["checks"]["compiler_runtime"] = {
-            "passed": True,
-            "compiler_sha256": built["compiler_sha256"],
-        }
     except Exception as error:
         result["checks"]["compiler_runtime"] = {"passed": False, "reason": str(error)}
     save()
@@ -48,13 +73,13 @@ def verify_foundations(root, foundations, jobs=None):
         verify_runtime_lanes(root / "runtime-probes", foundations, jobs)
     )
     save()
-    if binary.is_file():
+    if binary is not None and binary.is_file():
         try:
             bridge = GhidraBridge(foundations.get("ghidra_home"), jobs)
             project = root / "ghidra"
             inventory = bridge.run(
                 project,
-                "fixture",
+                binary.name,
                 {"action": "inventory", "operation_id": "import"},
                 binary,
             )
@@ -63,7 +88,7 @@ def verify_foundations(root, foundations, jobs=None):
             )
             decompiled = bridge.run(
                 project,
-                "fixture",
+                binary.name,
                 {
                     "action": "decompile_batch",
                     "operation_id": "decompile",
@@ -75,7 +100,7 @@ def verify_foundations(root, foundations, jobs=None):
             contexts = {
                 view: bridge.run(
                     project,
-                    "fixture",
+                    binary.name,
                     {
                         "action": "context_" + view,
                         "operation_id": view,
@@ -107,8 +132,8 @@ def verify_foundations(root, foundations, jobs=None):
                 "payload_hash": digest(proposal),
                 **proposal,
             }
-            renamed = bridge.run(project, "fixture", request)
-            again = bridge.run(project, "fixture", request)
+            renamed = bridge.run(project, binary.name, request)
+            again = bridge.run(project, binary.name, request)
             if (
                 not renamed.get("reopened_and_verified")
                 or again["revision"] != renamed["revision"]

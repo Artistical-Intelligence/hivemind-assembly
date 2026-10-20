@@ -1,0 +1,49 @@
+name: Installed Windows foundations
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/foundations.yml'
+      - 'dev/check_installed_foundations.py'
+      - '_app/hivemind_assembly/application/setup.py'
+      - '_app/hivemind_assembly/application/prerequisites.py'
+      - '_app/hivemind_assembly/application/verification.py'
+      - '_app/hivemind_assembly/domains/reverse_engineering/bridges.py'
+permissions:
+  contents: read
+concurrency:
+  group: windows-foundations-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  installed-foundations:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install HA dependencies
+        run: python -m pip install -r _app/requirements.txt
+      - name: Install full pinned tools and exercise native adapters
+        run: python dev/check_installed_foundations.py --root "${{ runner.temp }}/HA fresh foundations" --output foundation-result.json
+      - name: Retain source-known verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-foundations-${{ github.sha }}
+          path: |
+            foundation-result.json
+            ${{ runner.temp }}/HA fresh foundations/private/verification/**/verification.json
+          retention-days: 7
+          if-no-files-found: warn

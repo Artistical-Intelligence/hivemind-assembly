@@ -51,12 +51,17 @@ def available(name):
             timeout=15,
         )
         text = result.stdout + result.stderr
-        match = re.search(r"(?:v|version\s+\"?)(\d+)", text)
+        match = re.search(r"(?:v|version\s+\"?)(\d+)(?:\.(\d+))?", text)
         valid = (
             result.returncode == 0
             and match is not None
             and int(match.group(1)) >= (24 if name == "node" else 21)
         )
+        if name == "node" and valid:
+            major, minor = int(match.group(1)), int(match.group(2) or 0)
+            # HA standardizes on the supported 24.x LTS line or 26+. REA 6.7
+            # requires 24.11+, and does not support the intervening 25.x line.
+            valid = (major == 24 and minor >= 11) or major >= 26
         if name == "java" and valid:
             java_home = os.environ.get("JAVA_HOME")
             compiler = (
