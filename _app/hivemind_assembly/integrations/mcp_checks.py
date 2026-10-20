@@ -112,7 +112,11 @@ class CheckRequests:
                         "instruction": "Review the project's checks and permissions in HA.",
                         "task_accepted": False, "finished": time.time(),
                     }
-                self.store.put("mcp_check_result", request_id, summary)
+                # Publish completion under the same lock used by polling. A
+                # poll must not read an empty result, then observe a dead worker
+                # that committed its result in between those two observations.
+                with self.lock:
+                    self.store.put("mcp_check_result", request_id, summary)
 
             thread = threading.Thread(target=work, daemon=True)
             self.active[request_id] = (task["project_id"], thread)

@@ -27,11 +27,14 @@ def shared_starter(app, kind="registers", native=False):
 
 
 def wait(app, task, request):
-    for _ in range(200):
+    # Native fixtures start several real processes; loaded Windows runners can
+    # take longer than a two-second polling window without any runtime defect.
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:
         result = app.mcp_gateway.call("ha_check_status", {"task": task, "request_id": request})
         if result["status"] != "running":
             return result
-        time.sleep(.01)
+        time.sleep(.02)
     raise AssertionError("Check did not complete")
 
 
@@ -64,7 +67,8 @@ def test_sdk_checks_retained_results_no_holdout_disclosure_and_changed_revision(
     assert retained["passed"] and retained["stale"]
     assert len(app.store.rows("SELECT id FROM records WHERE kind=?", ("manual_check:" + task["id"],))) == 1
     app.mcp_gateway.call("ha_run_checks", {**args, "request_id": "changed_candidate"})
-    assert not wait(app, task["id"], "changed_candidate")["passed"]
+    changed = wait(app, task["id"], "changed_candidate")
+    assert changed["status"] == "completed" and not changed["passed"], changed
     # Another process sees a durable result and never repeats execution.
     reopened = CheckRequests(app, app.mcp_gateway.task)
     assert reopened.start(task["id"], "sdk_check")["passed"]
@@ -106,7 +110,7 @@ def test_native_mcp_checks_require_prior_owner_permission(app):
     args["request_id"] = "authorized_native"
     app.mcp_gateway.call("ha_run_checks", args)
     result = wait(app, task["id"], args["request_id"])
-    assert result["passed"] and result["scope"] == "native_tool_tests"
+    assert result.get("passed") and result["scope"] == "native_tool_tests", result
     assert "observations_artifact" not in json.dumps(result)
 
 
@@ -226,3 +230,30 @@ def test_poll_during_retained_intent_never_reports_false_interruption(app, monke
         assert start.result(timeout=3)["status"] in ("running", "completed")
         assert status.result(timeout=3)["status"] in ("running", "completed")
     assert wait(app, task["id"], "concurrent_poll")["passed"]
+
+
+def test_poll_at_completion_never_loses_terminal_result(app, monkeypatch):
+    task = shared_starter(app)
+    release = threading.Event()
+    queried = False
+    original_rows = app.store.rows
+
+    def check(application, task_id, expected_revision=None):
+        assert release.wait(3)
+        return {"passed": True, "scope": "fixture"}
+
+    def rows(sql, args=()):
+        nonlocal queried
+        result = original_rows(sql, args)
+        if "kind='mcp_check_result'" in sql and not queried:
+            queried = True
+            # Force completion immediately after status sees no terminal record.
+            release.set()
+            app.mcp_gateway.checks.active["completion_race"][1].join(.1)
+        return result
+
+    monkeypatch.setattr("hivemind_assembly.application.project_checks.run_checks", check)
+    monkeypatch.setattr(app.store, "rows", rows)
+    result = app.mcp_gateway.call("ha_run_checks", {"task": task["id"], "request_id": "completion_race"})
+    assert result["status"] in ("running", "completed"), result
+    assert wait(app, task["id"], "completion_race")["passed"]
