@@ -42,6 +42,12 @@ def verify_foundations(root, foundations, jobs=None):
     except Exception as error:
         result["checks"]["compiler_runtime"] = {"passed": False, "reason": str(error)}
     save()
+    from .runtime_verification import verify_runtime_lanes
+
+    result["checks"].update(
+        verify_runtime_lanes(root / "runtime-probes", foundations, jobs)
+    )
+    save()
     if binary.is_file():
         try:
             bridge = GhidraBridge(foundations.get("ghidra_home"), jobs)
@@ -161,6 +167,8 @@ def verify_foundations(root, foundations, jobs=None):
         result["checks"]["hermes"] = {"passed": False, "reason": str(error)}
     result["passed"] = set(result["checks"]) == {
         "compiler_runtime",
+        "qiling_runtime",
+        "linked_functions",
         "ghidra",
         "rea",
         "hermes",

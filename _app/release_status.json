@@ -3,10 +3,10 @@
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 295,
+    "passed": 297,
     "skipped": 1,
     "failed": 0,
-    "elapsed_seconds": 53.27,
+    "elapsed_seconds": 53.68,
     "host": "Linux Python 3.12",
     "hermes_source": "c0015464f0f40d52c5702a84cf58e70361f4a04c",
     "skipped_gate": "Local Chromium DOM fixture. An installed Chromium executable was found, but this host rejects its required socket operation; the fixture is not counted as passed."
@@ -54,7 +54,8 @@
     "reconstruction_planning": "Complete Ghidra inventory and static-callgraph pagination exercised on actual Ghidra; 13-function graph planned. A 4000-function chain, recursion groups, external dependencies and incomplete/changed/truncated graph rejection passed automated tests.",
     "workflow_composition": "Earlier-step references, selected outputs, deterministic integer/pointer function replay, invalid-result-path rejection, independent scalar/pointer holdouts, and revocable native workflow permission are implemented. Built-in optimizers retain paired measured timings and require preserved results before promotion; no general native self-improvement claim.",
     "process_inputs": "Explicit UTF-8 argv/env, host environment isolation, native executable agreement, protected input pinning, wrong-lookup rejection and CPU-state guards passed tests. The supplied-dependency Qiling lane verifies its Haswell guest CPU and models a fixed timestamp counter from the declared clock.",
-    "dynamic_linux": "Actual source-known shared-library ELF and glibc/printf PIE ran under Qiling and agreed with native outputs. Static reconstruction, wrong-output rejection, protected dependency pinning, readonly dependencies, startup budget/constructor-I/O rejection, and explicit strict/observable comparison passed targeted tests. No arbitrary Linux or Windows compatibility claimed."
+    "dynamic_linux": "Actual source-known shared-library ELF and glibc/printf PIE ran under Qiling and agreed with native outputs. Static reconstruction, wrong-output rejection, protected dependency pinning, readonly dependencies, startup budget/constructor-I/O rejection, and explicit strict/observable comparison passed targeted tests. No arbitrary Linux or Windows compatibility claimed.",
+    "installed_runtime_probes": "Automatic installation/foundation checks now compile and exercise declared process/file replay and both ELF/PE pointer-call ABIs, with a native shared-library oracle. Actual probes passed on this Linux host. The generated-DLL native oracle branch is implemented but has not run on Windows."
   },
   "native_live_acceptance": {
     "validated_routes": 0,

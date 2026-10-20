@@ -1,0 +1,22 @@
+import os
+import shutil
+import pytest
+from hivemind_assembly.application.runtime_verification import verify_runtime_lanes
+
+CLANG = os.environ.get("HA_TEST_CLANG") or shutil.which("clang")
+
+
+@pytest.mark.skipif(not CLANG, reason="Clang required; set HA_TEST_CLANG")
+def test_actual_installation_runtime_probes(tmp_path):
+    checks = verify_runtime_lanes(tmp_path, {"c_compiler": CLANG})
+    assert checks["qiling_runtime"]["passed"], checks
+    assert checks["linked_functions"]["passed"], checks
+    assert checks["linked_functions"]["native_oracle"]["passed"]
+
+
+def test_probe_failures_are_reported_independently(tmp_path):
+    checks = verify_runtime_lanes(
+        tmp_path, {"c_compiler": "missing-compiler-fixture-xyz"}
+    )
+    assert set(checks) == {"qiling_runtime", "linked_functions"}
+    assert all(not v["passed"] and v["reason"] for v in checks.values())

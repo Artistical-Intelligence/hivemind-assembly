@@ -231,6 +231,12 @@ empty directory with `python -m hivemind_assembly restore --backup FILE.zip
 --data-dir EMPTY_DIRECTORY`. The application folder can be replaced without
 moving or clearing its external user data directory.
 
+Installation and **Check installed foundations** now run source-known process/file
+replay and ELF/PE pointer probes. A native shared library supplies an independent
+result on the installed host (including a generated DLL on Windows). Each probe
+retains its own result, so a missing runtime does not hide the other failures.
+The Windows branch still requires actual Windows acceptance.
+
 Current implementation and verification limits are recorded in
 `_app/release_status.json`. The full audit is a separate pass.
 
