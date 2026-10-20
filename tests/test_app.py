@@ -265,6 +265,47 @@ def test_goal_http_commands(app):
     assert app.status()["goals"][0]["status"] == "paused"
 
 
+def test_project_retains_objective_without_starting_prepared_work(app):
+    import threading
+    from hivemind_assembly.core.goals import GoalStopped
+    from hivemind_assembly.core.common import Blocked
+
+    task = app.action(
+        "/api/project",
+        {"name": "automatic", "objective": "Build a tool", "start_paused": True},
+    )
+    goal = app.team.goals.status(task["id"])
+    assert goal["objective"] == task["objective"] and goal["status"] == "active"
+    assert goal["unlimited"]
+    assert app.store.task(task["id"])["status"] == "paused"
+    cancelled = app.broker.cancel.setdefault(task["id"], threading.Event())
+    cancelled.set()
+    app.action("/api/goal", {"task": task["id"], "action": "status"})
+    assert cancelled.is_set()
+    app.action("/api/goal", {"task": task["id"], "action": "start"})
+    assert not cancelled.is_set()
+    assert app.store.task(task["id"])["status"] == "queued"
+    app.action("/api/goal", {"task": task["id"], "action": "pause"})
+    # A retried start must not erase a subsequent explicit pause.
+    assert (
+        app.action("/api/goal", {"task": task["id"], "action": "start"})["status"]
+        == "paused"
+    )
+    app.action("/api/goal", {"task": task["id"], "action": "budget", "max_turns": 1})
+    app.action("/api/goal", {"task": task["id"], "action": "resume"})
+    app.team.goals.reserve(task["id"], "first")
+    with pytest.raises(GoalStopped):
+        app.team.goals.reserve(task["id"], "second")
+    app.action("/api/control", {"task": task["id"], "action": "pause"})
+    with pytest.raises(Blocked, match="exhausted"):
+        app.action("/api/control", {"task": task["id"], "action": "resume"})
+    assert app.store.task(task["id"])["status"] == "paused" and cancelled.is_set()
+    app.action("/api/goal", {"task": task["id"], "action": "budget", "max_turns": 0})
+    assert app.team.goals.status(task["id"])["status"] == "exhausted"
+    app.action("/api/control", {"task": task["id"], "action": "resume"})
+    assert app.team.goals.runnable(task["id"]) and not cancelled.is_set()
+
+
 def test_hosted_test_owner_actions_and_status(app, monkeypatch):
     from test_hosted_tests import HostedGitHub, SHA
 
@@ -294,3 +335,12 @@ def test_hosted_test_owner_actions_and_status(app, monkeypatch):
     app.action("/api/hosted-tests/cancel", {"request_id": spec["request_id"]})
     result = app.action("/api/hosted-tests/refresh", {"request_id": spec["request_id"]})
     assert result["conclusion"] == "cancelled" and not result["local_acceptance"]
+
+
+def test_resuming_legacy_project_prepares_continuation(app):
+    task = app.store.create_project("old", "Continue old work", paused=True)
+    assert app.team.goals.status(task["id"]) is None
+    app.action("/api/control", {"task": task["id"], "action": "resume"})
+    goal = app.team.goals.status(task["id"])
+    assert goal["objective"] == task["objective"] and goal["unlimited"]
+    assert app.store.task(task["id"])["status"] == "queued"

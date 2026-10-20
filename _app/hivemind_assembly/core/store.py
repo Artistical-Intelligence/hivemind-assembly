@@ -114,7 +114,7 @@ class Store:
             ]
         )
 
-    def create_project(self, name, objective, paused=False):
+    def create_project(self, name, objective, paused=False, *, continuation=False):
         p, t = uid("project"), uid("task")
         now = time.time()
         with self.tx() as c:
@@ -126,6 +126,10 @@ class Store:
                 (t, p, objective, "paused" if paused else "queued", now),
             )
             self.event(t, "task_created", {"project_id": p}, c)
+            if continuation:
+                from .goals import Goals
+
+                Goals(self).prepare(t, c)
         (self.root / "projects" / p / "workspace").mkdir(parents=True)
         return self.task(t)
 

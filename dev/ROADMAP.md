@@ -118,3 +118,9 @@ MCP check completion and polling share a lock to prevent false interruptions.
 Final run 39515502062 at aa5f79f passed the Linux and Windows contract suites,
 Chromium checks, and packaged Windows installation/update/restore with both fixes.
 Local regression passed 538 cases with ten skips. Live account gates above remain.
+
+Version 0.16 makes persistent objectives a normal controller capability. New
+projects retain objectives automatically; prepared tasks stay paused until started.
+Dashboard controls and structured MCP actions replace command entry. No provider
+slash-command support is required. New objectives have no HA request cap; existing
+configured caps remain. Independent acceptance still owns completion.

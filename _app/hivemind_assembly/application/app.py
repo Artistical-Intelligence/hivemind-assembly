@@ -623,6 +623,7 @@ class Application:
                 data["name"][:200],
                 data["objective"][:20000],
                 paused=bool(data.get("start_paused", False)),
+                continuation=True,
             )
             return t
         if path == "/api/native-tests/results":
@@ -680,7 +681,19 @@ class Application:
             verifier.allow(task["project_id"], True)
             return Acceptance(self.controller, self.broker).configure(task["id"], spec)
         if path == "/api/goal":
-            return self.team.goals.command(data["task"], data.get("command", "/goal"))
+            if "command" in data:
+                if any(k in data for k in ("action", "objective", "max_turns")):
+                    raise ContractError("Use structured objective actions or legacy syntax, not both")
+                result = self.team.goals.command(data["task"], data["command"])
+            else:
+                result = self.team.goals.control(
+                    data["task"], data.get("action", "status"),
+                    objective=data.get("objective"), max_turns=data.get("max_turns"),
+                )
+            activating = data.get("action") in ("start", "resume") or data.get("command", "").strip() in ("/goal", "/goal resume")
+            if activating and result and result["status"] == "active" and self.store.task(data["task"])["status"] == "queued":
+                self.broker.cancel.setdefault(data["task"], threading.Event()).clear()
+            return result
         if path == "/api/acceptance":
             return Acceptance(self.controller, self.broker).configure(
                 data["task"], data["contract"]
@@ -735,6 +748,22 @@ class Application:
 
                 self.loop.call_soon_threadsafe(cancel_turn)
             else:
+                goal = self.team.goals.status(task)
+                if goal is None:
+                    # Older projects acquire continuation when explicitly resumed;
+                    # keep the original root even when resuming a child task.
+                    with self.store.tx() as db:
+                        root = db.execute(
+                            "SELECT id,status FROM tasks WHERE project_id=? ORDER BY rowid LIMIT 1",
+                            (t["project_id"],),
+                        ).fetchone()
+                        if root and root["status"] not in ("accepted", "cancelled"):
+                            self.team.goals.prepare(root["id"], db)
+                    goal = self.team.goals.status(task)
+                if goal and goal["status"] != "active":
+                    if goal["task_id"] != task:
+                        raise Blocked("Resume the project's objective before its child tasks")
+                    self.team.goals.control(task, "resume")
                 self.broker.cancel.setdefault(task, threading.Event()).clear()
                 self.store.state(task, "queued")
             return self.store.task(task)

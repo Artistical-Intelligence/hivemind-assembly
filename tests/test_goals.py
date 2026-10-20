@@ -34,7 +34,9 @@ def test_goal_runs_protected_native_captures_to_independent_acceptance(store):
         cfg["routes"][name]["conversation_url"] = "https://example.invalid/" + name
     controller = Controller(store)
     broker = CoreBroker(controller, cfg)
-    task = store.create_project("capture goal", "Reconstruct an RGBA frame")
+    task = store.create_project(
+        "capture goal", "Reconstruct an RGBA frame", continuation=True
+    )
     (broker.workspace(task["id"]) / "candidate.py").write_text(
         "from pathlib import Path;Path('capture').write_bytes(bytes([1,0,0,255]))"
     )
@@ -50,7 +52,6 @@ def test_goal_runs_protected_native_captures_to_independent_acceptance(store):
         team.observations[name] = Availability(
             name, True, True, False, time.time(), [Window("daily", 50)]
         )
-    team.goals.command(task["id"], "/goal")
 
     async def run():
         for _ in range(6):
@@ -268,7 +269,9 @@ def test_explicit_unlimited_goal_retains_usage_without_exhausting(store):
 
 
 @pytest.mark.parametrize("change_after_worker_check", [False, True])
-def test_goal_arm_program_rechecks_actual_files_before_completion(store, change_after_worker_check):
+def test_goal_arm_program_rechecks_actual_files_before_completion(
+    store, change_after_worker_check
+):
     import os
     import shutil
     from hivemind_assembly.domains.reverse_engineering.program import build
@@ -276,7 +279,9 @@ def test_goal_arm_program_rechecks_actual_files_before_completion(store, change_
     compiler = os.environ.get("HA_TEST_CLANG") or shutil.which("clang")
     if not compiler:
         pytest.skip("Clang and LLD required")
-    cfg = json.loads((Path(__file__).parents[1] / "_app/config/default.json").read_text())
+    cfg = json.loads(
+        (Path(__file__).parents[1] / "_app/config/default.json").read_text()
+    )
     cfg["foundations"]["c_compiler"] = compiler
     for name in cfg["routes"]:
         cfg["routes"][name]["conversation_url"] = "https://example.invalid/" + name
@@ -284,29 +289,45 @@ def test_goal_arm_program_rechecks_actual_files_before_completion(store, change_
     broker = Broker(controller, cfg)
     task = store.create_project("ARM program goal", "Recover a file transformer")
     root = broker.workspace(task["id"])
-    source = '''int ha_main(void){unsigned char b[32];long f=ha_open("input",0,0);
+    source = """int ha_main(void){unsigned char b[32];long f=ha_open("input",0,0);
     long n=ha_file_read(f,b,32);ha_close(f);for(long i=0;i<n;i++)b[i]^=13;
-    f=ha_open("result",577,384);ha_file_write(f,b,n);ha_close(f);return 0;}'''
+    f=ha_open("result",577,384);ha_file_write(f,b,n);ha_close(f);return 0;}"""
     (root / "main.c").write_text(source)
     manifest = {"sources": ["main.c"]}
     built = build(root, {**manifest, "architecture": "aarch64"}, broker.jobs, compiler)
     assert built["passed"], built
     (root / "original.elf").write_bytes(bytes.fromhex(built["elf_hex"]))
     (root / "build.json").write_text(json.dumps(manifest))
-    cases = [{"runtime": "qiling_linux", "files": {"/input": value.hex()}, "effect_policy": "observable"}
-             for value in (b"", bytes(range(32)))]
-    Acceptance(controller, broker).configure(task["id"], {
-        "scope": "linux_program", "original_path": "original.elf",
-        "manifest_path": "build.json", "cases": cases,
-    })
+    cases = [
+        {
+            "runtime": "qiling_linux",
+            "files": {"/input": value.hex()},
+            "effect_policy": "observable",
+        }
+        for value in (b"", bytes(range(32)))
+    ]
+    Acceptance(controller, broker).configure(
+        task["id"],
+        {
+            "scope": "linux_program",
+            "original_path": "original.elf",
+            "manifest_path": "build.json",
+            "cases": cases,
+        },
+    )
 
     class ProgramNative(FixtureNative):
         async def exchange(self, route, message):
             response = await super().exchange(route, message)
             if response["type"] == "tool_request":
-                response.update(tool="compare_program", args={
-                    "original_path": "original.elf", "manifest_path": "build.json", "cases": cases,
-                })
+                response.update(
+                    tool="compare_program",
+                    args={
+                        "original_path": "original.elf",
+                        "manifest_path": "build.json",
+                        "cases": cases,
+                    },
+                )
             elif response["type"] == "complete" and change_after_worker_check:
                 (root / "main.c").write_text(source.replace("^=13", "^=12"))
             return response
@@ -314,7 +335,9 @@ def test_goal_arm_program_rechecks_actual_files_before_completion(store, change_
     team = NativeTeam(controller, broker, ProgramNative(), cfg)
     team.host = RecordingHost()
     for name in ("worker.opus", "adviser.extra"):
-        team.observations[name] = Availability(name, True, True, False, time.time(), [Window("daily", 50)])
+        team.observations[name] = Availability(
+            name, True, True, False, time.time(), [Window("daily", 50)]
+        )
     team.goals.command(task["id"], "/goal")
     team.goals.command(task["id"], "/goal budget unlimited")
 
@@ -323,7 +346,44 @@ def test_goal_arm_program_rechecks_actual_files_before_completion(store, change_
             await team.supervise(task["id"])
 
     asyncio.run(run())
-    operations = store.rows("SELECT result FROM operations WHERE tool='compare_program'")
+    operations = store.rows(
+        "SELECT result FROM operations WHERE tool='compare_program'"
+    )
     assert len(operations) == 1 and json.loads(operations[0]["result"])["passed"]
-    assert (store.task(task["id"])["status"] == "accepted") is not change_after_worker_check
-    assert (team.goals.status(task["id"])["status"] == "achieved") is not change_after_worker_check
+    assert (
+        store.task(task["id"])["status"] == "accepted"
+    ) is not change_after_worker_check
+    assert (
+        team.goals.status(task["id"])["status"] == "achieved"
+    ) is not change_after_worker_check
+
+
+def test_structured_objective_is_text_not_a_command(store):
+    from hivemind_assembly.core.common import ContractError
+
+    task = store.create_project("structured", "old", paused=True)
+    goals = Goals(store)
+    result = goals.control(task["id"], "start", objective="pause", max_turns=0)
+    assert result["objective"] == "pause" and result["unlimited"]
+    assert result["status"] == "active"
+    assert goals.control(task["id"], "start", objective="pause")["id"] == result["id"]
+    for invalid in (True, -1, 100001, "unlimited"):
+        with pytest.raises(ContractError):
+            goals.control(task["id"], "budget", max_turns=invalid)
+    with pytest.raises(ContractError):
+        goals.control(task["id"], "pause", objective="other")
+
+
+def test_project_and_automatic_objective_share_one_transaction(store, monkeypatch):
+    original = Goals.prepare
+
+    def fail(self, task_id, db):
+        original(self, task_id, db)
+        raise RuntimeError("crash before project commit")
+
+    monkeypatch.setattr(Goals, "prepare", fail)
+    with pytest.raises(RuntimeError):
+        store.create_project("interrupted", "build", paused=True, continuation=True)
+    assert not store.rows("SELECT * FROM projects")
+    assert not store.rows("SELECT * FROM tasks")
+    assert not store.rows("SELECT * FROM goals")

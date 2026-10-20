@@ -62,6 +62,25 @@ def test_official_sdk_discovers_and_executes_in_process(app):
             assert not response.is_error
             result = response.structured_content
             assert result["status"] == "paused"
+            goal = await client.call_tool(
+                "ha_goal", {"task": result["id"], "action": "status"}
+            )
+            assert goal.structured_content["goal"]["objective"] == "test"
+            assert app.store.task(result["id"])["status"] == "paused"
+            started = await client.call_tool(
+                "ha_goal", {"task": result["id"], "action": "start"}
+            )
+            assert not started.is_error
+            assert app.store.task(result["id"])["status"] == "queued"
+            paused = await client.call_tool(
+                "ha_goal", {"task": result["id"], "action": "pause"}
+            )
+            assert paused.structured_content["goal"]["status"] == "paused"
+            limited = await client.call_tool(
+                "ha_goal", {"task": result["id"], "action": "budget", "max_turns": 0}
+            )
+            assert limited.structured_content["goal"]["unlimited"]
+            assert limited.structured_content["goal"]["status"] == "paused"
 
     asyncio.run(exercise())
 

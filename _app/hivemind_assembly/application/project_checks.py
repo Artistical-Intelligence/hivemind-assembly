@@ -109,6 +109,7 @@ def starter(app, kind, request_id, allow_native=False):
             }[kind],
             "Reconstruct the supplied example and verify its behavior independently.",
             paused=True,
+            continuation=True,
         )
         app.store.put("starter_request", request_id, {"kind": kind, "task": task["id"]})
     if app.store.rows(

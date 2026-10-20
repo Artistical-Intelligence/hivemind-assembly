@@ -69,9 +69,24 @@ $('#native-all').onclick=async()=>{try{await api('native/setup-all',{});notice('
 
 $("#verify-foundations").onclick=async()=>{try{await api("verify-foundations",{});notice("Installed foundation checks started.");tab("evidence")}catch(e){notice(e.message,true)}};
 
-let nativeTestTasks=[];
-function renderGoals(s){nativeTestTasks=s.tasks;const nt=$('#native-test-task'),oldTask=nt.value;nt.innerHTML=s.tasks.map(t=>`<option value="${esc(t.id)}">${esc(t.objective.slice(0,100))}</option>`).join('');if([...nt.options].some(o=>o.value===oldTask))nt.value=oldTask;const select=$('#goal-task'),previous=select.value;select.innerHTML=s.tasks.filter(t=>!['accepted','cancelled'].includes(t.status)).map(t=>`<option value="${esc(t.id)}">${esc(t.objective.slice(0,100))}</option>`).join('');if([...select.options].some(o=>o.value===previous))select.value=previous;$('#goal-list').innerHTML=(s.goals||[]).map(g=>`<details open><summary>${esc(g.objective)} ${badge(g.status)}</summary><p>${g.turns} / ${g.max_turns || "unlimited"} native turns · task ${esc(g.task_status)}</p>${g.blocker?`<p>${esc(g.blocker)}</p>`:''}</details>`).join('')||'<p>No standing goals yet.</p>'}
-$('#goal-form').onsubmit=async e=>{e.preventDefault();try{const r=await api('goal',Object.fromEntries(new FormData(e.target)));notice(r?'Goal '+r.status+' · '+r.turns+'/'+(r.max_turns||'unlimited')+' turns':'No standing goal');refresh()}catch(x){notice(x.message,true)}};
+let nativeTestTasks=[], retainedGoals=[];
+function goalAllowance(){const f=$('#goal-form'),g=retainedGoals.find(g=>g.task_id===f.elements.task.value);f.elements.max_turns.value=g?.max_turns||1000;f.elements.unlimited.checked=!g||g.max_turns===0;f.elements.max_turns.disabled=f.elements.unlimited.checked}
+function renderGoals(s){
+ nativeTestTasks=s.tasks;retainedGoals=s.goals||[];
+ const nt=$('#native-test-task'),oldTask=nt.value;
+ nt.innerHTML=s.tasks.map(t=>`<option value="${esc(t.id)}">${esc(t.objective.slice(0,100))}</option>`).join('');
+ if([...nt.options].some(o=>o.value===oldTask))nt.value=oldTask;
+ const select=$('#goal-task'),previous=select.value;
+ select.innerHTML=s.tasks.filter(t=>!['accepted','cancelled'].includes(t.status)&&!retainedGoals.some(g=>g.project_id===t.project_id&&g.task_id!==t.id)).map(t=>`<option value="${esc(t.id)}">${esc(t.objective.slice(0,100))}</option>`).join('');
+ if([...select.options].some(o=>o.value===previous))select.value=previous;
+ if(select.value!==previous||!$('#goal-form').contains(document.activeElement))goalAllowance();
+ $('#goal-list').innerHTML=retainedGoals.map(g=>`<details open><summary>${esc(g.objective)} ${badge(g.status)}</summary><p>${g.turns} / ${g.max_turns || "unlimited"} native requests · task ${esc(g.task_status)}</p>${g.blocker?`<p>${esc(g.blocker)}</p>`:''}</details>`).join('')||'<p>No retained objectives yet. New projects retain theirs automatically.</p>';
+}
+async function controlGoal(action,extra={}){try{const r=await api('goal',{task:$('#goal-task').value,action,...extra});notice(r?'Objective '+r.status+' · '+r.turns+'/'+(r.max_turns||'unlimited')+' requests':'No retained objective');await refresh()}catch(x){notice(x.message,true)}}
+$('#goal-task').onchange=goalAllowance;
+$('#goal-form').elements.unlimited.onchange=e=>{$('#goal-form').elements.max_turns.disabled=e.target.checked};
+document.querySelectorAll('[data-goal-action]').forEach(b=>b.onclick=()=>controlGoal(b.dataset.goalAction));
+$('#goal-form').onsubmit=e=>{e.preventDefault();const f=e.target;controlGoal('budget',{max_turns:f.elements.unlimited.checked?0:Number(f.elements.max_turns.value)})};
 
 $('#native-test-form').onsubmit=async e=>{e.preventDefault();try{const f=new FormData(e.target);const r=await api('native-tests/configure',{task:f.get('task'),suite:JSON.parse(f.get('suite')),allow_native:f.has('allow_native')});$('#native-test-output').textContent=JSON.stringify(r,null,2);notice('Native recipe and oracle pinned.')}catch(x){notice(x.message,true)}};
 $('#native-test-run').onclick=async()=>{try{await api('native-tests/run',{task:$('#native-test-task').value});notice('Native checks queued. See Evidence & recovery for status.')}catch(x){notice(x.message,true)}};

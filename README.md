@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.15.3 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.16.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -280,18 +280,29 @@ Function inventories and static callgraphs support pagination. The
 groups mutually recursive functions and orders groups by their dependencies.
 It retains external targets and does not claim to discover all indirect calls.
 
-## Standing goals
+## Persistent objectives
 
-In Projects, select the root task under **Standing goal** and enter `/goal`.
-HA retains the objective across restarts and continues through incomplete turns.
-All worker, adviser and reviewer requests, including project children, share a
-1,000-request default budget. Retrying the same retained request counts once.
-Use `/goal status`, `/goal pause`, `/goal resume`, `/goal clear`, or
-`/goal budget 2000`. Pause/clear stop new work at the next step boundary; task
-pause/cancel can interrupt active work. Increasing a spent budget does not
-silently resume it. A root goal is achieved only when independent acceptance
-passes. Child completion, summaries and checkpoints do not finish it. Exact
-native routes and usage limits still apply; no auxiliary API judge is used.
+New projects automatically retain their objective in HA's controller. Prepared
+projects stay paused while targets and acceptance checks are configured. Use
+**Projects → Project objective → Start** when ready. HA continues across turns
+and restarts until the root task's independent acceptance checks pass; child
+completion, progress summaries and checkpoints do not finish the objective.
+This mechanism does not depend on slash-command support in any model's chat UI.
+
+Use the Start, Resume, Pause continuation and Stop continuation controls directly.
+Pause/stop take effect at the next step boundary; task pause/cancel can interrupt
+active work. All worker, adviser and reviewer requests, including project children,
+share one optional request allowance. New objectives have no HA request cap;
+existing configured limits are preserved. Retrying the same retained request counts
+once. Request allowance accepts a maximum or **No HA request limit**. Raising
+a spent allowance does not silently resume work. Exact native routes and provider
+allowances still apply; no auxiliary API judge is used.
+
+Automation calls `ha_goal` with `task` and `action` (`status`, `start`, `pause`,
+`resume`, `clear`, or `budget`). For `budget`, supply an integer `max_turns`;
+zero explicitly means unlimited. The local `/api/goal` endpoint accepts the same
+structured fields. Legacy `command` strings remain a compatibility adapter for
+older integrations; neither the dashboard nor the automated path needs them.
 
 ## Native executable and tool testing
 
@@ -417,7 +428,7 @@ Connected chats can call `ha_run_checks(task, request_id)` and poll
 acceptance. Keep the same request ID when retrying: a lost response or controller
 restart never silently reruns a check. Results report success, revision staleness
 and execution status without exposing protected cases or expected outputs. These
-checks leave the project paused; `/goal` completion still requires a separate
+checks leave the project paused; objective completion still requires a separate
 independent acceptance run. Native recipes require prior owner authorization.
 
 External stdio and HTTP MCP connections have explicit project and tool grants.
@@ -467,7 +478,7 @@ retained jobs with `cloud_status`, and read result artifacts. Worker requests us
 the controller's operation identity and writer fences. Local setup never silently
 creates a cloud machine or enables cloud execution.
 
-`/goal budget unlimited` explicitly removes HA's project turn cap while retaining
+**No HA request limit** explicitly removes HA's project turn cap while retaining
 usage records and independent completion checks. Provider allowance and availability
 checks still apply. Existing bounded goals retain their configured limits.
 

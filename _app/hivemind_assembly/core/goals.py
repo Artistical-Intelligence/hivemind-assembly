@@ -31,7 +31,32 @@ class Goals:
         goal["unlimited"] = goal["max_turns"] == 0
         return goal
 
+    def prepare(self, task_id, db):
+        """Attach continuation atomically with project creation; never start a paused task."""
+        task = dict(db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone())
+        existing = db.execute(
+            "SELECT id FROM goals WHERE project_id=?", (task["project_id"],)
+        ).fetchone()
+        if existing:
+            return
+        goal = dict(
+            id=uid("goal"),
+            project_id=task["project_id"],
+            task_id=task_id,
+            objective=task["objective"],
+            status="active",
+            max_turns=0,
+            turns=0,
+            updated=time.time(),
+        )
+        db.execute(
+            "INSERT INTO goals VALUES(:id,:project_id,:task_id,:objective,:status,:max_turns,:turns,:updated)",
+            goal,
+        )
+        self.store.event(task_id, "goal_prepared", {"goal": goal}, db)
+
     def command(self, task_id, command):
+        """Compatibility adapter for old clients; automation uses control directly."""
         if not isinstance(command, str) or len(command) > 20010:
             raise ContractError("Expected a bounded /goal command")
         parts = command.strip().split(maxsplit=1)
@@ -40,7 +65,40 @@ class Goals:
                 "Use /goal, /goal status, pause, resume, clear or budget N"
             )
         arg = parts[1].strip() if len(parts) == 2 else ""
-        if arg == "status":
+        if arg in ("status", "pause", "resume", "clear"):
+            return self.control(task_id, arg)
+        if arg.startswith("budget "):
+            try:
+                budget = 0 if arg[7:].strip().lower() == "unlimited" else int(arg[7:])
+            except ValueError as error:
+                raise ContractError(
+                    "Goal budget must be an integer or unlimited"
+                ) from error
+            return self.control(task_id, "budget", max_turns=budget)
+        return self.control(task_id, "start", objective=arg or None)
+
+    def control(self, task_id, action="status", *, objective=None, max_turns=None):
+        """Structured controller policy, independent of any provider chat syntax."""
+        if action not in ("status", "start", "pause", "resume", "clear", "budget"):
+            raise ContractError("Unknown objective action")
+        if objective is not None and (
+            action != "start"
+            or not isinstance(objective, str)
+            or not objective.strip()
+            or len(objective) > 20000
+        ):
+            raise ContractError(
+                "Provide objective text only when starting an objective"
+            )
+        if max_turns is not None and (
+            action not in ("start", "budget")
+            or type(max_turns) is not int
+            or not 0 <= max_turns <= 100000
+        ):
+            raise ContractError("Request limit must be 1–100000, or 0 for unlimited")
+        if action == "budget" and max_turns is None:
+            raise ContractError("Provide a request limit, or 0 for unlimited")
+        if action == "status":
             return self.status(task_id)
         with self.store.tx() as db:
             task = dict(
@@ -51,28 +109,20 @@ class Goals:
             ).fetchone()
             goal = dict(row) if row else None
             if goal and goal["task_id"] != task_id:
-                raise Conflict("Control this project's goal through its root task")
+                raise Conflict("Control this project's objective through its root task")
             if task["status"] in ("accepted", "cancelled"):
-                raise Blocked("Task is terminal; create a new task for another goal")
-            if arg.startswith("budget "):
-                try:
-                    budget = (
-                        0 if arg[7:].strip().lower() == "unlimited" else int(arg[7:])
-                    )
-                except ValueError as e:
-                    raise ContractError(
-                        "Goal budget must be an integer or unlimited"
-                    ) from e
-                if not goal or not 0 <= budget <= 100000:
-                    raise ContractError(
-                        "Set a goal first; budget must be 1–100000 native turns or unlimited"
-                    )
-                goal["max_turns"] = budget
-            elif arg in ("pause", "resume", "clear"):
+                raise Blocked(
+                    "Task is terminal; create a new task for another objective"
+                )
+            if action == "budget":
+                if not goal:
+                    raise Conflict("No standing goal")
+                goal["max_turns"] = max_turns
+            elif action in ("pause", "resume", "clear"):
                 if not goal:
                     raise Conflict("No standing goal")
                 if (
-                    arg == "resume"
+                    action == "resume"
                     and goal["max_turns"]
                     and goal["turns"] >= goal["max_turns"]
                 ):
@@ -83,15 +133,21 @@ class Goals:
                     "pause": "paused",
                     "resume": "active",
                     "clear": "cleared",
-                }[arg]
+                }[action]
             elif goal:
-                if arg and arg != goal["objective"]:
+                if objective is not None and objective != goal["objective"]:
                     raise Conflict(
                         "A goal's objective is immutable; create a new project to change scope"
                     )
-                return self.status(task_id)
+                if max_turns is not None and max_turns != goal["max_turns"]:
+                    raise Conflict(
+                        "Use the budget action to change an existing request limit"
+                    )
+                # Repeated starts cannot undo an explicit pause, clear or exhaustion.
+                if goal["status"] != "active":
+                    return self.status(task_id)
             else:
-                objective = arg or task["objective"]
+                objective = objective or task["objective"]
                 if objective != task["objective"]:
                     if (
                         task["owner"]
@@ -117,13 +173,13 @@ class Goals:
                     task_id=task_id,
                     objective=objective,
                     status="active",
-                    max_turns=1000,
+                    max_turns=0 if max_turns is None else max_turns,
                     turns=0,
                     updated=time.time(),
                 )
             if (
                 goal["status"] == "active"
-                and (not row or arg == "resume")
+                and action in ("start", "resume")
                 and task["status"] == "paused"
             ):
                 db.execute(
@@ -137,7 +193,7 @@ class Goals:
                 goal,
             )
             self.store.event(
-                task_id, "goal_command", {"command": command, "goal": goal}, db
+                task_id, "goal_control", {"action": action, "goal": goal}, db
             )
         return self.status(task_id)
 

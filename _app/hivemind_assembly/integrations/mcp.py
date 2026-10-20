@@ -524,6 +524,7 @@ class Gateway:
                             "SELECT * FROM tasks WHERE id=?", (task_id,)
                         ).fetchone()
                     )
+                    self.app.team.goals.prepare(task_id, db)
                     self.app.store.put(
                         "mcp_create", key, {"hash": identity, "task": result}, db
                     )
@@ -598,9 +599,15 @@ def build_server(call):
         return call("ha_control", {"task": task, "action": action})
 
     @server.tool()
-    def ha_goal(task: str, command: str = "/goal status") -> dict[str, Any]:
-        """Manage the task's persistent /goal, including pause and resume."""
-        return call("ha_goal", {"task": task, "command": command})
+    def ha_goal(task: str, action: str = "status", max_turns: int | None = None,
+                objective: str | None = None, command: str | None = None) -> dict[str, Any]:
+        """Control HA's retained objective: status, start, pause, resume, clear or budget. Projects retain objectives automatically; no provider slash command is needed. max_turns=0 explicitly means unlimited. command is only for older clients."""
+        if command is not None:
+            if action != "status" or max_turns is not None or objective is not None:
+                raise ContractError("Do not mix legacy commands and objective actions")
+            return call("ha_goal", {"task": task, "command": command})
+        return call("ha_goal", {"task": task, "action": action,
+                                "max_turns": max_turns, "objective": objective})
 
     @server.tool()
     def ha_list_files(task: str) -> dict[str, Any]:
