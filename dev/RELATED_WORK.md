@@ -405,3 +405,9 @@ registration is not assumed to be available without a public metadata host; serv
 may instead support dynamic registration or an existing public client ID.
 https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization
 https://github.com/modelcontextprotocol/python-sdk/blob/main/src/mcp/client/auth/oauth2.py
+
+Windows Credential Manager limits each credential blob to 2,560 bytes. The
+Windows adapter therefore writes bounded OS-vault pieces and atomically switches
+a checked manifest; it keeps legacy records readable and collects abandoned
+generations. Secrets never fall back to a filesystem file.
+https://learn.microsoft.com/en-us/windows/win32/api/wincred/ns-wincred-credentialw

@@ -102,6 +102,10 @@ class CredentialVault:
                 backend = Keyring()
             if backend.priority <= 0:
                 raise RuntimeError()
+            if sys.platform == "win32":
+                from .credential_chunks import WindowsChunks, windows_targets
+
+                backend = WindowsChunks(backend, windows_targets)
             self.backend = backend
         except Exception:
             raise Blocked(
@@ -128,7 +132,10 @@ class CredentialVault:
             ) from None
 
     def clear(self):
-        if self.read() is not None:
+        self.ready()
+        from .credential_chunks import WindowsChunks
+
+        if isinstance(self.backend, WindowsChunks) or self.read() is not None:
             try:
                 self.backend.delete_password(self.service, self.account)
             except Exception:

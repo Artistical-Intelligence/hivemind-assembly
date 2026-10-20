@@ -196,10 +196,6 @@ def test_official_oauth_registration_pkce_refresh_and_private_storage(
     ) and "oauth-access-secret" not in json.dumps(outputs)
     public = json.dumps(app.status()) + app.connections.path.read_text()
     assert "refresh-secret" not in public and "one-time-code-secret" not in public
-    for path in app.store.root.rglob("*"):
-        if path.is_file():
-            data = path.read_bytes()
-            assert b"refresh-secret" not in data and b"oauth-access-secret" not in data
     storage = OAuthStorage(
         app.connections.oauth,
         "fixture",
@@ -212,6 +208,13 @@ def test_official_oauth_registration_pkce_refresh_and_private_storage(
         storage.read()
     app.action("/api/mcp/credential", {"server": "fixture", "forget": True})
     assert not app.connections.oauth.credentials
+    # Close before inspecting files: Windows intentionally locks host.lock.
+    # This also checks the final flushed database rather than only its live WAL.
+    app.close()
+    for path in app.store.root.rglob("*"):
+        if path.is_file():
+            data = path.read_bytes()
+            assert b"refresh-secret" not in data and b"oauth-access-secret" not in data
 
 
 def test_callback_rejects_wrong_state_host_duplicates_and_replay():
