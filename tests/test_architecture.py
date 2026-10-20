@@ -61,7 +61,7 @@ from hivemind_assembly.automation.team import NativeTeam
 s = Store(sys.argv[1])
 c = Controller(s)
 b = Broker(c, {})
-assert {'list_files', 'read_file', 'write_file', 'checkpoint', 'read_artifact', 'run_workflow'} == set(b.capabilities)
+assert {'list_files', 'read_file', 'write_file', 'checkpoint', 'read_artifact', 'run_workflow', 'propose_workflow'} == set(b.capabilities)
 assert NativeTeam(c, b, None, {"routes": {}}).skill_manifest() == []
 s.close()
 """
@@ -108,12 +108,17 @@ def test_original_specialist_capabilities_and_proof_are_preserved(ready):
     assert set(broker.capabilities) == {c.name for c in CORE_CAPABILITIES} | {
         "inspect_program",
         "decompile",
+        "decompile_batch",
+        "program_context",
         "export_pcode",
         "propose_annotation",
         "rea_analyze",
+        "rea_query",
         "compare_states",
         "check_equivalence",
         "validate_c_function",
+        "build_program",
+        "compare_program",
     }
     assert len(domain.skills()) == 20
     result = broker.execute(

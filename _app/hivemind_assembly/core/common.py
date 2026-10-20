@@ -15,6 +15,10 @@ class Retryable(Blocked):
     """A retained operation can be observed again without authorizing a resend."""
 
 
+class WaitingForSignIn(Blocked):
+    """Native authentication must finish; retained work resumes without resending."""
+
+
 class AllowanceUnavailable(Blocked):
     """Reasoning waits for the scheduled allowance observation, not user repair."""
 

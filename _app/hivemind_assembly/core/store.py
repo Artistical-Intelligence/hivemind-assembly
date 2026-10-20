@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, sqlite3, threading, time
+import json, sqlite3, threading, time, os
 from contextlib import contextmanager
 from pathlib import Path
 from hivemind_assembly.core.common import canonical, uid, Conflict
@@ -14,11 +14,15 @@ CREATE TABLE IF NOT EXISTS operations(id TEXT PRIMARY KEY,task_id TEXT NOT NULL,
 CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY,task_id TEXT NOT NULL,route TEXT NOT NULL,conversation TEXT NOT NULL,payload_hash TEXT NOT NULL,payload TEXT NOT NULL,state TEXT NOT NULL,response TEXT,created REAL NOT NULL,updated REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS reservations(scope TEXT NOT NULL,task TEXT NOT NULL,window TEXT NOT NULL,amount REAL NOT NULL,PRIMARY KEY(scope,task,window));
 CREATE TABLE IF NOT EXISTS polls(scope TEXT PRIMARY KEY,last_attempt REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS traces(seq INTEGER PRIMARY KEY AUTOINCREMENT,identity TEXT NOT NULL UNIQUE,task_id TEXT NOT NULL,correlation TEXT NOT NULL,route TEXT NOT NULL,kind TEXT NOT NULL,payload TEXT NOT NULL,created REAL NOT NULL);
+CREATE INDEX IF NOT EXISTS trace_task ON traces(task_id,seq);
+CREATE INDEX IF NOT EXISTS trace_correlation ON traces(correlation,seq);
 CREATE TABLE IF NOT EXISTS retry_schedule(task_id TEXT PRIMARY KEY REFERENCES tasks(id),attempt INTEGER NOT NULL,due REAL NOT NULL,reason TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sources(id TEXT PRIMARY KEY,name TEXT NOT NULL,revision TEXT NOT NULL,external_allowed INTEGER NOT NULL,extraction TEXT NOT NULL,sections TEXT NOT NULL,created REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS lessons(id TEXT PRIMARY KEY,asset_key TEXT NOT NULL,version INTEGER NOT NULL,kind TEXT NOT NULL,status TEXT NOT NULL,payload TEXT NOT NULL,predecessor TEXT,created REAL NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS one_active_lesson ON lessons(asset_key) WHERE status='active';
 CREATE TABLE IF NOT EXISTS artifacts(id TEXT PRIMARY KEY,sha256 TEXT NOT NULL,size INTEGER NOT NULL,classification TEXT NOT NULL,project_id TEXT,logical_name TEXT NOT NULL,created REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS project_repositories(project_id TEXT PRIMARY KEY REFERENCES projects(id),operation_id TEXT NOT NULL,owner TEXT NOT NULL COLLATE NOCASE,name TEXT NOT NULL COLLATE NOCASE,description TEXT NOT NULL,account_id INTEGER NOT NULL,marker TEXT NOT NULL,state TEXT NOT NULL,repository_id TEXT,url TEXT,error TEXT NOT NULL DEFAULT '',created REAL NOT NULL,updated REAL NOT NULL,UNIQUE(owner,name));
 """
 
 
@@ -26,6 +30,8 @@ class Store:
     def __init__(self, root):
         self.root = Path(root).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
+        if os.name != "nt":
+            self.root.chmod(0o700)
         self.lock = threading.RLock()
         self.db = sqlite3.connect(
             self.root / "controller.sqlite3",

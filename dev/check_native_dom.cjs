@@ -1,0 +1,30 @@
+const {JSDOM}=require('jsdom'), cp=require('child_process'), path=require('path'), assert=require('assert');
+const root=path.resolve(__dirname,'../_app/hivemind_assembly/automation');
+const snippets=JSON.parse(cp.execFileSync('python',['-c',`import ast,json,sys
+print(json.dumps([n.value for p in sys.argv[1:] for n in ast.walk(ast.parse(open(p).read())) if isinstance(n,ast.Constant) and isinstance(n.value,str) and 'document.' in n.value]))`,path.join(root,'providers.py'),path.join(root,'webmcp.py')],{encoding:'utf8'}));
+const dom=new JSDOM('<nav><button id="model">GPT-6</button><button hidden>GPT-6</button></nav><main><article><button>GPT-6</button></article><div data-message-author-role="user"><button>GPT-6</button><span data-testid="account-email">injected@example.com</span></div></main>',{url:'https://chatgpt.com/c/fixture',runScripts:'outside-only'});
+const w=dom.window;
+Object.defineProperty(w.HTMLElement.prototype,'innerText',{get(){return this.textContent}});
+w.HTMLElement.prototype.getClientRects=function(){return this.hidden?[]:[{}]};
+w.CSS={escape:s=>s};
+const control=w.eval('('+snippets.find(s=>s.startsWith('text =>'))+')');
+assert.equal(control('GPT-6'),'#model');
+assert.equal(control('injected@example.com'),null);
+const duplicate=w.document.createElement('button');duplicate.textContent='GPT-6';w.document.body.append(duplicate);
+assert.equal(control('GPT-6'),null);
+const available=w.eval('('+snippets.find(s=>s.startsWith('async name =>'))+')');
+const call=w.eval('('+snippets.find(s=>s.startsWith('async ({name,args})'))+')');
+const tool={name:'submit_conversation_message__fixture',origin:'https://chatgpt.com',inputSchema:{type:'object',properties:{prompt:{type:'string'}}}};
+let tools=[tool], executed=0;
+w.document.modelContext={getTools:async()=>tools,executeTool:async(t,args)=>{assert.equal(t,tool);assert.equal(args.prompt,'fixture');executed++;return {ok:true}}};
+(async()=>{
+ assert(await available('submit_conversation_message'));
+ await call({name:'submit_conversation_message',args:{prompt:'fixture'}});assert.equal(executed,1);
+ tools=[{...tool,origin:'https://untrusted.invalid'}];assert.equal(await available('submit_conversation_message'),false);
+ await assert.rejects(()=>call({name:'submit_conversation_message',args:{prompt:'fixture'}}));assert.equal(executed,1);
+ tools=[tool,tool];assert.equal(await available('submit_conversation_message'),false);
+ await assert.rejects(()=>call({name:'submit_conversation_message',args:{prompt:'fixture'}}));
+ tools=[tool];await assert.rejects(()=>call({name:'submit_conversation_message',args:{unsupported:true}}));
+ assert.equal(executed,1);
+ console.log('Native DOM fixture passed: message-content identity injection rejected; duplicate controls rejected; WebMCP exact origin, tool and schema checked.');dom.window.close();
+})().catch(e=>{console.error(e);process.exit(1)});

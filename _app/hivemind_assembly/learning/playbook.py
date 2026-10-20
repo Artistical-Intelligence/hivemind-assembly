@@ -6,6 +6,7 @@ procedure improvements still require separate rollout and holdout evaluation.
 """
 
 import copy
+from .engine import Learning
 import json
 import re
 import time
@@ -185,8 +186,21 @@ def select_context(
         reason = None
         if domain not in payload["scope"]:
             continue
-        if external and not payload.get("external_allowed", False):
+        if external and not Learning(store).external_allowed(row):
             continue  # Do not reveal even IDs of unapproved local assets.
+        engine = store.rows(
+            "SELECT payload FROM records WHERE kind='native_asset_engine' AND id=?",
+            (row["id"],),
+        )
+        if engine:
+            current = store.rows(
+                "SELECT value FROM meta WHERE key='native_learning_engine'"
+            )
+            if (
+                not current
+                or current[0]["value"] != json.loads(engine[0]["payload"])["engine"]
+            ):
+                reason = "native evaluator changed; revalidation required"
         if payload.get("routes") and route not in payload["routes"]:
             reason = "route requires revalidation"
         for dependency in payload.get("dependencies", []):

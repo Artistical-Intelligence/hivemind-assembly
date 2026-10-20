@@ -4,6 +4,8 @@ import ghidra.app.script.GhidraScript;
 import ghidra.app.decompiler.*;
 import ghidra.program.model.listing.*;
 import ghidra.program.model.symbol.SourceType;
+import ghidra.program.model.symbol.Reference;
+import ghidra.program.model.data.*;
 import ghidra.framework.options.Options;
 import com.google.gson.*;
 import java.nio.file.*;
@@ -37,16 +39,74 @@ public class WorkbenchBridge extends GhidraScript {
                 item.addProperty("signature", f.getSignature().toString()); item.addProperty("size", f.getBody().getNumAddresses()); functions.add(item);
             }
             result.add("functions", functions); result.addProperty("total_functions", currentProgram.getFunctionManager().getFunctionCount());
-        } else if (action.equals("decompile")) {
-            Function f = getFunctionAt(toAddr(req.get("address").getAsString()));
-            if (f == null) throw new IllegalArgumentException("No function at exact address");
+        } else if (action.equals("decompile") || action.equals("decompile_batch")) {
+            JsonArray addresses = action.equals("decompile_batch") ? req.getAsJsonArray("addresses") : new JsonArray();
+            if (action.equals("decompile")) addresses.add(req.get("address"));
+            if (addresses.size() < 1 || addresses.size() > 8) throw new IllegalArgumentException("Use 1–8 exact function addresses");
+            JsonArray units = new JsonArray();
             DecompInterface decompiler = new DecompInterface();
             try {
                 if (!decompiler.openProgram(currentProgram)) throw new IllegalStateException("Decompiler open: " + decompiler.getLastMessage());
-                DecompileResults r = decompiler.decompileFunction(f, 60, monitor);
-                if (!r.decompileCompleted()) throw new IllegalStateException("Decompiler incomplete: " + r.getErrorMessage() + " last=" + decompiler.getLastMessage() + " timedOut=" + r.isTimedOut() + " cancelled=" + r.isCancelled());
-                result.addProperty("source", r.getDecompiledFunction().getC());
+                for (JsonElement address : addresses) {
+                    Function f = getFunctionAt(toAddr(address.getAsString()));
+                    if (f == null) throw new IllegalArgumentException("No function at exact address");
+                    DecompileResults r = decompiler.decompileFunction(f, 60, monitor);
+                    if (!r.decompileCompleted()) throw new IllegalStateException("Decompiler incomplete: " + r.getErrorMessage());
+                    JsonObject unit = new JsonObject();
+                    unit.addProperty("address", f.getEntryPoint().toString());
+                    unit.addProperty("name", f.getName());
+                    unit.addProperty("source", r.getDecompiledFunction().getC());
+                    units.add(unit);
+                }
             } finally { decompiler.dispose(); }
+            if (action.equals("decompile")) result.add("source", units.get(0).getAsJsonObject().get("source"));
+            else result.add("units", units);
+        } else if (action.startsWith("context_")) {
+            int cap = req.has("limit") ? req.get("limit").getAsInt() : 200;
+            int offset = req.has("offset") ? req.get("offset").getAsInt() : 0;
+            if (cap < 1 || cap > 2000 || offset < 0) throw new IllegalArgumentException("Invalid page bounds");
+            JsonArray rows = new JsonArray(); int skipped = 0; boolean more = false;
+            if (action.equals("context_layout")) {
+                for (var block : currentProgram.getMemory().getBlocks()) {
+                    JsonObject v = new JsonObject();v.addProperty("name",block.getName());
+                    v.addProperty("start",block.getStart().toString());v.addProperty("size",block.getSize());
+                    v.addProperty("read",block.isRead());v.addProperty("write",block.isWrite());v.addProperty("execute",block.isExecute());
+                    v.addProperty("initialized",block.isInitialized());rows.add(v);
+                }
+                JsonArray exports = new JsonArray();var entries=currentProgram.getSymbolTable().getExternalEntryPointIterator();
+                while(entries.hasNext() && exports.size()<2000) exports.add(entries.next().toString());
+                result.add("entry_points", exports);
+                JsonArray imports = new JsonArray();var symbols=currentProgram.getSymbolTable().getExternalSymbols();
+                while(symbols.hasNext() && imports.size()<2000){var symbol=symbols.next();JsonObject v=new JsonObject();v.addProperty("name",symbol.getName(true));v.addProperty("address",symbol.getAddress().toString());imports.add(v);}
+                result.add("imports",imports);
+            } else if (action.equals("context_function")) {
+                Function f=getFunctionAt(toAddr(req.get("address").getAsString()));
+                if(f==null)throw new IllegalArgumentException("No exact function");
+                result.addProperty("signature",f.getSignature().toString());
+                result.addProperty("calling_convention",f.getCallingConventionName());
+                JsonArray callers=new JsonArray(), callees=new JsonArray(), variables=new JsonArray();
+                for(Function other:f.getCallingFunctions(monitor))if(callers.size()<2000)callers.add(other.getEntryPoint().toString());
+                for(Function other:f.getCalledFunctions(monitor))if(callees.size()<2000)callees.add(other.getEntryPoint().toString());
+                for(Variable variable:f.getAllVariables()){JsonObject v=new JsonObject();v.addProperty("name",variable.getName());v.addProperty("type",variable.getDataType().getPathName());v.addProperty("storage",variable.getVariableStorage().toString());variables.add(v);}
+                result.add("callers",callers);result.add("callees",callees);result.add("variables",variables);
+            } else if (action.equals("context_references")) {
+                var address=toAddr(req.get("address").getAsString());
+                var refs=currentProgram.getReferenceManager().getReferencesTo(address);
+                while(refs.hasNext()){Reference ref=refs.next();if(skipped++<offset)continue;if(rows.size()>=cap){more=true;break;}JsonObject v=new JsonObject();v.addProperty("from",ref.getFromAddress().toString());v.addProperty("to",ref.getToAddress().toString());v.addProperty("type",ref.getReferenceType().toString());rows.add(v);}
+                JsonArray outgoing=new JsonArray();for(Reference ref:currentProgram.getReferenceManager().getReferencesFrom(address)){JsonObject v=new JsonObject();v.addProperty("to",ref.getToAddress().toString());v.addProperty("type",ref.getReferenceType().toString());outgoing.add(v);}result.add("outgoing",outgoing);
+            } else if (action.equals("context_strings")) {
+                var data=currentProgram.getListing().getDefinedData(true);
+                while(data.hasNext() && !monitor.isCancelled()){Data d=data.next();Object value=d.getValue();if(!(value instanceof String))continue;if(skipped++<offset)continue;if(rows.size()>=cap){more=true;break;}JsonObject v=new JsonObject();v.addProperty("address",d.getAddress().toString());v.addProperty("value",value.toString());v.addProperty("length",d.getLength());rows.add(v);}
+            } else if (action.equals("context_types")) {
+                var types=currentProgram.getDataTypeManager().getAllDataTypes();
+                while(types.hasNext() && !monitor.isCancelled()){DataType dt=types.next();if(skipped++<offset)continue;if(rows.size()>=cap){more=true;break;}JsonObject v=new JsonObject();v.addProperty("path",dt.getPathName());v.addProperty("length",dt.getLength());
+                    if(dt instanceof Composite){JsonArray components=new JsonArray();for(DataTypeComponent component:((Composite)dt).getComponents()){JsonObject field=new JsonObject();field.addProperty("name",component.getFieldName());field.addProperty("offset",component.getOffset());field.addProperty("length",component.getLength());field.addProperty("type",component.getDataType().getPathName());components.add(field);}v.add("fields",components);}rows.add(v);}
+            } else if (action.equals("context_bytes")) {
+                int count=req.has("length")?req.get("length").getAsInt():256;if(count<1||count>16384)throw new IllegalArgumentException("Read 1–16384 bytes");
+                byte[] bytes=new byte[count];int read=currentProgram.getMemory().getBytes(toAddr(req.get("address").getAsString()),bytes);
+                StringBuilder hex=new StringBuilder();for(int i=0;i<read;i++)hex.append(String.format("%02x",bytes[i]&255));result.addProperty("hex",hex.toString());result.addProperty("length",read);
+            } else throw new IllegalArgumentException("Unknown context view");
+            result.add("items",rows);result.addProperty("offset",offset);result.addProperty("has_more",more);result.addProperty("next_offset",offset+rows.size());
         } else if (action.equals("pcode")) {
             Instruction instruction = getInstructionAt(toAddr(req.get("address").getAsString()));
             if (instruction == null) throw new IllegalArgumentException("No instruction at address");

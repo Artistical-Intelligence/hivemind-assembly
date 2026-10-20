@@ -21,6 +21,8 @@ from hivemind_assembly.core.common import (
 from hivemind_assembly.core.store import Store
 from hivemind_assembly.core.controller import Controller
 from hivemind_assembly.core.broker import Broker
+from hivemind_assembly.core.repositories import Repositories
+from hivemind_assembly.integrations.github import GitHubAuth, GitHubClient
 from hivemind_assembly.core.acceptance import Acceptance
 from hivemind_assembly.learning.engine import Learning
 from hivemind_assembly.automation.native import NativeBrowser
@@ -70,8 +72,16 @@ class Application:
         self.config = validate_config(json.loads(self.config_path.read_text()))
         self.controller = Controller(self.store)
         self.controller.recover()
+        with self.store.tx() as db:
+            db.execute("DELETE FROM reservations WHERE task LIKE 'native-budget_%'")
+        self.github_auth = GitHubAuth(self.store.root)
+        self.github_client = GitHubClient(self.github_auth)
+        self.repositories = Repositories(self.store, self.github_client, self.config)
         self.broker = Broker(
-            self.controller, self.config, domain=ReverseEngineeringDomain()
+            self.controller,
+            self.config,
+            domain=ReverseEngineeringDomain(),
+            repositories=self.repositories,
         )
         recovery = self.broker.recover_pending()
         if recovery:
@@ -80,14 +90,77 @@ class Application:
         self.loop = asyncio.new_event_loop()
         self.browser = NativeBrowser(self.config, root, self.controller)
         self.team = NativeTeam(self.controller, self.broker, self.browser, self.config)
+        from hivemind_assembly.automation.sessions import Sessions
+
+        self.sessions = Sessions(self.browser, self.config_path)
+        self.sessions.restore_bindings()
+        self.team.sessions = self.sessions
+        self.configure_learning()
         self.thread = threading.Thread(target=self._run, daemon=True)
-        self.thread.start()
         self.background = {}
+        from hivemind_assembly.integrations.github_setup import GitHubSetup
+
+        self.github_setup = GitHubSetup(self.browser, self.github_auth, self.store.root)
+        self.github_setup_future = None
+        from hivemind_assembly.automation.onboarding import NativeSetup
+
+        self.native_setup = NativeSetup(
+            self.browser, self.store, self.config_path, self.sessions, self.team
+        )
+        self.native_setup_futures = {}
         self.shutdown = False
         self.learning_lock = threading.Lock()
+        self.action_lock = threading.RLock()
+        self.thread.start()
+
+    def configure_learning(self):
+        self.team.learning_trials = None
+        self.native_learning = None
+        self.native_learning_error = ""
+        try:
+            from hivemind_assembly.domains.reverse_engineering.learning_evaluator import (
+                FunctionEvaluator,
+            )
+            from hivemind_assembly.learning.native_rollouts import NativeRollouts
+
+            evaluator = FunctionEvaluator(
+                self.broker.jobs, self.config["foundations"].get("c_compiler", "")
+            )
+            self.native_learning = NativeRollouts(
+                self.store,
+                self.controller,
+                self.sessions,
+                self.team.observations.get,
+                evaluator,
+                evaluator.fingerprint,
+                budget=self.team.learning_budget,
+            )
+            self.team.learning_trials = self.native_learning
+            with self.store.tx() as db:
+                db.execute(
+                    "INSERT INTO meta VALUES('native_learning_engine',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                    (evaluator.fingerprint,),
+                )
+        except Blocked as error:
+            self.native_learning_error = str(error)
+            with self.store.tx() as db:
+                db.execute(
+                    "INSERT INTO meta VALUES('native_learning_engine','unavailable') ON CONFLICT(key) DO UPDATE SET value='unavailable'"
+                )
 
     def _run(self):
         asyncio.set_event_loop(self.loop)
+        for route in self.config["routes"]:
+            if self.native_setup.status(route)["stage"] in (
+                "authentication",
+                "binding_required",
+                "allowance_mapping",
+                "waiting_quota",
+                "waiting_delivery",
+            ):
+                self.native_setup_futures[route] = self.loop.create_task(
+                    self.native_setup.run(route)
+                )
         self.runner = self.loop.create_task(self.team.run())
         self.loop.run_forever()
 
@@ -99,6 +172,23 @@ class Application:
             "version": __version__,
             "application": "Hivemind Assembly",
             "domain": self.broker.domain.id,
+            "github": {**self.github_auth.status(), **self.config.get("github", {})},
+            "native_evaluations": (
+                [
+                    self.native_learning.status(r["id"])
+                    for r in self.store.rows(
+                        "SELECT id FROM records WHERE kind='native_evaluation'"
+                    )
+                ]
+                if self.native_learning
+                else []
+            ),
+            "native_learning_error": self.native_learning_error,
+            "github_setup": self.github_setup.status(),
+            "repositories": [
+                self.repositories.status(p["id"])
+                for p in self.store.rows("SELECT id FROM projects")
+            ],
             "projects": self.store.rows("SELECT * FROM projects ORDER BY created DESC"),
             "tasks": self.store.rows("SELECT * FROM tasks ORDER BY updated DESC"),
             "events": self.store.rows(
@@ -129,6 +219,7 @@ class Application:
                         **{a: v[a] for a in ("provider", "mode", "model", "effort")},
                     },
                     "bound": bool(v["conversation_url"]),
+                    "setup": self.native_setup.status(k),
                     "status": (
                         dict(self.team.observations[k].__dict__)
                         if k in self.team.observations
@@ -157,6 +248,138 @@ class Application:
         return {"job": key}
 
     def action(self, path, data):
+        with self.action_lock:
+            return self._action(path, data)
+
+    def _action(self, path, data):
+        if path == "/api/native/setup-all":
+            if any(
+                not p.done()
+                for p in [*self.team.active.values(), *self.team.learning_jobs.values()]
+            ):
+                raise Blocked("Pause active tasks before rebinding native sessions")
+            for route in self.config["routes"]:
+                future = self.native_setup_futures.get(route)
+                if future is None or future.done():
+                    self.native_setup_futures[route] = self.submit(
+                        self.native_setup.run(route)
+                    )
+            return {"started": True}
+        if path == "/api/learning/share":
+            return Learning(self.store).share(data["lesson"], data["allowed"])
+        if path == "/api/learning/native-corpus":
+            if not self.native_learning:
+                raise Blocked(self.native_learning_error)
+            suite = (
+                self.native_learning.verifier.protect_manifest(
+                    self.native_learning, data["path"]
+                )
+                if data.get("path")
+                else self.native_learning.verifier.build_corpus(
+                    self.native_learning,
+                    self.store.root
+                    / "private"
+                    / "evaluation-corpus"
+                    / self.native_learning.fingerprint,
+                )
+            )
+            return {"suite": suite}
+        if path == "/api/learning/native-evaluate":
+            if not self.native_learning:
+                raise Blocked(self.native_learning_error)
+            key = self.native_learning.bind(
+                data["candidate"],
+                data["suite"],
+                data.get("route", "worker.extra"),
+                data.get("repeats", 3),
+            )
+            row = self.store.one(
+                "SELECT asset_key FROM lessons WHERE id=?", (data["candidate"],)
+            )
+            self.store.put(
+                "native_suite:" + row["asset_key"],
+                uid("binding"),
+                {
+                    "suite": data["suite"],
+                    "route": data.get("route", "worker.extra"),
+                    "repeats": data.get("repeats", 3),
+                },
+            )
+            self.native_learning.state(key, "queued")
+            return {"evaluation": key}
+        if path == "/api/native/renew":
+            route = data["route"]
+            if any(
+                not p.done()
+                for p in [*self.team.active.values(), *self.team.learning_jobs.values()]
+            ):
+                raise Blocked(
+                    "Native work must reach a safe boundary before explicit renewal"
+                )
+            observation = self.team.observations.get(route)
+            if observation is None or not observation.eligible():
+                raise Blocked("Renewal requires verified sufficient allowance")
+            return self.background_job(
+                "Native session renewal",
+                lambda: self.submit(
+                    self.sessions.renew("session_setup", route)
+                ).result(),
+            )
+        if path == "/api/native/setup":
+            route = data["route"]
+            if route not in self.config["routes"]:
+                raise ContractError("Unknown native route")
+            if any(
+                not p.done()
+                for p in [*self.team.active.values(), *self.team.learning_jobs.values()]
+            ):
+                raise Blocked("Pause active tasks before rebinding native sessions")
+            future = self.native_setup_futures.get(route)
+            if future is None or future.done():
+                self.native_setup_futures[route] = self.submit(
+                    self.native_setup.run(route)
+                )
+            return {"started": True}
+        if path == "/api/github/setup":
+            if self.github_setup_future is None or self.github_setup_future.done():
+                self.github_setup_future = self.submit(self.github_setup.run())
+            return {"started": True, **self.github_setup.status()}
+        if path == "/api/traces/viewer":
+            from hivemind_assembly.core.telemetry import export_local
+
+            return export_local(self.store, data.get("port", 6006))
+        if path == "/api/traces/search":
+            return self.controller.traces.search(**data)
+        if path == "/api/traces/annotate":
+            return {
+                "annotation": self.controller.traces.annotate(data["seq"], data["text"])
+            }
+        if path == "/api/traces/export":
+            # Explicit local-owner export; never included in project publications.
+            name = "traces-" + uid("export") + ".jsonl"
+            target = self.store.root / "exports" / name
+            target.parent.mkdir(exist_ok=True)
+            with target.open("x", encoding="utf-8") as stream:
+                for line in self.controller.traces.export(**data):
+                    stream.write(line)
+            return {"path": str(target), "sha256": file_hash(target)}
+        if path == "/api/github/connect":
+            return self.github_auth.start(data["client_id"])
+        if path == "/api/github/poll":
+            return self.github_auth.poll()
+        if path == "/api/github/cancel":
+            return self.github_auth.cancel()
+        if path == "/api/github/check":
+            return self.github_client.identity()
+        if path == "/api/github/disconnect":
+            return self.github_auth.disconnect()
+        if path == "/api/github/settings":
+            cfg = validate_config({**self.config, "github": data})
+            atomic_write(self.config_path, canonical(cfg))
+            self.config["github"] = cfg["github"]
+            return {"saved": True}
+        if path == "/api/github/repository":
+            return self.create_repository(data["task"], data["repository"])
         if path == "/api/project":
             if not data.get("name") or not data.get("objective"):
                 raise ContractError("Name and objective are required")
@@ -254,20 +477,71 @@ class Application:
                 data["path"], bool(data.get("external_allowed", False))
             )
         if path == "/api/settings":
-            if any(not p.done() for p in self.team.active.values()):
+            if any(
+                not p.done()
+                for p in [*self.team.active.values(), *self.team.learning_jobs.values()]
+            ):
                 raise Blocked("Pause active tasks before changing route bindings")
+            pending = (
+                [self.github_setup_future]
+                if self.github_setup_future is not None
+                else []
+            )
+            if any(not p.done() for p in pending) or any(
+                j["status"] == "running" for j in self.background.values()
+            ):
+                raise Blocked(
+                    "Wait for active setup and background jobs before changing settings"
+                )
             cfg = validate_config(data["config"])
-            atomic_write(self.config_path, canonical(cfg))
-            self.config.clear()
-            self.config.update(cfg)
-            self.submit(self.browser.close()).result(timeout=15)
-            self.team.observations.clear()
+
+            async def replace_config():
+                await self.team.freeze_dispatch()
+                try:
+                    futures = list(self.native_setup_futures.values())
+                    for future in futures:
+                        future.cancel()
+                    await asyncio.gather(
+                        *(
+                            (
+                                f
+                                if isinstance(f, asyncio.Future)
+                                else asyncio.wrap_future(f)
+                            )
+                            for f in futures
+                        ),
+                        return_exceptions=True,
+                    )
+                    self.native_setup_futures.clear()
+                    await self.browser.close()
+                    atomic_write(self.config_path, canonical(cfg))
+                    self.config.clear()
+                    self.config.update(cfg)
+                    self.sessions.drafts.clear()
+                    self.native_setup.pages.clear()
+                    self.team.observations.clear()
+                    self.configure_learning()
+                finally:
+                    self.team.pause_dispatch = False
+
+            self.submit(replace_config()).result(timeout=20)
             return {"saved": True}
         if path == "/api/probe":
             route = data["route"]
             return self.background_job(
                 "Observe native route",
                 lambda: self.submit(self.browser.observe(route)).result(timeout=120),
+            )
+        if path == "/api/verify-foundations":
+            from .verification import verify_foundations
+
+            return self.background_job(
+                "Verify installed foundations",
+                lambda: verify_foundations(
+                    self.store.root / "private" / "verification",
+                    self.config["foundations"],
+                    self.broker.jobs,
+                ),
             )
         if path == "/api/verify":
 
@@ -289,19 +563,31 @@ class Application:
 
             return self.background_job("Semantic self-check", verify)
         if path == "/api/backup":
-            name = "controller-" + time.strftime("%Y%m%d-%H%M%S") + ".sqlite3"
-            path = self.store.root / "backups" / name
-            path.parent.mkdir(exist_ok=True)
-            self.store.backup(path)
-            return {
-                "name": name,
-                "scope": "Controller metadata only; project/native/artifact data remains in the data directory",
-            }
+            from hivemind_assembly.core.backups import snapshot
+
+            pending = [*self.native_setup_futures.values()]
+            if self.github_setup_future is not None:
+                pending.append(self.github_setup_future)
+            if any(not p.done() for p in pending) or any(
+                j["status"] == "running" for j in self.background.values()
+            ):
+                raise Blocked(
+                    "Wait for active setup and background jobs before backing up"
+                )
+            self.submit(self.team.freeze_dispatch()).result(timeout=15)
+            try:
+                name = "workspace-" + uid("backup") + ".zip"
+                return snapshot(self.store, self.store.root / "backups" / name)
+            finally:
+                self.loop.call_soon_threadsafe(
+                    setattr, self.team, "pause_dispatch", False
+                )
+
         if path == "/api/reconcile":
             op = self.store.one(
                 "SELECT tool FROM operations WHERE id=?", (data["operation"],)
             )
-            if op["tool"] == "propose_annotation":
+            if op["tool"] in ("propose_annotation", "create_repository"):
                 return self.broker.reconcile_native(data["operation"])
             return self.broker.reconcile_file(data["operation"])
         if path == "/api/setup":
@@ -313,6 +599,64 @@ class Application:
             )
         raise ContractError("Unknown action")
 
+    def create_repository(self, task_id, args):
+        """User-initiated provisioning uses the same journal and writer fences."""
+        from hivemind_assembly.core.repositories import repository_args
+
+        repository_args(args)
+        with self.store.tx() as db:
+            task = self.store.task(task_id)
+            if (
+                task["status"] not in ("paused", "queued", "waiting_quota")
+                or task["owner"]
+            ):
+                raise Blocked(
+                    "Prepare the repository before agents start, or let the assigned worker request it."
+                )
+            if db.execute(
+                "SELECT 1 FROM operations WHERE task_id=? AND state IN ('running','uncertain','applied')",
+                (task_id,),
+            ).fetchone():
+                raise Blocked(
+                    "Reconcile the previous operation in Evidence & recovery first."
+                )
+            # Reserve ownership atomically so the team cannot acquire this task.
+            epoch = task["epoch"] + 1
+            db.execute(
+                "UPDATE tasks SET status='running',owner='user.repository',epoch=?,lease_until=? WHERE id=?",
+                (epoch, time.time() + 300, task_id),
+            )
+        try:
+            revision = self.store.project(task["project_id"])["revision"]
+            self.controller.brief(
+                task_id,
+                {"revision": revision},
+                {
+                    "procedure": "Create or recover the requested private GitHub repository.",
+                    "acceptance": "Verify account, repository identity, private visibility and write access.",
+                },
+                {"critical_gaps": []},
+                [],
+            )
+            return self.broker.execute(
+                {
+                    "id": uid("repository"),
+                    "task_id": task_id,
+                    "owner": "user.repository",
+                    "epoch": epoch,
+                    "revision": revision,
+                    "tool": "create_repository",
+                    "args": args,
+                }
+            )
+        finally:
+            with self.store.tx() as db:
+                # Keep this user-prepared project paused, including on uncertainty.
+                db.execute(
+                    "UPDATE tasks SET status='paused',owner=NULL,lease_until=0,brief_id=NULL WHERE id=? AND epoch=? AND owner='user.repository'",
+                    (task_id, epoch),
+                )
+
     def close(self):
         if self.shutdown:
             return
@@ -321,6 +665,10 @@ class Application:
             event.set()
 
         async def close_runtime():
+            for future in self.native_setup_futures.values():
+                future.cancel()
+            if self.github_setup_future is not None:
+                self.github_setup_future.cancel()
             await self.team.stop()
             self.runner.cancel()
             await asyncio.gather(self.runner, return_exceptions=True)

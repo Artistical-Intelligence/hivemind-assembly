@@ -11,6 +11,7 @@ from hivemind_assembly.core.common import (
     canonical,
     file_hash,
     identifier,
+    WaitingForSignIn,
 )
 
 
@@ -25,6 +26,7 @@ class NativeBrowser:
         self.playwright = None
         self.start_lock = asyncio.Lock()
         self.profile_locks = {}
+        self.sign_in_waiting = set()
 
     async def start(self):
         from playwright.async_api import async_playwright
@@ -46,6 +48,29 @@ class NativeBrowser:
         profile = identifier(self.config["routes"][route]["profile"])
         async with self.profile_locks.setdefault(profile, asyncio.Lock()):
             return await self._page(route)
+
+    async def service_page(self, profile, url):
+        """Dedicated visible profile for owner-requested account setup."""
+        profile = identifier(profile)
+        async with self.profile_locks.setdefault(profile, asyncio.Lock()):
+            await self.start()
+            if profile not in self.contexts:
+                opts = {
+                    k: v
+                    for k, v in self.config.get("browser", {}).items()
+                    if k
+                    in ("channel", "locale", "timezone_id", "viewport", "color_scheme")
+                }
+                self.contexts[profile] = (
+                    await self.playwright.chromium.launch_persistent_context(
+                        str(self.root / "private" / "browser" / profile),
+                        headless=False,
+                        **opts,
+                    )
+                )
+            page = await self.contexts[profile].new_page()
+            await page.goto(url, wait_until="domcontentloaded")
+            return page
 
     async def _page(self, route):
         cfg = self.config["routes"][route]
@@ -113,6 +138,33 @@ class NativeBrowser:
         page = await self.page(route)
         cfg = self.config["routes"][route]
         selectors = cfg["selectors"]
+        parts = urlsplit(page.url)
+        authentication = await self.visible(page, selectors.get("authentication", ""))
+        for name in ("Log in", "Sign in"):
+            button = page.get_by_role("button", name=name, exact=True)
+            authentication = authentication or (
+                await button.count() > 0 and await button.first.is_visible()
+            )
+        if (
+            authentication
+            or "/login" in parts.path
+            or "/auth/" in parts.path
+            or "/logout" in parts.path
+            or parts.hostname == "auth.openai.com"
+        ):
+            self.sign_in_waiting.add(route)
+            raise WaitingForSignIn(
+                f"{route}: complete native sign-in in the dedicated browser"
+            )
+        if (
+            route in self.sign_in_waiting
+            and parts.path in ("/", "/new")
+            and not cfg.get("draft_session")
+        ):
+            self.validate_url(route, page.url)
+            await page.goto(cfg["conversation_url"], wait_until="domcontentloaded")
+            self.sign_in_waiting.discard(route)
+            return await self.observe(route)
         self.validate_url(route, page.url)
         # A redirect to another conversation never inherits authorization.
         if page.url.rstrip("/") != cfg["conversation_url"].rstrip("/"):
@@ -122,15 +174,38 @@ class NativeBrowser:
                 raise Blocked(f"{route}: {kind} required or exhausted")
         evidence = {}
         for field in ("model", "mode", "effort", "account"):
+            if (
+                field == "mode"
+                and cfg.get("provider") == "claude"
+                and cfg.get("mode") == "native"
+            ):
+                evidence[field] = "native"
+                continue
             selector = selectors.get(field)
             if not selector:
                 raise Blocked(
                     f"{route}: {field} observation selector is not configured"
                 )
             matches = page.locator(selector)
+            opened_account = False
+            if (
+                field == "account"
+                and selectors.get("account_trigger")
+                and not await self.visible(page, selector)
+            ):
+                trigger = page.locator(selectors["account_trigger"])
+                if await trigger.count() == 1 and await trigger.is_visible():
+                    await trigger.click()
+                    opened_account = True
             if await matches.count() != 1:
                 raise Blocked(f"{route}: ambiguous {field} selector")
-            value = (await matches.inner_text()).strip()
+            from .providers import label
+
+            try:
+                value = await label(matches)
+            finally:
+                if opened_account:
+                    await page.keyboard.press("Escape")
             expected = cfg.get("account_label") if field == "account" else cfg[field]
             if value != expected:
                 raise Blocked(f"{route}: observed {field} does not match exact binding")
@@ -192,12 +267,24 @@ class NativeBrowser:
                         .filter(has_text=path.name)
                         .wait_for(state="visible", timeout=120000)
                     )
-                composer = page.locator(s["composer"])
-                await composer.fill(envelope)
+                from .webmcp import NativeUI
+
+                native_ui = NativeUI(page)
+                native_send = (
+                    await native_ui.available("submit_conversation_message") is True
+                )
+                if not native_send:
+                    composer = page.locator(s["composer"])
+                    await composer.fill(envelope)
                 # Intent persisted BEFORE the click. A thrown click is ambiguous, never a safe retry.
                 self.controller.message_state(message["id"], "dispatching")
                 try:
-                    await page.locator(s["send"]).click()
+                    if native_send:
+                        await native_ui.call(
+                            "submit_conversation_message", {"prompt": envelope}
+                        )
+                    else:
+                        await page.locator(s["send"]).click()
                     await echoes.wait_for(state="visible", timeout=30000)
                 except BaseException:
                     self.controller.message_state(message["id"], "delivery_uncertain")
@@ -208,26 +295,109 @@ class NativeBrowser:
                 raise Blocked(
                     "Request marker found, but complete payload delivery is unconfirmed"
                 )
+            if self.config["routes"][route].get("draft_session"):
+                from .providers import conversation_url
+
+                if not conversation_url(self.config["routes"][route], page.url):
+                    raise Retryable(
+                        "Waiting for the provider to assign a persistent conversation URL"
+                    )
+                # The full echoed envelope, not merely navigation, binds a draft.
+                self.controller.store.put(
+                    "message_session",
+                    message["id"],
+                    {
+                        "route": route,
+                        "draft": message["conversation"],
+                        "conversation": page.url,
+                    },
+                )
+                self.config["routes"][route]["conversation_url"] = page.url
+                self.config["routes"][route]["draft_session"] = False
             self.controller.message_state(message["id"], "received")
             started = time.monotonic()
             stable_text = None
             stable_since = 0
             while time.monotonic() - started < timeout:
                 await self.observe(route)
-                replies = page.locator(s["assistant_messages"])
-                texts = await replies.all_inner_texts()
-                candidates = [v for v in texts if message["id"] in v]
+                # Associate by observed DOM order between this user turn and the
+                # next user turn, not a model's willingness to echo an ID.
+                candidates = await page.evaluate(
+                    """({users, assistants, marker}) => {
+                    const u=[...document.querySelectorAll(users)];
+                    const hit=u.filter(e=>e.innerText.includes(marker));
+                    if(hit.length!==1) return [];
+                    const start=hit[0], next=u[u.indexOf(start)+1];
+                    return [...document.querySelectorAll(assistants)].filter(e=>
+                        !!(start.compareDocumentPosition(e)&Node.DOCUMENT_POSITION_FOLLOWING) &&
+                        (!next || !!(e.compareDocumentPosition(next)&Node.DOCUMENT_POSITION_FOLLOWING)))
+                        .map(e=>e.innerText);
+                }""",
+                    {
+                        "users": s["user_messages"],
+                        "assistants": s["assistant_messages"],
+                        "marker": marker,
+                    },
+                )
+                if candidates:
+                    raw = "\n\n".join(candidates)
+                    self.controller.traces.append(
+                        message["task_id"],
+                        message["id"],
+                        route,
+                        "response_snapshot",
+                        {
+                            "text": raw,
+                            "association": "DOM turn order",
+                            "parts": len(candidates),
+                        },
+                    )
+                completed_here = await page.evaluate(
+                    """({users, assistants, complete, marker}) => {
+                    const us=[...document.querySelectorAll(users)];
+                    const hit=us.filter(e=>e.innerText.includes(marker));
+                    if(hit.length!==1)return false;
+                    const start=hit[0], next=us[us.indexOf(start)+1];
+                    const after=e=>(start.compareDocumentPosition(e)&Node.DOCUMENT_POSITION_FOLLOWING) &&
+                        (!next||(e.compareDocumentPosition(next)&Node.DOCUMENT_POSITION_FOLLOWING));
+                    return [...document.querySelectorAll(complete)].some(e=>e.getClientRects().length && after(e));
+                }""",
+                    {
+                        "users": s["user_messages"],
+                        "assistants": s["assistant_messages"],
+                        "complete": s["complete"],
+                        "marker": marker,
+                    },
+                )
                 if (
                     candidates
-                    and await self.visible(page, s["complete"])
+                    and completed_here is True
                     and not await self.visible(page, s.get("streaming", ""))
                 ):
-                    raw = candidates[-1]
+                    raw = "\n\n".join(candidates)
                     if raw != stable_text:
                         stable_text = raw
                         stable_since = time.monotonic()
                     elif time.monotonic() - stable_since >= 1:
-                        response = parse_response(raw, message["id"])
+                        self.controller.traces.append(
+                            message["task_id"],
+                            message["id"],
+                            route,
+                            "response_complete",
+                            {"text": raw},
+                        )
+                        try:
+                            response = parse_response(raw, message["id"])
+                        except ContractError as error:
+                            self.controller.traces.append(
+                                message["task_id"],
+                                message["id"],
+                                route,
+                                "response_error",
+                                {"error": str(error)},
+                            )
+                            self.controller.message_state(message["id"], "invalid")
+                            raise
                         self.controller.message_state(
                             message["id"], "validated", canonical(response)
                         )
@@ -274,11 +444,21 @@ class NativeBrowser:
         if not usage.get("url"):
             raise Blocked("Usage page is not configured")
         self.validate_url(route, usage["url"])
-        context = (await self.page(route)).context
-        page = await context.new_page()
+        if cfg.get("conversation_url"):
+            context = (await self.page(route)).context
+            page = await context.new_page()
+        else:
+            page = await self.service_page(cfg["profile"], usage["url"])
         try:
             await page.goto(usage["url"], wait_until="domcontentloaded")
+            self.validate_url(route, page.url)
+            if page.url.rstrip("/") != usage["url"].rstrip("/"):
+                raise Blocked("Usage page redirected; allowance observation rejected")
             windows = []
+            if usage.get("discover_progressbars"):
+                from .providers import usage_snapshot
+
+                windows = await usage_snapshot(page, cfg)
             for window in usage.get("windows", []):
                 raw = await page.locator(window["selector"]).inner_text()
                 match = re.fullmatch(window["pattern"], raw.strip())
@@ -320,6 +500,7 @@ def parse_response(raw, request_id):
         raise ContractError("Wrong response identity")
     if data.get("type") not in (
         "step_intent",
+        "task_plan",
         "brief",
         "tool_request",
         "tool_batch",
@@ -327,7 +508,12 @@ def parse_response(raw, request_id):
         "blocker",
         "recovery",
         "learning",
+        "learning_cycle",
+        "learning_feedback",
+        "learning_candidate",
         "artifact_return",
+        "session_ready",
+        "rollout_result",
     ):
         raise ContractError("Unsupported response type")
     return data

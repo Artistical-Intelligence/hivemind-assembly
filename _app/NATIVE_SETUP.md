@@ -1,18 +1,78 @@
-# Native session setup and outstanding acceptance
+# Native session setup
 
-This release does not contain signed-in sessions or observed UI bindings. The five exact designated routes remain required. The following configuration work is needed on the actual host before unattended native tasks can run.
+Use **Set up all native sessions** on Overview. HA opens dedicated persistent
+browser profiles, discovers rendered account/model/mode/effort controls, and
+selects exact matching options when available. Sign-in, passkeys and 2FA stay in
+the provider browser; HA does not copy credentials from your ordinary profile.
+Pending setup resumes after sign-in and after an application restart.
 
-1. Install the complete foundations from the dashboard, then restart. Keep your ordinary Ghidra and REA entry points available; additions do not replace their source or provider modes.
-2. In settings, choose `browser.channel` as `msedge` or `chrome` if using an installed browser. Otherwise omit `channel` to use installed Playwright Chromium. Use `headless: false` for initial sign-in and calibration.
-3. Assign distinct native conversation URLs to all five roles. The Extra High adviser and worker must never share a conversation. Profiles may share the same account and allowance; they do not create extra quota. The workbench profile is separate from your everyday browser profile.
-4. Populate selectors from the actual interface for model, mode, effort and account labels, composer, send action, user/assistant message containers, completion and streaming, plus concrete authentication/quota/approval notices. Observe the actual service UI; do not infer identity from model self-report or a label in your configuration.
-5. `model`, `mode`, `effort` are fixed requested targets in this preview. The Claude surface is internally named `native`; if the real UI cannot expose an exact compatible observation, route calibration is a remaining adapter implementation issue. Do not falsify a visible label to unlock dispatch. Explicit display-label mapping with recorded provenance is part of the remaining provider-specific work.
-6. Bind a usage page and exact percentage parser for each shared usage surface. Use `interpretation: remaining` or `used` explicitly. A window record has `name`, CSS `selector`, full-match regex `pattern` with a named `percent` capture, and an `estimate` object containing `task`, `handoff`, `reserve`, `uncertainty` and `reservations` percentages. Estimates must account for shared role consumption; their initial values are not measured forecasts. Unknown mappings remain blocked. `no_numeric_limit_confirmed` requires real evidence; it is not a bypass for missing telemetry.
-7. Use **Observe route** to inspect exact route identity. This probe is not a usage-page fetch and does not mark live task/attachment acceptance complete. The scheduler persists scheduled usage attempts before navigation and permits at most one per scope per rolling 24 hours, including failed attempts.
-8. Run a small real end-to-end fixture: worker declares a step, adviser provides a source-backed brief, a real Ghidra operation executes, and its actual artifact returns. Exercise uploaded and returned bytes, interruption, duplicate prevention, handoff and late-writer rejection. Retain the evidence before calling a route operational.
+The required roles are:
 
-A browser click is not delivery proof. Outgoing messages include a durable ID and complete payload; the adapter requires visible user-message confirmation. Ambiguous sends are retained rather than blindly resent. Replies must be one JSON envelope with the matching `request_id`. The workbench accepts only declared response types and broker capabilities; arbitrary prose is never a tool request.
+| Role | Provider and surface | Model | Effort |
+| --- | --- | --- | --- |
+| Worker | Claude native | Opus 5.5 | High |
+| Worker | ChatGPT Work | GPT-6 Astra | High |
+| Worker | ChatGPT Chat | GPT-6 | Extra High |
+| Adviser | Separate ChatGPT Chat conversation | GPT-6 | Extra High |
+| Reviewer | Separate ChatGPT Chat conversation | GPT-6 | High |
 
-Upload selectors require a completed attachment reference containing the expected filename. Download callbacks verify the returned SHA-256. The low-level attachment transport is implemented; the team can now attach large tool results, retain hash-checked artifact_return downloads, and save their bytes through the broker. Configure a download selector matching the returned filename. These paths still require live-provider acceptance testing.
+A route becomes eligible only after the exact controls are observed, its shared
+allowance permits admission, and a new persistent conversation passes a two-way
+file canary. HA uploads a file whose bytes are absent from the prompt, verifies
+its exact echoed bytes, and downloads a native copy with the same SHA-256.
+Homepage URLs and model self-reports cannot establish conversation identity.
+Role conversations remain distinct even when they share an account/profile.
 
-Native automation is mandatory in the design. These setup and implementation gaps are recorded as unfinished gates. Manual message relay, a different model or effort, Chat substituted for Work, paid overage and inference APIs do not satisfy them.
+## Allowance and unrecognized controls
+
+Discovery never treats missing usage telemetry as unlimited. If the provider
+exposes an unambiguous Usage link and labeled percentage progress bars, HA can
+map them. Otherwise, the setup state explains the unresolved mapping. Advanced
+settings accept observed selectors and a same-provider usage URL. A numeric
+window specifies its name, selector, full-match regex with named `percent`
+capture, explicit `used` or `remaining` interpretation, and task/handoff/reserve/
+uncertainty estimates. Estimates are reservations, not measured forecasts.
+
+There is at most one usage-page attempt per shared account/surface in each
+rolling 24 hours, including failed attempts. Role setup can reuse that retained
+allowance observation only for the same account/scope. Admission requires at
+least 10% in every applicable window and enough capacity for reservations.
+Unknown mappings remain blocked. `no_numeric_limit_confirmed` is valid only with
+actual provider evidence, never as a workaround for absent telemetry.
+
+Exact provider labels and controls can change. Missing, hidden, ambiguous or
+mismatched controls stop dispatch. To correct advanced bindings, save settings;
+HA stops pending native setup, closes its browser contexts and discards stale
+selectors before using the new configuration. Active work must first settle.
+
+## Renewal and interrupted delivery
+
+Sessions renew at a configured turn threshold (80 by default), an observed
+context-limit notice, or an explicit renewal request. The old binding remains
+active until the replacement passes identity and both transfer checks. Durable
+session intent and commit records reconcile a crash around settings persistence.
+Unresolved deliveries prevent a work conversation from being abandoned.
+
+Every outgoing envelope has a durable ID. HA requires the complete visible
+user-message echo, associates the reply by native turn order, and waits for a
+completion control belonging to that turn. Raw partial/malformed responses are
+logged before parsing. An uncertain send is never blindly repeated. When the
+page advertises the public WebMCP conversation action, HA can use it; otherwise
+it uses rendered DOM controls. It does not fall back after a dispatched action.
+
+## Native learning
+
+The evaluation controller gives each paired baseline/candidate trial a separate
+conversation, keeps expected answers local, verifies outputs independently, and
+resumes retained trials after quota waits. Sharing permission is checked before
+each request and promotion; isolated trial tabs close after their evidence is
+saved. Evaluations reserve capacity in the same pool as project work.
+
+Fresh conversations alone do not establish that a provider's account-wide memory
+or personalization is disabled. That isolation, exact live routing and genuine
+cross-project improvements still need signed-in acceptance evidence. Local
+fixtures do not certify native learning effectiveness.
+
+No model API, changed model/effort, Chat-for-Work substitution, paid overage or
+manual message relay satisfies native acceptance. Current evidence and limits
+are recorded in `release_status.json`.

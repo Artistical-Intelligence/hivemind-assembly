@@ -1,28 +1,27 @@
-# Next implementation steps
+# Remaining implementation and acceptance
 
-The generic framework grows through working reverse engineering tasks. Do not
-delay them to build a universal plugin platform or a Codex port.
+The current code connects native session creation/renewal, two-way transfer
+checks, protected knowledge/procedure rollouts, shared learning reservations,
+Qiling file/memory replay, deeper Ghidra/REA queries and installed-tool checks.
+It is not a declaration that the requested product has passed all gates.
 
-1. Validate the exact five native model/surface/effort routes on the actual
-   accounts. Complete provider identity, completion, quota and attachment
-   bindings; exercise sign-in, reconnect and interrupted exchanges. No inference
-   API substitution, changed effort, paid overage or manual-relay acceptance.
-2. Complete the Hermes coordination integration beyond the session host. Run a
-   real worker/adviser/Ghidra operation loop with durable artifacts, handoff and
-   restart recovery. Preserve full upstream foundations.
-3. Extend the implemented register proofs and compiled scalar C function checks
-   to multi-function cumulative builds, memory/platform effects and whole applications.
-   Objectives without a supported contract remain `awaiting_acceptance`.
-4. Graft the planned knowledge, procedure and executable optimizers; evaluate
-   improvements on protected holdouts and regressions with timing measurements.
-   The bounded duplicate-proof workflow optimizer now executes protected tests
-   and repeated timing trials. Guarded playbook deltas and dependency-aware context selection are implemented.
-   Broader knowledge/procedure optimization and
-   demonstrated cross-project learning remain unfinished.
-5. Extend processor/platform coverage and reconstruction/build workflows,
-   validating progressively larger targets and hybrid boundaries.
-6. Complete Windows installation/update/process/browser acceptance on Windows.
-
-Later: validate a second useful domain and export reusable learning assets.
-Only build another-harness/MCP adapter when it serves an actual task. Keep
-direct access and specialist capabilities when the generic interface is inadequate.
+1. Validate all five exact routes on the actual signed-in accounts, including
+   model/mode/effort, account, allowance, completion, transfers and renewal.
+   Discovery stops at ambiguous or unavailable controls. Confirm provider
+   account-wide memory/personalization isolation for learning trials.
+2. Exercise an unattended worker/adviser/Ghidra/REA reconstruction with actual
+   native responses, interruptions and handoffs. Real local Ghidra and Hermes
+   checks have passed; this host cannot run REA's required process inspection
+   or launch its local Chromium fixture.
+3. Measure native knowledge/procedure improvements across independent projects.
+   Rollout control, protected truth, resumption and promotion are implemented
+   and fixture-tested; genuine native learning gains remain unmeasured.
+4. Extend application reconstruction beyond the implemented static x86-64 Linux
+   contracts. Declared file/memory behavior now uses full Qiling. Dynamic
+   linking, broader CPU/OS effects, Windows/game/graphics behavior and target-level
+   equivalence remain outside the implemented acceptance scope.
+5. Run clean Windows installation/update/restore and complete native REA checks.
+   The Windows Python 3.12 wheel closure resolves, and the 96-variant GCC/Clang
+   corpus passed 5,472 independent native comparisons; neither establishes a
+   clean Windows installation or arbitrary target reconstruction.
+6. Perform the separately requested full audit, then revise its findings.

@@ -134,8 +134,13 @@ class ReconstructionAcceptance:
         }
 
 
+from .program_acceptance import ProgramAcceptance
+
+
 class AcceptanceSuite:
     def verifier(self, scope):
+        if scope == "static_x86_64_linux_program":
+            return ProgramAcceptance()
         if scope == "x86_64_register_regions":
             return RegionAcceptance()
         if scope == "x86_64_c_functions":
@@ -151,7 +156,7 @@ class AcceptanceSuite:
         args = (root, spec, artifacts, project)
         return (
             verifier.prepare(*args, context)
-            if isinstance(verifier, ReconstructionAcceptance)
+            if isinstance(verifier, (ReconstructionAcceptance, ProgramAcceptance))
             else verifier.prepare(*args)
         )
 

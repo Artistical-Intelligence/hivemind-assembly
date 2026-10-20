@@ -1,1 +1,10 @@
-{"private":true,"scripts":{"test:dom":"node check_dom.cjs ../_app/hivemind_assembly"},"devDependencies":{"jsdom":"30.1.3"}}
+{
+  "private": true,
+  "scripts": {
+    "test:dom": "node check_dom.cjs ../_app/hivemind_assembly",
+    "test:native-dom": "node check_native_dom.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "30.1.3"
+  }
+}

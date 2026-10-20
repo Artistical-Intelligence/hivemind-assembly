@@ -6,7 +6,27 @@ class Learning:
     def __init__(self, store):
         self.store = store
 
-    def propose(self, asset_key, kind, payload):
+    def external_allowed(self, row):
+        rows = self.store.rows(
+            "SELECT payload FROM records WHERE kind=? ORDER BY created DESC LIMIT 1",
+            ("lesson_permission:" + row["id"],),
+        )
+        return (
+            json.loads(rows[0]["payload"])["allowed"]
+            if rows
+            else json.loads(row["payload"]).get("external_allowed", False)
+        )
+
+    def share(self, lesson, allowed):
+        if type(allowed) is not bool:
+            raise ContractError("External permission must be boolean")
+        self.store.one("SELECT id FROM lessons WHERE id=?", (lesson,))
+        self.store.put(
+            "lesson_permission:" + lesson, uid("permission"), {"allowed": allowed}
+        )
+        return {"lesson": lesson, "external_allowed": allowed}
+
+    def propose(self, asset_key, kind, payload, identity=None):
         if kind not in ("knowledge", "procedure", "executable", "counterexample"):
             raise ContractError("Unknown learning asset type")
         required = {"scope", "preconditions", "exclusions", "evidence", "content"}
@@ -14,8 +34,15 @@ class Learning:
             raise ContractError(
                 "Learning requires scope, conditions and actual evidence"
             )
-        key = uid("lesson")
+        key = identity or uid("lesson")
         with self.store.tx() as c:
+            existing = c.execute(
+                "SELECT asset_key,kind,payload FROM lessons WHERE id=?", (key,)
+            ).fetchone()
+            if existing:
+                if tuple(existing) != (asset_key, kind, canonical(payload)):
+                    raise ContractError("Learning proposal identity changed")
+                return key
             version = c.execute(
                 "SELECT COALESCE(MAX(version),0)+1 FROM lessons WHERE asset_key=?",
                 (asset_key,),

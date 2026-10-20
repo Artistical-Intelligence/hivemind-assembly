@@ -35,12 +35,17 @@ class ReverseEngineeringDomain:
     capabilities = (
         Capability("inspect_program"),
         Capability("decompile"),
+        Capability("decompile_batch"),
+        Capability("program_context"),
         Capability("export_pcode"),
         Capability("propose_annotation", True, "reconcile"),
         Capability("rea_analyze"),
+        Capability("rea_query"),
         Capability("compare_states", recovery="discard"),
         Capability("check_equivalence", recovery="discard"),
         Capability("validate_c_function", recovery="discard"),
+        Capability("build_program", recovery="discard"),
+        Capability("compare_program", recovery="discard"),
     )
 
     def skills(self):
@@ -57,6 +62,8 @@ class ReverseEngineeringDomain:
         if tool in {
             "inspect_program",
             "decompile",
+            "decompile_batch",
+            "program_context",
             "export_pcode",
             "propose_annotation",
         }:
@@ -66,6 +73,8 @@ class ReverseEngineeringDomain:
             action = {
                 "inspect_program": "inventory",
                 "decompile": "decompile",
+                "decompile_batch": "decompile_batch",
+                "program_context": "context_" + str(args.get("view", "layout")),
                 "export_pcode": "pcode",
                 "propose_annotation": "annotate",
             }[tool]
@@ -83,6 +92,9 @@ class ReverseEngineeringDomain:
                         "expected_name",
                         "expected_revision",
                         "limit",
+                        "offset",
+                        "length",
+                        "addresses",
                     )
                 },
             }
@@ -94,10 +106,16 @@ class ReverseEngineeringDomain:
                 binary,
                 context.cancel,
             )
-        if tool == "rea_analyze":
+        if tool in ("rea_analyze", "rea_query"):
             bridge = ReaBridge(
-                context.config["foundations"].get("rea_home"), context.jobs
+                context.config["foundations"].get("rea_home"),
+                context.jobs,
+                context.config["foundations"].get("ghidra_home"),
             )
+            if tool == "rea_query":
+                return bridge.query(
+                    scoped(root, args["path"]), root, args, context.cancel
+                )
             return bridge.run(
                 "analyze",
                 scoped(root, args["path"]),
@@ -105,6 +123,41 @@ class ReverseEngineeringDomain:
                 ("--provider", "ghidra"),
                 context.cancel,
             )
+        if tool in ("build_program", "compare_program"):
+            from .program import build, compare
+
+            manifest_path = scoped(root, args["manifest_path"])
+            if manifest_path.stat().st_size > 128000:
+                raise Blocked("Build manifest exceeds bounds")
+            manifest = json.loads(manifest_path.read_text())
+            built = build(
+                root,
+                manifest,
+                context.jobs,
+                context.config.get("foundations", {}).get("c_compiler", ""),
+                context.cancel,
+            )
+            if built["passed"]:
+                machine = bytes.fromhex(built.pop("elf_hex"))
+                built["_artifact"] = {
+                    "data": machine,
+                    "name": "reconstructed-program.elf",
+                }
+                if tool == "compare_program":
+                    original_path = scoped(root, args["original_path"])
+                    if original_path.stat().st_size > 2_000_000:
+                        raise Blocked("Original image exceeds bounds")
+                    built["comparison"] = compare(
+                        original_path.read_bytes(),
+                        machine,
+                        args["cases"],
+                        context.cancel,
+                    )
+                    built["passed"] = built["comparison"]["passed"]
+                built["claim"] = (
+                    "Development evidence; completion independently rebuilds against the pinned original and protected corpus"
+                )
+            return built
         if tool == "compare_states":
             return differential(args["case"])
         if tool == "validate_c_function":

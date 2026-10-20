@@ -10,7 +10,16 @@ def main():
         "command",
         nargs="?",
         default="serve",
-        choices=["serve", "verify", "check-function", "learn", "setup", "doctor"],
+        choices=[
+            "serve",
+            "verify",
+            "check-function",
+            "learn",
+            "setup",
+            "doctor",
+            "verify-foundations",
+            "restore",
+        ],
     )
     p.add_argument("--data-dir", default=str(data_home()))
     p.add_argument("--port", type=int, default=0)
@@ -21,9 +30,28 @@ def main():
     p.add_argument("--argument-bits", default="32,32")
     p.add_argument("--output-bits", type=int, choices=[32, 64], default=32)
     p.add_argument("--compiler", default="")
+    p.add_argument(
+        "--backup",
+        help="Workspace ZIP for offline restore into an empty data directory",
+    )
     args = p.parse_args()
     if args.command == "serve":
         serve(args.data_dir, args.port, not args.no_browser)
+    elif args.command == "restore":
+        from hivemind_assembly.core.backups import restore
+        from hivemind_assembly.core.common import InstanceLock
+
+        if not args.backup:
+            p.error("restore requires --backup and an empty --data-dir")
+        print(json.dumps(restore(args.backup, args.data_dir), indent=2))
+    elif args.command == "verify-foundations":
+        from pathlib import Path
+        from hivemind_assembly.application.verification import verify_foundations
+        root = Path(args.data_dir)
+        config = json.loads((root / "settings.json").read_text())
+        result = verify_foundations(root / "private" / "verification", config["foundations"])
+        print(json.dumps(result, indent=2))
+        raise SystemExit(0 if result["passed"] else 1)
     elif args.command == "verify":
         from hivemind_assembly.domains.reverse_engineering.semantics import (
             smoke_cases,

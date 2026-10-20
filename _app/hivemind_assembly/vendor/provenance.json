@@ -1,0 +1,31 @@
+{
+  "ace": {
+    "repository": "https://github.com/ace-agent/ace",
+    "commit": "82709de050e1db6e6ef2f07bcb0393560b94992a",
+    "files": {
+      "LICENSE.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "reflector.py": "72b343ce2781531dac2fd765543410b6abfc4817c39078dd4f83187c4d217e9c",
+      "curator.py": "eb03d59b3f3593832f730a798199b581ad797acd503c47d1737616c68cf26107"
+    },
+    "modifications": "None; native orchestration and protected evaluation live in learning/, outside these retained modules."
+  },
+  "skillopt": {
+    "repository": "https://github.com/microsoft/SkillOpt",
+    "commit": "1a44050fc53aa4938a7a3927b6cca550491bfe51",
+    "files": {
+      "gate.py": "3c2405f13288e97f53afa0bdfc0752ba6917c51edd1904a810deb4b5a1a81bef",
+      "LICENSE": "9515a04280cf50ce154eb3ab8fa375c7cc5e6b45ea5cb23b7ff3830737020c15",
+      "skill.py": "1cb3ecd9da7ab5ea89ad86780f3e4536fcf5cda84455ea6ae8fcc9c86cc73d3f"
+    },
+    "modifications": "None; native orchestration and protected evaluation live in learning/, outside these retained modules."
+  },
+  "shinka": {
+    "repository": "https://github.com/SakanaAI/ShinkaEvolve",
+    "commit": "8adc053a2ce4511ad2ac310e004c530a73fb974a",
+    "files": {
+      "LICENSE": "c3e5b1c26607caf7208d5a105c113fe240630bb873fdb8ca5b4c2e32c721ddaf",
+      "parents.py": "3bd262bdacee19e063758b0712d9c8c792e9c6b5e12b97a522df79a37cba616a"
+    },
+    "modifications": "None; native orchestration and protected evaluation live in learning/, outside these retained modules."
+  }
+}

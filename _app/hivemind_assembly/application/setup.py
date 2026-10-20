@@ -12,7 +12,7 @@ from hivemind_assembly.core.common import (
 PINS = {
     "hermes": {
         "url": "https://github.com/NousResearch/hermes-agent.git",
-        "commit": "ddabd3837862022a6053331fe3ba97cf9716b9e3",
+        "commit": "c0015464f0f40d52c5702a84cf58e70361f4a04c",
     },
     "rea": {
         "url": "https://github.com/morluto/rea.git",
@@ -40,6 +40,9 @@ def install_foundations(root, config_path):
     root = Path(root)
     destination = root / "foundations"
     destination.mkdir(exist_ok=True)
+    from .prerequisites import install_missing
+
+    prerequisites = install_missing()
     if not shutil.which("git"):
         raise Blocked("Install Git for Windows, then retry foundation setup")
     if not shutil.which("node") or not shutil.which("npm"):
@@ -110,12 +113,19 @@ def install_foundations(root, config_path):
     )
     atomic_write(config_path, canonical(cfg))
     atomic_write(destination / "pins.json", canonical(PINS))
+    from .verification import verify_foundations
+
+    verification = verify_foundations(
+        root / "private" / "verification", cfg["foundations"]
+    )
     return {
+        "verification": verification,
         "installed": [
             "Hermes full source",
             "REA full source and package",
             "Ghidra complete distribution",
         ],
         "restart_required": True,
-        "remaining": "Java 21+, native sign-in, exact route calibration and live acceptance",
+        "prerequisites": prerequisites,
+        "remaining": "Native sign-in, exact route calibration and live acceptance",
     }

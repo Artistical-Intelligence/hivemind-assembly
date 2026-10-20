@@ -7,6 +7,7 @@ from hivemind_assembly.core.common import (
     atomic_write,
     canonical,
     Blocked,
+    ContractError,
     identifier,
 )
 
@@ -75,9 +76,92 @@ class GhidraBridge:
 
 
 class ReaBridge:
-    def __init__(self, root, jobs):
+    def __init__(self, root, jobs, ghidra_home=None):
         self.root = Path(root).resolve() if root else None
+        self.ghidra_home = str(Path(ghidra_home).resolve()) if ghidra_home else None
         self.jobs = jobs
+
+    def query(self, target, cwd, args, cancel=None):
+        """Typed static queries; no arbitrary native CLI flags or process attach."""
+        if set(args) - {
+            "path",
+            "action",
+            "selector",
+            "kind",
+            "length",
+            "offset",
+            "limit",
+        }:
+            raise ContractError("Unknown REA query field")
+        action = args.get("action")
+        selector = args.get("selector", "")
+        options = ["--provider", "ghidra"]
+        selector_flags = {
+            "decompile": "procedure",
+            "function": "procedure",
+            "instructions": "procedure",
+            "xrefs": "address",
+            "search": "pattern",
+        }
+        positional = {
+            "read-bytes",
+            "inspect-native-instruction",
+            "resolve-native-call-targets",
+            "trace-native-values",
+        }
+        if action in selector_flags or action in positional:
+            if (
+                not isinstance(selector, str)
+                or not 1 <= len(selector) <= 256
+                or "\x00" in selector
+            ):
+                raise ContractError("REA query needs a bounded selector")
+            if action in selector_flags:
+                options.append("--" + selector_flags[action] + "=" + selector)
+            else:
+                if selector.startswith("-"):
+                    raise ContractError(
+                        "Positional REA selectors cannot start with a dash"
+                    )
+                options.insert(0, selector)
+        elif action != "inspect-native-load-image":
+            raise ContractError("Unsupported static REA query")
+        if action == "search":
+            kind = args.get("kind", "strings")
+            if kind not in ("strings", "procedures"):
+                raise ContractError("REA search kind must be strings or procedures")
+            options += ["--kind", kind, "--mode", "literal"]
+        if action == "read-bytes":
+            length = args.get("length", 256)
+            if type(length) is not int or not 1 <= length <= 16384:
+                raise ContractError("REA byte read must be 1–16384 bytes")
+            options += ["--length", str(length)]
+        if action == "trace-native-values":
+            offset, limit = args.get("offset", 0), args.get("limit", 200)
+            if (
+                type(offset) is not int
+                or not 0 <= offset <= 20000
+                or type(limit) is not int
+                or not 1 <= limit <= 1000
+            ):
+                raise ContractError("Invalid REA trace page bounds")
+            options += [
+                "--max-depth",
+                "3",
+                "--max-functions",
+                "16",
+                "--max-call-sites",
+                "256",
+                "--max-nodes",
+                "5000",
+                "--max-edges",
+                "10000",
+                "--offset",
+                str(offset),
+                "--limit",
+                str(limit),
+            ]
+        return self.run(action, target, cwd, options, cancel)
 
     def run(self, command, target, cwd, args=(), cancel=None):
         allowed = {
@@ -89,6 +173,12 @@ class ReaBridge:
             "analyze-javascript-application",
             "inspect-managed-artifact",
             "inspect-go-binary",
+            "instructions",
+            "inspect-native-load-image",
+            "read-bytes",
+            "inspect-native-instruction",
+            "resolve-native-call-targets",
+            "trace-native-values",
         }
         if command not in allowed:
             raise Blocked(
@@ -105,7 +195,23 @@ class ReaBridge:
         if not node:
             raise Blocked("Node.js is required by REA")
         argv = [node, str(entry), command, str(target), *args, "--json"]
-        job = self.jobs.run(uid("rea"), argv, cwd, timeout=600, cancel=cancel)
+        options = (
+            {"environment": {"GHIDRA_INSTALL_DIR": self.ghidra_home}}
+            if self.ghidra_home
+            else {}
+        )
+        job = self.jobs.run(
+            uid("rea"), argv, cwd, timeout=600, cancel=cancel, **options
+        )
         if job["exit_code"] != 0:
-            raise Blocked("REA failed: " + job["output"][-3000:])
+            # The final portion can be a large unrelated provider catalogue.
+            # Preserve the full bounded output and show its actual error first.
+            error_path = Path(cwd) / (uid("rea-error") + ".json")
+            atomic_write(error_path, job["output"])
+            raise Blocked(
+                "REA failed: "
+                + job["output"][:3000]
+                + "\nFull local output: "
+                + str(error_path)
+            )
         return {"evidence": json.loads(job["output"]), "elapsed": job["elapsed"]}

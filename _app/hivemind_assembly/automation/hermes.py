@@ -4,10 +4,10 @@ from hivemind_assembly.core.common import Blocked, digest
 
 
 class HermesHost:
-    """Additive native-session host using the unmodified Hermes SessionDB.
+    """Native session host and dependency scheduling using unmodified Hermes modules.
 
     Model API clients are never instantiated. The native team state machine is
-    a workbench extension; Hermes owns the retained agent sessions/transcripts.
+    a transport extension; Hermes owns the task graph, claims and retained sessions.
     """
 
     def __init__(self, source, state_root):
@@ -22,6 +22,9 @@ class HermesHost:
             self.db = SessionDB(Path(state_root) / "hermes-sessions.sqlite3")
         except Exception as e:
             raise Blocked("Hermes session host unavailable: " + str(e)) from e
+        from .hermes_board import HermesBoard
+
+        self.board = HermesBoard(state_root)
         self.sessions = {}
 
     def ensure_role(self, role, conversation):

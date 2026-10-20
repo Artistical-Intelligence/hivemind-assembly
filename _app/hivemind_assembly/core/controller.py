@@ -15,6 +15,9 @@ class Controller:
 
     def __init__(self, store):
         self.store = store
+        from hivemind_assembly.core.traces import Traces
+
+        self.traces = Traces(store)
 
     def acquire(self, task_id, owner, seconds=300):
         with self.store.tx() as c:
@@ -26,6 +29,16 @@ class Controller:
                 "awaiting_acceptance",
             ):
                 raise Blocked("Task is not runnable")
+            if c.execute(
+                "SELECT 1 FROM tasks WHERE project_id=? AND id<>? AND owner IS NOT NULL AND lease_until>?",
+                (t["project_id"], task_id, time.time()),
+            ).fetchone():
+                raise Blocked("Another task holds this project's writer lease")
+            if c.execute(
+                "SELECT 1 FROM operations o JOIN tasks t ON o.task_id=t.id WHERE t.project_id=? AND o.task_id<>? AND o.state IN ('running','uncertain','applied')",
+                (t["project_id"], task_id),
+            ).fetchone():
+                raise Blocked("A sibling task has an unresolved project mutation")
             pending = c.execute(
                 "SELECT id FROM operations WHERE task_id=? AND state IN ('running','uncertain','applied')",
                 (task_id,),
@@ -302,10 +315,28 @@ class Controller:
                     now,
                 ),
             )
+            self.traces.append(
+                task,
+                key,
+                route,
+                "request",
+                {"conversation": conversation, "body": payload},
+                connection=c,
+            )
         return self.store.one("SELECT * FROM messages WHERE id=?", (key,))
 
     def message_state(self, key, state, response=None):
         with self.store.tx() as c:
+            message = c.execute("SELECT * FROM messages WHERE id=?", (key,)).fetchone()
+            if message:
+                self.traces.append(
+                    message["task_id"],
+                    key,
+                    message["route"],
+                    "message_state",
+                    {"state": state, "response": response},
+                    connection=c,
+                )
             c.execute(
                 "UPDATE messages SET state=?,response=COALESCE(?,response),updated=? WHERE id=?",
                 (state, response, time.time(), key),

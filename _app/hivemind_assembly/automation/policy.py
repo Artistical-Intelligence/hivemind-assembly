@@ -142,6 +142,28 @@ class UsagePolicy:
 
 
 def validate_config(config):
+    github = config.get("github", {})
+    if not isinstance(github, dict) or set(github) - {
+        "allow_repository_creation",
+        "allowed_organizations",
+    }:
+        raise ContractError(
+            "GitHub settings accept creation permission and allowed organizations only; credentials belong in the OS credential store."
+        )
+    if type(github.get("allow_repository_creation", False)) is not bool:
+        raise ContractError(
+            "GitHub repository creation permission must be true or false."
+        )
+    orgs = github.get("allowed_organizations", [])
+    import re
+
+    if not isinstance(orgs, list) or any(
+        not isinstance(o, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}", o)
+        for o in orgs
+    ):
+        raise ContractError(
+            "Allowed GitHub organizations must be a list of organization names."
+        )
     if config.get("profile") != "native_autonomous":
         raise ContractError("Expected native_autonomous profile")
     if (

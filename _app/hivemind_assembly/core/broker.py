@@ -21,11 +21,12 @@ CORE_CAPABILITIES = (
     Capability("checkpoint", recovery="discard"),
     Capability("read_artifact", recovery="discard"),
     Capability("run_workflow", recovery="discard"),
+    Capability("propose_workflow", recovery="discard"),
 )
 
 
 class Broker:
-    def __init__(self, controller, config, domain=None):
+    def __init__(self, controller, config, domain=None, repositories=None):
         self.controller = controller
         self.store = controller.store
         self.config = config
@@ -33,7 +34,20 @@ class Broker:
         self.jobs = Jobs()
         self.cancel = {}
         self.domain = domain
-        specs = (*CORE_CAPABILITIES, *(domain.capabilities if domain else ()))
+        self.repositories = repositories
+        repository_specs = (
+            (
+                Capability("create_repository", True, "reconcile"),
+                Capability("repository_status", recovery="discard"),
+            )
+            if repositories
+            else ()
+        )
+        specs = (
+            *CORE_CAPABILITIES,
+            *repository_specs,
+            *(domain.capabilities if domain else ()),
+        )
         self.capabilities = {spec.name: spec for spec in specs}
         if len(self.capabilities) != len(specs):
             raise ContractError("Domain capability collides with an existing operation")
@@ -75,6 +89,9 @@ class Broker:
         cancel = self.cancel.setdefault(task, threading.Event())
         effect_started = False
         try:
+            self.controller.traces.append(
+                task, request["id"], request["owner"], "tool_request", request
+            )
             if cancel.is_set():
                 raise Blocked("Task cancelled")
             if tool == "list_files":
@@ -170,6 +187,20 @@ class Broker:
                     "data": base64.b64encode(data[start : start + length]).decode(),
                     "complete": start == 0 and length >= len(data),
                 }
+            elif tool == "propose_workflow":
+                if not self.domain or not hasattr(self.domain, "workflow_runner"):
+                    raise Blocked("No executable workflow evaluator for this domain")
+                from hivemind_assembly.learning.workflows import WorkflowLearning
+
+                result = WorkflowLearning(
+                    self.store, self.domain.workflow_runner()
+                ).propose_variant(
+                    task,
+                    args["baseline"],
+                    args["plan"],
+                    args["evidence"],
+                    request["id"],
+                )
             elif tool == "run_workflow":
                 if not self.domain or not hasattr(self.domain, "workflow_runner"):
                     raise Blocked("No executable workflow engine for this domain")
@@ -178,11 +209,25 @@ class Broker:
                 result = WorkflowLearning(
                     self.store, self.domain.workflow_runner()
                 ).execute(args["lesson"], args.get("inputs", {}))
+            elif tool == "create_repository" and self.repositories:
+                result = self.repositories.create(
+                    self.store.task(task)["project_id"], request["id"], args, cancel
+                )
+                effect_started = True
+            elif tool == "repository_status" and self.repositories:
+                result = self.repositories.status(self.store.task(task)["project_id"])
             elif self.domain:
                 effect_started = tool in self.mutations
                 result = self.domain.execute(self.context(task), request)
             else:
                 raise Blocked("Unknown capability")
+            emitted = result.pop("_artifact", None)
+            if emitted is not None:
+                result["executable_artifact"] = self.artifacts.add(
+                    emitted["data"],
+                    emitted["name"],
+                    self.store.task(task)["project_id"],
+                )["id"]
             artifact = self.artifacts.add(
                 canonical(result),
                 request["id"] + ".json",
@@ -191,9 +236,23 @@ class Broker:
             result["result_artifact"] = artifact["id"]
             result["operation_id"] = request["id"]
             self.controller.finish(request["id"], result, tool in self.mutations)
+            self.controller.traces.append(
+                task, request["id"], request["owner"], "tool_result", result
+            )
             return result
         except BaseException as e:
+            if tool == "create_repository" and self.repositories:
+                effect_started = self.repositories.uncertain(
+                    self.store.task(task)["project_id"], request["id"]
+                )
             self.controller.fail(request["id"], e, uncertain=effect_started)
+            self.controller.traces.append(
+                task,
+                request["id"],
+                request["owner"],
+                "tool_error",
+                {"error": str(e), "uncertain": effect_started},
+            )
             raise
 
     def reconcile_file(self, op_id):
@@ -249,14 +308,21 @@ class Broker:
         op = self.store.one("SELECT * FROM operations WHERE id=?", (op_id,))
         spec = self.capabilities.get(op["tool"])
         if (
-            not self.domain
+            not (
+                self.domain or (op["tool"] == "create_repository" and self.repositories)
+            )
             or not spec
             or not spec.mutates_project
             or spec.recovery != "reconcile"
             or op["state"] != "uncertain"
         ):
             raise ContractError("Not an uncertain reconcilable domain mutation")
-        observed = self.domain.reconcile(self.context(op["task_id"]), op)
+        if op["tool"] == "create_repository" and self.repositories:
+            observed = self.repositories.reconcile(
+                self.store.task(op["task_id"])["project_id"], op_id
+            )
+        else:
+            observed = self.domain.reconcile(self.context(op["task_id"]), op)
         if observed.get("status") == "not_applied":
             self.controller.fail(
                 op_id, "Domain evidence confirms operation was not applied"
@@ -264,6 +330,11 @@ class Broker:
             return observed
         if observed.get("status") != "saved":
             raise Blocked("Domain has not confirmed a durable save")
+        artifact = self.artifacts.add(
+            canonical(observed),
+            op_id + ".json",
+            self.store.task(op["task_id"])["project_id"],
+        )
         with self.store.tx() as c:
             task = dict(
                 c.execute("SELECT * FROM tasks WHERE id=?", (op["task_id"],)).fetchone()
@@ -280,6 +351,7 @@ class Broker:
                 "status": "saved",
                 "reconciled": True,
                 "operation_id": op_id,
+                "result_artifact": artifact["id"],
             }
             c.execute(
                 "UPDATE operations SET state='saved',result=? WHERE id=?",
@@ -291,7 +363,7 @@ class Broker:
             )
             c.execute("UPDATE tasks SET brief_id=NULL WHERE id=?", (task["id"],))
             self.store.event(
-                task["id"], "native_save_reconciled", {"operation": op_id}, c
+                task["id"], "operation_save_reconciled", {"operation": op_id}, c
             )
         return result
 

@@ -11,7 +11,7 @@ class Jobs:
         self.running = {}
         self.lock = threading.Lock()
 
-    def run(self, key, argv, cwd, timeout=300, cancel=None):
+    def run(self, key, argv, cwd, timeout=300, cancel=None, environment=None):
         if not argv or not all(isinstance(x, str) for x in argv):
             raise ContractError("Expected an argv array")
         env = {
@@ -31,6 +31,12 @@ class Jobs:
                 "LOCALAPPDATA",
             )
         }
+        if environment:
+            if set(environment) - {"GHIDRA_INSTALL_DIR", "JAVA_HOME"}:
+                raise ContractError("Unrecognized native tool environment setting")
+            if any(not isinstance(v, str) for v in environment.values()):
+                raise ContractError("Native tool environment values must be paths")
+            env.update(environment)
         flags = (
             {"start_new_session": True}
             if os.name != "nt"

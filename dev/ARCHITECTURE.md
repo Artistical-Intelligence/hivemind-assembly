@@ -46,7 +46,7 @@ remain the implementation, with no compulsory MCP or HTTP intermediate step.
 MCP and other harness adapters are future integrations, not prerequisites for
 the initial application. The small text-counting test domain only verifies
 dependency boundaries; it is not a second application or a claim of cross-domain
-learning. Donor optimizer grafting and broad cross-project improvement remain unfinished.
+learning. Selected donor optimizer modules are integrated; broad cross-project improvement remains unverified.
 
 ## Independent acceptance and workflow learning
 
@@ -94,3 +94,114 @@ evidence. A passing mock or corpus compilation is not live acceptance. Keep
 historical integration evidence separate from checks executed on the current
 version. Correctness, specialist coverage and measured speed take priority over
 portability abstractions.
+
+## Repository provisioning
+
+`core.repositories.Repositories` owns a durable, project-scoped primary
+repository record. It is injected into the broker independently of any domain.
+`integrations.github` supplies GitHub.com device authorization, OS credential
+storage and the repository HTTP client. The application composes them and
+exposes sign-in, creation policy and project controls. Native workers use the
+same fenced `create_repository` operation as the user-facing project action.
+
+Creation calls GitHub's REST repository endpoint directly, as its official MCP
+server does. ChatGPT plugin credentials are not exported or inherited. Local
+installations use an owner-controlled OAuth app with Device Flow enabled,
+request `repo`, obey the device polling interval and `slow_down`,
+and refresh expiring tokens. Only the OS vault contains access/refresh tokens.
+The account ID is checked after authorization/refresh and before provisioning;
+a request retains the same credential through its external operations.
+
+Before POST, HA reserves the project/name and durably records intent. A random
+nonce temporarily accompanies the repository description, allowing a lost
+creation response to be distinguished from an unrelated repository. Once the
+repository ID is durable, HA removes the nonce and verifies the final metadata.
+A lost cleanup response is reconciled by ID without recreating the repository.
+The nonce never enters source files or commits. No README is initialized.
+Read-back verifies owner/name, numeric identity, private visibility and push
+permission. Existing names are never adopted or overwritten. An inaccessible
+repository after an uncertain write is not evidence that creation failed.
+
+Successful provisioning advances the project revision and invalidates the
+brief. Reconciliation retains writer epoch and revision checks, result artifacts
+and immutable operation bindings. Repeated deliveries and concurrent requests
+reuse a project's recorded repository. Definite GitHub rejections are distinct
+from transport uncertainty. Organization creation is restricted by local
+allowlist and GitHub permissions. Automatic public publication, deletion,
+source upload and arbitrary GitHub API access are not exposed by this capability.
+
+References:
+- https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps
+- https://docs.github.com/en/rest/repos/repos#create-a-repository-for-the-authenticated-user
+- https://github.com/github/github-mcp-server/blob/main/docs/host-integration.md
+- https://keyring.readthedocs.io/en/latest/
+
+
+## v0.5 integration additions
+
+`core.traces` retains owner-only transport snapshots before parsing and tool
+request/result/error events. Browser turn order associates replies independently
+of echoed IDs. The authenticated local UI supports search, annotations and JSONL
+exports; optional OTLP export is loopback-only and does not own capture.
+
+`integrations.github_setup` uses a dedicated visible profile, retained registration
+intent, unique local app name and explicit GitHub origin/account checks. Only the
+public Client ID is persisted in setup metadata. Device credentials remain in the
+OS vault. Browser authentication and UI changes remain live acceptance boundaries.
+
+`automation.hermes_board` uses the complete pinned Hermes Kanban implementation
+for dependencies and claims. HA's per-project writer lease protects the domain
+workspace. Plan intent, publication and flow handoff have separate idempotent
+records so incomplete cross-database publication can be resumed. The native
+state machine is an inference-transport extension; upstream API workers are not
+launched. This integration still needs end-to-end native provider acceptance.
+
+`domains.reverse_engineering.program` links cumulative C translation units into
+static x86-64 ELF images and replays read/write/exit/clock effects under Unicorn.
+`program_acceptance` protects the original and input corpus, rebuilds from the
+actual manifest and sources, and rechecks every source hash before committing
+acceptance. Detailed sealed observations remain protected artifacts.
+
+`learning.campaigns` integrates ACE prompts and SkillOpt patch application with
+native adviser turns. `learning.experiments` accepts trusted host evaluators,
+uses family/project-disjoint holdouts and paired timing, and retains measured
+candidates for Shinka parent selection. `propose_workflow` evaluates native
+workflow revisions only against an already-bound protected suite, with a bounded
+evaluation budget. This is not a claim of tested native cross-project improvement.
+
+`core.backups` verifies a portable snapshot of owned workspace data, including
+SQLite snapshots for controller and Hermes state. Offline restoration is locked,
+requires an empty directory and verifies content while writing. OS credentials,
+browser sessions and installed foundations are excluded.
+
+
+## Native lifecycle and protected rollouts
+
+`automation.providers` discovers exact visible controls, excluding conversation
+content from identity evidence. `sessions` journals creation intent, binds only
+persistent provider conversation IDs, and verifies upload/download canaries
+before committing replacement bindings. Validated old turns are consumed before
+renewal. A draft whose send is uncertain is reconciled without another dispatch.
+`webmcp` uses a fixed allowlist of current, same-origin public UI tools and never
+falls back after a tool dispatch. The DOM transport remains available otherwise.
+
+`learning.native_rollouts` separates treatment/input from local expected output,
+uses fresh trial sessions, retains each paired sample, and resumes quota waits.
+Trial requests share project usage reservations. Permission revocation prevents
+the next send and promotion. Interrupted timings cannot justify speed-only
+promotion. Completed trial tabs close; retained messages and traces remain.
+Compiler, verifier and corpus identities bind results to an evaluator version.
+Provider account-wide memory isolation still needs live acceptance evidence.
+
+`platform_runtime` delegates Linux ELF/OS behavior to complete Qiling 1.4.6.
+A dispatcher guard restricts syscalls, paths, guest memory permissions, total
+memory/files/I/O and execution. Each run gets a fresh declared rootfs. Unknown
+effects stop execution. Protected program acceptance compares file outputs,
+memory, stream results and declared effects across original and rebuilt images.
+This does not provide dynamic Windows/game/graphics compatibility.
+
+Installation performs source-known native foundation checks and saves partial
+results when a foundation is blocked. Ghidra context export and batched
+reconstruction do not modify the complete upstream distributions. The Windows
+wheel closure includes a hash-verified unmodified unicodecsv wheel and original
+source archive so source releases can reproduce the launcher dependencies.

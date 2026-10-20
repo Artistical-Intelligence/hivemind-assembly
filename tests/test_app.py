@@ -137,3 +137,71 @@ def test_single_host_owner(tmp_path):
             Application(tmp_path / "one-host")
     finally:
         a.close()
+
+
+def test_github_repository_dashboard_action_uses_broker_and_persists(app, monkeypatch):
+    from test_repositories import GitHubFixture
+
+    remote = GitHubFixture()
+    monkeypatch.setattr(app.repositories, "client", remote)
+    app.action(
+        "/api/github/settings",
+        {"allow_repository_creation": True, "allowed_organizations": []},
+    )
+    task = app.action(
+        "/api/project",
+        {"name": "coding", "objective": "Build a utility", "start_paused": True},
+    )
+    data = {"task": task["id"], "repository": {"name": "utility"}}
+    result = app.action("/api/github/repository", data)
+    assert result["private"] is True
+    assert app.store.task(task["id"])["status"] == "paused"
+    assert app.store.task(task["id"])["owner"] is None
+    assert app.status()["repositories"][0]["state"] == "verified"
+    assert (
+        app.store.one("SELECT * FROM operations WHERE id=?", (result["operation_id"],))[
+            "state"
+        ]
+        == "saved"
+    )
+    assert (
+        app.action("/api/github/repository", data)["repository_id"]
+        == result["repository_id"]
+    )
+    assert remote.creates == 1
+    assert json.loads(app.config_path.read_text())["github"][
+        "allow_repository_creation"
+    ]
+
+
+def test_github_uncertain_dashboard_recovery(app, monkeypatch):
+    from test_repositories import GitHubFixture
+    from workbench.common import Blocked
+
+    remote = GitHubFixture()
+    remote.create_failure = "after_effect"
+    monkeypatch.setattr(app.repositories, "client", remote)
+    app.action("/api/github/settings", {"allow_repository_creation": True})
+    task = app.action(
+        "/api/project",
+        {"name": "recover", "objective": "Investigate", "start_paused": True},
+    )
+    data = {"task": task["id"], "repository": {"name": "recover"}}
+    with pytest.raises(Blocked):
+        app.action("/api/github/repository", data)
+    assert app.store.task(task["id"])["status"] == "paused"
+    with pytest.raises(Blocked, match="Reconcile"):
+        app.action("/api/github/repository", data)
+    op = app.store.one("SELECT id FROM operations WHERE task_id=?", (task["id"],))
+    assert app.action("/api/reconcile", {"operation": op["id"]})["reconciled"]
+    assert remote.creates == 1
+
+
+def test_github_credentials_rejected_from_settings(app):
+    old = app.config_path.read_bytes()
+    with pytest.raises(ValueError, match="credentials"):
+        app.action(
+            "/api/github/settings",
+            {"allow_repository_creation": True, "access_token": "do-not-save"},
+        )
+    assert app.config_path.read_bytes() == old

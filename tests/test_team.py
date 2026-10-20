@@ -119,3 +119,41 @@ def test_promotion_retains_flow_and_rebriefs(store):
     assert store.task(t["id"])["owner"] == "worker.opus"
     assert store.task(t["id"])["epoch"] > old
     assert team.flow(t["id"])["phase"] == "brief"
+
+
+def test_retained_reply_survives_conversation_renewal_without_new_send(store):
+    from hivemind_assembly.core.common import digest
+
+    cfg = json.loads(
+        (Path(__file__).parents[1] / "_app/config/default.json").read_text()
+    )
+    route = "worker.extra"
+    cfg["routes"][route]["conversation_url"] = "https://chatgpt.com/c/replacement"
+    c = Controller(store)
+    task = store.create_project("recovery", "consume the saved result")
+    c.acquire(task["id"], route)
+    task = store.task(task["id"])
+    flow = {"seq": 4, "phase": "tool"}
+    key = (
+        "msg_"
+        + digest({"task": task["id"], "flow": 4, "phase": "tool", "route": route})[:32]
+    )
+    message = c.prepare_message(
+        task["id"], route, "https://chatgpt.com/c/original", {"revision": 0}, key
+    )
+    response = {
+        "request_id": key,
+        "type": "complete",
+        "summary": "saved before renewal",
+    }
+    c.message_state(message["id"], "validated", json.dumps(response))
+
+    class Sessions:
+        async def ensure(self, *args):
+            raise AssertionError("A validated turn must not trigger renewal")
+
+    native = FixtureNative()
+    team = NativeTeam(c, Broker(c, cfg), native, cfg)
+    team.sessions = Sessions()
+    assert asyncio.run(team.ask(task, flow, route, {})) == response
+    assert native.calls == []

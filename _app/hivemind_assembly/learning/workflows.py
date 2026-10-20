@@ -266,8 +266,34 @@ class WorkflowLearning:
             and no_slowdown
             and speed_gain >= min_speed_gain,
         }
+        from .experiments import EvolutionArchive
+        from hivemind_assembly.vendor.skillopt.gate import evaluate_gate
+
+        gate = evaluate_gate(
+            canonical(payload["content"]),
+            (1 if eligible_correct else 0) + max(0, speed_gain) * 0.001,
+            canonical(payload["baseline"]),
+            1,
+            canonical(payload["baseline"]),
+            1,
+            0,
+            1,
+        )
+        result["skillopt_gate"] = gate.action
+        result["eligible"] &= gate.action != "reject"
         key = uid("evaluation")
         self.store.put("evaluation", key, result)
+        archive = EvolutionArchive(self.store)
+        parent = archive.parent(row["asset_key"], self.runner.fingerprint)
+        archive.record(
+            row["asset_key"],
+            payload["content"],
+            self.runner.fingerprint,
+            key,
+            eligible_correct,
+            (1 if eligible_correct else 0) + max(0, speed_gain) * 0.001,
+            parent["id"] if parent else None,
+        )
         return {
             "evaluation": key,
             "eligible": result["eligible"],
@@ -291,3 +317,56 @@ class WorkflowLearning:
             "version": row["version"],
             "outputs": self.runner.run(payload["content"], inputs),
         }
+
+    def propose_variant(self, task, baseline_id, plan, evidence, operation_id):
+        """Native-model proposals use the registered evaluator, never supplied scores."""
+        self.runner.validate(plan)
+        base = self.store.one("SELECT * FROM lessons WHERE id=?", (baseline_id,))
+        payload = json.loads(base["payload"])
+        if (
+            base["status"] != "active"
+            or base["kind"] != "executable"
+            or payload.get("engine") != self.runner.fingerprint
+            or not payload.get("external_allowed")
+        ):
+            raise Blocked(
+                "Workflow revision requires an active, current, externally authorized baseline"
+            )
+        if not isinstance(evidence, list) or not 1 <= len(evidence) <= 24:
+            raise ContractError("Workflow revision requires bounded execution evidence")
+        for key in evidence:
+            op = self.store.one(
+                "SELECT state FROM operations WHERE id=? AND task_id=?", (key, task)
+            )
+            if op["state"] not in ("completed", "saved"):
+                raise Blocked(
+                    "Workflow evidence must be completed operations from this task"
+                )
+        suite = self.store.get(
+            "workflow_suite", base["asset_key"] + ":" + self.runner.fingerprint
+        )["artifact"]
+        # Repeated probing of a fixed holdout is not an unlimited optimization oracle.
+        used = self.store.rows(
+            "SELECT id FROM records WHERE kind='evaluation' AND json_extract(payload,'$.suite')=?",
+            (suite,),
+        )
+        if len(used) >= 8:
+            raise Blocked(
+                "This protected suite has reached its evaluation budget; a fresh family-disjoint suite is required"
+            )
+        candidate = self.learning.propose(
+            base["asset_key"],
+            "executable",
+            {
+                **payload,
+                "content": plan,
+                "baseline": payload["content"],
+                "evidence": sorted(set(payload["evidence"]) | set(evidence)),
+                "parent_lesson": baseline_id,
+            },
+            identity="lesson_" + digest(operation_id)[:32],
+        )
+        result = self.evaluate(candidate, suite)
+        if result["eligible"]:
+            self.learning.promote(candidate, result["evaluation"], "evaluator")
+        return {**result, "candidate": candidate, "promoted": result["eligible"]}

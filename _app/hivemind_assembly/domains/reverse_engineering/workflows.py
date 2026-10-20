@@ -90,7 +90,17 @@ def optimize_repeated_proofs(store):
                 "expected": [{"result": result}] * 3,
             }
         )
-    suite = service.protect_suite(cases)
+    binding = "repeated-region-proofs:" + service.runner.fingerprint
+    retained = store.rows(
+        "SELECT payload FROM records WHERE kind='workflow_suite' AND id=?", (binding,)
+    )
+    suite = (
+        json.loads(retained[0]["payload"])["artifact"]
+        if retained
+        else service.protect_suite(cases)
+    )
+    if not retained:
+        store.put("workflow_suite", binding, {"artifact": suite})
     candidate = service.propose(
         "repeated-region-proofs", baseline, [suite], external_allowed=True
     )

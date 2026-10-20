@@ -1,0 +1,11 @@
+unicodecsv 0.14.1 — Jeremy Dunck and contributors
+Upstream: https://github.com/jdunck/python-unicodecsv
+Distribution: https://pypi.org/project/unicodecsv/0.14.1/
+License declared by upstream: BSD License (see original setup.py and PKG-INFO).
+
+The original source distribution is retained alongside a locally built,
+unmodified pure-Python wheel. The wheel is needed because Qiling depends on
+unicodecsv and the Windows launcher installs binary distributions only.
+No unicodecsv implementation has been changed. Upstream metadata, author
+attribution, documentation and all packaged source files are preserved.
+The release builder verifies the wheel's SHA-256 before packaging.
