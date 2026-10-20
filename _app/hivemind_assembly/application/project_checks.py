@@ -78,7 +78,7 @@ def starter(app, kind, request_id, allow_native=False):
         "[A-Za-z0-9_-]{16,80}", request_id
     ):
         raise ValueError("A stable starter request ID is required")
-    if kind not in ("registers", "native_python", "linked_arm64"):
+    if kind not in ("registers", "native_python", "linked_arm64", "program_arm64"):
         raise ValueError("Unknown starter project")
     if kind == "native_python" and allow_native is not True:
         raise Blocked(
@@ -100,6 +100,7 @@ def starter(app, kind, request_id, allow_native=False):
                 "registers": "Register reconstruction",
                 "native_python": "Native tool reconstruction",
                 "linked_arm64": "AArch64 function reconstruction",
+                "program_arm64": "AArch64 program reconstruction",
             }[kind],
             "Reconstruct the supplied example and verify its behavior independently.",
             paused=True,
@@ -112,6 +113,8 @@ def starter(app, kind, request_id, allow_native=False):
     image = None
     if kind == "linked_arm64":
         files, contract, image = arm64_example(app)
+    elif kind == "program_arm64":
+        files, contract, image = arm64_program_example(app)
     elif kind == "registers":
         files = {
             "original.hex": "89f801f0\n",
@@ -256,3 +259,42 @@ U recovered(unsigned *p, U count, U salt) {
         "cases": cases,
     }
     return files, contract, bytes.fromhex(built["image_hex"])
+
+
+def arm64_program_example(app):
+    """A full static source-known ARM program and an editable x64 reconstruction."""
+    import tempfile
+    from pathlib import Path
+    from hivemind_assembly.domains.reverse_engineering.program import build
+
+    original = """unsigned char state;
+int ha_main(void) {
+    unsigned char input[32]; long n;
+    while ((n = ha_read(input, 32)) > 0) {
+        for (long i = 0; i < n; ++i) {
+            state = (state * 3 + input[i]) % 251;
+            input[i] = state;
+        }
+        ha_write(input, n);
+    }
+    return 0;
+}
+"""
+    candidate = original.replace("state * 3", "state + state + state")
+    with tempfile.TemporaryDirectory(prefix="ha-arm-program-example-") as folder:
+        root = Path(folder)
+        (root / "original.c").write_text(original, encoding="utf-8")
+        built = build(root, {"sources": ["original.c"], "architecture": "aarch64", "optimization": "O0"}, app.broker.jobs, app.config.get("foundations", {}).get("c_compiler", ""))
+        if not built["passed"]:
+            raise Blocked("AArch64 program example needs working Clang/LLD: " + str(built.get("build")))
+    files = {
+        "original.c": original,
+        "candidate.c": candidate,
+        "manifest.json": json.dumps({"sources": ["candidate.c"], "architecture": "x86_64", "optimization": "O2"}, indent=2) + "\n",
+        "README.txt": "The original is a complete static AArch64 Linux program. The editable reconstruction targets x86-64 and processes the same input stream across multiple reads. Run checks, change state + state + state to state + state, save and rerun to see a mismatch. Set architecture to aarch64 in manifest.json to rebuild for ARM. Original bytes and cases remain protected. Target execution is emulated: streams, exit, explicit argv/env and clock only; no ARM filesystem, dynamic loader or OS services.\n",
+    }
+    contract = {
+        "scope": "linux_program", "original_path": "original.elf", "manifest_path": "manifest.json",
+        "cases": [{"id": "case-" + str(i), "input_hex": data.hex()} for i, data in enumerate((b"", b"Hivemind Assembly", bytes(range(256)), b"\xff" * 129))],
+    }
+    return files, contract, bytes.fromhex(built["elf_hex"])

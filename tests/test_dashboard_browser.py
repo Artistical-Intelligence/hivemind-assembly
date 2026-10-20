@@ -134,7 +134,15 @@ def test_oauth_dashboard_requests_session_default_and_disconnect(
         expect(page.locator('#mcp-oauth [name="remember"]')).not_to_be_checked()
         page.get_by_role("button", name="Connect with browser", exact=True).click()
         expect(page.locator("#mcp-oauth-status")).to_contain_text("authorization")
-        assert calls == [("fixture", False, None, 0)]
+        assert calls == [("fixture", False, None, 0, "")]
+        page.locator('#mcp-oauth summary').click()
+        page.locator('#mcp-oauth [name="client_metadata_url"]').fill('https://ha.example/client.json')
+        page.locator('#mcp-oauth [name="port"]').fill('40001')
+        page.locator('#mcp-metadata-generate').click()
+        expect(page.locator('#mcp-metadata-document')).to_contain_text('http://127.0.0.1:40001/oauth/callback')
+        with page.expect_response(lambda response: response.url.endswith('/api/mcp/authorize')):
+            page.get_by_role("button", name="Connect with browser", exact=True).click()
+        assert calls[-1] == ('fixture', False, None, 40001, 'https://ha.example/client.json')
         page.locator("#mcp-oauth-forget").click()
         expect(page.locator("#notice")).to_contain_text("removed from HA")
         assert app.connections.settings()["servers"]["fixture"]["auth"] == "none"
@@ -233,7 +241,8 @@ def test_tag_scope_and_optional_learning_controls(server, app, tmp_path):
         browser.close()
 
 
-def test_aarch64_example_to_x86_candidate_checks(server, app):
+@pytest.mark.parametrize("button,old,new", [("Create AArch64 example", "x << 5", "x << 4"), ("Create AArch64 program example", "state + state + state", "state + state")])
+def test_aarch64_example_to_x86_candidate_checks(server, app, button, old, new):
     import shutil
     from playwright.sync_api import sync_playwright, expect
 
@@ -252,14 +261,14 @@ def test_aarch64_example_to_x86_candidate_checks(server, app):
         page.on("pageerror", lambda e: errors.append(str(e)))
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
         page.locator('[data-tab="workspace"]').click()
-        page.get_by_role("button", name="Create AArch64 example", exact=True).click()
+        page.get_by_role("button", name=button, exact=True).click()
         expect(page.locator("#file-path")).to_have_value("candidate.c", timeout=30000)
         page.locator("#workspace-check").click()
         expect(page.locator("#workspace-result-summary")).to_contain_text(
             "Checks passed", timeout=30000
         )
         code = page.locator("#file-editor").input_value()
-        page.locator("#file-editor").fill(code.replace("x << 5", "x << 4"))
+        page.locator("#file-editor").fill(code.replace(old, new))
         page.locator("#file-save").click()
         expect(page.locator("#file-draft")).to_have_text("Saved on disk")
         page.locator("#workspace-check").click()

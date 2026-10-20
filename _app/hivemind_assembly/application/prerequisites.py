@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import re
+import ntpath
 from pathlib import Path
 from hivemind_assembly.core.common import Blocked
 
@@ -21,7 +22,18 @@ def refresh_windows_path():
         return
     import winreg
 
-    paths = [os.environ.get("PATH", "")]
+    # Preserve working explicit/tool-runner selections; a registry default must
+    # not downgrade a usable Node/JDK while refreshing an unrelated installation.
+    working = []
+    for name in ("git", "node", "java", "clang", "gh"):
+        if available(name):
+            executable = shutil.which(name)
+            if name == "java" and os.environ.get("JAVA_HOME"):
+                working.append(str(Path(os.environ["JAVA_HOME"]) / "bin"))
+            elif executable:
+                working.append(str(Path(executable).resolve().parent))
+    paths = []
+    homes = []
     for hive, key in (
         (
             winreg.HKEY_LOCAL_MACHINE,
@@ -31,14 +43,34 @@ def refresh_windows_path():
     ):
         try:
             with winreg.OpenKey(hive, key) as handle:
-                paths.append(os.path.expandvars(winreg.QueryValueEx(handle, "Path")[0]))
+                try:
+                    paths.append(winreg.QueryValueEx(handle, "Path")[0])
+                except OSError:
+                    pass
+                try:
+                    homes.append(winreg.QueryValueEx(handle, "JAVA_HOME")[0])
+                except OSError:
+                    pass
         except OSError:
             pass
-    os.environ["PATH"] = ";".join(paths)
+    # A just-installed JDK can update JAVA_HOME and PATH in the registry while
+    # this running process still sees an older JRE. Apply fresh registry values
+    # before expanding references, with the user value taking precedence.
+    if homes and not available("java"):
+        os.environ["JAVA_HOME"] = ntpath.expandvars(homes[-1])
+    paths = [*working, *paths, os.environ.get("PATH", "")]
+    unique = {}
+    for path in paths:
+        for entry in ntpath.expandvars(path).split(";"):
+            if entry:
+                unique.setdefault(entry.casefold(), entry)
+    os.environ["PATH"] = ";".join(unique.values())
 
 
 def available(name):
     path = shutil.which(name)
+    if name == "java" and os.environ.get("JAVA_HOME"):
+        path = str(Path(os.environ["JAVA_HOME"]) / "bin" / ("java.exe" if os.name == "nt" else "java"))
     if not path:
         return False
     if name not in ("node", "java"):
@@ -63,16 +95,9 @@ def available(name):
             # requires 24.11+, and does not support the intervening 25.x line.
             valid = (major == 24 and minor >= 11) or major >= 26
         if name == "java" and valid:
-            java_home = os.environ.get("JAVA_HOME")
-            compiler = (
-                str(
-                    Path(java_home)
-                    / "bin"
-                    / ("javac.exe" if os.name == "nt" else "javac")
-                )
-                if java_home
-                else shutil.which("javac")
-            )
+            # A separate javac found on PATH cannot turn an old/runtime-only
+            # Java installation into the full JDK that Ghidra will actually use.
+            compiler = str(Path(path).resolve().with_name("javac.exe" if os.name == "nt" else "javac"))
             if not compiler or not Path(compiler).is_file():
                 return False
             checked = subprocess.run(
@@ -83,6 +108,7 @@ def available(name):
                 checked.returncode == 0
                 and version is not None
                 and int(version.group(1)) >= 21
+                and int(version.group(1)) == int(match.group(1))
             )
         return valid
     except (OSError, subprocess.TimeoutExpired):
@@ -98,6 +124,9 @@ def install_missing(extra=()):
     if not shutil.which("clang") and (os.name == "nt" or not shutil.which("gcc")):
         required.append("clang")
     missing = [name for name in required if not available(name)]
+    if missing and os.name == "nt":
+        refresh_windows_path()
+        missing = [name for name in required if not available(name)]
     if not missing:
         return {"installed": []}
     if os.name != "nt":

@@ -228,7 +228,7 @@ pins the original, seals cases, independently rebuilds every source and rechecks
 source/manifest hashes. The AArch64 adapter pins a Cortex-A57 CPU, admits static
 little-endian ELF and standard ARM64 PE, checks x19-x29/SP and the low halves of v8-v15, and reserves x18.
 System instructions are rejected before execution; ordinary BR/BLR/RET and NOP
-remain supported. Whole-program Linux replay retains its x86-64-only loader.
+remain supported. Static whole-program Linux replay selects x86-64 or AArch64 from validated ELF headers; the x86-64-only loader default is preserved for callers that request it. ARM uses the existing Cortex-A57 instruction policy with Linux SVC #0 routed to bounded stream/exit/clock handling. Unknown calls never reach the host. Shared process setup, protected acceptance and cross-architecture comparisons remain in the existing program lane.
 The workflow engine fingerprint includes the ARM adapter. This is function
 reconstruction, not a Windows or ARM OS runtime.
 

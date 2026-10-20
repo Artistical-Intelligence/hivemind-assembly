@@ -208,6 +208,10 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
     if abi not in ABIS:
         raise ContractError("ABI must be sysv, win64, aapcs64 or winarm64")
     units = sources(root, manifest)
+    if "architecture" in manifest and manifest["architecture"] != (
+        "aarch64" if abi in ARM_ABIS else "x86_64"
+    ):
+        raise ContractError("Manifest architecture conflicts with the selected calling convention")
     executable = (
         shutil.which(compiler)
         if compiler

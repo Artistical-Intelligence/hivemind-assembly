@@ -194,7 +194,7 @@
     try {
       const task = await api('project/starter', {kind,request_id:request,allow_native:allow});
       sessionStorage.removeItem(key); await refresh(); await selectTask(task.id); tab('workspace');
-      await openFile(kind === 'registers' ? 'candidate.hex' : kind === 'linked_arm64' ? 'candidate.c' : 'candidate.py');
+      await openFile(kind === 'registers' ? 'candidate.hex' : ['linked_arm64','program_arm64'].includes(kind) ? 'candidate.c' : 'candidate.py');
       message('Example ready. Run checks, edit the candidate, and check again.');
     } finally { b.disabled = false; }
   }));

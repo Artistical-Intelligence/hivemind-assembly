@@ -22,6 +22,24 @@ def verify_runtime_lanes(root, foundations, jobs=None):
     compiler = foundations.get("c_compiler", "")
     checks = {}
     try:
+        folder = root / "arm64-program"
+        folder.mkdir(exist_ok=True)
+        (folder / "main.c").write_text(
+            'int ha_main(void){unsigned char b[64];long n=ha_read(b,64);'
+            'const char *k=ha_getenv("KEY");if(!k || ha_argc()!=2)return 9;'
+            'for(long i=0;i<n;i++)b[i]^=(unsigned char)k[0];ha_write(b,n);return 0;}'
+        )
+        built = program.build(folder, {"sources": ["main.c"], "architecture": "aarch64"}, jobs, compiler)
+        if not built["passed"]:
+            raise Blocked("AArch64 program probe compilation failed")
+        source = b"source-known ARM process"
+        result = program.replay(bytes.fromhex(built["elf_hex"]), source, argv=["program", "check"], env={"KEY": "K"})
+        if result["status"] != "completed" or result["exit_code"] != 0 or result["stdout_hex"] != bytes(v ^ ord("K") for v in source).hex():
+            raise Blocked("AArch64 program probe did not match known output")
+        checks["arm64_program"] = {"passed": True, "image_sha256": built["sha256"], "process_inputs": True, "stream_io": True}
+    except Exception as error:
+        checks["arm64_program"] = {"passed": False, "reason": str(error)}
+    try:
         folder = root / "linux-files"
         folder.mkdir(exist_ok=True)
         (folder / "main.c").write_text(

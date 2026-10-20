@@ -192,6 +192,7 @@ def verify_foundations(root, foundations, jobs=None):
         result["checks"]["hermes"] = {"passed": False, "reason": str(error)}
     result["passed"] = set(result["checks"]) == {
         "compiler_runtime",
+        "arm64_program",
         "qiling_runtime",
         "linked_functions",
         "ghidra",

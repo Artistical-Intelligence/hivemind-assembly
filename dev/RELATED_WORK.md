@@ -438,3 +438,5 @@ uses the standard Arm parameter rules for non-variadic calls while reserving x18
 HA reuses its bounded ARM replay for standard ARM64 PE, selects the Windows
 compiler target explicitly, and rejects ARM64EC/ARM64X identities. A C data-model
 regression verifies that LP64 and LLP64 differences cannot silently pass.
+
+MCP client metadata registration reuses the official Python SDK provider (`client_metadata_url`) rather than implementing a second OAuth flow: https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/client/oauth-clients.md . Static ARM Linux syscall numbers follow the kernel UAPI: https://github.com/torvalds/linux/blob/master/include/uapi/asm-generic/unistd.h . ARM64 DLL base relocation reuses pefile and Microsoft PE semantics: https://learn.microsoft.com/en-us/windows/win32/debug/pe-format .

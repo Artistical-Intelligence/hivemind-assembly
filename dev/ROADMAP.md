@@ -82,8 +82,7 @@ consent and live account policies remain gates. Hosted client metadata document 
 Version 0.14 adds bounded AArch64 linked-function reconstruction, cross-architecture
 comparison with x86-64, protected acceptance, reusable workflow calls, installed
 runtime probes, and an editable dashboard example. It uses Clang/LLD and Unicorn
-with explicit AAPCS64 integer/pointer contracts. Full ARM process/OS execution,
-console-specific loaders, graphics runtime and target-level equivalence remain work.
+with explicit AAPCS64 integer/pointer contracts. Version 0.15 also executes complete static ARM Linux programs with explicit streams, argv/env and clock. Broader ARM OS/dynamic execution, console-specific loaders, graphics runtime and target-level equivalence remain work.
 
 The Windows foundation verification fixture now uses PE for Ghidra/REA while
 retaining the separate ELF runtime probe. A dedicated hosted workflow exercises
@@ -95,3 +94,5 @@ follow the pinned REA engine range. Desktop WinGet setup remains unverified.
 The same bounded AArch64 call lane also supports standard Windows ARM64 PE
 exports and Clang/LLD builds. Cross-platform C data models remain distinct.
 ARM64EC/ARM64X and Windows OS services are unsupported. Version 0.15 adds explicit ARM64 DLL import linking, same-architecture validation, relocation, forwarders and protected dependency pinning.
+
+Version 0.15 adds a source-known full-program ARM-to-x64 dashboard starter, multi-unit ARM builds, protected cross-architecture program acceptance and an installed probe. The Linux static stream/clock contract now covers x64 and ARM64. Windows setup refreshes newly installed paths without downgrading working tool selections, and verifies a matched full JDK. Desktop WinGet and signed-in routes still need acceptance.

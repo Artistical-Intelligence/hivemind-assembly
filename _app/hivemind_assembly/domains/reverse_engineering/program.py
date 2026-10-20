@@ -1,4 +1,4 @@
-"""Cumulative static x86-64 ELF builds and deterministic whole-image replay.
+"""Cumulative static x86-64/AArch64 ELF builds and deterministic whole-image replay.
 
 The guest has no host filesystem or network. Linux read/write/exit and a fixed
 clock are explicit boundaries. Unknown syscalls, dynamic linking, unsupported
@@ -43,15 +43,16 @@ long ha_clock(long clock_id, long *seconds, long *nanoseconds);
 long ha_random(void *buffer, ha_size count, long flags);
 int ha_main(void);
 """
-RUNTIME = (
-    HEADER
-    + r"""
+PROCESS_RUNTIME = r"""
 static long ha_runtime_argc;
 static char **ha_runtime_argv, **ha_runtime_env;
 long ha_argc(void){return ha_runtime_argc;}
 const char *ha_argv(long i){return i>=0 && i<ha_runtime_argc ? ha_runtime_argv[i] : (const char*)0;}
 const char *ha_getenv(const char *name){if(!name || !*name)return (const char*)0;for(char **p=ha_runtime_env;*p;p++){long i=0;while(name[i] && name[i]!='=' && name[i]==(*p)[i])i++;if(!name[i] && (*p)[i]=='=')return *p+i+1;}return (const char*)0;}
 int ha_boot(unsigned long *stack){ha_runtime_argc=(long)*stack;ha_runtime_argv=(char**)(stack+1);ha_runtime_env=ha_runtime_argv+ha_runtime_argc+1;return ha_main();}
+"""
+RUNTIME = (
+    HEADER + PROCESS_RUNTIME + r"""
 long ha_read(void *p, ha_size n) { long r; __asm__ volatile("syscall":"=a"(r):"a"(0L),"D"(0L),"S"(p),"d"(n):"rcx","r11","memory"); return r; }
 long ha_write(const void *p, ha_size n) { long r; __asm__ volatile("syscall":"=a"(r):"a"(1L),"D"(1L),"S"(p),"d"(n):"rcx","r11","memory"); return r; }
 void ha_exit(int n) { __asm__ volatile("syscall"::"a"(60L),"D"((long)n):"rcx","r11","memory"); __builtin_unreachable(); }
@@ -79,9 +80,10 @@ def sources(root, manifest):
         "sources",
         "declarations",
         "optimization",
+        "architecture",
     }:
         raise ContractError(
-            "Build manifest allows sources, declarations and optimization"
+            "Build manifest allows sources, declarations, optimization and architecture"
         )
     paths = manifest.get("sources")
     if (
@@ -109,6 +111,8 @@ def sources(root, manifest):
             )
     if manifest.get("optimization", "O2") not in ("O0", "O2"):
         raise ContractError("Optimization must be O0 or O2")
+    if manifest.get("architecture", "x86_64") not in ("x86_64", "aarch64"):
+        raise ContractError("Build architecture must be x86_64 or aarch64")
     return result
 
 
@@ -121,6 +125,16 @@ def build(root, manifest, jobs, compiler="", cancel=None):
     )
     if not executable:
         raise Blocked("Install Clang or GCC to build recovered programs")
+    architecture = manifest.get("architecture", "x86_64")
+    arm = architecture == "aarch64"
+    clang = "clang" in Path(executable).name.lower()
+    if arm and not clang:
+        raise Blocked("AArch64 program builds require Clang and LLD")
+    runtime = RUNTIME
+    if arm:
+        from .program_arm64 import SYSCALL_RUNTIME
+
+        runtime = HEADER + PROCESS_RUNTIME + SYSCALL_RUNTIME
     compiler_hash = file_hash(executable)
     with tempfile.TemporaryDirectory(prefix="ha-program-") as tmp:
         stage = Path(tmp)
@@ -132,16 +146,16 @@ def build(root, manifest, jobs, compiler="", cancel=None):
                 encoding="utf-8",
             )
             paths.append(name)
-        (stage / "runtime.c").write_text(RUNTIME, encoding="utf-8")
+        (stage / "runtime.c").write_text(runtime, encoding="utf-8")
         argv = [executable]
-        if "clang" in Path(executable).name.lower():
-            argv += ["--target=x86_64-unknown-linux-gnu"]
+        if clang:
+            argv += ["--target=" + architecture + "-unknown-linux-gnu"]
             import os
 
-            if os.name == "nt":
+            if os.name == "nt" or arm:
                 argv += ["-fuse-ld=lld"]
+        argv += ["-march=armv8-a", "-ffixed-x18"] if arm else ["-m64"]
         argv += [
-            "-m64",
             "-std=c11",
             "-" + manifest.get("optimization", "O2"),
             "-ffreestanding",
@@ -165,12 +179,13 @@ def build(root, manifest, jobs, compiler="", cancel=None):
         if not output.exists() or output.stat().st_size > 2_000_000:
             raise Blocked("Linked image is missing or exceeds 2 MB")
         data = output.read_bytes()
-        load_image(data)  # Reject wrong architecture/dynamic images before retaining.
+        load_image(data, machine=183 if arm else 62)
         if file_hash(executable) != compiler_hash:
             raise Blocked("Compiler changed during the build")
         return {
             "passed": True,
             "stage": "linked",
+            "architecture": architecture,
             "elf_hex": data.hex(),
             "sha256": hashlib.sha256(data).hexdigest(),
             "sources": {
@@ -178,9 +193,18 @@ def build(root, manifest, jobs, compiler="", cancel=None):
             },
             "manifest_sha256": hashlib.sha256(canonical(manifest).encode()).hexdigest(),
             "compiler_sha256": compiler_hash,
-            "runtime_sha256": hashlib.sha256(RUNTIME.encode()).hexdigest(),
+            "runtime_sha256": hashlib.sha256(runtime.encode()).hexdigest(),
             "build": result,
         }
+
+
+def image_machine(data):
+    if not isinstance(data, bytes) or len(data) < 64 or data[:7] != b"\x7fELF\x02\x01\x01":
+        raise ContractError("Expected a little-endian ELF64 executable")
+    machine = struct.unpack_from("<H", data, 18)[0]
+    if machine not in (62, 183):
+        raise Blocked("Static program replay supports x86-64 and AArch64")
+    return machine
 
 
 def load_image(data, *, machine=62):
@@ -251,6 +275,7 @@ def replay(
 ):
     import unicorn as u
     from unicorn import x86_const as x
+    from unicorn import arm64_const as ac
 
     if (
         len(input_bytes) > 1_000_000
@@ -264,8 +289,24 @@ def replay(
     from .guest_cpu import unsupported as unsupported_cpu
 
     argv, env = normalize(argv, env)
-    entry, segments = load_image(data)
-    uc = u.Uc(u.UC_ARCH_X86, u.UC_MODE_64)
+    machine = image_machine(data)
+    arm = machine == 183
+    entry, segments = load_image(data, machine=machine)
+    uc = u.Uc(u.UC_ARCH_ARM64, u.UC_MODE_ARM) if arm else u.Uc(u.UC_ARCH_X86, u.UC_MODE_64)
+    if arm:
+        uc.ctl_set_cpu_model(ac.UC_CPU_ARM64_A57)
+        uc.reg_write(ac.UC_ARM64_REG_CPACR_EL1, 3 << 20)
+    stack_register = ac.UC_ARM64_REG_SP if arm else x.UC_X86_REG_RSP
+    result_register = ac.UC_ARM64_REG_X0 if arm else x.UC_X86_REG_RAX
+    number_register = ac.UC_ARM64_REG_X8 if arm else x.UC_X86_REG_RAX
+    argument_registers = (
+        (ac.UC_ARM64_REG_X0, ac.UC_ARM64_REG_X1, ac.UC_ARM64_REG_X2)
+        if arm else (x.UC_X86_REG_RDI, x.UC_X86_REG_RSI, x.UC_X86_REG_RDX)
+    )
+    syscall_names = (
+        {63: "read", 64: "write", 93: "exit", 94: "exit", 113: "clock"}
+        if arm else {0: "read", 1: "write", 60: "exit", 231: "exit", 228: "clock"}
+    )
     pages = {}
     for s in segments:
         perms = (
@@ -286,7 +327,7 @@ def replay(
     stack, stack_size = 0x70000000, 0x100000
     uc.mem_map(stack, stack_size, u.UC_PROT_READ | u.UC_PROT_WRITE)
     uc.reg_write(
-        x.UC_X86_REG_RSP, entry_stack(uc.mem_write, stack + stack_size, argv, env)
+        stack_register, entry_stack(uc.mem_write, stack + stack_size, argv, env)
     )
     events, output, stderr = [], bytearray(), bytearray()
     cursor, count, status, exit_code = 0, 0, "budget_exhausted", None
@@ -322,16 +363,17 @@ def replay(
 
     def syscall(engine, _):
         nonlocal cursor, exit_code
-        number = engine.reg_read(x.UC_X86_REG_RAX)
+        number = engine.reg_read(number_register)
+        operation = syscall_names.get(number)
         a, b, n = [
             engine.reg_read(r)
-            for r in (x.UC_X86_REG_RDI, x.UC_X86_REG_RSI, x.UC_X86_REG_RDX)
+            for r in argument_registers
         ]
         result = 0
         if len(events) >= 4096:
             stop("event_limit")
             return
-        if number == 0 and a == 0:
+        if operation == "read" and a == 0:
             length = min(n, len(input_bytes) - cursor)
             if not region(b, length, u.UC_PROT_WRITE):
                 result = -14
@@ -340,7 +382,7 @@ def replay(
                 cursor += length
                 result = length
             events.append({"call": "read", "fd": a, "requested": n, "returned": result})
-        elif number == 1 and a in (1, 2):
+        elif operation == "write" and a in (1, 2):
             if not region(b, n, u.UC_PROT_READ):
                 result = -14
             elif len(output) + len(stderr) + n > 1_000_000:
@@ -351,11 +393,11 @@ def replay(
                 (output if a == 1 else stderr).extend(payload)
                 result = n
             events.append({"call": "write", "fd": a, "returned": result})
-        elif number in (60, 231):
+        elif operation == "exit":
             exit_code = a & 255
             events.append({"call": "exit", "code": exit_code})
             stop("completed")
-        elif number == 228 and a in (0, 1):
+        elif operation == "clock" and a in (0, 1):
             if not region(b, 16, u.UC_PROT_WRITE):
                 result = -14
             else:
@@ -369,20 +411,34 @@ def replay(
         else:
             events.append({"call": "unsupported", "number": number})
             stop("unsupported_syscall")
-        engine.reg_write(x.UC_X86_REG_RAX, result & ((1 << 64) - 1))
-        engine.reg_write(x.UC_X86_REG_RCX, engine.reg_read(x.UC_X86_REG_RIP) + 2)
-        engine.reg_write(x.UC_X86_REG_R11, engine.reg_read(x.UC_X86_REG_EFLAGS))
+        engine.reg_write(result_register, result & ((1 << 64) - 1))
+        if not arm:
+            engine.reg_write(x.UC_X86_REG_RCX, engine.reg_read(x.UC_X86_REG_RIP) + 2)
+            engine.reg_write(x.UC_X86_REG_R11, engine.reg_read(x.UC_X86_REG_EFLAGS))
 
     def instruction(engine, address, size, _):
         nonlocal count
         count += 1
-        if not 1 <= size <= 15 or unsupported_cpu(
-            bytes(engine.mem_read(address, size))
-        ):
-            stop("unsupported_cpu_state")
-            return
         if cancel is not None and count % 1024 == 0 and cancel.is_set():
             stop("cancelled")
+            return
+        code = bytes(engine.mem_read(address, size))
+        if arm:
+            from .arm64 import unsupported_instruction
+
+            if size != 4 or address % 4 or engine.reg_read(stack_register) % 16:
+                stop("unsupported_cpu_state")
+                return
+            if code == b"\x01\x00\x00\xd4":  # Linux SVC #0, handled without host forwarding.
+                syscall(engine, None)
+                engine.reg_write(ac.UC_ARM64_REG_PC, address + 4)
+                return
+            unsupported = unsupported_instruction(code)
+        else:
+            unsupported = not 1 <= size <= 15 or unsupported_cpu(code)
+        if unsupported:
+            stop("unsupported_cpu_state")
+            return
 
     def invalid(engine, access, address, size, value, _):
         nonlocal fault
@@ -390,7 +446,8 @@ def replay(
         stop("fault")
         return False
 
-    uc.hook_add(u.UC_HOOK_INSN, syscall, None, 1, 0, x.UC_X86_INS_SYSCALL)
+    if not arm:
+        uc.hook_add(u.UC_HOOK_INSN, syscall, None, 1, 0, x.UC_X86_INS_SYSCALL)
     uc.hook_add(u.UC_HOOK_CODE, instruction)
     uc.hook_add(u.UC_HOOK_MEM_INVALID, invalid)
     try:
@@ -455,6 +512,8 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
             )
         elif runtime != "unicorn_linux":
             raise ContractError("Unknown program runtime")
+        elif case.get("files") or case.get("random_hex") or dependencies:
+            raise ContractError("Files, random input and ELF dependencies require the x86-64 Qiling lane")
         before = runner(
             original,
             bytes.fromhex(case.get("input_hex", "")),
@@ -506,7 +565,7 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
         )
     return {
         "passed": all(r["passed"] for r in results),
-        "scope": "x86_64_linux_program",
+        "scope": "linux_program",
         "cases": results,
         "claim": "Deterministic bounded corpus. Strict cases also match application effects and random consumption; observable cases compare streams, exit, input consumption, selected memory and final files/directories. Traces are retained. No all-input proof or arbitrary OS compatibility.",
     }

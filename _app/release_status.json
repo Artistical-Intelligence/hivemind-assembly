@@ -3,12 +3,12 @@
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 463,
-    "skipped": 9,
+    "passed": 499,
+    "skipped": 10,
     "failed": 0,
-    "elapsed_seconds": 102.35,
+    "elapsed_seconds": 113.45,
     "host": "Linux Python 3.12",
-    "scope": "One complete local run of all 472 cases using the configured Clang and Windows LLD linker. The nine skips cover unavailable host-specific dependencies and browser/Windows checks; hosted results are recorded separately. No signed-in model acceptance claimed."
+    "scope": "509-case full local regression; unavailable browser/Windows/native-source dependencies skipped. A subsequent Windows environment preservation refinement passed all 15 prerequisite tests. Signed-in provider acceptance is separate."
   },
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -31,7 +31,9 @@
     "windows_foundations": "Checkpoint 2f8785b, hosted run 39476662077, passed a fresh installation of the full pinned Ghidra 12.1.4, REA 6.7.0 and Hermes sources/package. Real Ghidra import/decompile, six context views, persisted annotation reopen and duplicate reconciliation passed. REA analyzed the PE fixture through its actual Ghidra provider with default analyzers and retained target identity. Compiler, Qiling process/file replay, all four linked-function ABIs with a native Windows oracle, and Hermes task lifecycle also passed. Git/Node/JDK/compiler were provisioned by the runner; WinGet setup and signed-in model operation were not exercised.",
     "windows_arm64_calls": "Standard ARM64 PE exports and freestanding Clang/LLD builds now reuse bounded ARM replay. Scalar/pointer cases, 16 arguments, cross-ABI comparisons, protected originals, wrong candidates and installed probes pass locally. LP64/LLP64 differences produce mismatches; ARM64EC/ARM64X are explicitly rejected. Full Windows OS services and ARM64 DLL imports remain unsupported.",
     "mcp_client_metadata": "Official SDK client metadata registration added with generated public JSON, fixed loopback callbacks, persisted non-secret configuration and registration-change fencing. Protocol checks cover metadata-only authorization, zero dynamic registrations, reconnect reuse, refresh and credential exclusion; external provider trust policies remain unverified.",
-    "arm64_dependencies": "Explicit standard ARM64 PE dependencies use upstream pefile relocation and the existing protected bundle loader. Real Clang/LLD DLL fixtures cover imports, relocated pointers, forwarders, missing dependencies and protected original pinning; mixed architectures and ARM64EC/ARM64X are rejected."
+    "arm64_dependencies": "Explicit standard ARM64 PE dependencies use upstream pefile relocation and the existing protected bundle loader. Real Clang/LLD DLL fixtures cover imports, relocated pointers, forwarders, missing dependencies and protected original pinning; mixed architectures and ARM64EC/ARM64X are rejected.",
+    "arm64_program": "Complete static AArch64 Linux ELF build/replay and cross-architecture protected acceptance passed local checks: multiple translation units, globals, streams, explicit argv/env, fixed clock, negative reconstructions, cancellation and unsupported CPU/syscall rejection. Results agreed with a separately executed native GCC binary. An editable dashboard starter and installed-runtime probe are included. Files, dynamic ARM loading and broader OS effects remain unsupported.",
+    "windows_prerequisites": "Refreshes registry PATH/JAVA_HOME after installs while preserving valid existing tool selections; Java and javac must be a matching full JDK. Fifteen local prerequisite checks passed. Actual desktop WinGet installation remains unverified."
   },
   "native_live_acceptance": {
     "validated_routes": 0,

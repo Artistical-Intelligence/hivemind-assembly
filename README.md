@@ -178,7 +178,7 @@ counter tied to `clock_ns`; CPU random instructions still stop replay. Host file
 forwarded. `ha_mkdir`, `ha_rmdir`, `ha_remove`, `ha_rename`, `ha_clock` and
 `ha_random` expose the corresponding declared effects to recovered C.
 
-**Complete Linux program** acceptance supports static ELF and bounded dynamic
+**Complete Linux x64 / AArch64 program** acceptance supports static ELF for both architectures, and bounded x86-64 dynamic
 ELF/PIE originals under Qiling. `original_dependencies` maps absolute guest
 interpreter/library paths to files in the project. Every dependency is protected
 and hashed; no host libraries are discovered automatically. The rebuilt C
@@ -499,3 +499,5 @@ does not sign into model accounts or replace live autonomous acceptance.
 The full foundation check passed at checkpoint `2f8785b` in [hosted run 39476662077](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39476662077), using default Ghidra analyzers and upstream REA process/filesystem controls. The runner supplied prerequisite tools; this does not establish desktop WinGet setup.
 
 HTTP MCP authorization also accepts a hosted client metadata URL. In Connections, generate the public document using a fixed callback port, serve it at your HTTPS URL, and connect. HA uses the official SDK to prefer this registration when the server advertises support, retaining the choice for reconnects and token refresh. The document contains no credentials. Editing the registration or endpoint invalidates in-flight authorization; an HTTPS host is required for the document.
+
+Static AArch64 program reconstruction is available from **Project files → Create AArch64 program example**. This runs the complete source-known ARM ELF and compares an editable x64 reconstruction, including state across multiple input reads. Set `"architecture": "aarch64"` in the candidate build manifest to produce an ARM executable; the default is `x86_64`. Both support deterministic stream I/O, exit, explicit arguments/environment and clock under Unicorn. ARM dynamic linking, file effects and other OS services remain outside this lane; x64 Qiling support is unchanged. Protected acceptance uses `linux_program`; earlier program scope names remain accepted.
