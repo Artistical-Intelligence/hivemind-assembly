@@ -247,15 +247,21 @@ def test_rejected_goal_uses_resumable_reviewer_request(store):
 
 
 def test_explicit_unlimited_goal_retains_usage_without_exhausting(store):
-    task=store.create_project('unlimited','Continue until independently accepted')
-    goals=Goals(store)
-    goals.command(task['id'],'/goal')
-    goals.command(task['id'],'/goal budget unlimited')
-    with store.tx() as db:db.execute('UPDATE goals SET turns=100000 WHERE task_id=?',(task['id'],))
-    goals.reserve(task['id'],'one-more')
-    goals.command(task['id'],'/goal pause')
-    goals.command(task['id'],'/goal resume')
-    status=goals.status(task['id'])
-    assert status['unlimited'] and status['remaining_turns'] is None and status['turns']==100001
-    goals.command(task['id'],'/goal budget 10')
-    with pytest.raises(GoalStopped):goals.reserve(task['id'],'bounded-again')
+    task = store.create_project("unlimited", "Continue until independently accepted")
+    goals = Goals(store)
+    goals.command(task["id"], "/goal")
+    goals.command(task["id"], "/goal budget unlimited")
+    with store.tx() as db:
+        db.execute("UPDATE goals SET turns=100000 WHERE task_id=?", (task["id"],))
+    goals.reserve(task["id"], "one-more")
+    goals.command(task["id"], "/goal pause")
+    goals.command(task["id"], "/goal resume")
+    status = goals.status(task["id"])
+    assert (
+        status["unlimited"]
+        and status["remaining_turns"] is None
+        and status["turns"] == 100001
+    )
+    goals.command(task["id"], "/goal budget 10")
+    with pytest.raises(GoalStopped):
+        goals.reserve(task["id"], "bounded-again")

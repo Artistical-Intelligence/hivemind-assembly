@@ -113,12 +113,22 @@ class Broker:
                 raise Blocked("Task cancelled")
             if tool == "mcp_call":
                 import asyncio
+
                 connections = getattr(self, "mcp_connections", None)
                 if not connections:
                     raise Blocked("No external MCP connections configured")
-                connections.authorize(args["server"], args["tool"], self.store.task(task)["project_id"])
+                connections.authorize(
+                    args["server"], args["tool"], self.store.task(task)["project_id"]
+                )
                 effect_started = True
-                result = asyncio.run(connections.external(args["server"], args["tool"], args.get("arguments", {}), self.store.task(task)["project_id"]))
+                result = asyncio.run(
+                    connections.external(
+                        args["server"],
+                        args["tool"],
+                        args.get("arguments", {}),
+                        self.store.task(task)["project_id"],
+                    )
+                )
             elif tool == "cloud_submit":
                 cloud = getattr(self, "codespaces", None)
                 if cloud is None:
@@ -129,7 +139,20 @@ class Broker:
                 cloud = getattr(self, "codespaces", None)
                 if cloud is None:
                     raise Blocked("Optional Codespaces integration is unavailable")
-                result = {"jobs":[r for r in cloud.jobs() if r['project']==self.store.task(task)['project_id']]}
+                if args.get("id"):
+                    row = cloud.latest("cloud_job:" + cloud.name(args["id"]))
+                    if not row or row["project"] != self.store.task(task)["project_id"]:
+                        raise Blocked(
+                            "Cloud job belongs to another project or does not exist"
+                        )
+                    cloud.reconcile(args["id"])
+                result = {
+                    "jobs": [
+                        r
+                        for r in cloud.jobs()
+                        if r["project"] == self.store.task(task)["project_id"]
+                    ]
+                }
             elif tool == "list_files":
                 result = {
                     "files": [

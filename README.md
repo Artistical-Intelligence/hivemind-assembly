@@ -399,7 +399,9 @@ External stdio and HTTP MCP connections have explicit project and tool grants.
 Workers receive only their authorized connection names and tool names. Calls use
 the existing operation journal and revision fences; an interrupted external
 mutation is not automatically replayed. Connection arguments must not contain
-credentials. Automatic external OAuth onboarding is not implemented yet.
+credentials. HTTP bearer tokens can be held for the session or saved in the OS
+credential store, bound to the exact endpoint. Automatic external OAuth onboarding
+is not implemented yet.
 
 Codespaces is disabled by default and requires separate execution permission.
 HA can prepare GitHub CLI on Windows, request the Codespaces OAuth scope, list
@@ -436,3 +438,9 @@ creates a cloud machine or enables cloud execution.
 `/goal budget unlimited` explicitly removes HA's project turn cap while retaining
 usage records and independent completion checks. Provider allowance and availability
 checks still apply. Existing bounded goals retain their configured limits.
+
+Cloud creation requests remain visible after restart. **Recover / inspect** matches
+a retained creation to its repository, machine, display name and requested ref;
+an uncertain request is never replaced automatically. Worker `cloud_status` can
+reconcile a job ID and returns output artifact IDs for the existing guarded
+`write_file` operation. A stale status response cannot overwrite a completed result.

@@ -167,7 +167,10 @@ class GitHubAuth:
                 "POST",
                 "/login/device/code",
                 oauth=True,
-                data={"client_id": client_id, "scope": "repo codespace" if codespaces else "repo"},
+                data={
+                    "client_id": client_id,
+                    "scope": "repo codespace" if codespaces else "repo",
+                },
             )
             if result.get("error"):
                 raise Blocked(
