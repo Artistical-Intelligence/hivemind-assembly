@@ -178,3 +178,27 @@ def test_offset_and_one_past_end_pointers(tmp_path):
     case["arguments"][0]["offset"] = 8
     result = run(tmp_path, code, case)
     assert result["status"] != "completed"
+
+
+def test_windows_arm64_pe_identity_and_c_data_model(tmp_path):
+    (tmp_path / "f.c").write_text("unsigned f(void){return sizeof(unsigned long);}")
+    images = {}
+    for abi in ("aapcs64", "winarm64"):
+        built = calls.build(tmp_path, {"sources": ["f.c"]}, "f", abi, Jobs(), CLANG)
+        assert built["passed"], built
+        raw = bytes.fromhex(built["image_hex"])
+        images[abi] = calls.load(raw, symbol="f")
+        assert images[abi]["abi"] == abi
+        result = calls.execute(images[abi], {"output_bits": 32})
+        assert result["status"] == "completed" and result["abi_ok"]
+        assert result["value"] == (4 if abi == "winarm64" else 8)
+    # Correct ABI handling exposes LP64/LLP64 differences rather than treating
+    # the same C spelling as equivalent across platforms.
+    assert not calls.compare(images["aapcs64"], images["winarm64"], [{}])["passed"]
+    assert raw[:2] == b"MZ"
+    header = struct.unpack_from("<I", raw, 0x3C)[0]
+    for hybrid in (0xA641, 0xA64E):
+        changed = bytearray(raw)
+        struct.pack_into("<H", changed, header + 4, hybrid)
+        with pytest.raises(Blocked, match="ARM64EC"):
+            calls.load(bytes(changed), symbol="f")

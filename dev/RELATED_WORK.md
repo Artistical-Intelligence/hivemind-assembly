@@ -432,3 +432,9 @@ builds a PE fixture on Windows rather than sending the Linux ELF runtime probe
 to that provider. The hosted installation gate preserves REA’s native authority
 and cleanup checks; unavailable prerequisites are reported, not bypassed. The
 pinned package requires Node 24.11+ on HA’s 24.x LTS line or Node 26+.
+
+[Microsoft’s ARM64 ABI](https://learn.microsoft.com/en-us/cpp/build/arm64-windows-abi-conventions)
+uses the standard Arm parameter rules for non-variadic calls while reserving x18.
+HA reuses its bounded ARM replay for standard ARM64 PE, selects the Windows
+compiler target explicitly, and rejects ARM64EC/ARM64X identities. A C data-model
+regression verifies that LP64 and LLP64 differences cannot silently pass.

@@ -10,6 +10,7 @@ on:
       - '_app/hivemind_assembly/application/prerequisites.py'
       - '_app/hivemind_assembly/application/verification.py'
       - '_app/hivemind_assembly/domains/reverse_engineering/bridges.py'
+      - '_app/hivemind_assembly/core/jobs.py'
 permissions:
   contents: read
 concurrency:

@@ -39,7 +39,9 @@ class CallAcceptance:
             )
         call_images.function_name(spec["function"])
         if spec["candidate_abi"] not in call_images.ABIS:
-            raise ContractError("Candidate ABI must be sysv, win64 or aapcs64")
+            raise ContractError(
+                "Candidate ABI must be sysv, win64, aapcs64 or winarm64"
+            )
         path = scoped(root, spec["original_path"])
         if path.stat().st_size > call_images.MAX_IMAGE:
             raise Blocked("Original image exceeds bounds")
@@ -158,7 +160,7 @@ class CallAcceptance:
             executable = artifacts.add(
                 machine,
                 "reconstructed-call."
-                + ("dll" if check["candidate_abi"] == "win64" else "elf"),
+                + ("dll" if check["candidate_abi"] in call_images.PE_ABIS else "elf"),
                 project,
             )["id"]
         for item in checks:

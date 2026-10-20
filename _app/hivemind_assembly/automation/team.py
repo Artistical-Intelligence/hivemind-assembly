@@ -1341,12 +1341,12 @@ TOOL_SCHEMAS = {
     "build_linked_function": {
         "manifest_path": "JSON sources/declarations/optimization; multiple freestanding C files",
         "function": "defined entry symbol",
-        "candidate_abi": "sysv, win64 or aapcs64 (requires Clang/LLD)",
+        "candidate_abi": "sysv, win64, aapcs64 or winarm64 (requires Clang/LLD)",
     },
     "compare_linked_function": {
         "manifest_path": "build manifest",
         "function": "candidate entry symbol",
-        "candidate_abi": "sysv, win64 or aapcs64",
+        "candidate_abi": "sysv, win64, aapcs64 or winarm64",
         "original_path": "linked ELF or PE image; TLS/initialization/OS effects are unsupported",
         "original_dependencies": "optional map of DLL filenames to project paths, at most 16; explicit supplied DLL exports only, no OS API substitutes",
         "original_symbol": "original function symbol; alternatively original_address integer",

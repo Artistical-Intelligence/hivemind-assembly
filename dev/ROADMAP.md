@@ -89,3 +89,7 @@ The Windows foundation verification fixture now uses PE for Ghidra/REA while
 retaining the separate ELF runtime probe. A dedicated hosted workflow exercises
 the actual pinned installation; its result must be reviewed before closing the
 Windows foundation gate. Node prerequisites follow the pinned REA engine range.
+
+The same bounded AArch64 call lane also supports standard Windows ARM64 PE
+exports and Clang/LLD builds. Cross-platform C data models remain distinct.
+ARM64EC/ARM64X, ARM64 DLL import linking and Windows OS services are unsupported.

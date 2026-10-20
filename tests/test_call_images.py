@@ -30,7 +30,7 @@ def images(tmp_path):
     (tmp_path / "helper.c").write_text(HELPER)
     manifest = {"sources": ["main.c", "helper.c"]}
     result = {}
-    for abi in ("sysv", "win64", "aapcs64"):
+    for abi in ("sysv", "win64", "aapcs64", "winarm64"):
         build = calls.build(tmp_path, manifest, "recovered", abi, Jobs(), CLANG)
         assert build["passed"], build
         result[abi] = (
@@ -90,7 +90,7 @@ def test_buffer_aliasing_bounds_and_readonly(tmp_path):
     (tmp_path / "f.c").write_text(
         "unsigned f(unsigned *a,unsigned *b){*a+=1;*b+=2;return *a;}"
     )
-    for abi in ("sysv", "win64", "aapcs64"):
+    for abi in ("sysv", "win64", "aapcs64", "winarm64"):
         built = calls.build(tmp_path, {"sources": ["f.c"]}, "f", abi, Jobs(), CLANG)
         image = calls.load(bytes.fromhex(built["image_hex"]), symbol="f")
         case = {
@@ -140,6 +140,8 @@ def test_mutable_image_state_cannot_escape_observation(tmp_path):
         ("win64", "sysv", "x86_64_linked_calls"),
         ("aapcs64", "sysv", "linked_calls"),
         ("sysv", "aapcs64", "linked_calls"),
+        ("winarm64", "sysv", "linked_calls"),
+        ("sysv", "winarm64", "linked_calls"),
     ],
 )
 def test_hidden_cases_pinned_and_rebuilt(

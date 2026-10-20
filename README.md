@@ -245,10 +245,13 @@ Current implementation and verification limits are recorded in
 Choose **Linked x86-64 / AArch64 function calls** in Independent acceptance.
 An original function may be selected by symbol or absolute address. The candidate
 uses a sources/declarations/optimization build manifest, a function symbol and
-`sysv`, `win64` or `aapcs64` ABI. Windows and AArch64 builds require Clang and LLD.
+`sysv`, `win64`, `aapcs64` or `winarm64` ABI. Windows and AArch64 builds require Clang and LLD.
 The original and candidate may use different supported architectures and ABIs.
-AArch64 accepts static little-endian ELF images and base AAPCS64 integer/pointer
+AArch64 accepts static little-endian ELF and standard ARM64 PE images with base integer/pointer
 calls, with 16 arguments, eight register arguments and aligned stack arguments.
+The compiler uses each target’s real C data model (LP64 versus Windows LLP64);
+matching C spellings alone do not establish matching behavior. ARM64EC/ARM64X
+and ARM64 DLL import linking are unsupported.
 Callee-saved integer registers and the low 64 bits of v8-v15 are checked; x18 is
 reserved. System-register access, TLS, exceptions, authenticated branches, SVE/SME,
 floating-point parameters, aggregates and variadic interfaces are outside this lane.
@@ -264,7 +267,7 @@ Multiple pointers can reference the same buffer. All buffer bytes and the intege
 return are checked; writes to read-only buffers or outside exact bounds fail.
 Protected acceptance requires at least two cases and rebuilds independently.
 Optional `original_dependencies` maps DLL filenames to project paths. Supplied
-PE dependencies are relocated and their named/ordinal imports and forwarded
+x64 PE dependencies are relocated and their named/ordinal imports and forwarded
 exports resolved using pefile. Missing imports, TLS, DLL initialization,
 image-global writes and operating-system effects stop verification.
 

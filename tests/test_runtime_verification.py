@@ -11,7 +11,12 @@ def test_actual_installation_runtime_probes(tmp_path):
     checks = verify_runtime_lanes(tmp_path, {"c_compiler": CLANG})
     assert checks["qiling_runtime"]["passed"], checks
     assert checks["linked_functions"]["passed"], checks
-    assert checks["linked_functions"]["abis"] == ["sysv", "win64", "aapcs64"]
+    assert checks["linked_functions"]["abis"] == [
+        "sysv",
+        "win64",
+        "aapcs64",
+        "winarm64",
+    ]
     assert checks["linked_functions"]["native_oracle"]["passed"]
 
 

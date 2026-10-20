@@ -1,4 +1,4 @@
-"""Linked function replay: x86-64 ELF/PE and AArch64 ELF, with bounded buffers.
+"""Linked function replay: x86-64 and AArch64 ELF/PE, with bounded buffers.
 
 Uses pefile/pyelftools for symbols and Unicorn for execution. No DLL loading,
 initializers, OS imports, TLS, exceptions or host execution is implied. Each case
@@ -33,6 +33,9 @@ ABIS = {
         0,
     ),
 }
+ABIS["winarm64"] = ABIS["aapcs64"]  # Non-variadic integer/pointer calls only.
+ARM_ABIS = ("aapcs64", "winarm64")
+PE_ABIS = ("win64", "winarm64")
 STACK, STOP, BUFFERS = 0x70000000, 0x71000000, 0x60000000
 MAX_IMAGE = 2_000_000
 
@@ -99,8 +102,10 @@ def load(data, symbol=None, address=None, *, _imports_resolved=False):
         except pefile.PEFormatError as e:
             raise ContractError("Invalid PE image") from e
         h = pe.OPTIONAL_HEADER
-        if pe.FILE_HEADER.Machine != 0x8664 or h.Magic != 0x20B:
-            raise Blocked("Only PE32+ x86-64 images are supported")
+        if pe.FILE_HEADER.Machine not in (0x8664, 0xAA64) or h.Magic != 0x20B:
+            raise Blocked(
+                "Only standard PE32+ x86-64 or ARM64 images are supported; ARM64EC/ARM64X are not"
+            )
         base = h.ImageBase
         if (
             base % 4096
@@ -163,14 +168,14 @@ def load(data, symbol=None, address=None, *, _imports_resolved=False):
                     if item.forwarder:
                         raise Blocked("Forwarded exports require a DLL runtime")
                     matches.append(base + item.address)
-        abi = "win64"
+        abi = "winarm64" if pe.FILE_HEADER.Machine == 0xAA64 else "win64"
     else:
         raise ContractError("Expected a linked ELF or PE image")
     if symbol:
         if len(set(matches)) != 1:
             raise ContractError("Exactly one defined function symbol is required")
         address = matches[0]
-    if abi == "aapcs64" and address % 4:
+    if abi in ARM_ABIS and address % 4:
         raise ContractError("AArch64 function entry must be four-byte aligned")
     if not any(
         s["address"] <= address < s["address"] + s["size"] and "x" in s["permissions"]
@@ -201,7 +206,7 @@ def load(data, symbol=None, address=None, *, _imports_resolved=False):
 def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
     function_name(function)
     if abi not in ABIS:
-        raise ContractError("ABI must be sysv, win64 or aapcs64")
+        raise ContractError("ABI must be sysv, win64, aapcs64 or winarm64")
     units = sources(root, manifest)
     executable = (
         shutil.which(compiler)
@@ -211,7 +216,7 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
     if not executable:
         raise Blocked("Install a C compiler")
     clang = "clang" in Path(executable).name.lower()
-    if abi in ("win64", "aapcs64") and not clang:
+    if abi != "sysv" and not clang:
         raise Blocked("Windows/AArch64 linked reconstruction requires Clang and LLD")
     fingerprint = file_hash(executable)
     hashes = {
@@ -226,7 +231,7 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
                 manifest.get("declarations", "") + "\n" + text, encoding="utf-8"
             )
             paths.append(name)
-        output = "candidate.dll" if abi == "win64" else "candidate.elf"
+        output = "candidate.dll" if abi in PE_ABIS else "candidate.elf"
         argv = [executable]
         if clang:
             argv += [
@@ -235,10 +240,11 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
                     "win64": "x86_64-pc-windows-msvc",
                     "sysv": "x86_64-unknown-linux-gnu",
                     "aapcs64": "aarch64-unknown-linux-gnu",
+                    "winarm64": "aarch64-pc-windows-msvc",
                 }[abi],
                 "-fuse-ld=lld",
             ]
-        argv += ["-march=armv8-a", "-ffixed-x18"] if abi == "aapcs64" else ["-m64"]
+        argv += ["-march=armv8-a", "-ffixed-x18"] if abi in ARM_ABIS else ["-m64"]
         argv += [
             "-std=c11",
             "-" + manifest.get("optimization", "O2"),
@@ -250,7 +256,7 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
             "-fno-asynchronous-unwind-tables",
             "-fno-unwind-tables",
         ]
-        if abi == "win64":
+        if abi in PE_ABIS:
             argv += [
                 "-Wl,/dll,/noentry,/nodefaultlib,/fixed:no,/base:0x180000000,/timestamp:0",
                 "-Wl,/export:" + function,
@@ -361,7 +367,7 @@ def execute(image, case):
     abi = image["abi"]
     if abi not in ABIS:
         raise ContractError("Unknown linked-call ABI")
-    arm = abi == "aapcs64"
+    arm = abi in ARM_ABIS
     arg_registers, preserved, shadow = ABIS[abi]
     xmm = tuple("XMM" + str(i) for i in range(6, 16)) if abi == "win64" else ()
     registers = {name: 0xA55A12340000 + i for i, name in enumerate(preserved)}

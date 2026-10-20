@@ -17,10 +17,10 @@ class Jobs:
         env = {
             k: v
             for k, v in os.environ.items()
-            if k
+            if k.upper()
             in (
                 "PATH",
-                "SystemRoot",
+                "SYSTEMROOT",
                 "WINDIR",
                 "TEMP",
                 "TMP",
@@ -29,6 +29,7 @@ class Jobs:
                 "JAVA_HOME",
                 "LANG",
                 "LOCALAPPDATA",
+                "APPDATA",
             )
         }
         if environment:

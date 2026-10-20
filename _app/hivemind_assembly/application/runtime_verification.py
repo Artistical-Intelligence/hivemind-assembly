@@ -79,7 +79,7 @@ def verify_runtime_lanes(root, foundations, jobs=None):
             "output_bits": 32,
         }
         images, results = {}, {}
-        for abi in ("sysv", "win64", "aapcs64"):
+        for abi in ("sysv", "win64", "aapcs64", "winarm64"):
             built = call_images.build(
                 folder, {"sources": ["function.c"]}, "recovered", abi, jobs, compiler
             )

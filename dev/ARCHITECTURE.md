@@ -215,7 +215,7 @@ source archive so source releases can reproduce the launcher dependencies.
 
 `call_images` uses upstream pefile and pyelftools for linked PE/ELF inspection,
 Clang/LLD for cross-compilation, and Unicorn for bounded calls. SysV, Win64 and
-AAPCS64 integer/pointer arguments include stack arguments, aliased caller buffers,
+AAPCS64/Windows ARM64 integer/pointer arguments include stack arguments, aliased caller buffers,
 nonvolatile registers, Win64 XMM state and floating-point control registers.
 Every caller buffer is compared. Access outside exact buffer ranges fails even
 when it stays on a mapped page. Image-global writes, unresolved imports, TLS and loader
@@ -226,7 +226,7 @@ protected acceptance. Protected `linked_calls` acceptance (with the legacy
 `x86_64_linked_calls` scope retained)
 pins the original, seals cases, independently rebuilds every source and rechecks
 source/manifest hashes. The AArch64 adapter pins a Cortex-A57 CPU, admits static
-little-endian ELF, checks x19-x29/SP and the low halves of v8-v15, and reserves x18.
+little-endian ELF and standard ARM64 PE, checks x19-x29/SP and the low halves of v8-v15, and reserves x18.
 System instructions are rejected before execution; ordinary BR/BLR/RET and NOP
 remain supported. Whole-program Linux replay retains its x86-64-only loader.
 The workflow engine fingerprint includes the ARM adapter. This is function

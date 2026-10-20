@@ -153,7 +153,9 @@ class ReverseEngineeringDomain:
                 built["_artifact"] = {
                     "data": machine,
                     "name": "reconstructed-call."
-                    + ("dll" if args["candidate_abi"] == "win64" else "elf"),
+                    + (
+                        "dll" if args["candidate_abi"] in call_images.PE_ABIS else "elf"
+                    ),
                 }
                 if tool == "compare_linked_function":
                     original_path = scoped(root, args["original_path"])
