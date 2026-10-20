@@ -98,3 +98,30 @@ def test_edit_upload_check_and_draft_retention(server, app):
         )
         assert errors == []
         browser.close()
+
+
+def test_mcp_and_optional_cloud_settings(server, app):
+    from playwright.sync_api import sync_playwright, expect
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch(executable_path=os.environ['WORKBENCH_TEST_CHROME'],headless=True,args=['--no-sandbox'])
+        page=browser.new_page()
+        errors=[]
+        page.on('pageerror',lambda e:errors.append(str(e)))
+        page.goto(f'http://127.0.0.1:{server.server_port}/#{app.token}')
+        page.locator('[data-tab="connections"]').click()
+        expect(page.locator('#cloud-settings input[name="enabled"]')).not_to_be_checked()
+        page.locator('#mcp-access input[name="enabled"]').check()
+        page.locator('#mcp-access button').first.click()
+        expect(page.locator('#notice')).to_contain_text('MCP project access saved')
+        page.locator('#mcp-config').click()
+        expect(page.locator('#mcp-config-result')).to_contain_text('hivemind-assembly')
+        page.locator('#tunnel-configure input[name="tunnel_id"]').fill('tunnel_0123456789abcdef')
+        page.locator('#tunnel-configure input[name="key"]').fill('test-runtime-credential')
+        page.locator('#tunnel-configure button').click()
+        expect(page.locator('#notice')).to_contain_text('Tunnel configured')
+        expect(page.locator('#tunnel-configure input[name="key"]')).to_have_value('')
+        assert 'test-runtime-credential' not in page.locator('#tunnel-result').inner_text()
+        assert app.connections.settings()['enabled']
+        assert not app.codespaces.settings()['enabled']
+        assert errors==[]
+        browser.close()

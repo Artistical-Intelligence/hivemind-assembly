@@ -25,7 +25,8 @@ class Goals:
         root = self.store.task(goal["task_id"])
         goal["task_status"] = root["status"]
         goal["blocker"] = root["blocker"]
-        goal["remaining_turns"] = max(0, goal["max_turns"] - goal["turns"])
+        goal["remaining_turns"] = max(0, goal["max_turns"] - goal["turns"]) if goal["max_turns"] else None
+        goal["unlimited"] = goal["max_turns"] == 0
         return goal
 
     def command(self, task_id, command):
@@ -53,18 +54,18 @@ class Goals:
                 raise Blocked("Task is terminal; create a new task for another goal")
             if arg.startswith("budget "):
                 try:
-                    budget = int(arg[7:])
+                    budget = 0 if arg[7:].strip().lower() == "unlimited" else int(arg[7:])
                 except ValueError as e:
-                    raise ContractError("Goal budget must be an integer") from e
-                if not goal or not 1 <= budget <= 100000:
+                    raise ContractError("Goal budget must be an integer or unlimited") from e
+                if not goal or not 0 <= budget <= 100000:
                     raise ContractError(
-                        "Set a goal first; budget must be 1–100000 native turns"
+                        "Set a goal first; budget must be 1–100000 native turns or unlimited"
                     )
                 goal["max_turns"] = budget
             elif arg in ("pause", "resume", "clear"):
                 if not goal:
                     raise Conflict("No standing goal")
-                if arg == "resume" and goal["turns"] >= goal["max_turns"]:
+                if arg == "resume" and goal["max_turns"] and goal["turns"] >= goal["max_turns"]:
                     raise Blocked(
                         "Goal turn budget exhausted; increase it before resuming"
                     )
@@ -153,7 +154,7 @@ class Goals:
                 (goal["id"], message_id),
             ).fetchone():
                 return
-            if goal["turns"] >= goal["max_turns"]:
+            if goal["max_turns"] and goal["turns"] >= goal["max_turns"]:
                 db.execute(
                     "UPDATE goals SET status='exhausted',updated=? WHERE id=?",
                     (time.time(), goal["id"]),

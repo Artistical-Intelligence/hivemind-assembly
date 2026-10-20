@@ -104,10 +104,17 @@ class Connections:
         return spec
 
     def manifest(self, project):
-        return [{'server':name, 'tools':spec.get('tools', []),
-                 'usage':{'tool':'mcp_call','args':{'server':name,'tool':'<allowed tool>','arguments':{}}}}
-                for name,spec in self.settings()['servers'].items()
-                if project in spec.get('projects', []) and spec.get('tools')]
+        result=[]
+        for name,spec in self.settings()['servers'].items():
+            if project not in spec.get('projects',[]) or not spec.get('tools'):
+                continue
+            key=digest({'server':name,'transport':spec.get('transport'),'url':spec.get('url'),'command':spec.get('command'),'args':spec.get('args',[])})
+            rows=self.store.rows("SELECT payload FROM records WHERE kind='mcp_inventory' AND id=?",(key,))
+            inventory=json.loads(rows[0]['payload']) if rows else []
+            result.append({'server':name,'tools':spec['tools'],
+                           'schemas':[t for t in inventory if t['name'] in spec['tools']],
+                           'usage':{'tool':'mcp_call','args':{'server':name,'tool':'<allowed tool>','arguments':{}}}})
+        return result
 
     async def external(self, server, tool=None, arguments=None, project=None):
         from mcp import Client, StdioServerParameters
@@ -125,8 +132,23 @@ class Connections:
         async with asyncio.timeout(spec.get('timeout', 120)):
             async with Client(target) as client:
                 if tool is None:
-                    result = await client.list_tools()
-                    return [t.model_dump(mode='json', by_alias=True) for t in result.tools]
+                    inventory=[]
+                    cursor=None
+                    seen=set()
+                    while True:
+                        result = await client.list_tools(cursor=cursor)
+                        inventory.extend(t.model_dump(mode='json',by_alias=True) for t in result.tools)
+                        if len(inventory)>1000 or len(canonical(inventory))>2_000_000:
+                            raise Blocked('MCP tool inventory exceeds discovery limit')
+                        cursor=result.next_cursor
+                        if not cursor:break
+                        if cursor in seen:raise Blocked('MCP discovery repeated a cursor')
+                        seen.add(cursor)
+                    key=digest({'server':server,'transport':spec.get('transport'),'url':spec.get('url'),'command':spec.get('command'),'args':spec.get('args',[])})
+                    with self.store.tx() as db:
+                        db.execute("DELETE FROM records WHERE kind='mcp_inventory' AND id=?",(key,))
+                        self.store.put('mcp_inventory',key,inventory,db)
+                    return inventory
                 result = await client.call_tool(tool, arguments or {})
                 return result.model_dump(mode='json', by_alias=True)
 
@@ -148,7 +170,7 @@ class Gateway:
         if not cfg['enabled']:
             raise Blocked('Enable MCP in HA connection settings first')
         if tool == 'ha_projects':
-            return {'projects': [self.app.store.project(p) for p in cfg['projects']]}
+            return {'projects': [{**self.app.store.project(p), 'tasks':self.app.store.rows('SELECT id,objective,status FROM tasks WHERE project_id=?',(p,))} for p in cfg['projects']]}
         if tool == 'ha_create_project':
             if not cfg['allow_create']:
                 raise Blocked('MCP project creation is disabled')
@@ -187,7 +209,7 @@ class Gateway:
                 raise ContractError('Expected pause, resume or cancel')
             return self.app.action('/api/control', args)
         if tool == 'ha_goal':
-            return self.app.action('/api/goal', args)
+            return {'goal':self.app.action('/api/goal', args)}
         if tool == 'ha_list_files':
             return self.app.workspace.listing(task['id'])
         if tool == 'ha_read_file':

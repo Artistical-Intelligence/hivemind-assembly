@@ -213,6 +213,7 @@ class NativeTeam:
                 if role == "worker"
                 else []
             ),
+            "cloud_runners": (self.broker.codespaces.settings() if getattr(self.broker,"codespaces",None) else {"enabled":False}),
             "external_tools": (self.broker.mcp_connections.manifest(task["project_id"])
                                if getattr(self.broker, "mcp_connections", None) else []),
             "recent_operations": self.store.rows(
@@ -1075,6 +1076,9 @@ class NativeTeam:
 
 
 TOOL_SCHEMAS = {
+    "mcp_call":{"server":"authorized connection name from external_tools","tool":"authorized tool name","arguments":"object conforming to the discovered external tool schema; side effects are not automatically replayed"},
+    "cloud_submit":{"space":"owner-authorized Codespace name","files":"explicit source-text paths to snapshot","commands":"explicit argument arrays, one per command","outputs":"explicit output file paths to retain","requires":"optional {gpu:boolean,tools:[tool names]} checked before execution","timeout":"job execution seconds, default 3600; owner must enable optional cloud execution"},
+    "cloud_status":{},
     "create_repository": {
         "name": "GitHub repository name (1–100 letters, numbers, dots, underscores or hyphens). Reuse the project's repository; never create one per trial.",
         "description": "optional single line, at most 200 characters; exclude private target details. Creates an empty private repository, without commits or uploads. Reconcile uncertain results before retrying.",

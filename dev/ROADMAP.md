@@ -62,6 +62,8 @@ installation, and optional Codespaces lifecycle/parallel snapshot jobs. Local
 SDK exchanges, runner execution, recovery, cancellation, import conflicts and
 HTTP dashboard controls have automated checks. Live GitHub Codespaces delivery,
 web-chat tunnel authorization and external OAuth onboarding remain separate gates.
+Official private-tunnel installation/configuration/process supervision and explicit
+unlimited goal budgets are now implemented; live tunnel account access is unverified.
 The agreed tag-first knowledge gate, optional chat-only experimental learning,
-best eligible chat-model selection and explicit unlimited-use setting remain
+best eligible chat-model selection remain
 implementation work; existing keyword retrieval is not the requested access gate.

@@ -359,3 +359,20 @@ Preserving those specific system paths restored Visual Studio/SDK discovery in
 actual Windows CI without inheriting model credentials or user configuration.
 Native C compilation/execution and wrong-candidate rejection then passed.
 - https://clang.llvm.org/docs/UsersManual.html#clang-cl
+
+## MCP transport and private web connections
+
+The connection layer uses the official Python MCP SDK rather than a parallel
+JSON-RPC implementation. The private web connection uses OpenAI's official
+`tunnel-client` with its documented JSON-as-YAML configuration, OS-specific release
+assets, published SHA-256 digests, and environment-based runtime credentials.
+The local application remains authoritative for project access and writes.
+
+- https://py.sdk.modelcontextprotocol.io/
+- https://github.com/openai/tunnel-client
+- https://developers.openai.com/api/docs/guides/secure-mcp-tunnels
+- https://docs.github.com/en/rest/codespaces/codespaces
+- https://cli.github.com/manual/gh_codespace_ssh
+
+Codespaces contributes optional execution capacity. It is not assumed to offer a
+GPU, and a cloud job's successful exit does not replace protected acceptance.

@@ -17,6 +17,8 @@ from .domain import Capability, ToolContext
 CORE_CAPABILITIES = (
     Capability("list_files", recovery="discard"),
     Capability("mcp_call", True, "external"),
+    Capability("cloud_submit", True, "external"),
+    Capability("cloud_status", recovery="discard"),
     Capability("read_file", recovery="discard"),
     Capability("write_file", True, "reconcile"),
     Capability("checkpoint", recovery="discard"),
@@ -117,6 +119,17 @@ class Broker:
                 connections.authorize(args["server"], args["tool"], self.store.task(task)["project_id"])
                 effect_started = True
                 result = asyncio.run(connections.external(args["server"], args["tool"], args.get("arguments", {}), self.store.task(task)["project_id"]))
+            elif tool == "cloud_submit":
+                cloud = getattr(self, "codespaces", None)
+                if cloud is None:
+                    raise Blocked("Optional Codespaces integration is unavailable")
+                result = cloud.submit_worker(task, request["id"], args)
+                effect_started = True
+            elif tool == "cloud_status":
+                cloud = getattr(self, "codespaces", None)
+                if cloud is None:
+                    raise Blocked("Optional Codespaces integration is unavailable")
+                result = {"jobs":[r for r in cloud.jobs() if r['project']==self.store.task(task)['project_id']]}
             elif tool == "list_files":
                 result = {
                     "files": [

@@ -419,3 +419,20 @@ GPU requirements are checked both against the capability probe and at execution.
 GitHub compute/storage quotas and charges apply; HA does not enable paid usage.
 Live account authorization, cloud SSH delivery and web-chat tunnel access still
 need integration acceptance; local SDK and runner tests do not establish them.
+
+**Private web-chat setup:** the connection panel can now download and checksum-check
+the official OpenAI `tunnel-client`, generate a local profile, run its configuration
+doctor, and supervise start/stop. Enter an existing tunnel ID and runtime key from
+OpenAI Platform; choose session-only storage or the OS credential store. No key is
+written into the profile. Tunnel creation/account permission and adding the tunnel
+in the web client still depend on that service's account controls. A running process
+or a passing configuration check does not prove an end-to-end chat connection.
+
+Workers can submit authorized cloud snapshots through `cloud_submit`, inspect
+retained jobs with `cloud_status`, and read result artifacts. Worker requests use
+the controller's operation identity and writer fences. Local setup never silently
+creates a cloud machine or enables cloud execution.
+
+`/goal budget unlimited` explicitly removes HA's project turn cap while retaining
+usage records and independent completion checks. Provider allowance and availability
+checks still apply. Existing bounded goals retain their configured limits.

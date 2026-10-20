@@ -167,10 +167,16 @@ class Codespaces:
         with self.lock:
             return self._submit(data)
 
-    def _submit(self, data):
+    def submit_worker(self, task_id, operation_id, args):
+        # Caller is the fenced broker. User interfaces use submit(), which
+        # requires a paused project. Both routes use the same export guards.
+        with self.lock:
+            return self._submit({**args,'task':task_id,'request_id':operation_id}, worker=True)
+
+    def _submit(self, data, worker=False):
         if self.closed or not self.settings()['enabled'] or not self.settings()['allow_execution']:
             raise Blocked('Enable optional Codespaces execution first')
-        task = self.app.workspace.guard(data['task'])
+        task = self.store.task(data['task']) if worker else self.app.workspace.guard(data['task'])
         space = self.name(data['space'])
         if space not in self.settings()['spaces']:
             raise Blocked('Select a Codespace in settings')

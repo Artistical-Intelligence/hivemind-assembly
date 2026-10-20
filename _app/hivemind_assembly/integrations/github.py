@@ -78,9 +78,10 @@ class GitHubHTTP:
 class CredentialVault:
     """Only OS credential stores; never fall back to plaintext files."""
 
-    def __init__(self, root):
+    def __init__(self, root, service="GitHub"):
+        self.label = service
         self.account = sha256(str(root.resolve()).encode()).hexdigest()[:32]
-        self.service = "HivemindAssembly.GitHub"
+        self.service = "HivemindAssembly." + service
         self.backend = None
 
     def ready(self):
@@ -104,7 +105,7 @@ class CredentialVault:
             self.backend = backend
         except Exception:
             raise Blocked(
-                "Unlock an OS credential store (Windows Credential Manager, macOS Keychain or Linux Secret Service) before connecting GitHub."
+                f"Unlock an OS credential store (Windows Credential Manager, macOS Keychain or Linux Secret Service) before connecting {self.label}."
             ) from None
 
     def read(self):
@@ -114,7 +115,7 @@ class CredentialVault:
             return json.loads(value) if value else None
         except Exception:
             raise Blocked(
-                "GitHub credentials could not be read from the OS credential store."
+                f"{self.label} credentials could not be read from the OS credential store."
             ) from None
 
     def write(self, value):
@@ -123,7 +124,7 @@ class CredentialVault:
             self.backend.set_password(self.service, self.account, json.dumps(value))
         except Exception:
             raise Blocked(
-                "GitHub credentials could not be saved to the OS credential store."
+                f"{self.label} credentials could not be saved to the OS credential store."
             ) from None
 
     def clear(self):
@@ -132,7 +133,7 @@ class CredentialVault:
                 self.backend.delete_password(self.service, self.account)
             except Exception:
                 raise Blocked(
-                    "GitHub credentials could not be removed from the OS credential store."
+                    f"{self.label} credentials could not be removed from the OS credential store."
                 ) from None
 
 

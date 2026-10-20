@@ -135,3 +135,24 @@ def test_interrupted_job_requires_reconciliation(tmp_path):
         assert b.codespaces.latest('cloud_job:lost')['status']=='uncertain'
     finally:
         b.close()
+
+
+def test_worker_cloud_dispatch_uses_operation_identity_and_fences(app,monkeypatch):
+    task=app.store.create_project('worker cloud','Compile a program')
+    app.codespaces.save({'enabled':True,'allow_execution':True,'spaces':['cpu']})
+    calls=[]
+    def remote(space,request,timeout=60):
+        calls.append(request['id'])
+        return {'id':request['id'],'request_hash':request['request_hash'],'status':'completed','passed':True}
+    monkeypatch.setattr(app.codespaces,'remote',remote)
+    c=app.controller
+    epoch=c.acquire(task['id'],'worker.opus')
+    c.brief(task['id'],{'revision':0},{'procedure':'Compile snapshot','acceptance':'Inspect compiler exit'}, {'critical_gaps':[]},[])
+    req={'id':'worker-cloud','task_id':task['id'],'owner':'worker.opus','epoch':epoch,'revision':0,'tool':'cloud_submit','args':{'space':'cpu','commands':[['cc','--version']]}}
+    result=app.broker.execute(req)
+    assert app.broker.execute(req)==result
+    for _ in range(50):
+        if calls:break
+        time.sleep(.01)
+    assert calls==['worker-cloud']
+    assert app.codespaces.latest('cloud_job:worker-cloud')['project']==task['project_id']

@@ -92,9 +92,12 @@ class Application:
         from hivemind_assembly.integrations.mcp import Connections, Gateway
         from hivemind_assembly.integrations.codespaces import Codespaces
         self.connections = Connections(self.store)
+        from hivemind_assembly.integrations.tunnel import Tunnel
+        self.tunnel = Tunnel(self.connections)
         self.mcp_gateway = Gateway(self)
         self.broker.mcp_connections = self.connections
         self.codespaces = Codespaces(self)
+        self.broker.codespaces = self.codespaces
         recovery = self.broker.recover_pending()
         if recovery:
             self.store.put("startup_recovery", uid("startup"), {"operations": recovery})
@@ -188,6 +191,7 @@ class Application:
             "github": {**self.github_auth.status(), **self.config.get("github", {})},
             "hosted_tests": self.hosted_tests.listing(),
             "connections": self.connections.settings(),
+            "tunnel": self.tunnel.status(),
             "codespaces": {"settings": self.codespaces.settings(), "jobs": self.codespaces.jobs()},
             "native_evaluations": (
                 [
@@ -278,6 +282,18 @@ class Application:
             return self._action(path, data)
 
     def _action(self, path, data):
+        if path == "/api/tunnel/install":
+            return self.background_job("Install official MCP tunnel", self.tunnel.install)
+        if path == "/api/tunnel/configure":
+            return self.tunnel.configure(data["tunnel_id"],data.get("key") or None,data.get("remember",False))
+        if path == "/api/tunnel/doctor":
+            return self.background_job("Check private MCP tunnel", self.tunnel.doctor)
+        if path == "/api/tunnel/start":
+            return self.tunnel.start()
+        if path == "/api/tunnel/stop":
+            return self.tunnel.stop()
+        if path == "/api/tunnel/forget":
+            return self.tunnel.forget()
         if path == "/api/mcp/settings":
             return self.connections.save(data)
         if path == "/api/mcp/config":
@@ -873,6 +889,7 @@ class Application:
     def close(self):
         if self.shutdown:
             return
+        self.tunnel.close()
         self.codespaces.close()
         self.hosted_tests.close()
         self.shutdown = True
