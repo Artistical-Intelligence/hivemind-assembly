@@ -66,9 +66,14 @@ comparison, promotion and engine-fingerprint checks. A code/dependency change
 requires re-evaluation against the unoptimized fallback before reuse.
 
 Successful task traces become knowledge and procedure candidates. They remain
-local and inactive pending independent evaluation. The built-in proof workflow
-contains generic parameter references and may be offered to native workers
-once promoted. It does not expose evaluator cases or private project bytes.
+local and inactive pending independent evaluation. The built-in proof and function-call workflows
+contain generic parameter references and may be offered to native workers
+once promoted. They do not expose evaluator cases or private project bytes.
+Steps may select an earlier result using `{"$step": 0, "path": ["value"]}`;
+optional plan outputs select the observed results. Forward references and missing
+paths fail explicitly. Function replay refuses host clocks, random CPU instructions,
+port I/O and unmodeled OS effects. Native proposals still need the bound protected
+suite and must preserve the baseline's complete selected results, including buffers.
 
 ## Compatibility and persistence
 

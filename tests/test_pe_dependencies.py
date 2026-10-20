@@ -1,3 +1,5 @@
+import shutil
+import os
 import subprocess
 from pathlib import Path
 import pytest
@@ -5,8 +7,15 @@ from hivemind_assembly.core.common import Blocked, ContractError
 from hivemind_assembly.domains.reverse_engineering import pe_dependencies
 from hivemind_assembly.domains.reverse_engineering.call_images import execute
 
-CLANG = "/root/.clang-tool-chain/clang/linux/x86_64/bin/clang"
-LLD = str(Path(CLANG).with_name("lld-link"))
+CLANG = os.environ.get("HA_TEST_CLANG") or shutil.which("clang")
+LLD = os.environ.get("HA_TEST_LLD") or shutil.which("lld-link")
+if not LLD and CLANG:
+    sibling = Path(CLANG).with_name("lld-link.exe" if os.name == "nt" else "lld-link")
+    if sibling.is_file():
+        LLD = str(sibling)
+pytestmark = pytest.mark.skipif(
+    not CLANG or not LLD, reason="Clang and LLD required; set HA_TEST_CLANG/HA_TEST_LLD"
+)
 
 
 def object_file(root, name, source):

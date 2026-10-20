@@ -213,7 +213,7 @@ class Broker:
 
                 result = WorkflowLearning(
                     self.store, self.domain.workflow_runner()
-                ).execute(args["lesson"], args.get("inputs", {}))
+                ).execute(args["lesson"], args.get("inputs", {}), external=True)
             elif tool == "link_repository" and self.repositories:
                 if request["owner"] != "user.repository":
                     raise Blocked("Existing repositories must be selected by the owner")

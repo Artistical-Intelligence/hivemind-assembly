@@ -31,6 +31,12 @@ def main():
     p.add_argument("--output-bits", type=int, choices=[32, 64], default=32)
     p.add_argument("--compiler", default="")
     p.add_argument(
+        "--workflow",
+        choices=["proofs", "calls"],
+        default="proofs",
+        help="Executable workflow for learn",
+    )
+    p.add_argument(
         "--backup",
         help="Workspace ZIP for offline restore into an empty data directory",
     )
@@ -47,9 +53,12 @@ def main():
     elif args.command == "verify-foundations":
         from pathlib import Path
         from hivemind_assembly.application.verification import verify_foundations
+
         root = Path(args.data_dir)
         config = json.loads((root / "settings.json").read_text())
-        result = verify_foundations(root / "private" / "verification", config["foundations"])
+        result = verify_foundations(
+            root / "private" / "verification", config["foundations"]
+        )
         print(json.dumps(result, indent=2))
         raise SystemExit(0 if result["passed"] else 1)
     elif args.command == "verify":
@@ -122,12 +131,18 @@ def main():
         from hivemind_assembly.core.store import Store
         from hivemind_assembly.domains.reverse_engineering.workflows import (
             optimize_repeated_proofs,
+            optimize_repeated_calls,
         )
 
         lock = InstanceLock(args.data_dir)
         store = Store(args.data_dir)
         try:
-            print(json.dumps(optimize_repeated_proofs(store), indent=2))
+            optimize = (
+                optimize_repeated_calls
+                if args.workflow == "calls"
+                else optimize_repeated_proofs
+            )
+            print(json.dumps(optimize(store), indent=2))
         finally:
             store.close()
             lock.close()

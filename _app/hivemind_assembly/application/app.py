@@ -398,18 +398,28 @@ class Application:
         if path == "/api/learning/optimize":
             from hivemind_assembly.domains.reverse_engineering.workflows import (
                 optimize_repeated_proofs,
+                optimize_repeated_calls,
             )
 
+            kind = data.get("kind", "proofs")
+            optimizers = {
+                "proofs": optimize_repeated_proofs,
+                "calls": optimize_repeated_calls,
+            }
+            if kind not in optimizers:
+                raise ContractError("Unknown workflow optimization")
             if not self.learning_lock.acquire(blocking=False):
                 raise Blocked("A workflow evaluation is already running")
 
             def optimize():
                 try:
-                    return optimize_repeated_proofs(self.store)
+                    return optimizers[kind](self.store)
                 finally:
                     self.learning_lock.release()
 
-            return self.background_job("Evaluate reusable proof workflow", optimize)
+            return self.background_job(
+                "Evaluate reusable " + kind + " workflow", optimize
+            )
         if path == "/api/learning/rollback":
             Learning(self.store).rollback(data["lesson"])
             return {"rolled_back": data["lesson"]}

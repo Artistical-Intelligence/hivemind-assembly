@@ -1,6 +1,7 @@
 """Reusable, bounded specialist execution with no shell or model inference."""
 
 import importlib.metadata
+import json
 from pathlib import Path
 from hivemind_assembly.core.common import digest, file_hash, ContractError
 from hivemind_assembly.learning.workflows import WorkflowRunner, WorkflowLearning
@@ -30,6 +31,46 @@ def equivalence(args):
     )
 
 
+def function_call(args):
+    from .call_images import execute, ABIS
+
+    if set(args) - {"machine_hex", "abi", "case"}:
+        raise ContractError("Unknown function-call workflow argument")
+    code = args.get("machine_hex")
+    if not isinstance(code, str) or not 1 <= len(bytes.fromhex(code)) <= 16384:
+        raise ContractError("Function workflow requires 1–16384 code bytes")
+    abi = args.get("abi", "sysv")
+    if abi not in ABIS:
+        raise ContractError("Unknown function-call ABI")
+    image = {
+        "abi": abi,
+        "entry": 0x10000,
+        "segments": [
+            {
+                "address": 0x10000,
+                "size": len(bytes.fromhex(code)),
+                "hex": code,
+                "permissions": "rx",
+            }
+        ],
+    }
+    return execute(image, args.get("case", {}))
+
+
+def linked_call(args):
+    from .call_images import load, execute
+
+    if set(args) - {"image_hex", "symbol", "address", "case"}:
+        raise ContractError("Unknown linked-call workflow argument")
+    raw = args.get("image_hex")
+    if not isinstance(raw, str) or not 1 <= len(raw) <= 180000:
+        raise ContractError("Workflow linked image exceeds bounds")
+    return execute(
+        load(bytes.fromhex(raw), args.get("symbol"), args.get("address")),
+        args.get("case", {}),
+    )
+
+
 def runner():
     from hivemind_assembly.learning import workflows
 
@@ -37,34 +78,29 @@ def runner():
     fingerprint = digest(
         {
             "proof": file_hash(folder / "proof.py"),
+            "calls": file_hash(folder / "call_images.py"),
+            "semantics": file_hash(folder / "semantics.py"),
+            "image_loader": file_hash(folder / "program.py"),
             "adapter": file_hash(Path(__file__)),
             "workflow": file_hash(Path(workflows.__file__)),
             "dependencies": {
-                k: importlib.metadata.version(k) for k in ("pypcode", "z3-solver")
+                k: importlib.metadata.version(k)
+                for k in ("pypcode", "z3-solver", "unicorn", "pefile", "pyelftools")
             },
         }
     )
-    return WorkflowRunner({"check_equivalence": equivalence}, fingerprint)
+    return WorkflowRunner(
+        {
+            "check_equivalence": equivalence,
+            "function_call": function_call,
+            "linked_call": linked_call,
+        },
+        fingerprint,
+    )
 
 
 def optimize_repeated_proofs(store):
     """Execute a real local benchmark of the bounded duplicate-proof optimizer."""
-    service = WorkflowLearning(store, runner())
-    import json
-
-    existing = store.rows(
-        "SELECT id,payload FROM lessons WHERE asset_key='repeated-region-proofs' AND status='active'"
-    )
-    if (
-        existing
-        and json.loads(existing[0]["payload"]).get("engine")
-        == service.runner.fingerprint
-    ):
-        return {
-            "candidate": existing[0]["id"],
-            "promoted": True,
-            "already_active": True,
-        }
     step = {
         "tool": "check_equivalence",
         "args": {
@@ -90,7 +126,106 @@ def optimize_repeated_proofs(store):
                 "expected": [{"result": result}] * 3,
             }
         )
-    binding = "repeated-region-proofs:" + service.runner.fingerprint
+    return _optimize(
+        store,
+        "repeated-region-proofs",
+        baseline,
+        cases,
+        "Repeated identical region proofs within one workflow; four local cases",
+    )
+
+
+def optimize_repeated_calls(store):
+    """Measure replay reuse against separate scalar and pointer-call families."""
+    step = {
+        "tool": "function_call",
+        "args": {"machine_hex": {"$input": "code"}, "case": {"$input": "case"}},
+    }
+    baseline = {
+        "steps": [step, step, step],
+        "reuse_identical": False,
+        "outputs": [{"$step": 2}],
+    }
+    cases = []
+    # Expected results are independently specified arithmetic and memory effects,
+    # never obtained by copying the baseline's replay output.
+    for name, family, split, code, call, expected in (
+        (
+            "add",
+            "scalar",
+            "regression",
+            "89f801f0c3",
+            {"arguments": [7, 19], "output_bits": 32},
+            {"value": 26},
+        ),
+        (
+            "wrap",
+            "scalar",
+            "regression",
+            "89f801f0c3",
+            {"arguments": [4294967295, 2], "output_bits": 32},
+            {"value": 1},
+        ),
+        (
+            "store",
+            "pointer",
+            "holdout",
+            "8b0701f08907c3",
+            {
+                "arguments": [{"buffer": "data"}, 5],
+                "output_bits": 32,
+                "buffers": [{"id": "data", "hex": "07000000"}],
+            },
+            {"value": 12, "buffers": {"data": "0c000000"}},
+        ),
+        (
+            "offset",
+            "pointer",
+            "holdout",
+            "8b0701f08907c3",
+            {
+                "arguments": [{"buffer": "data", "offset": 4}, 2],
+                "output_bits": 32,
+                "buffers": [{"id": "data", "hex": "efbeaddeffffffff"}],
+            },
+            {"value": 1, "buffers": {"data": "efbeadde01000000"}},
+        ),
+    ):
+        cases.append(
+            {
+                "id": name,
+                "family": family,
+                "split": split,
+                "inputs": {"code": code, "case": call},
+                "expected": [{"status": "completed", "abi_ok": True, **expected}],
+            }
+        )
+    return _optimize(
+        store,
+        "repeated-function-calls",
+        baseline,
+        cases,
+        "Repeated deterministic function calls; four local scalar/pointer cases",
+    )
+
+
+def _optimize(store, key, baseline, cases, scope):
+    service = WorkflowLearning(store, runner())
+    existing = store.rows(
+        "SELECT id,payload FROM lessons WHERE asset_key=? AND status='active'", (key,)
+    )
+    if (
+        existing
+        and json.loads(existing[0]["payload"]).get("engine")
+        == service.runner.fingerprint
+    ):
+        return {
+            "candidate": existing[0]["id"],
+            "promoted": True,
+            "already_active": True,
+            "scope": scope,
+        }
+    binding = key + ":" + service.runner.fingerprint
     retained = store.rows(
         "SELECT payload FROM records WHERE kind='workflow_suite' AND id=?", (binding,)
     )
@@ -101,9 +236,7 @@ def optimize_repeated_proofs(store):
     )
     if not retained:
         store.put("workflow_suite", binding, {"artifact": suite})
-    candidate = service.propose(
-        "repeated-region-proofs", baseline, [suite], external_allowed=True
-    )
+    candidate = service.propose(key, baseline, [suite], external_allowed=True)
     result = service.evaluate(candidate, suite)
     if result["eligible"]:
         service.learning.promote(candidate, result["evaluation"], "evaluator")
@@ -111,5 +244,5 @@ def optimize_repeated_proofs(store):
         **result,
         "candidate": candidate,
         "promoted": result["eligible"],
-        "scope": "Repeated identical region proofs within one workflow; measured on four local cases",
+        "scope": scope,
     }

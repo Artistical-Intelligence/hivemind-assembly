@@ -1,3 +1,4 @@
+import os
 import ctypes
 import json
 import random
@@ -12,7 +13,8 @@ from hivemind_assembly.core.artifacts import Artifacts
 from hivemind_assembly.domains.reverse_engineering import call_images as calls
 from hivemind_assembly.domains.reverse_engineering.call_acceptance import CallAcceptance
 
-CLANG = shutil.which("clang") or "/root/.clang-tool-chain/clang/linux/x86_64/bin/clang"
+CLANG = os.environ.get("HA_TEST_CLANG") or shutil.which("clang")
+pytestmark = pytest.mark.skipif(not CLANG, reason="Clang required; set HA_TEST_CLANG")
 SOURCE = """extern unsigned mix(unsigned);
 unsigned recovered(unsigned *p, unsigned n, unsigned salt, unsigned a, unsigned b, unsigned c, unsigned d) {
  unsigned result=a+2*b+3*c+4*d;

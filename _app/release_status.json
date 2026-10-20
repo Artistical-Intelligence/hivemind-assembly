@@ -1,12 +1,12 @@
 {
-  "version": "0.6.0",
+  "version": "0.7.0",
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 257,
+    "passed": 272,
     "skipped": 1,
     "failed": 0,
-    "elapsed_seconds": 45.49,
+    "elapsed_seconds": 47.55,
     "host": "Linux Python 3.12",
     "hermes_source": "c0015464f0f40d52c5702a84cf58e70361f4a04c",
     "skipped_gate": "Local Chromium DOM fixture. An installed Chromium executable was found, but this host rejects its required socket operation; the fixture is not counted as passed."
@@ -18,7 +18,7 @@
     "program_reconstruction": "Complete Qiling 1.4.6 replay of declared files, descriptors and mapped memory agreed with a separately executed source-known native fixture. Wrong reconstruction, host-file access and syscall writes to read-only code were rejected. Static Unicorn multi-unit reconstruction remains supported.",
     "learning": "ACE prompt/curation path, SkillOpt patch/gate and Shinka parent selection integrated. Protected generic evaluator rejected a wrong held-out result and promoted a measured correctness gain across separate fixture families/projects. Executable workflow timing/rollback tests passed. These are not native cross-project learning acceptance.",
     "backups": "Complete owned workspace snapshot and offline restore verified; project/native files and transcripts preserved, private browser/credential storage excluded.",
-    "dashboard": "jsdom interaction checks passed for native setup, permission changes, protected corpus/evaluation forms, foundation verification, existing GitHub/project/acceptance controls. Native DOM/WebMCP fixtures reject injected identity, duplicate controls and wrong origin/schema.",
+    "dashboard": "jsdom interaction checks passed for native setup, permission changes, protected corpus/evaluation forms, foundation verification, existing-repository binding, creation policy, uncertain checkpoint reconciliation, proof/function workflow selection, and project/acceptance controls. Native DOM/WebMCP fixtures reject injected identity, duplicate controls and wrong origin/schema.",
     "static": "pyflakes on implementation and development verification scripts, JavaScript syntax and git diff --check passed.",
     "native_lifecycle": "Session intent/commit, crash recovery without duplicate send, protected binding restoration, two-way canary verification paths and pending-delivery renewal guard passed local fixtures. Actual signed-in routes remain unverified.",
     "native_learning": "Resumable paired knowledge/procedure trials, protected expected outputs, isolated conversation IDs, permission revocation, evaluator fingerprinting and promotion passed local fixtures. Real model gains and provider-wide memory isolation remain unverified.",
@@ -51,7 +51,8 @@
     "linked_function_reconstruction": "Linked ELF/SysV and PE/Win64 compilation, seven-argument calls, cross-ABI comparisons, aliased pointer buffers, exact bounds, read-only writes, nonvolatile XMM and FP controls passed local tests. Pointer results compared against independently compiled native GCC execution. Protected acceptance rebuilds and rejects wrong code; no Windows OS runtime claimed.",
     "checkpoint_publication": "Optional existing-repository binding and local-only operation; automatic publication scheduling after trusted comparisons; exact source hashes, append-only journal, non-force branch updates, remote-change rejection, and lost initialization/ref response recovery passed fixtures. HA live publication remains unverified; development snapshots were pushed separately through the connected GitHub tools.",
     "pe_dependencies": "Actual Clang/LLD PE fixtures passed explicit DLL linking, absolute-pointer relocation, forwarded exports, missing-import rejection, initialization rejection, and protected dependency pinning. No native Windows execution or Windows API runtime claimed.",
-    "reconstruction_planning": "Complete Ghidra inventory and static-callgraph pagination exercised on actual Ghidra; 13-function graph planned. A 4000-function chain, recursion groups, external dependencies and incomplete/changed/truncated graph rejection passed automated tests."
+    "reconstruction_planning": "Complete Ghidra inventory and static-callgraph pagination exercised on actual Ghidra; 13-function graph planned. A 4000-function chain, recursion groups, external dependencies and incomplete/changed/truncated graph rejection passed automated tests.",
+    "workflow_composition": "Earlier-step references, selected outputs, deterministic integer/pointer function replay, invalid-result-path rejection, independent scalar/pointer holdouts, and revocable native workflow permission are implemented. Built-in optimizers retain paired measured timings and require preserved results before promotion; no general native self-improvement claim."
   },
   "native_live_acceptance": {
     "validated_routes": 0,

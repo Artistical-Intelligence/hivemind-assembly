@@ -171,3 +171,139 @@ def test_real_proof_optimizer_records_correctness_and_timings(store):
             result["candidate"], {"original": "89f801f0", "candidate": "8d0437"}
         )
         assert all(r["result"] == "UNSAT" for r in output["outputs"])
+
+
+def test_composed_function_workflow_uses_prior_results_and_selected_outputs():
+    from hivemind_assembly.domains.reverse_engineering.workflows import runner
+
+    engine = runner()
+    plan = {
+        "steps": [
+            {
+                "tool": "function_call",
+                "args": {
+                    "machine_hex": "89f801f0c3",
+                    "case": {
+                        "arguments": [{"$input": "a"}, {"$input": "b"}],
+                        "output_bits": 32,
+                    },
+                },
+            },
+            {
+                "tool": "function_call",
+                "args": {
+                    "machine_hex": "89f801f8c3",
+                    "case": {
+                        "arguments": [{"$step": 0, "path": ["value"]}],
+                        "output_bits": 32,
+                    },
+                },
+            },
+            {
+                "tool": "function_call",
+                "args": {
+                    "machine_hex": "89f801f8c3",
+                    "case": {
+                        "arguments": [{"$step": 0, "path": ["value"]}],
+                        "output_bits": 32,
+                    },
+                },
+            },
+        ],
+        "reuse_identical": True,
+        "outputs": [{"$step": 2}],
+    }
+    assert engine.run(plan, {"a": 3, "b": 4})[0]["value"] == 14
+    assert engine.run(plan, {"a": 3, "b": 5})[0]["value"] == 16
+
+
+@pytest.mark.parametrize(
+    "reference",
+    [{"$step": 0}, {"$step": -1}, {"$step": True}, {"$step": 2, "path": ["x"]}],
+)
+def test_forward_or_invalid_step_references_rejected(reference):
+    engine = WorkflowRunner({"identity": lambda a: a}, "fixture")
+    with pytest.raises(ContractError):
+        engine.run(
+            {
+                "steps": [{"tool": "identity", "args": {"x": reference}}],
+                "reuse_identical": False,
+            },
+            {},
+        )
+
+
+def test_missing_result_path_is_an_explicit_failure():
+    engine = WorkflowRunner({"identity": lambda a: a}, "fixture")
+    with pytest.raises(ContractError, match="selected output"):
+        engine.run(
+            {
+                "steps": [{"tool": "identity", "args": {"n": 1}}],
+                "reuse_identical": False,
+                "outputs": [{"$step": 0, "path": ["missing"]}],
+            },
+            {},
+        )
+
+
+@pytest.mark.parametrize(
+    "code", ["0f31c3", "0f01f9c3", "0fa2c3", "480fc7f0c3", "f3480fc7f8c3", "ecc3"]
+)
+def test_cpu_nondeterminism_is_not_a_pure_workflow(code):
+    from hivemind_assembly.domains.reverse_engineering.workflows import function_call
+
+    assert function_call({"machine_hex": code})["status"] == "unsupported"
+
+
+def test_invalid_result_path_retains_failed_evaluation(store, monkeypatch):
+    learning = service(store, monkeypatch)
+    suite = learning.protect_suite(CASES)
+    plan = {**PLAN, "outputs": [{"$step": 2, "path": ["missing"]}]}
+    candidate = learning.propose("bad-path", plan, [suite])
+    result = learning.evaluate(candidate, suite)
+    assert not result["eligible"]
+    assert all(
+        not v["passed"]
+        for v in store.get("evaluation", result["evaluation"])["trial"].values()
+    )
+
+
+def test_real_function_optimizer_preserves_independent_buffer_truth(store):
+    from hivemind_assembly.domains.reverse_engineering.workflows import (
+        optimize_repeated_calls,
+        runner,
+    )
+
+    result = optimize_repeated_calls(store)
+    evaluation = store.get("evaluation", result["evaluation"])
+    assert set(evaluation["holdouts"]) == {"store", "offset"}
+    assert all(v["passed"] for v in evaluation["trial"].values())
+    assert all(len(v["trial"]) == 5 for v in evaluation["samples"].values())
+    if result["promoted"]:
+        output = WorkflowLearning(store, runner()).execute(
+            result["candidate"],
+            {"code": "89f801f0c3", "case": {"arguments": [10, 21], "output_bits": 32}},
+        )
+        assert output["outputs"][0]["value"] == 31
+        assert optimize_repeated_calls(store)["already_active"]
+
+
+def test_revoked_workflow_cannot_be_used_or_revised_by_native_worker(
+    store, monkeypatch
+):
+    learning = service(store, monkeypatch)
+    suite = learning.protect_suite(CASES)
+    candidate = learning.propose("revocable", PLAN, [suite], external_allowed=True)
+    evaluation = learning.evaluate(candidate, suite)
+    learning.learning.promote(candidate, evaluation["evaluation"], "evaluator")
+    assert (
+        learning.execute(candidate, {"n": 4}, external=True)["outputs"]
+        == [{"value": 16}] * 3
+    )
+    learning.learning.share(candidate, False)
+    assert learning.learning.applicable("reverse_engineering", external=True) == []
+    with pytest.raises(Blocked, match="not authorized"):
+        learning.execute(candidate, {"n": 4}, external=True)
+    with pytest.raises(Blocked, match="externally authorized"):
+        learning.propose_variant("task", candidate, PLAN, ["op"], "revise")
+    assert learning.execute(candidate, {"n": 4})["outputs"] == [{"value": 16}] * 3

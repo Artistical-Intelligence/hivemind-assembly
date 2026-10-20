@@ -7,7 +7,8 @@ It is not a declaration that the requested product has passed all gates.
 
 Recent additions: linked ELF/PE integer and pointer-function reconstruction,
 protected cross-ABI acceptance, optional existing repository binding, and
-automatic verified source checkpoint publication. These do not establish
+automatic verified source checkpoint publication, complete static callgraph planning,
+declared DLL dependencies and composed executable workflow learning. These do not establish
 Windows application reconstruction or live GitHub automation acceptance.
 
 1. Validate all five exact routes on the actual signed-in accounts, including
@@ -23,7 +24,8 @@ Windows application reconstruction or live GitHub automation acceptance.
    and fixture-tested; genuine native learning gains remain unmeasured.
 4. Extend application reconstruction beyond the implemented static x86-64 Linux
    contracts. Declared file/memory behavior now uses full Qiling. Dynamic
-   linking, broader CPU/OS effects, Windows/game/graphics behavior and target-level
+   OS linking/initialization beyond the bounded supplied-DLL function lane, broader
+   CPU/OS effects, Windows/game/graphics behavior and target-level
    equivalence remain outside the implemented acceptance scope.
 5. Run clean Windows installation/update/restore and complete native REA checks.
    The Windows Python 3.12 wheel closure resolves, and the 96-variant GCC/Clang

@@ -22,13 +22,14 @@ class WorkflowRunner:
     def validate(self, plan):
         if (
             not isinstance(plan, dict)
-            or set(plan) != {"steps", "reuse_identical"}
+            or not {"steps", "reuse_identical"} <= set(plan)
+            or set(plan) - {"steps", "reuse_identical", "outputs"}
             or type(plan["reuse_identical"]) is not bool
         ):
             raise ContractError("Workflow requires steps and a boolean reuse_identical")
         if not isinstance(plan["steps"], list) or not 1 <= len(plan["steps"]) <= 32:
             raise ContractError("Workflow must contain 1–32 steps")
-        for step in plan["steps"]:
+        for index, step in enumerate(plan["steps"]):
             if (
                 not isinstance(step, dict)
                 or set(step) != {"tool", "args"}
@@ -38,8 +39,43 @@ class WorkflowRunner:
                 raise ContractError(
                     "Workflow step must name a registered pure operation"
                 )
+            self._references(step["args"], index)
+        if "outputs" in plan:
+            if (
+                not isinstance(plan["outputs"], list)
+                or not 1 <= len(plan["outputs"]) <= 32
+            ):
+                raise ContractError("Workflow requires 1–32 selected outputs")
+            self._references(plan["outputs"], len(plan["steps"]))
         if len(canonical(plan)) > 100_000:
             raise ContractError("Workflow exceeds size limit")
+
+    def _references(self, value, before, depth=0):
+        if depth > 20:
+            raise ContractError("Workflow nesting exceeds limit")
+        if isinstance(value, dict):
+            if "$step" in value:
+                index, path = value["$step"], value.get("path", [])
+                if (
+                    set(value) - {"$step", "path"}
+                    or type(index) is not int
+                    or not 0 <= index < before
+                    or not isinstance(path, list)
+                    or len(path) > 16
+                    or any(
+                        not isinstance(k, str) and not (type(k) is int and k >= 0)
+                        for k in path
+                    )
+                ):
+                    raise ContractError(
+                        "Step references must select an earlier result with a bounded path"
+                    )
+                return
+            for child in value.values():
+                self._references(child, before, depth + 1)
+        elif isinstance(value, list):
+            for child in value:
+                self._references(child, before, depth + 1)
 
     def run(self, plan, inputs):
         self.validate(plan)
@@ -50,6 +86,21 @@ class WorkflowRunner:
             if depth > 20:
                 raise ContractError("Workflow nesting exceeds limit")
             if isinstance(value, dict):
+                if "$step" in value:
+                    result = outputs[value["$step"]]
+                    try:
+                        for part in value.get("path", []):
+                            if not (
+                                (isinstance(result, dict) and isinstance(part, str))
+                                or (isinstance(result, list) and type(part) is int)
+                            ):
+                                raise KeyError(part)
+                            result = result[part]
+                    except (KeyError, IndexError, TypeError) as error:
+                        raise ContractError(
+                            "Step result does not contain the selected output"
+                        ) from error
+                    return copy.deepcopy(result)
                 if "$input" in value:
                     if (
                         set(value) != {"$input"}
@@ -70,7 +121,7 @@ class WorkflowRunner:
             if not plan["reuse_identical"] or key not in cache:
                 cache[key] = self.operations[step["tool"]](args)
             outputs.append(copy.deepcopy(cache[key]))
-        return outputs
+        return resolve(plan["outputs"]) if "outputs" in plan else outputs
 
 
 def matches(actual, expected):
@@ -213,8 +264,13 @@ class WorkflowLearning:
             passed = {"baseline": True, "trial": True}
             plans = {"baseline": payload["baseline"], "trial": payload["content"]}
             # Warm both paths; alternate timed order to reduce first-run bias.
-            for plan in plans.values():
-                self.runner.run(plan, case["inputs"])
+            for name, plan in plans.items():
+                try:
+                    self.runner.run(plan, case["inputs"])
+                except Exception:
+                    # Invalid proposed paths are failed trials, not an escape
+                    # from the independently retained evaluation record.
+                    passed[name] = False
             for iteration in range(repeats):
                 outputs = {}
                 for name in (
@@ -301,9 +357,11 @@ class WorkflowLearning:
             "cases": len(cases),
         }
 
-    def execute(self, lesson, inputs):
+    def execute(self, lesson, inputs, external=False):
         row = self.store.one("SELECT * FROM lessons WHERE id=?", (lesson,))
         payload = json.loads(row["payload"])
+        if external and not self.learning.external_allowed(row):
+            raise Blocked("Workflow is not authorized for native-provider use")
         if (
             row["status"] != "active"
             or row["kind"] != "executable"
@@ -327,7 +385,7 @@ class WorkflowLearning:
             base["status"] != "active"
             or base["kind"] != "executable"
             or payload.get("engine") != self.runner.fingerprint
-            or not payload.get("external_allowed")
+            or not self.learning.external_allowed(base)
         ):
             raise Blocked(
                 "Workflow revision requires an active, current, externally authorized baseline"

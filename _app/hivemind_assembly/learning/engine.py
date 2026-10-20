@@ -169,7 +169,7 @@ class Learning:
         ):
             payload = json.loads(row["payload"])
             if domain not in payload["scope"] or (
-                external and not payload.get("external_allowed", False)
+                external and not self.external_allowed(row)
             ):
                 continue
             result.append(

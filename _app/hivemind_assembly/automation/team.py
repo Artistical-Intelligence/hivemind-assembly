@@ -1091,7 +1091,7 @@ TOOL_SCHEMAS = {
     },
     "propose_workflow": {
         "baseline": "active executable lesson ID",
-        "plan": "registered pure-operation workflow",
+        "plan": "{steps:[{tool,args}],reuse_identical:boolean,outputs?:[selected results]}. Pure tools: check_equivalence(original_hex,candidate_hex,inputs?,outputs?), function_call(machine_hex,abi?,case?), linked_call(image_hex,symbol?,address?,case?). Args can use {$input:name} or {$step:earlier_index,path:[keys or indices]}; outputs can select any step. Calls accept integer arguments and explicit pointer buffers. No host I/O or nondeterministic CPU state.",
         "evidence": ["successful operation IDs from this task"],
     },
     "run_workflow": {
