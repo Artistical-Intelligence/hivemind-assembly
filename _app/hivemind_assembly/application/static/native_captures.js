@@ -27,7 +27,41 @@ window.renderNativeCaptures = function(result, target) {
     const {item, path, rule} = choices[Number(select.value) || 0];
     element('p', item.repeatable ? 'Repeated captures were identical.' : 'Repeated captures differed; this case cannot pass.', pane);
     const metric = item.comparisons?.candidate?.[0]?.files?.[path];
-    if (metric) element('pre', JSON.stringify(metric, null, 2), pane);
+    const sequence = rule.format === 'rgba8_sequence';
+    if (metric) {
+      const {frames, ...summary} = metric;
+      element('pre', JSON.stringify(sequence ? summary : metric, null, 2), pane);
+    }
+    const frameCount = sequence ? rule.frames : 1;
+    const dimensionsValid = Number.isSafeInteger(rule.width) && Number.isSafeInteger(rule.height) && rule.width > 0 && rule.height > 0;
+    const sequenceValid = Number.isSafeInteger(frameCount) && frameCount >= 1 && frameCount <= 4096 &&
+      Number.isSafeInteger(rule.frame_rate_num) && rule.frame_rate_num > 0 && rule.frame_rate_num <= 1000000 &&
+      Number.isSafeInteger(rule.frame_rate_den) && rule.frame_rate_den > 0 && rule.frame_rate_den <= 1000000;
+    if (sequence && (!dimensionsValid || !sequenceValid || rule.width * rule.height * 4 * frameCount > 2097152)) {
+      element('p', 'Capture sequence dimensions or frame rate are invalid.', pane); return;
+    }
+    const redraw = [];
+    let slider, position, detail;
+    function drawFrame() {
+      const frame = slider ? Math.max(0, Math.min(frameCount - 1, Number(slider.value) || 0)) : 0;
+      for (const draw of redraw) draw(frame);
+      if (position) position.textContent = `Frame ${frame + 1} / ${frameCount} · index ${frame} · declared time ${(frame * rule.frame_rate_den / rule.frame_rate_num).toFixed(6)} s`;
+      if (detail) detail.textContent = JSON.stringify(metric?.frames?.[frame] || {reason: 'Frame comparison unavailable'}, null, 2);
+    }
+    if (sequence) {
+      const frameLabel = element('label', 'Frame (reference and candidate together)', pane);
+      slider = element('input', undefined, frameLabel);
+      slider.type = 'range'; slider.min = '0'; slider.max = String(frameCount - 1); slider.step = '1'; slider.value = '0';
+      slider.oninput = drawFrame;
+      position = element('p', undefined, pane);
+      const failed = metric?.first_failed_frame;
+      if (Number.isInteger(failed) && failed >= 0 && failed < frameCount) {
+        const jump = element('button', 'First failing frame', pane);
+        jump.type = 'button'; jump.onclick = () => { slider.value = String(failed); drawFrame(); };
+      }
+      element('p', 'Frames are compared at the same index. Times come from the declared frame rate; wall-clock timing is not measured.', pane);
+      detail = element('pre', undefined, pane);
+    }
     const reference = item.expected || item.runs?.original?.[0];
     for (const [name, row] of [['Reference', reference], ['Candidate', item.runs?.candidate?.[0]]]) {
       const hex = row?.file_contents_hex?.[path];
@@ -37,8 +71,8 @@ window.renderNativeCaptures = function(result, target) {
         element('p', 'Capture unavailable or invalid.', panel); continue;
       }
       const bytes = Uint8Array.from(hex.match(/../g) || [], v => parseInt(v, 16));
-      if (rule.format === 'rgba8') {
-        if (!Number.isSafeInteger(rule.width) || !Number.isSafeInteger(rule.height) || rule.width < 1 || rule.height < 1 || rule.width * rule.height * 4 !== bytes.length) {
+      if (rule.format === 'rgba8' || sequence) {
+        if (!dimensionsValid || rule.width * rule.height * 4 * frameCount !== bytes.length) {
           element('p', 'Capture dimensions do not match.', panel); continue;
         }
         const canvas = element('canvas', undefined, panel);
@@ -48,7 +82,12 @@ window.renderNativeCaptures = function(result, target) {
         const context = canvas.getContext('2d');
         if (!context) { element('p', 'Canvas preview unavailable.', panel); continue; }
         const data = context.createImageData(rule.width, rule.height);
-        data.data.set(bytes); context.putImageData(data, 0, 0);
+        const stride = rule.width * rule.height * 4;
+        redraw.push(frame => {
+          data.data.set(bytes.subarray(frame * stride, (frame + 1) * stride));
+          context.putImageData(data, 0, 0);
+          canvas.setAttribute('aria-label', `${name} RGBA capture in stored row order${sequence ? `, frame index ${frame}` : ''}`);
+        });
       } else if (rule.format === 'pcm_s16le') {
         if (!Number.isSafeInteger(rule.channels) || rule.channels < 1 || rule.channels > 32 || bytes.length !== rule.frames * rule.channels * 2) {
           element('p', 'Capture sample count does not match.', panel); continue;
@@ -78,6 +117,7 @@ window.renderNativeCaptures = function(result, target) {
         element('p', `${rule.channels} channels · ${rule.sample_rate} Hz · ${rule.frames} frames`, panel);
       }
     }
+    drawFrame();
   }
   select.onchange = show;
   show();

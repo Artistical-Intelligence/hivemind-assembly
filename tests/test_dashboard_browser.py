@@ -102,6 +102,58 @@ def test_edit_upload_check_and_draft_retention(server, app):
         browser.close()
 
 
+def test_frame_replay_starter_and_synchronized_capture_inspection(server, app):
+    import shutil
+    from playwright.sync_api import sync_playwright, expect
+
+    compiler = os.environ.get("HA_TEST_CLANG") or shutil.which("cc") or shutil.which("clang")
+    if not compiler:
+        pytest.skip("C compiler required for frame replay")
+    app.config["foundations"]["c_compiler"] = compiler
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=os.environ["WORKBENCH_TEST_CHROME"], headless=True, args=["--no-sandbox"])
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+        page.locator('[data-tab="workspace"]').click()
+        page.locator("#starter-native-allow").check()
+        page.get_by_role("button", name="Create frame replay example", exact=True).click()
+        expect(page.locator("#file-path")).to_have_value("candidate.c", timeout=30000)
+        page.locator("#workspace-check").click()
+        expect(page.locator("#workspace-result-summary")).to_contain_text("Checks passed", timeout=30000)
+        code = page.locator("#file-editor").input_value()
+        page.locator("#file-editor").fill(code.replace("tick == frame", "tick == frame - 1"))
+        page.locator("#file-save").click()
+        expect(page.locator("#file-draft")).to_have_text("Saved on disk")
+        page.locator("#workspace-check").click()
+        expect(page.locator("#workspace-result-summary")).to_contain_text("Checks did not pass", timeout=30000)
+        page.locator("#workspace-captures").click()
+        view = page.locator("#workspace-capture-view")
+        expect(view.locator("select")).to_be_visible()
+        view.locator("select").select_option("1")  # Movement, not stationary.
+        expect(view.locator("canvas")).to_have_count(2)
+        pixels = "els => els.map(c => Array.from(c.getContext('2d').getImageData(0,0,c.width,c.height).data))"
+        reference, candidate = view.locator("canvas").evaluate_all(pixels)
+        assert reference != candidate
+        slider = view.locator('input[type="range"]')
+        slider.fill("15")
+        expect(view).to_contain_text("Frame 16 / 16 · index 15")
+        reference, candidate = view.locator("canvas").evaluate_all(pixels)
+        assert reference == candidate
+        view.get_by_role("button", name="First failing frame").click()
+        expect(slider).to_have_value("0")
+        reference, candidate = view.locator("canvas").evaluate_all(pixels)
+        assert reference != candidate
+        # Switching projects removes the previous project's protected captures.
+        page.get_by_role("button", name="Create register example", exact=True).click()
+        expect(page.locator("#file-path")).to_have_value("candidate.hex")
+        expect(view.locator("canvas")).to_have_count(0)
+        expect(page.locator("#workspace-captures")).to_be_disabled()
+        assert errors == []
+        browser.close()
+
+
 def test_oauth_dashboard_requests_session_default_and_disconnect(
     server, app, monkeypatch
 ):

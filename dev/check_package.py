@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import shutil
 import threading
 import sys
 from pathlib import Path
@@ -45,6 +46,10 @@ def check_packaged_mcp(app, task_id):
 
 app = Application(data)
 try:
+    compiler = shutil.which("clang") or shutil.which("cc")
+    if not compiler:
+        raise RuntimeError("Packaged frame replay verification requires a C compiler")
+    app.config["foundations"]["c_compiler"] = compiler
     if phase == "prepare":
         task = starter(app, "registers", "packaged_windows_starter")
         app.workspace.write(task["id"], "notes.txt", "Keep across a drop-in update.\n")
@@ -52,6 +57,9 @@ try:
         assert run_checks(app, task["id"])["result"]["passed"]
         native = starter(app, "native_python", "packaged_native_starter", True)
         assert run_checks(app, native["id"])["passed"]
+        frames = starter(app, "native_frames", "packaged_frame_starter", True)
+        assert run_checks(app, frames["id"])["passed"]
+        app.store.put("package_probe", "frames", {"task": frames["id"]})
         check_packaged_mcp(app, task["id"])
     else:
         record = app.store.get("package_probe", "preserve")
@@ -60,6 +68,9 @@ try:
             == "Keep across a drop-in update.\n"
         )
         assert run_checks(app, record["task"])["result"]["passed"]
+        frames = app.store.get("package_probe", "frames")
+        assert run_checks(app, frames["task"])["passed"]
+        assert app.action("/api/native-tests/results", {"task": frames["task"]})["passed"]
         check_packaged_mcp(app, record["task"])
         backup = data.parent / "package-backup.zip"
         snapshot(app.store, backup)
@@ -70,11 +81,13 @@ if phase == "verify-update":
     restore(backup, destination)
     restored = Application(destination)
     try:
+        restored.config["foundations"]["c_compiler"] = compiler
         assert (
             restored.workspace.read(record["task"], "notes.txt")["text"]
             == "Keep across a drop-in update.\n"
         )
         assert run_checks(restored, record["task"])["result"]["passed"]
+        assert run_checks(restored, frames["task"])["passed"]
     finally:
         restored.close()
 print(json.dumps({"phase": phase, "passed": True, "runtime": sys.executable}))

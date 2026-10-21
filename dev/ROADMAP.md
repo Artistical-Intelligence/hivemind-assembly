@@ -5,6 +5,13 @@ checks, protected knowledge/procedure rollouts, shared learning reservations,
 Qiling file/memory replay, deeper Ghidra/REA queries and installed-tool checks.
 It is not a declaration that the requested product has passed all gates.
 
+Version 0.18 adds ordered raw RGBA frame sequences, per-frame tolerances and
+failure locations, a synchronized capture scrubber, direct workspace capture
+inspection, and a runnable Python-reference/C-reconstruction frame replay starter.
+The timing mutant reaches the same final image/state but fails intermediate
+frames. Sampling rates are declared metadata; display timing, graphics drivers
+and arbitrary game compatibility are not inferred from these checks.
+
 Recent additions: owner file browsing, UTF-8 editing, binary previews, streamed uploads,
 revision-guarded saves with retained prior versions, runnable examples, and direct
 independent checks from the dashboard. These expose the existing verification

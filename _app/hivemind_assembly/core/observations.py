@@ -23,18 +23,25 @@ def validate_comparators(value, outputs, limit):
         if not isinstance(rule, dict):
             raise ContractError("Output comparator must be an object")
         kind = rule.get("format")
-        if kind == "rgba8":
-            if set(rule) - {
+        if kind in ("rgba8", "rgba8_sequence"):
+            fields = {
                 "format",
                 "width",
                 "height",
                 "max_channel_error",
                 "max_bad_pixels",
-            }:
+            }
+            if kind == "rgba8_sequence":
+                fields |= {"frames", "frame_rate_num", "frame_rate_den"}
+            if set(rule) - fields:
                 raise ContractError("Unknown RGBA comparator fields")
             width = _integer(rule.get("width"), "width", 1, limit // 4)
             height = _integer(rule.get("height"), "height", 1, limit // 4)
             size = width * height * 4
+            if kind == "rgba8_sequence":
+                size *= _integer(rule.get("frames"), "frames", 1, 4096)
+                _integer(rule.get("frame_rate_num"), "frame_rate_num", 1, 1000000)
+                _integer(rule.get("frame_rate_den"), "frame_rate_den", 1, 1000000)
             _integer(
                 rule.setdefault("max_channel_error", 0), "max_channel_error", 0, 255
             )
@@ -71,15 +78,16 @@ def validate_comparators(value, outputs, limit):
                     "max_rms_error must be finite and between 0 and 65535"
                 )
         else:
-            raise ContractError("Comparator format must be rgba8 or pcm_s16le")
+            raise ContractError("Comparator format must be rgba8, rgba8_sequence or pcm_s16le")
         if size > limit:
             raise ContractError("Declared capture exceeds output size limit")
     return value
 
 
 def capture_size(rule):
-    if rule["format"] == "rgba8":
-        return rule["width"] * rule["height"] * 4
+    if rule["format"] in ("rgba8", "rgba8_sequence"):
+        frames = rule["frames"] if rule["format"] == "rgba8_sequence" else 1
+        return rule["width"] * rule["height"] * 4 * frames
     return rule["channels"] * rule["frames"] * 2
 
 
@@ -97,6 +105,23 @@ def compare_capture(actual, expected, rule):
             "expected_bytes": len(expected),
         }
     result["exact"] = actual == expected
+    if rule["format"] == "rgba8_sequence":
+        stride = rule["width"] * rule["height"] * 4
+        frame_rule = rule | {"format": "rgba8"}
+        frames = [
+            compare_capture(actual[offset:offset + stride], expected[offset:offset + stride], frame_rule)
+            for offset in range(0, size, stride)
+        ]
+        return result | {
+            "passed": all(frame["passed"] for frame in frames),
+            "reason": "compared",
+            "different_frames": sum(not frame["exact"] for frame in frames),
+            "failed_frames": sum(not frame["passed"] for frame in frames),
+            "first_difference_frame": next((i for i, frame in enumerate(frames) if not frame["exact"]), None),
+            "first_failed_frame": next((i for i, frame in enumerate(frames) if not frame["passed"]), None),
+            "declared_duration_seconds": rule["frames"] * rule["frame_rate_den"] / rule["frame_rate_num"],
+            "frames": frames,
+        }
     if rule["format"] == "rgba8":
         bad = different = peak = 0
         bounds = None

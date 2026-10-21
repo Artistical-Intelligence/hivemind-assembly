@@ -3,6 +3,7 @@
 (() => {
   let state, selected = '', opened = null, dirty = false, busy = false, generation = 0;
   let listing = null, signature = '', pendingJob = null, openGeneration = 0;
+  let captureGeneration = 0;
   const byId = id => document.getElementById(id);
   const message = (text, error = false) => {
     byId('workspace-message').textContent = text;
@@ -21,6 +22,7 @@
     byId('file-upload').disabled = !editable;
     byId('file-new').disabled = !editable;
     byId('workspace-check').disabled = !editable || !!pendingJob || !listing?.acceptance;
+    byId('workspace-captures').disabled = !selected || !!pendingJob || listing?.acceptance?.scope !== 'native_tool_tests';
     byId('file-editor').readOnly = !editable;
     byId('file-draft').textContent = dirty ? 'Unsaved draft' : opened ? 'Saved on disk' : '';
     byId('file-discard').disabled = !dirty || busy;
@@ -71,17 +73,25 @@
     byId('guided-cases').replaceChildren(); addInputCase();
     byId('workspace-result-summary').textContent = 'No check result loaded. Run checks or view the last retained result.';
     byId('workspace-result').textContent = '';
+    captureGeneration++; byId('workspace-capture-view').replaceChildren();
     for (const id of ['target-task','acceptance-task','native-test-task','goal-task','repository-task','hosted-test-task']) {
       if (byId(id)) byId(id).value = task;
     }
     if (task) await listFiles(true);
   }
   function showResult(report) {
+    captureGeneration++; byId('workspace-capture-view').replaceChildren();
     const result = report.result || report;
     byId('workspace-result-summary').textContent = result.status === 'not_run' ? 'No checks have run yet.' :
       `${result.passed === true ? 'Checks passed' : 'Checks did not pass'}${report.revision !== undefined ? ' at project revision ' + report.revision : ''}. ${result.claim || result.reason || 'See the retained observations below.'} This is a check result; it does not complete the agent task.`;
     byId('workspace-result').textContent = JSON.stringify(report, null, 2);
   }
+  byId('workspace-captures').onclick = guarded(async () => {
+    const task = selected, seq = ++captureGeneration;
+    const result = await api('native-tests/results', {task});
+    if (task !== selected || seq !== captureGeneration) return;
+    renderNativeCaptures(result, byId('workspace-capture-view'));
+  });
   window.renderWorkspace = s => {
     state = s;
     byId('app-version').textContent = 'Ghidra + REA · v' + s.version;
@@ -187,14 +197,14 @@
   document.querySelectorAll('[data-starter]').forEach(b => b.onclick = guarded(async () => {
     requireClean(); const kind = b.dataset.starter;
     const allow = byId('starter-native-allow').checked;
-    if (kind === 'native_python' && !allow) throw Error('Authorize the supplied Python example using the checkbox first.');
+    if (['native_python', 'native_frames'].includes(kind) && !allow) throw Error('Authorize the supplied native examples using the checkbox first.');
     b.disabled = true;
     const key = 'ha-starter-request-' + kind;
     const request = sessionStorage.getItem(key) || crypto.randomUUID(); sessionStorage.setItem(key, request);
     try {
       const task = await api('project/starter', {kind,request_id:request,allow_native:allow});
       sessionStorage.removeItem(key); await refresh(); await selectTask(task.id); tab('workspace');
-      await openFile(kind === 'registers' ? 'candidate.hex' : ['linked_arm64','program_arm64'].includes(kind) ? 'candidate.c' : 'candidate.py');
+      await openFile(kind === 'registers' ? 'candidate.hex' : ['linked_arm64','program_arm64','native_frames'].includes(kind) ? 'candidate.c' : 'candidate.py');
       message('Example ready. Run checks, edit the candidate, and check again.');
     } finally { b.disabled = false; }
   }));

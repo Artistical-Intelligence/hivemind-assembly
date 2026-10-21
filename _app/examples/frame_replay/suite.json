@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "programs": {
+    "original": {"files": ["original.py"], "argv": ["{python}", "original.py"]},
+    "candidate": {
+      "files": ["candidate.c"],
+      "build": [["{cc}", "candidate.c", "-O2", "-o", "program.exe"]],
+      "argv": ["program.exe"]
+    }
+  },
+  "cases": [
+    {"id": "stationary", "stdin_hex": ""},
+    {"id": "movement", "stdin_hex": "30203320300a34203020340a38202d32202d310a31342031202d320a"},
+    {"id": "edges", "stdin_hex": "30202d3136202d31360a322031362031360a32202d3120300a31342030202d31360a"}
+  ],
+  "output_paths": ["frames.rgba", "final.bin"],
+  "comparators": {
+    "frames.rgba": {"format": "rgba8_sequence", "width": 16, "height": 16, "frames": 16, "frame_rate_num": 60, "frame_rate_den": 1}
+  },
+  "repeats": 3,
+  "timeout_seconds": 10,
+  "platforms": ["Linux", "Windows", "Darwin"]
+}

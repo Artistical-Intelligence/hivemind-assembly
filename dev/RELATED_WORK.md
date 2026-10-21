@@ -475,3 +475,21 @@ shim invokes libc's normal __libc_start_main, consistent with
 Actual printf output agrees with an independently executed host libc program.
 Strict effects still differ from a freestanding reconstruction; an explicitly
 selected observable contract can accept equivalent output and final state.
+
+### Ordered graphics observations
+
+[FFmpeg rawvideo](https://ffmpeg.org/ffmpeg-formats.html#rawvideo) uses raw frames
+with dimensions, pixel format and frame rate supplied separately. HA's RGBA
+sequence recipes use that layout rather than a new container. FFmpeg's
+[framehash muxer](https://ffmpeg.org/ffmpeg-formats.html#framehash) is useful for
+exact per-frame checks; HA also needs explicit per-pixel tolerances and error
+locations, so sequences reuse the existing bounded RGBA comparator. Every frame
+must independently pass at its original index; there is no time alignment.
+
+[RenderDoc's capture API](https://github.com/baldurk/renderdoc/blob/v1.x/docs/in_application_api.rst)
+captures graphics API work for replay and inspection. That is a different layer
+from HA's input-to-observation checks. HA does not implement a competing graphics
+replay engine or claim a RenderDoc integration. A target-specific capture adapter
+can export raw frames into an owner-pinned native recipe. The bundled software
+scene provides an independent temporal oracle; the existing EGL probe separately
+tests actual graphics readback. Neither proves arbitrary game equivalence.

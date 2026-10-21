@@ -29,8 +29,34 @@ w.renderNativeCaptures(result, target);
 target.querySelector('select').value = '1';
 target.querySelector('select').dispatchEvent(new w.Event('change'));
 assert.ok(target.textContent.includes('sample count does not match'));
+images.length = 0;
+const frames = {status:'completed', comparators:{scene:{format:'rgba8_sequence',width:1,height:1,frames:3,frame_rate_num:60,frame_rate_den:1}}, cases:[{
+  id:'motion',passed:false,repeatable:true,
+  expected:{file_contents_hex:{scene:'010203ff040506ff070809ff'}},
+  runs:{candidate:[{file_contents_hex:{scene:'010203ff0a0b0cff070809ff'}}]},
+  comparisons:{candidate:[{files:{scene:{first_failed_frame:1,frames:[{passed:true},{passed:false},{passed:true}]}}}]}
+}]};
+w.renderNativeCaptures(frames, target);
+assert.deepEqual(images, [[1,2,3,255],[1,2,3,255]]);
+const slider = target.querySelector('input[type=range]');
+assert.equal(slider.max, '2');
+target.querySelector('button').click();
+assert.equal(slider.value, '1');
+assert.deepEqual(images.slice(-2), [[4,5,6,255],[10,11,12,255]]);
+assert.ok(target.textContent.includes('index 1 · declared time 0.016667 s'));
+slider.value='2'; slider.dispatchEvent(new w.Event('input'));
+assert.deepEqual(images.slice(-2), [[7,8,9,255],[7,8,9,255]]);
+assert.ok([...target.querySelectorAll('canvas')].every(c => c.getAttribute('aria-label').includes('index 2')));
+frames.cases[0].runs.candidate[0].file_contents_hex.scene = '00';
+w.renderNativeCaptures(frames,target);
+assert.equal(target.querySelectorAll('canvas').length,1);
+assert.ok(target.textContent.includes('dimensions do not match'));
+frames.comparators.scene.frames = 4097;
+w.renderNativeCaptures(frames,target);
+assert.equal(target.querySelectorAll('canvas,input').length,0);
+assert.ok(target.textContent.includes('sequence dimensions or frame rate are invalid'));
 w.renderNativeCaptures({status:'not_run'}, target);
 assert.equal(target.querySelectorAll('canvas').length, 0);
 assert.ok(target.textContent.includes('not_run'));
 dom.window.close();
-console.log('Capture view fixture passed: RGBA bytes, PCM channel waveform, missing captures, bounds and escaped labels');
+console.log('Capture view fixture passed: RGBA bytes, synchronized sequence scrubbing and failure jump, PCM channel waveform, missing captures, bounds and escaped labels');

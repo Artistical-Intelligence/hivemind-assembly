@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.17.1 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.18.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -353,6 +353,12 @@ Bundled examples:
 - `_app/examples/audio_replay`: an independent Python reference and compiled C
   reconstruction replay sample-indexed level changes into signed stereo PCM.
   Silence, a pulse and level changes are checked without an audio device.
+- `_app/examples/frame_replay`: independent Python and C software renderers replay
+  frame-indexed movement into sixteen RGBA frames. **Create frame replay example**
+  in Project files prepares the project and protected checks. Run checks, change
+  `tick == frame` to `tick == frame - 1` in `candidate.c`, save and rerun. The delayed
+  input fails intermediate frames despite matching final state. This example needs
+  a C compiler; it does not require a GPU or model account.
 
 Recipes may declare `comparators` for selected `output_paths`. Unlisted files
 remain byte-exact. For a frame, use
@@ -360,8 +366,21 @@ remain byte-exact. For a frame, use
 Pixels are tightly packed RGBA bytes in stored row order, including alpha.
 Optional `max_channel_error` and `max_bad_pixels` default to zero. The result
 reports changed pixels, peak channel error and the bounds of pixels exceeding
-the threshold. Every selected frame must be present at the declared size; use
-separate paths to check multiple frames at recorded replay checkpoints.
+the threshold. Every selected frame must be present at the declared size.
+
+For an ordered capture sequence, use
+`{"frames.rgba":{"format":"rgba8_sequence","width":16,"height":16,
+"frames":16,"frame_rate_num":60,"frame_rate_den":1}}`.
+Frames are concatenated RGBA8 buffers, compatible with FFmpeg rawvideo. Every
+frame is compared at the same index, including alpha; the pixel allowances apply
+independently to each frame. Missing, extra, shifted or reordered differing frames
+fail. No frame matching or averaging can hide a bad frame. Reports retain each
+frame's metrics and the first differing and failing indices. A sequence is bounded
+to 4,096 frames and the existing 2 MiB output limit. Both frame-rate integers must
+be positive (at most 1,000,000); use 30000/1001 for fractional sampling rates.
+The rate labels declared sampling positions, not measured wall-clock or display
+timing. If timing itself is part of the contract, record it in an additional exact
+output file. Identical bytes cannot reveal duplicated indistinguishable frames.
 
 For audio, use `{"audio.pcm":{"format":"pcm_s16le","channels":2,
 "sample_rate":8000,"frames":32}}`. Samples are interleaved signed 16-bit
@@ -373,8 +392,10 @@ Sample rate describes the capture contract; raw PCM cannot prove hardware timing
 Tolerances are pinned with the owner's recipe and cannot be changed by workers.
 Each program must still produce identical observations across repetitions,
 even when differences between the original and reconstruction are tolerated.
-Exit status and stdout/stderr remain exact. **View latest observations** shows
-frame and per-channel waveform previews with quantitative comparison results.
+Exit status and stdout/stderr remain exact. **Inspect captures** beside workspace
+checks, or **View latest observations** in test setup, shows frame and per-channel
+waveform previews with quantitative comparison results. Sequences have a shared
+reference/candidate slider and a jump to the first failing frame.
 Captures and oracle details stay in protected evidence, tied to the task and
 suite that produced them; they are not disclosed to workers or published.
 

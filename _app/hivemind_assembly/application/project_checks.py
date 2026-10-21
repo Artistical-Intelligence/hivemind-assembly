@@ -83,11 +83,11 @@ def starter(app, kind, request_id, allow_native=False):
         "[A-Za-z0-9_-]{16,80}", request_id
     ):
         raise ValueError("A stable starter request ID is required")
-    if kind not in ("registers", "native_python", "linked_arm64", "program_arm64"):
+    if kind not in ("registers", "native_python", "native_frames", "linked_arm64", "program_arm64"):
         raise ValueError("Unknown starter project")
-    if kind == "native_python" and allow_native is not True:
+    if kind in ("native_python", "native_frames") and allow_native is not True:
         raise Blocked(
-            "Authorize the supplied Python recipes before creating this native starter"
+            "Authorize the supplied native recipes before creating this native starter"
         )
     # Retry resumes the same new project instead of creating duplicates.
     rows = app.store.rows(
@@ -104,6 +104,7 @@ def starter(app, kind, request_id, allow_native=False):
             {
                 "registers": "Register reconstruction",
                 "native_python": "Native tool reconstruction",
+                "native_frames": "Frame replay reconstruction",
                 "linked_arm64": "AArch64 function reconstruction",
                 "program_arm64": "AArch64 program reconstruction",
             }[kind],
@@ -121,6 +122,12 @@ def starter(app, kind, request_id, allow_native=False):
         files, contract, image = arm64_example(app)
     elif kind == "program_arm64":
         files, contract, image = arm64_program_example(app)
+    elif kind == "native_frames":
+        from pathlib import Path
+
+        example = Path(__file__).resolve().parents[2] / "examples" / "frame_replay"
+        files = {name: (example / name).read_text(encoding="utf-8") for name in ("original.py", "candidate.c", "suite.json", "README.txt")}
+        contract = {"scope": "native_tool_tests", "suite": json.loads(files["suite.json"])}
     elif kind == "registers":
         files = {
             "original.hex": "89f801f0\n",
@@ -171,7 +178,7 @@ def starter(app, kind, request_id, allow_native=False):
             path = Path(folder) / "original.elf"
             path.write_bytes(image)
             app.workspace.install(task["id"], "original.elf", path)
-    if kind == "native_python":
+    if kind in ("native_python", "native_frames"):
         from hivemind_assembly.core.test_acceptance import NativeTestAcceptance
 
         verifier = NativeTestAcceptance(app.store)
