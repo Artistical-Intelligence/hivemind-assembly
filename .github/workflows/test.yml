@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   contracts:
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -32,7 +32,7 @@ jobs:
           python -c "import shutil; assert shutil.which('clang') and shutil.which('ld.lld'), 'Clang and LLD required'"
       - name: Check native Windows execution
         if: runner.os == 'Windows'
-        run: python -m pytest tests/test_tool_testing.py::test_native_compiled_reconstruction tests/test_tool_testing.py::test_repeatability_crash_and_output_limits tests/test_tool_testing.py::test_process_timeout_tree_and_no_ambient_credentials tests/test_native_cleanup.py tests/test_windows_program.py::test_native_windows_pe_oracle tests/test_windows_files.py::test_native_windows_file_oracle tests/test_windows_process.py::test_native_windows_process_oracle tests/test_windows_memory.py::test_native_windows_memory_oracle -q --junitxml=compiler-results.xml
+        run: python -m pytest tests/test_tool_testing.py::test_native_compiled_reconstruction tests/test_tool_testing.py::test_repeatability_crash_and_output_limits tests/test_tool_testing.py::test_process_timeout_tree_and_no_ambient_credentials tests/test_native_cleanup.py tests/test_windows_program.py::test_native_windows_pe_oracle tests/test_windows_files.py::test_native_windows_file_oracle tests/test_windows_process.py::test_native_windows_process_oracle tests/test_windows_memory.py::test_native_windows_memory_oracle tests/test_program_libc.py::test_native_windows_memory_execution -q --junitxml=compiler-results.xml
       - run: python -m pytest tests -q --junitxml=contract-results.xml
       - name: Retain contract results
         if: always()

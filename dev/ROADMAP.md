@@ -1,6 +1,6 @@
 # Hivemind Assembly roadmap
 
-Version 0.22.0 remains an engineering preview. Implementation, automated
+Version 0.23.0 remains an engineering preview. Implementation, automated
 verification and live account acceptance are separate. Successful fixtures do not
 establish unattended reconstruction or measured native-model learning gains.
 
@@ -43,6 +43,12 @@ shapes and tolerances; the dashboard inspects their retained frames and waveform
 An emulated renderer starter catches a one-frame delay with unchanged final state.
 This adds output-level temporal checks, not GPU or arbitrary GUI compatibility.
 
+Version 0.23 adds pinned musl memory routines to Windows and Linux program
+builds. Compiler-generated zero initialization and struct copies now link without
+custom helper functions. Candidate definitions retain precedence; source hashes
+and embedded license notices are checked during builds. General CRT/OS support
+remains a separate scope.
+
 Inbound project-scoped MCP, outbound tool grants, standard HTTP OAuth onboarding,
 private-tunnel supervision and optional Codespaces snapshot jobs are implemented.
 Repository creation and Codespaces are optional. Local-only projects and existing
@@ -70,6 +76,12 @@ manual overrides and do not impose a default HA usage budget.
 | Audit and revision | Perform the separately requested full audit, then revise its findings. This implementation pass is not that audit. |
 
 ## Verification
+
+The new memory runtime passed 34 focused local checks, with one native-Windows
+skip. Cross-target corpus/implicit-call, overlap/alignment, candidate override,
+page-boundary, invalid-access, native Linux and source-integrity checks passed.
+Integrated runtime, Windows-program and capture regression passed 64 checks with
+two native-Windows skips. Full regression and hosted checks for 0.23 are pending.
 
 Version 0.22 checkpoint `0923d43` passed 19 focused capture checks and 87 integrated
 checks (one native-Windows skip). Full local regression passed 696 tests with

@@ -581,3 +581,21 @@ second image-diff library or silently stabilizing away temporal differences.
 Original capture shapes and tolerances are sealed before candidate work. A delayed
 frame mutant with the correct final position verifies that temporal errors remain
 visible. Native repeated execution remains a separate recipe capability.
+
+## Freestanding C memory runtime (0.23)
+
+[GCC's freestanding contract](https://gcc.gnu.org/onlinedocs/gcc/Standards.html)
+requires the environment to provide memcpy, memmove, memset and memcmp. An actual
+Clang Windows O0 zero-initialized array failed to link without memset during the
+emulated renderer work. Avoiding that construct in each reconstruction was not a
+general solution.
+
+HA now compiles the generic [musl 1.2.6 memory sources](https://github.com/ifduyue/musl/tree/9fa28ece75d8a2191de7c5bb53bed224c5947417/src/string),
+retained without modifications, with private headers supplying compiler-defined
+ABI types. Per-definition weak wrappers preserve candidate overrides, including
+COFF linkage when memmove calls memcpy. GCC's loop-pattern replacement is disabled
+to prevent helpers from acquiring recursive library calls. The complete upstream
+license is retained and embedded in generated images; hashes are verified before
+builds. This reuses mature memory code without pulling in a host libc or musl's
+Linux syscall layer. The [upstream repository](https://git.musl-libc.org/cgit/musl)
+and mirror/tag/commit/file hashes are recorded in vendor/provenance.json.

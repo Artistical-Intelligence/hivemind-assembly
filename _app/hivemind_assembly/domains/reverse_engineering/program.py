@@ -11,6 +11,7 @@ import shutil
 import struct
 import tempfile
 from pathlib import Path
+from . import program_libc
 
 from hivemind_assembly.core.common import (
     Blocked,
@@ -42,7 +43,7 @@ long ha_rename(const char *old_path, const char *new_path);
 long ha_clock(long clock_id, long *seconds, long *nanoseconds);
 long ha_random(void *buffer, ha_size count, long flags);
 int ha_main(void);
-"""
+""" + program_libc.HEADER
 PROCESS_RUNTIME = r"""
 static long ha_runtime_argc;
 static char **ha_runtime_argv, **ha_runtime_env;
@@ -147,6 +148,7 @@ def build(root, manifest, jobs, compiler="", cancel=None):
             )
             paths.append(name)
         (stage / "runtime.c").write_text(runtime, encoding="utf-8")
+        memory_sources, memory_hash = program_libc.stage(stage)
         argv = [executable]
         if clang:
             argv += ["--target=" + architecture + "-unknown-linux-gnu"]
@@ -155,6 +157,8 @@ def build(root, manifest, jobs, compiler="", cancel=None):
             if os.name == "nt" or arm:
                 argv += ["-fuse-ld=lld"]
         argv += ["-march=armv8-a", "-ffixed-x18"] if arm else ["-m64"]
+        if not clang:
+            argv += ["-fno-tree-loop-distribute-patterns"]
         argv += [
             "-std=c11",
             "-" + manifest.get("optimization", "O2"),
@@ -165,10 +169,12 @@ def build(root, manifest, jobs, compiler="", cancel=None):
             "-no-pie",
             "-nostdlib",
             "-nostdinc",
+            "-Imemory_include",
             "-static",
-            "-Wl,--build-id=none,-e,_start",
+            "-Wl,--build-id=none,-e,_start,--undefined=ha_memory_runtime_notice",
             *paths,
             "runtime.c",
+            *memory_sources,
             "-o",
             "program.elf",
         ]
@@ -179,6 +185,7 @@ def build(root, manifest, jobs, compiler="", cancel=None):
         if not output.exists() or output.stat().st_size > 2_000_000:
             raise Blocked("Linked image is missing or exceeds 2 MB")
         data = output.read_bytes()
+        program_libc.verify_notice(data)
         load_image(data, machine=183 if arm else 62)
         if file_hash(executable) != compiler_hash:
             raise Blocked("Compiler changed during the build")
@@ -193,7 +200,8 @@ def build(root, manifest, jobs, compiler="", cancel=None):
             },
             "manifest_sha256": hashlib.sha256(canonical(manifest).encode()).hexdigest(),
             "compiler_sha256": compiler_hash,
-            "runtime_sha256": hashlib.sha256(runtime.encode()).hexdigest(),
+            "runtime_sha256": hashlib.sha256((runtime + memory_hash).encode()).hexdigest(),
+            "memory_runtime_sha256": memory_hash,
             "build": result,
         }
 

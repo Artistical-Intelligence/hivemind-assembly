@@ -8,7 +8,7 @@ from hivemind_assembly.core.common import Blocked
 from hivemind_assembly.domains.reverse_engineering.windows_program import build
 
 SOURCE = """int ha_main(void) {
-    unsigned char input[8], pixels[8][8][4];
+    unsigned char input[8] = {0}, pixels[8][8][4];
     if (ha_read(input, 8) != 8) return 2;
     int x = 0;
     for (int frame = 0; frame < 8; ++frame) {

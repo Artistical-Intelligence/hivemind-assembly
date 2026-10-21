@@ -19,6 +19,7 @@ from hivemind_assembly.core.common import (
     uid,
 )
 from .program import sources
+from . import program_libc
 from .guest_cpu import unsupported as unsupported_cpu
 from .windows_files import FILE_APIS, Files, declared_files
 from .windows_process import PROCESS_APIS, Process, inputs as process_inputs
@@ -67,7 +68,7 @@ long long ha_write(const void *, ha_size);
 long long ha_error(const void *, ha_size);
 void ha_exit(int);
 int ha_main(void);
-"""
+""" + program_libc.HEADER
 RUNTIME = (
     HEADER
     + """
@@ -178,6 +179,7 @@ def build(root, manifest, jobs, compiler="", cancel=None):
             )
             paths.append(name)
         (stage / "runtime.c").write_text(RUNTIME, encoding="utf-8")
+        memory_sources, memory_hash = program_libc.stage(stage)
         # Compile separately so the exact hashed linker is used on every host.
         if not run(
             [
@@ -189,16 +191,18 @@ def build(root, manifest, jobs, compiler="", cancel=None):
                 "-fno-builtin",
                 "-fno-stack-protector",
                 "-nostdinc",
+                "-Imemory_include",
                 "-fno-asynchronous-unwind-tables",
                 "-fno-unwind-tables",
                 "-c",
                 *paths,
                 "runtime.c",
+                *memory_sources,
             ]
         ):
             return {"passed": False, "stage": "compile", "build": logs}
         objects = []
-        for source in [*paths, "runtime.c"]:
+        for source in [*paths, "runtime.c", *memory_sources]:
             matches = [
                 Path(source).with_suffix(ext).name
                 for ext in (".o", ".obj")
@@ -230,6 +234,7 @@ def build(root, manifest, jobs, compiler="", cancel=None):
             [
                 linker,
                 "/entry:ha_start",
+                "/include:ha_memory_runtime_notice",
                 "/subsystem:console",
                 "/nodefaultlib",
                 "/timestamp:0",
@@ -243,6 +248,7 @@ def build(root, manifest, jobs, compiler="", cancel=None):
         if not path.is_file() or path.stat().st_size > 2_000_000:
             raise Blocked("Linked Windows image is missing or oversized")
         data = path.read_bytes()
+        program_libc.verify_notice(data)
         image_info(data)
         if fingerprints != {
             "compiler_sha256": file_hash(executable),
@@ -259,7 +265,8 @@ def build(root, manifest, jobs, compiler="", cancel=None):
                 n: hashlib.sha256(s.encode()).hexdigest() for n, s in units.items()
             },
             "manifest_sha256": hashlib.sha256(canonical(manifest).encode()).hexdigest(),
-            "runtime_sha256": hashlib.sha256(RUNTIME.encode()).hexdigest(),
+            "runtime_sha256": hashlib.sha256((RUNTIME + memory_hash).encode()).hexdigest(),
+            "memory_runtime_sha256": memory_hash,
             **fingerprints,
             "build": logs,
         }

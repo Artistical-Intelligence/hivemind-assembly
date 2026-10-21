@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.22.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.23.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -561,6 +561,28 @@ HTTP MCP authorization also accepts a hosted client metadata URL. In Connections
 
 Static AArch64 program reconstruction is available from **Project files → Create AArch64 program example**. This runs the complete source-known ARM ELF and compares an editable x64 reconstruction, including state across multiple input reads. Set `"architecture": "aarch64"` in the candidate build manifest to produce an ARM executable; the default is `x86_64`. Both support deterministic stream I/O, exit, explicit arguments/environment and clock under Unicorn. Choose `qiling_linux` for bounded file/memory effects and supplied dynamic dependencies on either architecture. Unknown OS effects remain unsupported. Protected acceptance uses `linux_program`; earlier program scope names remain accepted.
 
+
+## Freestanding C memory support
+
+Windows x64 and Linux x64/AArch64 program builds provide `memcpy`, `memmove`,
+`memset` and `memcmp`, including calls the compiler generates for array
+initialization or struct copies. Their declarations are supplied automatically;
+counts use `ha_size` (64-bit on each supported target). No host headers are needed.
+`memmove` supports overlapping ranges; `memcmp` compares unsigned bytes and only
+its negative/zero/positive sign is a portable result.
+
+These are the pinned musl 1.2.6 memory implementations, compiled into the generated
+PE/ELF image. They execute within the existing guest CPU, page-permission and
+instruction/time bounds. They do not call host memory routines. Supplied candidate
+definitions take precedence over the bundled fallback, and protected acceptance
+still checks the resulting behavior against the sealed original.
+
+Builds verify the retained upstream source hashes, record a memory-runtime hash,
+and embed the complete upstream copyright notice in each generated image. Both
+GCC and Clang are supported for x64 Linux; cross-target and Windows builds require
+Clang/LLD. Full CRT imports, allocation libraries, formatted I/O and additional
+Windows APIs still require their own runtime support; these four routines do not
+add arbitrary libc or Windows compatibility.
 
 ## Frame and audio checks for emulated programs
 

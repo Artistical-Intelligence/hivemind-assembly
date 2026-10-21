@@ -27,5 +27,19 @@
       "parents.py": "3bd262bdacee19e063758b0712d9c8c792e9c6b5e12b97a522df79a37cba616a"
     },
     "modifications": "None; native orchestration and protected evaluation live in learning/, outside these retained modules."
+  },
+  "musl": {
+    "repository": "https://git.musl-libc.org/cgit/musl",
+    "source_mirror": "https://github.com/ifduyue/musl",
+    "tag": "v1.2.6",
+    "commit": "9fa28ece75d8a2191de7c5bb53bed224c5947417",
+    "files": {
+      "COPYRIGHT": "b870108ec5e7790e9f9919064f1b9421d62d5f9b0e6c230c6adf7ea2da62e97b",
+      "memcmp.c": "826b1b5e84d3c0fb68be827c051f6dc0d67da17ee3a444e94be0e5360586916f",
+      "memcpy.c": "1664d565f968b053ac33c5ac615c057a255a5821c8fa510fba61d4f63dee08e9",
+      "memmove.c": "1304f9ddfc18594f5d9a84691892b9fdaf3be8ecc6d7f365c691abb138eaf74e",
+      "memset.c": "2a74d9e7f988945e0d691d480b78d77a228da0d2be401c1000637cc879b2c0be"
+    },
+    "modifications": "None to retained upstream files. program_libc.py stages private compiler-type headers and per-definition weak declarations. The complete upstream copyright notice is embedded in generated images."
   }
 }
