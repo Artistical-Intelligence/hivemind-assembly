@@ -37,6 +37,7 @@ class WindowsAcceptance(ProgramAcceptance):
             result = replay(
                 original,
                 data,
+                files=case.get("files", {}),
                 clock_ms=case.get("clock_ms", 0),
                 max_instructions=case.get("max_instructions", 1_000_000),
                 cancel=context.cancel,

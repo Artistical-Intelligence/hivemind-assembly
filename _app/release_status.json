@@ -1,5 +1,5 @@
 {
-  "version": "0.19.1",
+  "version": "0.20.0",
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
@@ -8,7 +8,7 @@
     "failed": 0,
     "elapsed_seconds": 178.02,
     "host": "GitHub Linux Python 3.12",
-    "scope": "601-case full regression at implementation 3f3269c, run 39543882461. Windows: 575 passed/26 skipped in 483.550s; eleven separate native execution/cleanup cases passed. Nine actual Chromium checks and Windows package installation/update/backup restoration passed. Fresh full Windows foundations passed run 39543882473."
+    "scope": "Historical v0.19.1 evidence: 601-case full regression at implementation 3f3269c, run 39543882461. Windows: 575 passed/26 skipped in 483.550s; eleven separate native execution/cleanup cases passed. Nine actual Chromium checks and Windows package installation/update/backup restoration passed. Fresh full Windows foundations passed run 39543882473."
   },
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -41,7 +41,8 @@
     "arm64_dynamic": "Thirteen targeted cases passed with real Clang/LLD outputs and the pinned Ubuntu ARM64 loader/libc: PIE/shared-library relocation, initial-exec/global-dynamic TLS, baseline auxv, normal libc startup and printf, independent native output oracles, static x64 reconstruction, protected dependency pinning and wrong-output rejection. Missing/mixed/replaced dependencies, constructor I/O, invalid TLS, counters/cache-line zero, cancellation and startup bounds are rejected. Host file/process/network forwarding remains disabled. Full local regression: 555 passed, ten skipped.",
     "replay_diagnostics": "Stopped Qiling runs retain guest PC/instruction bytes, active syscall, phase, declared image identity and mapping without host staging paths. Tests resolve reported PCs against actual x64/ARM ELF bytes. Failed original preflight retains a protected diagnostic, rejects worker reads and does not create an acceptance contract. Runtime/reconstruction focused suite: 46 passed; additional acceptance/ARM static regression: 23 passed. Successful results and comparison criteria are unchanged. Full hosted regression subsequently passed on Linux and Windows in run 39520414838.",
     "frame_sequences": "Ordered, bounded raw RGBA8 sequences compare every frame at the same index with explicit per-frame pixel tolerances and exact defaults. The dashboard provides synchronized reference/candidate scrubbing, first-failure navigation, direct workspace inspection and owner-initiated downloads of the original stored bytes without canvas re-encoding. Eighteen focused checks cover malformed recipes, alpha/bounds, per-frame allowances, missing/reordered frames, compiled C/Python temporal replay and protected starter authorization/oracle/recipe retention. A one-frame input delay fails despite identical final image and state. Actual Chromium checks verify synchronized canvas pixels and complete downloaded file contents. Windows package install/update/restore retains and reruns frame replay. All passed in run 39539093109. Declared frame rates do not measure wall-clock timing.",
-    "windows_pe_program": "Clang/LLD PE builds, Speakeasy-backed bounded stream/clock replay, protected originals/cases, fresh acceptance rebuilds, worker tools and editable Windows starter passed local and hosted checks. Source-known PEs matched actual Windows stdout/stderr/exit with redirected files. Real Chromium positive/negative editing checks passed. C pragma operators and emitted COFF linker directives are rejected before linking; unsupported CPU-state queries, imports, overlapped I/O, faults, missing ExitProcess and exhausted budgets cannot pass. No arbitrary Windows/CRT/GUI or live model claim."
+    "windows_pe_program": "Clang/LLD PE builds, Speakeasy-backed bounded stream/clock replay, protected originals/cases, fresh acceptance rebuilds, worker tools and editable Windows starter passed local and hosted checks. Source-known PEs matched actual Windows stdout/stderr/exit with redirected files. Real Chromium positive/negative editing checks passed. C pragma operators and emitted COFF linker directives are rejected before linking; unsupported CPU-state queries, imports, overlapped I/O, faults, missing ExitProcess and exhausted budgets cannot pass. No arbitrary Windows/CRT/GUI or live model claim.",
+    "windows_file_program": "27 focused file checks passed locally (native Windows oracle skipped on Linux), plus eight resource/alias/starter checks. Declared file inputs/final outputs, access/sharing enforcement, independent cursors, seek/truncate/delete, defined Win32 errors, protected pinning and rejection of unsupported effects passed. DOM checks and release archive manifests passed. Native Windows, Chromium and installed package recovery await this checkpoint's CI."
   },
   "native_live_acceptance": {
     "validated_routes": 0,
@@ -69,7 +70,8 @@
   "runtime_contract": {
     "program": "Static little-endian x86-64 and AArch64 Linux ELF. Unicorn supports streams, exit, argv/env and a fixed clock; Qiling adds bounded files, directories, mappings, deterministic metadata and supplied random input. Qiling also accepts x86-64 and AArch64 dynamic ELF/PIE with explicitly supplied and pinned interpreter/libraries. No host file, process/network forwarding, unknown syscalls or constructor I/O. Strict effects remain the default; explicit observable policy compares streams, exit, input consumption, selected memory and final files/directories. Event traces retained.",
     "data_location": "Existing UnifiedWorkbench user-data path is unchanged",
-    "credentials": "OS vault; browser credentials are not copied to code, configuration, releases or backups"
+    "credentials": "OS vault; browser credentials are not copied to code, configuration, releases or backups",
+    "windows_program": "Windows x64 PE console; Speakeasy loader and HA stream/file/clock contract. Up to 64 ASCII regular files in C:\\work, 1 MB stored bytes, independent cursors, GENERIC_READ/WRITE, normal attributes, read/write sharing, five creation dispositions, bounded synchronous I/O, seek, size, truncation, delete and defined last errors. Every final file compared; strict mode also matches file/clock operations. No host mounts, directories/devices, delete sharing, overlapped I/O, undefined extension bytes, CRT, GUI or threads."
   },
   "historical_automated_tests": {
     "passed": 317,

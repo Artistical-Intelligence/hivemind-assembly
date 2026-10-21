@@ -61,10 +61,6 @@ def test_windows_replay_and_independent_transform(tmp_path):
         ("int ha_main(void){for(;;){} }", "budget_exhausted"),
         ("int ha_main(void){return *(volatile int*)1;}", "fault"),
         (
-            "int ha_main(void){char c=0;ha_dword n;WriteFile((void*)55,&c,1,&n,0);return 0;}",
-            "unsupported",
-        ),
-        (
             "int ha_main(void){char c=0;ha_dword n;WriteFile(GetStdHandle((ha_dword)-11),&c,1,&n,(void*)1);return 0;}",
             "unsupported",
         ),
@@ -93,7 +89,7 @@ def test_windows_clock_policy_cancellation_and_api_preflight(tmp_path):
     with pytest.raises(Blocked, match="Unsupported Windows API"):
         image_info(modified)
     for case in (
-        {"files": {}},
+        {"files": []},
         {"max_instructions": True},
         {"clock_ms": -1},
         {"input_hex": "xx"},

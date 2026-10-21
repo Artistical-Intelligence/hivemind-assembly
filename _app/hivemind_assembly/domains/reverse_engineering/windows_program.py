@@ -1,7 +1,7 @@
 """Freestanding Windows x64 console reconstruction with an explicit API boundary.
 
 Speakeasy supplies the PE loader and Windows calling conventions. HA supplies
-bounded stream/clock contracts and rejects every API outside that contract.
+bounded stream/file/clock contracts and rejects every API outside that contract.
 No Windows DLLs, host mounts, network, CRT, GUI, threads or native target execution.
 """
 
@@ -20,6 +20,7 @@ from hivemind_assembly.core.common import (
 )
 from .program import sources
 from .guest_cpu import unsupported as unsupported_cpu
+from .windows_files import FILE_APIS, Files, declared_files
 
 API_NAMES = (
     "GetStdHandle",
@@ -28,7 +29,7 @@ API_NAMES = (
     "ExitProcess",
     "GetTickCount",
     "GetTickCount64",
-)
+) + FILE_APIS
 HEADER = """typedef unsigned long ha_dword;
 typedef unsigned long long ha_size;
 __declspec(dllimport) void *GetStdHandle(ha_dword);
@@ -37,6 +38,16 @@ __declspec(dllimport) int WriteFile(void *, const void *, ha_dword, ha_dword *, 
 __declspec(dllimport) void ExitProcess(ha_dword);
 __declspec(dllimport) ha_dword GetTickCount(void);
 __declspec(dllimport) unsigned long long GetTickCount64(void);
+__declspec(dllimport) void *CreateFileA(const char *, ha_dword, ha_dword, void *, ha_dword, ha_dword, void *);
+__declspec(dllimport) void *CreateFileW(const unsigned short *, ha_dword, ha_dword, void *, ha_dword, ha_dword, void *);
+__declspec(dllimport) int CloseHandle(void *);
+__declspec(dllimport) int SetFilePointerEx(void *, long long, long long *, ha_dword);
+__declspec(dllimport) int GetFileSizeEx(void *, long long *);
+__declspec(dllimport) int SetEndOfFile(void *);
+__declspec(dllimport) int DeleteFileA(const char *);
+__declspec(dllimport) int DeleteFileW(const unsigned short *);
+__declspec(dllimport) ha_dword GetLastError(void);
+__declspec(dllimport) void SetLastError(ha_dword);
 long long ha_read(void *, ha_size);
 long long ha_write(const void *, ha_size);
 long long ha_error(const void *, ha_size);
@@ -242,9 +253,10 @@ def validate_case(case):
         "clock_ms",
         "max_instructions",
         "effect_policy",
+        "files",
     }:
         raise ContractError(
-            "Windows cases allow id, input_hex, clock_ms, max_instructions and effect_policy"
+            "Windows cases allow id, input_hex, files, clock_ms, max_instructions and effect_policy"
         )
     value = case.get("input_hex", "")
     if not isinstance(value, str) or len(value) > LIMIT * 2:
@@ -262,10 +274,13 @@ def validate_case(case):
         value = case.get(key, default)
         if type(value) is not int or not low <= value <= high:
             raise ContractError("Invalid Windows " + key)
+    declared_files(case.get("files", {}))
     return data
 
 
-def replay(data, stdin=b"", *, clock_ms=0, max_instructions=LIMIT, cancel=None):
+def replay(
+    data, stdin=b"", *, files=None, clock_ms=0, max_instructions=LIMIT, cancel=None
+):
     import time
     import speakeasy
     from capstone import Cs, CS_ARCH_X86, CS_MODE_64
@@ -276,6 +291,7 @@ def replay(data, stdin=b"", *, clock_ms=0, max_instructions=LIMIT, cancel=None):
             "input_hex": stdin.hex(),
             "clock_ms": clock_ms,
             "max_instructions": max_instructions,
+            "files": {} if files is None else files,
         }
     )
     image_info(data)
@@ -289,6 +305,7 @@ def replay(data, stdin=b"", *, clock_ms=0, max_instructions=LIMIT, cancel=None):
         "fault": None,
         "instructions": 0,
         "runtime": "speakeasy_windows",
+        "files": {},
     }
     streams = {0xFFFFFFF5: bytearray(), 0xFFFFFFF4: bytearray()}
     config = get_default_config_dict()
@@ -318,6 +335,8 @@ def replay(data, stdin=b"", *, clock_ms=0, max_instructions=LIMIT, cancel=None):
         result.update(status=status, fault=reason)
         se.stop()
         raise ReplayStop(reason)
+
+    filesystem = Files({} if files is None else files, stop, result["events"])
 
     def check():
         if cancel is not None and cancel.is_set():
@@ -405,7 +424,22 @@ def replay(data, stdin=b"", *, clock_ms=0, max_instructions=LIMIT, cancel=None):
         if name not in {"kernel32." + n for n in API_NAMES} or original is None:
             stop("unsupported", "Unsupported Windows API: " + name)
         function = name.split(".")[-1]
+        if function in FILE_APIS:
+            # These three operations on redirected standard handles are outside
+            # the declared regular-file contract; do not pretend they are invalid.
+            if function in (
+                "CloseHandle",
+                "GetFileSizeEx",
+                "SetFilePointerEx",
+                "SetEndOfFile",
+            ) and args[0] in (0xFFFFFFF6, *streams):
+                stop(
+                    "unsupported",
+                    "Standard stream handle metadata/seek/close is unsupported",
+                )
+            return filesystem.call(emu, function, args)
         if function == "GetStdHandle":
+            filesystem.error = None
             handle = args[0] & 0xFFFFFFFF
             if handle not in (0xFFFFFFF6, *streams):
                 stop("unsupported", "Unsupported standard handle")
@@ -414,7 +448,11 @@ def replay(data, stdin=b"", *, clock_ms=0, max_instructions=LIMIT, cancel=None):
             handle, address, count, count_ptr, overlapped = args
             count &= 0xFFFFFFFF  # DWORD; upper argument-register bits are not part of the API.
             if count > LIMIT or not count_ptr or overlapped:
-                stop("unsupported", "Only bounded synchronous stream I/O is supported")
+                stop("unsupported", "Only bounded synchronous I/O is supported")
+            emu.mem_write(count_ptr, b"\0" * 4)
+            if handle not in (0xFFFFFFF6, *streams):
+                return filesystem.io(emu, function, handle, address, count, count_ptr)
+            filesystem.error = None
             if function == "ReadFile":
                 if handle != 0xFFFFFFF6:
                     stop("unsupported", "ReadFile requires standard input")
@@ -433,6 +471,7 @@ def replay(data, stdin=b"", *, clock_ms=0, max_instructions=LIMIT, cancel=None):
             emu.mem_write(count_ptr, len(chunk).to_bytes(4, "little"))
             return 1
         if function.startswith("GetTickCount"):
+            filesystem.error = None
             value = clock_ms if function.endswith("64") else clock_ms & 0xFFFFFFFF
             result["events"].append({"call": function, "value": value})
             return value
@@ -464,6 +503,9 @@ def replay(data, stdin=b"", *, clock_ms=0, max_instructions=LIMIT, cancel=None):
         se.shutdown()
         result["stdout_hex"] = streams[0xFFFFFFF5].hex()
         result["stderr_hex"] = streams[0xFFFFFFF4].hex()
+        result["files"] = {
+            name: data.hex() for name, data in sorted(filesystem.data.items())
+        }
     return result
 
 
@@ -479,9 +521,17 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
             "clock_ms": case.get("clock_ms", 0),
             "max_instructions": case.get("max_instructions", LIMIT),
             "cancel": cancel,
+            "files": case.get("files", {}),
         }
         before, after = replay(original, data, **args), replay(candidate, data, **args)
-        fields = ["status", "exit_code", "stdout_hex", "stderr_hex", "input_consumed"]
+        fields = [
+            "status",
+            "exit_code",
+            "stdout_hex",
+            "stderr_hex",
+            "input_consumed",
+            "files",
+        ]
         if case.get("effect_policy", "strict") == "strict":
             fields.append("events")
         differences = [f for f in fields if before[f] != after[f]]
@@ -502,5 +552,5 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
         "scope": "windows_program",
         "passed": len(results) == len(cases) and all(r["passed"] for r in results),
         "cases": results,
-        "claim": "Windows x64 console PE replay on the retained corpus: exact standard streams, input consumption and process exit; strict cases also match fixed-clock observations. No all-input proof, arbitrary Windows compatibility or native model acceptance.",
+        "claim": "Windows x64 console PE replay on the retained corpus: exact standard streams, input consumption, process exit and final declared files; strict cases also match file operations and fixed-clock observations. No all-input proof, arbitrary Windows compatibility or native model acceptance.",
     }

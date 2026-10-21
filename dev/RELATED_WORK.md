@@ -527,3 +527,17 @@ Windows builds also inspect compiled COFF sections before invoking LLD. C can
 emit `.drectve` through a section attribute without any `#` directive; rejecting
 that section prevents candidate-provided linker options from modifying the fixed
 recipe. Shared source validation rejects `_Pragma` and MSVC `__pragma` operators.
+
+
+The file extension retains Speakeasy's loader and ABI dispatch but supplies a
+bounded in-memory regular-file adapter. Upstream default handlers do not enforce
+all access/sharing rules required for equivalence checks. Shared bytes and separate
+handle cursors are checked against generated PEs running on actual Windows.
+The contract follows Microsoft's [CreateFile](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilea),
+[SetFilePointerEx](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-setfilepointerex),
+[WriteFile](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-writefile),
+and [DeleteFile](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-deletefilea)
+semantics. In particular, [SetEndOfFile](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-setendoffile)
+does not define the added bytes when extending a file; HA rejects that extension
+instead of assuming zeros. ASCII regular files, known attributes and synchronous
+operations are explicit scope limits, not substitutes for the complete foundations.

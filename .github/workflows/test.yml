@@ -32,7 +32,7 @@ jobs:
           python -c "import shutil; assert shutil.which('clang') and shutil.which('ld.lld'), 'Clang and LLD required'"
       - name: Check native Windows execution
         if: runner.os == 'Windows'
-        run: python -m pytest tests/test_tool_testing.py::test_native_compiled_reconstruction tests/test_tool_testing.py::test_repeatability_crash_and_output_limits tests/test_tool_testing.py::test_process_timeout_tree_and_no_ambient_credentials tests/test_native_cleanup.py tests/test_windows_program.py::test_native_windows_pe_oracle -q --junitxml=compiler-results.xml
+        run: python -m pytest tests/test_tool_testing.py::test_native_compiled_reconstruction tests/test_tool_testing.py::test_repeatability_crash_and_output_limits tests/test_tool_testing.py::test_process_timeout_tree_and_no_ambient_credentials tests/test_native_cleanup.py tests/test_windows_program.py::test_native_windows_pe_oracle tests/test_windows_files.py::test_native_windows_file_oracle -q --junitxml=compiler-results.xml
       - run: python -m pytest tests -q --junitxml=contract-results.xml
       - name: Retain contract results
         if: always()

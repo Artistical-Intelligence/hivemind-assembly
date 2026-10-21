@@ -177,3 +177,13 @@ The final v0.18.1 implementation at 79c293a passed all four jobs in run
 additional native Windows checks, eight Chromium checks including actual capture
 download contents, and Windows package installation/update/restore. Live model
 accounts and broader target-level reconstruction remain the gates listed above.
+
+
+Version 0.20 adds Windows file-driven reconstruction: declared in-memory inputs,
+independent handles over shared file bytes, access/sharing enforcement, seeking,
+truncation, deletion and exact final-file comparison. The editable Windows
+starter now transforms input.bin into output.bin. Protected acceptance seals file
+inputs and rebuilds candidates; a separate native Windows oracle checks file
+bytes, pointer behavior, EOF, sharing and documented errors. Directories,
+special devices, asynchronous I/O, CRT/GUI/thread effects and live model gates
+remain beyond this bounded lane.

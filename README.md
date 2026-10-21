@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.19.1 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.20.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -565,7 +565,7 @@ Static AArch64 program reconstruction is available from **Project files → Crea
 ## Windows console reconstruction
 
 Choose **Project files → Create Windows console example** to build a real x64
-Windows executable, edit its C reconstruction and run sealed comparisons. Clang
+Windows file-transform executable, edit its C reconstruction and run sealed comparisons. Clang
 and LLD are required; target execution uses Speakeasy and needs neither Windows
 DLLs nor native execution permission. The same generated PE can run on Windows.
 
@@ -586,23 +586,51 @@ Select **Windows x64 console program** in Project acceptance. Use the original
 PE path and build manifest path, with at least two cases:
 
 ```json
-[{"id":"empty","input_hex":""},
- {"id":"sample","input_hex":"616263","clock_ms":1000}]
+[{"id":"empty","files":{"input.bin":""}},
+ {"id":"sample","files":{"input.bin":"616263"},"clock_ms":1000}]
 ```
 
 HA pins original bytes and cases outside worker access, independently rebuilds
 the current candidate at completion, and checks exact stdout, stderr, consumed
-input and unsigned 32-bit exit status. Strict mode also compares the sequence
-of fixed-clock observations; observable mode allows a different clock-query
-sequence. Development tools `build_windows_program` and
+input, unsigned 32-bit exit status and every final file. Strict mode also compares
+file operations and fixed-clock observations; observable mode allows different
+internal file/clock activity with identical final results. Development tools `build_windows_program` and
 `compare_windows_program` use the same runtime. Passing development comparisons
 can schedule verified source checkpoints when a project repository is connected.
 
-This lane admits only x64 PE32+ console images and kernel32 imports
-`GetStdHandle`, `ReadFile`, `WriteFile`, `ExitProcess`, `GetTickCount` and
-`GetTickCount64`. Streams model redirected regular files, including EOF; handles
-are virtual. Every replay starts fresh. A successful run must call ExitProcess.
-Input/output, image, instruction, API-call and elapsed-time bounds are enforced.
+This lane admits x64 PE32+ console images and kernel32 imports `GetStdHandle`,
+`ReadFile`, `WriteFile`, `ExitProcess`, `GetTickCount`, `GetTickCount64`,
+`CreateFileA/W`, `CloseHandle`, `SetFilePointerEx`, `GetFileSizeEx`,
+`SetEndOfFile`, `DeleteFileA/W`, `GetLastError` and `SetLastError`.
+These declarations are supplied automatically to C builds; no Windows headers
+are needed. `CreateFile` returns `(void*)-1` on failure. Use `ha_dword` for
+DWORD values and signed `long long` for 64-bit file positions/sizes.
+
+Each case's optional `files` map supplies hexadecimal contents. Names are ordinary
+ASCII file names in the fixed `C:\work` directory, case-insensitive, without
+subdirectories, devices, alternate streams or trailing spaces/dots. Relative
+names, `.\name` and `C:\work\name` identify the same file; duplicate input
+aliases are rejected. Missing names represent absent files and new files may be
+created. All final files, including unchanged inputs, participate in comparison.
+Replays never read or modify host files. Limits are 64 files, 1 MB total stored
+bytes, 128 open handles and 4 MB cumulative file transfer per run.
+
+Files support generic read/write access, read/write
+sharing, the five creation dispositions, normal attributes, synchronous reads and
+writes, independent handle cursors, size queries, seeking, truncation and deletion.
+Sharing conflicts and missing/closed/read-only handles return Win32 errors.
+Metadata-only zero-access handles, security structures, template handles, delete sharing and special flags are
+unsupported. Seek alone does not extend a file; writing beyond EOF zero-fills
+the gap. Extending through `SetEndOfFile` is rejected because Windows documents
+the added contents as undefined. `GetLastError` is supported after a failed call,
+`SetLastError`, or the defined `CREATE_ALWAYS`/`OPEN_ALWAYS` outcomes; querying
+unspecified successful-call error state is rejected.
+`CREATE_ALWAYS` requires generic write access in this contract.
+
+Streams model redirected regular files, including EOF; handles are virtual.
+Standard-stream metadata, seek and close operations remain unsupported. Every
+replay starts fresh and must call ExitProcess. Input/output, image, instruction,
+API-call and elapsed-time bounds are enforced.
 TLS, other imports, overlapped I/O, arbitrary files, CRT, GUI, threads, direct CPU
 environment queries and host process/network effects are rejected. Matching
 faults or budget exhaustion never pass. This is corpus evidence within the

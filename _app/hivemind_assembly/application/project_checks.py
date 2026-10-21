@@ -323,8 +323,17 @@ def windows_program_example(app):
     from pathlib import Path
     from hivemind_assembly.domains.reverse_engineering.windows_program import build
 
-    original = 'int ha_main(void){unsigned char b[256];long long n=ha_read(b,256);for(long long i=0;i<n;i++)b[i]=(unsigned char)(b[i]*3+17);ha_write(b,n);ha_error("done",4);return 7;}'
-    candidate = 'int ha_main(void){unsigned char b[256];long long n=ha_read(b,256);for(long long i=0;i<n;i++)b[i]=(unsigned char)(b[i]+b[i]+b[i]+17);ha_write(b,n);ha_error("done",4);return 7;}\n'
+    original = '''int ha_main(void){
+  unsigned char b[256];ha_dword n=0,k=0;
+  void *input=CreateFileA("input.bin",0x80000000UL,1,0,3,128,0);
+  if(input==(void*)-1||!ReadFile(input,b,256,&n,0))return 1;
+  CloseHandle(input);
+  for(ha_dword i=0;i<n;i++)b[i]=(unsigned char)(b[i]*3+17);
+  void *output=CreateFileA("output.bin",0x40000000UL,0,0,2,128,0);
+  if(output==(void*)-1||!WriteFile(output,b,n,&k,0)||k!=n)return 2;
+  CloseHandle(output);ha_write(b,n);ha_error("done",4);return 7;
+}'''
+    candidate = original.replace("b[i]*3", "b[i]+b[i]+b[i]") + "\n"
     with tempfile.TemporaryDirectory(prefix="ha-windows-example-") as folder:
         root = Path(folder)
         (root / "original.c").write_text(original, encoding="utf-8")
@@ -344,12 +353,12 @@ def windows_program_example(app):
     files = {
         "candidate.c": candidate,
         "build.json": json.dumps(manifest, indent=2) + "\n",
-        "README.txt": "The original is a real x64 Windows console executable, compiled with Clang/LLD. Speakeasy models the PE loader; HA restricts execution to synchronous standard streams, explicit ExitProcess and fixed tick clocks. Run checks, change +17 to +18, and rerun. Protected originals and inputs survive workspace edits. No Windows DLLs or native target execution are required. Files, CRT, GUI, threads and arbitrary Windows compatibility are outside this contract.\n",
+        "README.txt": "The original is a real x64 Windows console executable, compiled with Clang/LLD. It reads input.bin, transforms bytes, replaces output.bin and prints the result. Each sealed case supplies its own in-memory files; no host files are read or written by replay. Run checks, change +17 to +18, and rerun. Protected originals and inputs survive workspace edits. No Windows DLLs or native target execution are required. CRT, GUI, threads and arbitrary Windows compatibility are outside this contract.\n",
     }
     cases = [
-        {"id": "empty", "input_hex": ""},
-        {"id": "text", "input_hex": b"hivemind\n".hex()},
-        {"id": "all-bytes", "input_hex": bytes(range(256)).hex()},
+        {"id": "empty", "files": {"input.bin": "", "output.bin": "ffff"}},
+        {"id": "text", "files": {"input.bin": b"hivemind\n".hex()}},
+        {"id": "all-bytes", "files": {"input.bin": bytes(range(256)).hex()}},
     ]
     return (
         files,
