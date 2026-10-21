@@ -148,12 +148,16 @@ class AcceptanceSuite:
             from .windows_acceptance import WindowsAcceptance
 
             return WindowsAcceptance()
+        if scope == "linux_project":
+            from .project_acceptance import ProjectAcceptance
+
+            return ProjectAcceptance()
         if scope == "x86_64_register_regions":
             return RegionAcceptance()
         if scope == "x86_64_c_functions":
             return ReconstructionAcceptance()
         raise ContractError(
-            "Supported acceptance scopes: x86_64_register_regions, x86_64_c_functions, linked_calls, linux_program, windows_program (legacy linked-call/program scopes also supported)"
+            "Supported acceptance scopes: x86_64_register_regions, x86_64_c_functions, linked_calls, linux_program, linux_project, windows_program (legacy linked-call/program scopes also supported)"
         )
 
     def prepare(self, root, spec, artifacts, project, context):

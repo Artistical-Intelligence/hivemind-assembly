@@ -12,7 +12,7 @@ weaken their checks or require slower network calls on critical paths.
 | `core` | Durable store, controller, operation journal, artifacts, jobs, capability contracts and execution broker |
 | `automation` | Native browser sessions, model/allowance policy, team flow, repeated-failure recovery and Hermes session adapter |
 | `learning` | Restricted source ingestion/reading obligations and evaluated knowledge, procedure and executable promotion/rollback |
-| `domains/reverse_engineering` | Ghidra/REA bridges, specialist tools, P-code execution, independent differential verification, scoped proofs, hybrid fixture and 20 baseline methods |
+| `domains/reverse_engineering` | Ghidra/REA bridges, specialist tools, P-code execution, independent differential verification, scoped proofs, hybrid fixture, project region composition and 20 baseline methods |
 | `application` | Composition, dashboard, installation and setup |
 
 The core has no reverse engineering, browser or UI dependency. Automation
@@ -74,6 +74,31 @@ optional plan outputs select the observed results. Forward references and missin
 paths fail explicitly. Function replay refuses host clocks, random CPU instructions,
 port I/O and unmodeled OS effects. Native proposals still need the bound protected
 suite and must preserve the baseline's complete selected results, including buffers.
+
+## Project-level reconstruction
+
+`project_reconstruction` layers project checks over the existing function and
+program verifiers rather than replacing them: dependency-ordered linked-call
+checks, then region composition, then the optional complete source build.
+`project_hybrid` performs function-region replacement in a static ELF. It compiles
+the selected regions with the same freestanding flags as program builds, marks
+every other original symbol defined by those units weak, binds unrecovered
+functions and all shared data to their original addresses through a linker script,
+links the regions above the original image and writes a direct branch at each
+replaced entry (trap fill after it). Composition never edits the original file or
+any protected artifact; it produces a new image per attempt. Unrecovered code is
+therefore the original machine code, not an emulated or reimplemented substitute.
+
+The approach follows established incremental-decompilation practice: projects such
+as re3/reVC and many matching-decompilation efforts replace one function at a time
+behind hooks while the rest of the original binary keeps running. HA adds sealed
+whole-program replay, per-region entry counts, cumulative isolation of the region
+that breaks the program, and rollback against the last verified composition.
+
+`core.verified_sources` retains the exact sources of every passing host check as
+task artifacts and the last verified composition. The broker passes that history
+to `compare_project` through `ToolContext.verified`; restoring sources stays an
+ordinary fenced, reconcilable `write_file`.
 
 ## Compatibility and persistence
 

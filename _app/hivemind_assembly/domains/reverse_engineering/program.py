@@ -294,6 +294,7 @@ def replay(
     max_instructions=1_000_000,
     observations=(),
     cancel=None,
+    coverage=None,
 ):
     import unicorn as u
     from unicorn import x86_const as x
@@ -452,8 +453,15 @@ def replay(
             # Retain syscall details only when its handler stopped execution.
             active_syscall = None
 
+    entries = dict(coverage or {})
+    if len(entries) > 256 or not all(type(a) is int for a in entries):
+        raise ContractError("Coverage observes at most 256 integer entry addresses")
+    hits = {name: 0 for name in entries.values()}
+
     def instruction(engine, address, size, _):
         nonlocal count, last_instruction, active_syscall
+        if entries and address in entries:
+            hits[entries[address]] += 1
         if cancel is not None and count % 1024 == 0 and cancel.is_set():
             stop("cancelled")
             return
@@ -535,7 +543,9 @@ def replay(
         context = locate(context, [dict(s, image_base=base) for s in segments])
         if "program_counter" in context:
             context["image_sha256"] = hashlib.sha256(data).hexdigest()
+    observed = {"coverage": hits} if coverage is not None else {}
     return {
+        **observed,
         "status": status,
         "exit_code": exit_code,
         "stdout_hex": output.hex(),
@@ -549,7 +559,8 @@ def replay(
     }
 
 
-def compare(original, candidate, cases, cancel=None, dependencies=None):
+def compare(original, candidate, cases, cancel=None, dependencies=None, coverage=None):
+    """`coverage` maps candidate entry addresses to names; hits are reported per case."""
     if not isinstance(cases, list) or not 1 <= len(cases) <= 256:
         raise ContractError("Program comparison requires 1–256 cases")
     from . import program_captures
@@ -590,11 +601,13 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
             observations=case.get("original_memory", ()),
             **args,
         )
+        extra = {"coverage": coverage} if coverage is not None and runner is replay else {}
         after = runner(
             candidate,
             bytes.fromhex(case.get("input_hex", "")),
             observations=case.get("candidate_memory", ()),
             **args,
+            **extra,
         )
         fields = (
             "status",

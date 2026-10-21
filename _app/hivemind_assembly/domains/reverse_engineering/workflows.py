@@ -99,6 +99,7 @@ def runner():
             "linked_call": linked_call,
         },
         fingerprint,
+        ("reverse_engineering",),
     )
 
 

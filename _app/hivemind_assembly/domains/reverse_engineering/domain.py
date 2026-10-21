@@ -51,6 +51,7 @@ class ReverseEngineeringDomain:
         Capability("compare_windows_program", recovery="discard"),
         Capability("build_program", recovery="discard"),
         Capability("compare_program", recovery="discard"),
+        Capability("compare_project", recovery="discard"),
     )
 
     def skills(self):
@@ -223,6 +224,34 @@ class ReverseEngineeringDomain:
                     "Development evidence; completion independently rebuilds against the pinned original and protected corpus"
                 )
             return built
+        if tool == "compare_project":
+            from .project_reconstruction import check
+
+            original_path = scoped(root, args["original_path"])
+            if original_path.stat().st_size > 2_000_000:
+                raise Blocked("Original image exceeds bounds")
+            plan = None
+            if args.get("plan_path"):
+                plan_file = scoped(root, args["plan_path"])
+                if plan_file.stat().st_size > 8_000_000:
+                    raise Blocked("Plan exceeds 8 MB")
+                plan = json.loads(plan_file.read_text())
+            result = check(
+                root,
+                args["manifest_path"],
+                original_path.read_bytes(),
+                args.get("function_checks", {}),
+                args["cases"],
+                context.jobs,
+                context.config.get("foundations", {}).get("c_compiler", ""),
+                context.cancel,
+                plan,
+                verified=context.verified,
+            )
+            image = result.pop("image", None)
+            if image is not None:
+                result["_artifact"] = {"data": image, "name": "reconstructed-program.elf"}
+            return result
         if tool == "compare_states":
             return differential(args["case"])
         if tool == "validate_c_function":

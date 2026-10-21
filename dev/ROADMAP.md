@@ -83,7 +83,7 @@ They are delivery milestones, not a promise that every milestone fits one chat t
 | --- | --- | --- | --- |
 | 1. First usable autonomous workflow | Trace requirements, establish the host and native sessions, connect category selection, separate worker/adviser, Ghidra/REA analysis, source editing, compilation and independent verification. Close on a real unattended reconstruction with retained artifacts and continuation through checkpoints. | 20% | In progress |
 | 2. Resilient agent team | Validate all five actual routes; handle allowance, preferred-route promotion, adviser continuity, review, renewal, cancellation, uncertain sends and application/browser restarts without duplicate operations. Retain useful raw model/tool logs. | 15% | Open |
-| 3. Project-level reconstruction | Complete inventories/dependency plans, cumulative builds and real region replacement/fallback with rollback. Exercise the fixed three-target suite below and reject incorrect mutants. | 20% | Open |
+| 3. Project-level reconstruction | Complete inventories/dependency plans, cumulative builds and real region replacement/fallback with rollback. Exercise the fixed three-target suite below and reject incorrect mutants. | 20% | Implemented; source-known suite passes; live-team run open |
 | 4. General coding and integrations | Complete a general programming task through bidirectional MCP with durable disconnect recovery and verified GitHub publication. Exercise optional repository creation, browser-assisted setup, Codespaces/hosted execution and conflict-safe import; retain a local-only path. | 15% | Open |
 | 5. Demonstrated long-term learning | Complete category-first scoping, existing-tag/no-tag selection, fresh conversations, persistent knowledge and knowledge/procedure/executable improvement. Demonstrate correctness and measured speed gains on independent cross-project holdouts, with promotion, invalidation and rollback. Preserve optional Chat-only experiments and unlimited HA budgets. | 15% | Open |
 | 6. Integrated installation and product | Complete onboarding, settings, status, evidence, recovery and documentation. Verify clean Windows prerequisites, credential persistence, restart, backup/restore and drop-in update. No hidden mandatory implementation TODOs. | 5% | Open |
@@ -121,6 +121,33 @@ scope or weighting must be stated rather than silently changing the denominator.
 - Still open: establish actual signed-in sessions on an execution host; run that
   trial through real Ghidra/REA and model calls; verify retained live evidence and
   publication. No live route or autonomous-reconstruction completion is claimed.
+
+### Stop 3 implementation and acceptance
+
+- Implemented: `compare_project` checks recovered functions in callgraph-plan
+  order, composes them into the original static ELF with every unrecovered function
+  and all shared data left on original machine code, replays the program corpus,
+  isolates any region that breaks the composed program cumulatively in plan order,
+  and optionally rebuilds the complete source program. Entry counts expose regions
+  that never ran. The composed image is an ordinary executable.
+- Implemented: passing host checks retain exact sources for local and connected
+  projects; `verified_sources` lists restorable snapshots, and regions from the last
+  verified composition that fail again are reported as regressions and rolled back
+  to original code. The `linux_project` acceptance scope seals function and program
+  corpora and requires named regions to be recovered, not left on fallback.
+- Automated coverage: the fixed suite in `application/project_targets.py`.
+  The x86-64 utility combines four recovered regions with original `pack`; the
+  AArch64 utility is reconstructed as a complete x86-64 program with cross-ABI
+  function checks; the game target recovers input, physics, audio and its loop
+  while frame rendering stays original and frames/audio use the pinned comparators.
+  Thirteen incorrect alternatives are rejected, eight of them only by whole-program
+  composition or replay. The composed utility also runs natively on x86-64 Linux with
+  output identical to the original. A worker-path test restores a regressed source
+  from its verified snapshot and passes protected acceptance. Callgraph plans in these
+  tests are source-known fixtures, not Ghidra output.
+- Still open: run the suite through a live native team with actual Ghidra
+  callgraph plans; stripped originals rely on owner/Ghidra-supplied addresses;
+  inlined original copies of a recovered function are not redirected.
 
 The fixed Stop 3 suite is a multi-function native utility, an ARM64-to-x64
 reconstruction, and a small game-related state/frame/audio target. At least one

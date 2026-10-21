@@ -1484,6 +1484,17 @@ TOOL_SCHEMAS = {
             }
         ],
     },
+    "compare_project": {
+        "original_path": "Static x86-64/AArch64 Linux ELF with function symbols (or project addresses)",
+        "manifest_path": "project JSON {build?: complete-program build manifest path, sources?/declarations?/optimization?: region units when no build, functions: {name: {sources: [units defining it and helpers], abi: sysv|aapcs64}}, addresses?: {name: {address, size, kind?}} for stripped originals}",
+        "function_checks": "optional {name: {original_symbol? or original_address?, cases: [linked-call cases as in compare_linked_function]}}; declared functions without checks are program-only regions",
+        "cases": "whole-program cases as in compare_program",
+        "plan_path": "optional saved plan_reconstruction result; orders checks and cumulative composition dependency-first and reports unchecked planned functions",
+        "result": "functions, verified_prefix, composition {recovered, fallback (original code), rejected with failing cases, regressed/rolled_back versus the last verified composition, unexercised}, program (complete build) when build is named",
+    },
+    "verified_sources": {
+        "limit": "1–20 most recent host-verified source snapshots for this task, each with artifacts for rollback via write_file"
+    },
     "list_files": {},
     "hosted_test_status": {},
     "read_file": {"path": "relative file"},

@@ -83,7 +83,7 @@ def starter(app, kind, request_id, allow_native=False):
         "[A-Za-z0-9_-]{16,80}", request_id
     ):
         raise ValueError("A stable starter request ID is required")
-    if kind not in ("registers", "native_python", "native_frames", "linked_arm64", "program_arm64", "program_windows", "program_frames", "autonomous_program"):
+    if kind not in ("registers", "native_python", "native_frames", "linked_arm64", "program_arm64", "program_windows", "program_frames", "autonomous_program", "project_game"):
         raise ValueError("Unknown starter project")
     if kind in ("native_python", "native_frames") and allow_native is not True:
         raise Blocked(
@@ -115,6 +115,7 @@ def starter(app, kind, request_id, allow_native=False):
                 "program_windows": "Windows console reconstruction",
                 "program_frames": "Emulated frame reconstruction",
                 "autonomous_program": "Autonomous reconstruction trial",
+                "project_game": "Game project reconstruction",
             }[kind],
             objective,
             paused=True,
@@ -130,6 +131,8 @@ def starter(app, kind, request_id, allow_native=False):
         from .reconstruction_trial import example
 
         files, contract, image = example(app)
+    elif kind == "project_game":
+        files, contract, image = project_game_example(app)
     elif kind == "linked_arm64":
         files, contract, image = arm64_example(app)
     elif kind == "program_arm64":
@@ -206,6 +209,43 @@ def starter(app, kind, request_id, allow_native=False):
     Acceptance(app.controller, app.broker).configure(task["id"], contract)
     app.store.put("starter_ready", request_id, {"task": task["id"]})
     return app.store.task(task["id"])
+
+
+def project_game_example(app):
+    """Hybrid game target: recovered state/audio regions over original rendering."""
+    from hivemind_assembly.application import project_targets
+    from hivemind_assembly.domains.reverse_engineering.planning import plan
+
+    target = project_targets.target(
+        "game", app.broker.jobs, app.config.get("foundations", {}).get("c_compiler", "")
+    )
+    files = dict(target["files"])
+    unit, before, after = target["mutants"]["right_wall"]
+    files[unit] = files[unit].replace(before, after)
+    development = target["cases"][:2]
+    files["development.json"] = json.dumps(development, indent=2) + "\n"
+    files["README.txt"] = (
+        "A small game loop (original.elf) updates persistent state, renders one 8x6 RGBA "
+        "frame per tick to stdout and mixes 16 PCM samples per tick to stderr. The candidate "
+        "recovers input, physics, audio and the main loop in C; render_frame is not "
+        "recovered and keeps running the original machine code. Run checks: physics passes "
+        "its function cases but the composed program diverges at the right wall, so the check "
+        "rejects that region and runs the original physics instead. In logic.c, change "
+        "'g->x < 0 ? 0 : 6' to 'g->x < 0 ? 0 : 7' and rerun. Protected function and program "
+        "cases are sealed outside the workspace. All execution is emulated; this is not a GPU, "
+        "window system or game engine.\n"
+    )
+    contract = {
+        "scope": "linux_project",
+        "original_path": "original.elf",
+        "manifest_path": "project.json",
+        "cases": target["cases"],
+        "function_checks": target["function_checks"],
+        "required_functions": ["apply_input", "step_physics", "mix_audio"],
+        "minimum_recovered": 4,
+        "plan": plan(target["plan_pages"]),
+    }
+    return files, contract, target["original"]
 
 
 def arm64_example(app):

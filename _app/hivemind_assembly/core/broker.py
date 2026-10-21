@@ -23,6 +23,7 @@ CORE_CAPABILITIES = (
     Capability("write_file", True, "reconcile"),
     Capability("checkpoint", recovery="discard"),
     Capability("read_artifact", recovery="discard"),
+    Capability("verified_sources", recovery="discard"),
     Capability("run_workflow", recovery="discard"),
     Capability("test_programs", recovery="external"),
     Capability("propose_workflow", recovery="discard"),
@@ -37,6 +38,9 @@ class Broker:
         self.store = controller.store
         self.config = config
         self.artifacts = Artifacts(self.store)
+        from .verified_sources import VerifiedSources
+
+        self.verified_sources = VerifiedSources(self.store, self.artifacts)
         self.jobs = Jobs()
         self.cancel = {}
         self.domain = domain
@@ -77,12 +81,15 @@ class Broker:
                 )
         self.mutations = {spec.name for spec in specs if spec.mutates_project}
 
-    def context(self, task):
+    def context(self, task, tool=None):
         return ToolContext(
             self.workspace(task),
             self.config,
             self.jobs,
             self.cancel.setdefault(task, threading.Event()),
+            self.verified_sources.last_composition(task)
+            if tool == "compare_project"
+            else None,
         )
 
     def workspace(self, task):
@@ -262,6 +269,9 @@ class Broker:
                     "data": base64.b64encode(data[start : start + length]).decode(),
                     "complete": start == 0 and length >= len(data),
                 }
+            elif tool == "verified_sources":
+                # Rollback support: exact sources that passed a host comparison.
+                result = self.verified_sources.listing(task, root, args.get("limit", 5))
             elif tool == "hosted_test_status":
                 if args:
                     raise ContractError("hosted_test_status takes no arguments")
@@ -358,13 +368,14 @@ class Broker:
                 result = self.repositories.status(self.store.task(task)["project_id"])
             elif self.domain:
                 effect_started = tool in self.mutations
-                result = self.domain.execute(self.context(task), request)
+                result = self.domain.execute(self.context(task, tool), request)
             else:
                 raise Blocked("Unknown capability")
             if self.publications:
                 self.publications.record_checked_result(
                     task, request["id"], tool, args, result, root
                 )
+            self.verified_sources.retain(task, request["id"], tool, args, result, root)
             emitted = result.pop("_artifact", None)
             if emitted is not None:
                 result["executable_artifact"] = self.artifacts.add(

@@ -251,6 +251,53 @@ fault, unsupported syscall, missing dependency or exhausted startup budget.
 This lane is bounded Linux reconstruction, not arbitrary Windows/game/OS
 compatibility or an all-input equivalence proof.
 
+## Project-level reconstruction with original-code fallback
+
+`compare_project` checks a whole project rather than one function. Its manifest
+(`project.json`) names either a complete-program `build` manifest or the region
+units (`sources`, `declarations`, `optimization`), and lists every recovered
+function with the units that define it and the calling convention it was written
+for (`sysv` or `aapcs64`). Optional `addresses` give `{address, size}` for stripped
+originals. A Ghidra `plan_reconstruction` result orders the work dependency-first.
+
+1. **Function checks.** Each declared function with linked-call cases is rebuilt
+   alone and compared with the original function. The report gives the verified
+   prefix of the plan and the first failing group.
+2. **Region composition** (same architecture as the original). Recovered functions
+   are linked above the original image and each original entry is redirected to
+   them. Everything else, including global data, the runtime and every unrecovered
+   function, keeps running the original machine code. The composed static ELF is
+   an ordinary executable; the test suite also runs it natively on x86-64 Linux.
+   If the composed program diverges from the original, regions are re-added
+   cumulatively in plan order and each region whose addition breaks the program is
+   rejected with its failing cases and left on original code. Entry counts show
+   whether each region actually ran; a region that never ran (for example because
+   the original compiler inlined it) is reported as unexercised, and a program-only
+   region that never ran cannot pass.
+3. **Complete program** (when `build` is named). The source-only program is rebuilt
+   and replayed. This is the path for cross-architecture work, such as an AArch64
+   original reconstructed as x86-64 C.
+
+Every passing host check retains its exact sources as content-addressed artifacts,
+for local-only and connected projects alike. `verified_sources` lists recent
+snapshots and whether the workspace still matches them; restoring one uses ordinary
+fenced `write_file` operations. A region that belonged to the last verified
+composition and now fails is reported as `regressed` and `rolled_back` to original
+code automatically.
+
+The `linux_project` acceptance scope seals the original, the program corpus and
+every function corpus. `required_functions` must be recovered and validated, not
+left on fallback code, and `minimum_recovered` sets how many regions must be
+accepted. Rejected-region case details stay protected.
+
+The dashboard's *game project example* recovers input, physics, audio and the
+main loop of a small game while frame rendering stays on original code. Its
+physics region passes its function cases but breaks the composed program at the
+right wall; the check rejects it until it is repaired. Frames and audio use the
+pinned RGBA/PCM comparators. Region replacement redirects entries through
+symbols; copies the original compiler inlined into other functions are not
+redirected, and inputs outside the declared corpus are not established.
+
 ## Coordination and learning
 
 Hermes Kanban owns task dependency readiness and claims. Native workers can

@@ -21,6 +21,8 @@ class ToolContext:
     config: dict
     jobs: Jobs
     cancel: Event
+    # Last host-verified project composition for rollback decisions, if any.
+    verified: dict | None = None
 
 
 class Domain(Protocol):

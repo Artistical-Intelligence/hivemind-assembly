@@ -15,9 +15,11 @@ from .engine import Learning
 
 
 class WorkflowRunner:
-    def __init__(self, operations, fingerprint):
+    def __init__(self, operations, fingerprint, scope=("reverse_engineering",)):
         self.operations = operations
         self.fingerprint = fingerprint
+        # The supplying domain names the scope; core learning does not assume one.
+        self.scope = list(scope)
 
     def validate(self, plan):
         if (
@@ -199,7 +201,7 @@ class WorkflowLearning:
             asset_key,
             "executable",
             {
-                "scope": ["reverse_engineering"],
+                "scope": list(self.runner.scope),
                 "preconditions": [
                     "registered pure operations",
                     "identical arguments within an invocation",

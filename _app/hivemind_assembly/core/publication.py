@@ -73,6 +73,7 @@ class Publications:
             "compare_program",
             "compare_windows_program",
             "compare_linked_function",
+            "compare_project",
         ):
             return
         files = {}
