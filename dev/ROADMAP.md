@@ -78,44 +78,33 @@ manual overrides and do not impose a default HA usage budget.
 
 ## Verification
 
-The new memory runtime passed 34 focused local checks, with one native-Windows
-skip. Cross-target corpus/implicit-call, overlap/alignment, candidate override,
-page-boundary, invalid-access, native Linux and source-integrity checks passed.
-Integrated runtime, Windows-program and capture regression passed 64 checks with
-two native-Windows skips. The linked-function extension passed 15 focused and
-69 integrated checks,
-including protected acceptance, independent byte expectations, read-only/bounded
-buffers and strong candidate overrides. Full regression and hosted checks for the
-combined 0.23.1 checkpoint are pending. The preceding program-memory checkpoint
-passed 730 local tests with 18 skips (636.43s). Hosted Linux exposed a five-second
-wall-bound failure when all 64 unoptimized ARM corpus commands shared one replay.
-The same corpus now runs in eight-case batches; all eight compiler/optimization
-combinations passed locally, with product execution limits unchanged.
+The linked-memory implementation passed the full local suite: 745 tests and
+18 skips, 763 total, in 678.83 seconds. Fifteen focused linked-memory checks and
+69 integrated linked-call/ARM/dependency checks passed across all four calling
+conventions. The program-memory runtime passed 34 focused checks (one skip) and
+64 integrated program/capture checks (two skips).
 
-Version 0.22 checkpoint `0923d43` passed 19 focused capture checks and 87 integrated
-checks (one native-Windows skip). Full local regression passed 696 tests with
-17 skips, 713 total, in 494.04 seconds.
+Hosted Linux exposed a five-second wall-bound failure when all 64 unoptimized
+ARM corpus commands shared one replay. The unchanged corpus now runs in eight-case
+batches, retaining the product's execution limits. All eight compiler/optimization
+corpus combinations passed locally after this correction (27.16 seconds).
 
-In [run 39601013676](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39601013676),
-hosted Linux passed 696 tests with 17 skips (343.771s), Windows passed 686 tests
-with 27 skips (854.945s), fourteen separate native Windows checks passed
-(27.374s), ten actual Chromium checks passed (116.710s), and packaged Windows
-installation/update/restore passed. The
-[tested Windows/source packages](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39601013676/artifacts/12345833885)
-include the emulated frame example and are retained for fourteen days.
+Corrected checkpoint `2512728` passed all four jobs in
+[run 39608363476](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39608363476):
+Linux 745 passed/18 skipped (565.805 seconds); Windows 727 passed/36 skipped
+(859.134 seconds); 15 separate native Windows checks (61.578 seconds); ten actual
+Chromium checks (122.384 seconds); and Windows package installation, update and
+backup restoration. The [verified runtime and source packages](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39608363476/artifacts/12349711822)
+are retained by that run. The source and runtime archives were also independently
+hash-manifest checked locally, including all pinned memory sources and notices.
 
-Fresh pinned Ghidra/REA/Hermes installation and actual adapters on Windows passed
-again in [run 39601013723](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39601013723):
-compiler, ARM64 program replay, x64/ARM64 Qiling file/process effects, four linked
-ABIs and native oracle, Ghidra context/reopened annotations, REA analysis and
-Hermes lifecycle. Model inference was not invoked; prerequisites were preinstalled.
-
-The new capture evidence includes compiled Windows/x64 Linux/AArch64 Linux
-outputs, an independent Python pixel oracle, a one-frame delay with unchanged
-final state, exact non-capture outputs, invalid original shapes, sealed rules,
-owner-only raw evidence, synchronized browser inspection and complete downloads.
-No live native-model or arbitrary game compatibility claim follows from these
-source-known checks.
+Fresh Ghidra/REA/Hermes installation and actual adapters passed at `a2eadb2` in
+[run 39606521680](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39606521680):
+compiler, ARM64 program replay, x64/ARM64 Qiling file/process behavior, four linked
+ABIs with an independent native oracle, Ghidra context/reopened annotations,
+REA analysis and Hermes lifecycle. Model inference was not invoked; desktop
+prerequisites were preinstalled. No live native-model or arbitrary application
+compatibility claim follows from these source-known checks.
 
 Detailed current and historical evidence is retained in
 [`release_status.json`](../_app/release_status.json). Runtime boundaries and setup
