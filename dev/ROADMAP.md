@@ -138,3 +138,10 @@ Version 0.17.1 adds guest instruction/syscall/phase diagnostics to stopped
 Qiling replay and protected preflight failure artifacts. ELF-byte resolution and
 worker-access rejection are tested. Diagnostic fields do not participate in
 acceptance or expose the sealed corpus to workers.
+
+Implementation f595a1c passed all four jobs in run 39520414838: Linux
+557 passed/10 skipped, Windows 543 passed/24 skipped, ten additional native
+Windows checks, seven Chromium checks, and packaged Windows installation,
+update and restoration. Full pinned Windows foundations also passed at
+75960e5 in run 39519833574. Signed-in account and broader target gates above
+remain; these results do not establish native model inference.
