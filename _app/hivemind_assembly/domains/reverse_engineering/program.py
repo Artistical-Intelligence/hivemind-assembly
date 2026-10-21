@@ -447,6 +447,10 @@ def replay(
         if not arm:
             engine.reg_write(x.UC_X86_REG_RCX, engine.reg_read(x.UC_X86_REG_RIP) + 2)
             engine.reg_write(x.UC_X86_REG_R11, engine.reg_read(x.UC_X86_REG_EFLAGS))
+        if status == "budget_exhausted":
+            # A bound or cancellation can stop replay before the next code hook.
+            # Retain syscall details only when its handler stopped execution.
+            active_syscall = None
 
     def instruction(engine, address, size, _):
         nonlocal count, last_instruction, active_syscall

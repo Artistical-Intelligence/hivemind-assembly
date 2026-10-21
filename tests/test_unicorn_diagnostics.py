@@ -107,6 +107,28 @@ class CancelAfterBoundary:
         return self.calls >= 3
 
 
+@pytest.mark.parametrize("arch", ["x86_64", "aarch64"])
+def test_completed_syscall_is_not_active_at_stop_boundary(tmp_path, arch):
+    raw = compiled(tmp_path, 'int ha_main(void){ha_write("X",1);return 0;}', arch)
+    complete = program.replay(raw)
+    assert complete["status"] == "completed" and complete["stdout_hex"] == "58"
+    # Find the first instruction bound that includes the write, independently
+    # of compiler-specific startup instruction counts.
+    low, high = 1, complete["instructions"]
+    while low < high:
+        middle = (low + high) // 2
+        result = program.replay(raw, max_instructions=middle)
+        if result["stdout_hex"] == "58":
+            high = middle
+        else:
+            low = middle + 1
+    result = program.replay(raw, max_instructions=low)
+    assert result["status"] == "budget_exhausted"
+    context = result["stop_context"]
+    assert context["instruction_hex"] == ("0f05" if arch == "x86_64" else "010000d4")
+    assert "syscall" not in context
+
+
 @pytest.mark.parametrize("lane", ["x86_64", "aarch64", *calls.ABIS])
 def test_success_precancel_and_midrun_cancel(tmp_path, lane):
     is_program = lane in ("x86_64", "aarch64")
