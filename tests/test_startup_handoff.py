@@ -117,6 +117,44 @@ def test_unconfigured_usage_page_does_not_reserve_poll(store):
     assert not store.rows("SELECT * FROM polls")
 
 
+@pytest.mark.parametrize("restart", [False, True])
+def test_shared_allowance_wait_resumes_without_user_repair(store, restart):
+    team = make_team(store)
+    route = "worker.opus"
+    scope = team.config["routes"][route]["usage"]["scope"]
+    team.observations[route].windows = [Window("daily", 10)]
+    active = store.create_project("active", "Use the shared allowance")
+    waiting = store.create_project("waiting", "Continue when capacity is free")
+    team.usage.reserve(scope, active["id"], team.observations[route].windows)
+
+    asyncio.run(team.supervise(waiting["id"]))
+    blocked = store.task(waiting["id"])
+    assert blocked["status"] == "waiting_quota"
+    assert blocked["owner"] is None
+    assert not team.browser.calls
+    assert team.observations[route].eligible()
+    assert not store.rows("SELECT * FROM reservations WHERE task=?", (waiting["id"],))
+    assert not store.rows("SELECT * FROM polls")
+
+    reopened = Store(store.root) if restart else None
+    try:
+        if reopened:
+            team = make_team(reopened)
+            team.observations[route].windows = [Window("daily", 10)]
+        team.usage.release(active["id"])
+        asyncio.run(team.supervise(waiting["id"]))
+        assert team.store.task(waiting["id"])["status"] == "running"
+        assert team.store.task(waiting["id"])["owner"] == route
+        assert team.browser.calls == [route]
+        assert team.store.rows(
+            "SELECT * FROM reservations WHERE task=?", (waiting["id"],)
+        )
+        assert not team.store.rows("SELECT * FROM polls")
+    finally:
+        if reopened:
+            reopened.close()
+
+
 @pytest.mark.parametrize("accepted", [True, False])
 def test_setup_resumes_after_session_commit_without_extra_send_or_poll(
     store, tmp_path, monkeypatch, accepted

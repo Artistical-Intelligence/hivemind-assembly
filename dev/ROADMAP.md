@@ -107,6 +107,9 @@ scope or weighting must be stated rather than silently changing the denominator.
 - Implemented: sign-in/binding recovery rechecks the accepted native session using
   the original fresh allowance observation, without refreshing quota. Exhaustion
   persists on the actual affected route and remains blocked through setup/restart.
+- Implemented: shared allowance reservation contention waits in a resumable state.
+  Releasing the active reservation lets the waiting project start, including after
+  a host restart, without marking the provider exhausted or polling usage again.
 - Implemented: the dashboard's autonomous reconstruction trial supplies a compiled
   multi-function x64 ELF, an unfinished C candidate, development inputs and nine
   protected input cases. Original C and protected inputs are absent from the
@@ -135,12 +138,19 @@ The Stop 1 startup/trial checkpoint `23cab3483cc7e15d04be5e38095473a57dfac2d4`
 passed 69 focused local checks. In
 [run 39625848828](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39625848828),
 its Linux artifact records 784 passed/18 skipped (802 total, 419.197 seconds),
-and its Chromium artifact records 10 passed (112.731 seconds). Windows packaging
-also passed. These results belong to that checkpoint, not to subsequent changes.
+and its Chromium artifact records 10 passed (112.731 seconds). Windows records
+766 passed/36 skipped (802 total, 1162.090 seconds), plus 15 native compiler checks
+(27.910 seconds). Windows packaging also passed. These results belong to that
+checkpoint, not to subsequent changes.
 
 The subsequent sign-in recovery change passed 69 focused native/session/controller
 checks (6.11 seconds) and 20 native-learning/policy/objective checks (10.55 seconds).
 These use scripted model responses; they establish no live provider acceptance.
+
+The reservation-contention regression reproduced an unscheduled dependency wait
+before correction. The correction passed 71 focused startup, readiness, policy,
+team, coordination and learning checks (6.21 seconds), including same-process
+and reopened-store continuation. It does not establish live-model acceptance.
 
 
 Corrected implementation `73fd1d9` passed all four jobs in

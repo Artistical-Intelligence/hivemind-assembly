@@ -609,11 +609,16 @@ class NativeTeam:
             return
         if chosen != task["owner"] or not task["owner"]:
             cfg = self.config["routes"][chosen]
-            self.usage.reserve(
-                cfg.get("usage", {}).get("scope", chosen),
-                task_id,
-                self.observations[chosen].windows,
-            )
+            try:
+                self.usage.reserve(
+                    cfg.get("usage", {}).get("scope", chosen),
+                    task_id,
+                    self.observations[chosen].windows,
+                )
+            except Blocked as error:
+                # Another task can release capacity without a provider quota
+                # refresh. Keep this task scheduled and the route observation intact.
+                raise AllowanceUnavailable(str(error)) from error
         if not task["owner"] or task["lease_until"] < time.time():
             epoch = self.controller.acquire(task_id, chosen)
             if task["owner"]:
