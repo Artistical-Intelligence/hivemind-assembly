@@ -72,17 +72,59 @@ protected evaluations, promotion and rollback are implemented. Experimental
 learning defaults off; Chat-only workers and observed model selection preserve
 manual overrides and do not impose a default HA usage budget.
 
-## Remaining work
+## Completion plan: eight delivery stops
 
-| Area | Remaining implementation or acceptance |
-| --- | --- |
-| Broader reconstruction | Extend target-level coverage beyond current bounded contracts, including broader Windows runtime and graphics/game behavior. CRT, GUI, threads, arbitrary Windows APIs and console-specific loaders remain outside emulated Windows acceptance. Trusted native recipes are a separate execution option. |
-| Exact native routes | Validate all five configured routes on actual signed-in accounts: provider, surface, model, mode, effort, account, allowance, completion, transfers and renewal. Resolve adapter gaps revealed by these checks. Ambiguous controls remain blocked. |
-| Autonomous reconstruction | Run a real unattended worker/adviser/reviewer/Ghidra/REA reconstruction through interruptions, handoffs, fresh independent acceptance and verified checkpoint publication. Scripted model responses do not close this gate. |
-| Learning effectiveness | Measure correctness and speed gains across independent native projects and repeated trials, including provider account-wide memory isolation. Retrieval, fixtures and promotion logic alone are not evidence of improvement. |
-| Live integrations | Exercise authorized MCP OAuth consent, web-chat tunnel access, GitHub setup/publication, optional Codespaces delivery and HA-dispatched hosted jobs on live accounts. Local protocol and recovery checks already exist. |
-| Desktop installation | Validate WinGet prerequisite installation on a real desktop. Hosted Windows runners supplied prerequisites; package installation/update/restore and fresh foundation installation have passed. |
-| Audit and revision | Perform the separately requested full audit, then revise its findings. This implementation pass is not that audit. |
+These stops close against runnable outcomes. Checkpoint commits and successful
+fixtures do not close a live-account requirement. Stops 1–6 complete implementation,
+Stop 7 audits the integrated product, and Stop 8 repairs findings and releases it.
+They are delivery milestones, not a promise that every milestone fits one chat turn.
+
+| Stop | Work and required outcome | Weight in remaining plan | Status |
+| --- | --- | --- | --- |
+| 1. First usable autonomous workflow | Trace requirements, establish the host and native sessions, connect category selection, separate worker/adviser, Ghidra/REA analysis, source editing, compilation and independent verification. Close on a real unattended reconstruction with retained artifacts and continuation through checkpoints. | 20% | In progress |
+| 2. Resilient agent team | Validate all five actual routes; handle allowance, preferred-route promotion, adviser continuity, review, renewal, cancellation, uncertain sends and application/browser restarts without duplicate operations. Retain useful raw model/tool logs. | 15% | Open |
+| 3. Project-level reconstruction | Complete inventories/dependency plans, cumulative builds and real region replacement/fallback with rollback. Exercise the fixed three-target suite below and reject incorrect mutants. | 20% | Open |
+| 4. General coding and integrations | Complete a general programming task through bidirectional MCP with durable disconnect recovery and verified GitHub publication. Exercise optional repository creation, browser-assisted setup, Codespaces/hosted execution and conflict-safe import; retain a local-only path. | 15% | Open |
+| 5. Demonstrated long-term learning | Complete category-first scoping, existing-tag/no-tag selection, fresh conversations, persistent knowledge and knowledge/procedure/executable improvement. Demonstrate correctness and measured speed gains on independent cross-project holdouts, with promotion, invalidation and rollback. Preserve optional Chat-only experiments and unlimited HA budgets. | 15% | Open |
+| 6. Integrated installation and product | Complete onboarding, settings, status, evidence, recovery and documentation. Verify clean Windows prerequisites, credential persistence, restart, backup/restore and drop-in update. No hidden mandatory implementation TODOs. | 5% | Open |
+| 7. Full audit | Audit requirements, correctness, privacy, protected evaluators, credentials, publication, recovery, upstream preservation, maintainability and claims. Produce reproducible findings with severity and repairs. | 5% | Open |
+| 8. Revision and release | Resolve audit/acceptance defects, rerun affected workflows and installation/regression gates, package and publish exact source/evidence. No mandatory open requirement or blocking defect. | 5% | Open |
+
+Progress is estimated against this fixed remaining-work plan, not lines of code or
+test counts. Current estimate: **about 5% of the plan**, with **Stop 1 about 25%**
+and **0/8 stops closed**. Existing implemented capabilities are described above;
+this is not a claim that only 5% of the repository has been built. Any change to
+scope or weighting must be stated rather than silently changing the denominator.
+
+### Stop 1 implementation and acceptance
+
+- Implemented: continuing objectives wait for root/task acceptance contracts before
+  obtaining a native worker lease or spending model turns. Preparation permits
+  uploads/edits; pinning checks releases unpaused work; explicit pause survives.
+- Implemented: unset usage-page mappings cannot consume the daily polling attempt.
+  Setup recovers readiness after a durable session commit without another canary
+  request or usage-page fetch inside the existing polling interval.
+- Implemented: the dashboard's autonomous reconstruction trial supplies a compiled
+  multi-function x64 ELF, an unfinished C candidate, development inputs and nine
+  protected input cases. Original C and protected inputs are absent from the
+  project workspace. The objective names Ghidra, REA and the separate adviser.
+- Automated coverage: startup/restart/pinning, explicit pause, poll admission,
+  session-commit recovery, and a scripted worker/adviser loop that edits actual C,
+  rejects a mutant, retains a checkpoint, repairs it and completes fresh independent
+  whole-program replay. Scripted responses are explicitly not model acceptance.
+- Still open: establish actual signed-in sessions on an execution host; run that
+  trial through real Ghidra/REA and model calls; verify retained live evidence and
+  publication. No live route or autonomous-reconstruction completion is claimed.
+
+The fixed Stop 3 suite is a multi-function native utility, an ARM64-to-x64
+reconstruction, and a small game-related state/frame/audio target. At least one
+complete target must run with both recovered regions and fallback regions, and
+incorrect alternatives must fail. Arbitrary Windows API/GUI/CRT support or a
+commercial game is not an added prerequisite for this completion plan.
+
+Login, 2FA, unavailable exact model targets or a missing execution host may block
+live acceptance. They do not close the stop; independent implementation continues.
+Native credentials, profiles and protected target data remain outside GitHub.
 
 ## Verification
 

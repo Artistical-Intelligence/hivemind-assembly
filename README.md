@@ -12,11 +12,27 @@ A local reverse-engineering workspace for collaborative agents, independent veri
 
 The application uses dedicated Edge, Chrome or Playwright profiles. It does not copy your everyday browser credentials. User data remains in `%LOCALAPPDATA%\UnifiedWorkbench`, outside the application folder. The host must remain running for autonomous work.
 
+## First autonomous reconstruction trial
+
+After installing the foundations and verifying native sessions, open **Project
+files → Create autonomous reconstruction trial**. HA builds a small multi-function
+x64 ELF and prepares an unfinished `candidate.c`, `build.json`, two development
+inputs and nine pinned independent cases. The original C source and protected
+inputs are not placed in the project workspace. Choose **Projects & tasks →
+Project objective → Start** to have the team investigate, edit and compare it.
+
+The empty candidate deliberately fails checks. The objective requests Ghidra and
+REA analysis and a separate adviser; checkpoints do not finish it. Completion
+requires independently rebuilding the saved candidate and replaying the pinned
+corpus. This is a synthetic finite-corpus exercise, not proof of arbitrary program
+equivalence. Creating the trial or passing scripted transport tests does not verify
+real signed-in model operation.
+
 ## Working with a project
 
 Create a project in its prepared state. In **Project files**, upload targets, browse files, and edit UTF-8 candidates. Save preserves the previous bytes and refuses stale overwrites; polling never replaces an unsaved draft. Uploads accept files up to 256 MiB each, and the text editor supports 512 KiB. Larger targets can use local-path import. For Python scripts, single C sources and executables, use **Configure a native comparison** in **Project files**: select a candidate and optional original, enter input cases and expected text, and authorize execution. The advanced recipe and other acceptance types remain in **Projects & tasks**. Run the pinned checks directly from **Project files** before resuming agents. **Download saved file** retrieves the exact version you opened. Manual checks leave the task paused and do not declare autonomous completion. Workers declare bounded steps, receive an adviser briefing, request broker operations, and use the retained results to continue. Separate reviewer sessions support recovery.
 
-For a bounded x86-64 integer register region, **Independent acceptance → Register equivalence proof** pins the original bytes and names the candidate file, input registers and observed outputs. Completion independently reads the candidate and reruns the proof. Missing files, counterexamples, unsupported semantics, stale ownership and concurrent changes prevent acceptance. Failed supported checks return their evidence for up to three correction attempts. Unconfigured objectives remain `awaiting_acceptance`.
+For a bounded x86-64 integer register region, **Independent acceptance → Register equivalence proof** pins the original bytes and names the candidate file, input registers and observed outputs. Completion independently reads the candidate and reruns the proof. Missing files, counterexamples, unsupported semantics, stale ownership and concurrent changes prevent acceptance. Failed supported checks return their evidence for up to three correction attempts. New continuing objectives remain `waiting_setup` until their independent checks are pinned; no native worker is assigned and no model request is spent during preparation. Pinning checks starts unpaused work automatically. Explicitly paused projects stay paused. Older tasks that already proposed completion without a contract remain `awaiting_acceptance`.
 
 Hexadecimal text and binary regions are supported. These proofs cover only their listed observations and recorded assumptions; they do not establish whole-program equivalence.
 

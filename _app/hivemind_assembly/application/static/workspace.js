@@ -45,7 +45,7 @@
     byId('guided-test-form').hidden = !!data.acceptance;
     byId('workspace-contract').textContent = data.acceptance ? 'Pinned checks: ' + data.acceptance.scope.replaceAll('_',' ') + '. The reference and recipe are immutable. Edit the candidate and rerun checks below.' : 'No checks are pinned yet. Configure a native comparison here, or choose another check type in Projects & tasks.';
     byId('workspace-location').textContent = data.root;
-    byId('workspace-readiness').textContent = data.reason || 'Paused and ready to edit. Independent checks leave the task paused.';
+    byId('workspace-readiness').textContent = data.reason || (data.preparing ? 'Preparing project. Upload files and pin checks; agents will then start automatically. Pause the task to keep preparing.' : 'Paused and ready to edit. Independent checks leave the task paused.');
     byId('workspace-files').innerHTML = data.files.map(f => `<button type="button" data-file="${esc(f.path)}" class="file-entry"><span>${esc(f.path)}</span><small>${f.size.toLocaleString()} B</small></button>`).join('') || '<p class="muted">No files yet.</p>';
     if (data.truncated) byId('workspace-files').insertAdjacentHTML('beforeend', '<p>First 2,000 files shown. Enter a relative path to open another file.</p>');
     byId('workspace-files').querySelectorAll('[data-file]').forEach(b => b.onclick = guarded(() => openFile(b.dataset.file)));
@@ -204,8 +204,8 @@
     try {
       const task = await api('project/starter', {kind,request_id:request,allow_native:allow});
       sessionStorage.removeItem(key); await refresh(); await selectTask(task.id); tab('workspace');
-      await openFile(kind === 'registers' ? 'candidate.hex' : ['linked_arm64','program_arm64','program_windows','program_frames','native_frames'].includes(kind) ? 'candidate.c' : 'candidate.py');
-      message('Example ready. Run checks, edit the candidate, and check again.');
+      await openFile(kind === 'registers' ? 'candidate.hex' : ['linked_arm64','program_arm64','program_windows','program_frames','native_frames','autonomous_program'].includes(kind) ? 'candidate.c' : 'candidate.py');
+      message(kind === 'autonomous_program' ? 'Reconstruction trial ready. The candidate is unfinished and independent checks are pinned. Start the objective in Projects & tasks when native sessions are ready.' : 'Example ready. Run checks, edit the candidate, and check again.');
     } finally { b.disabled = false; }
   }));
   function updateRecipeFiles(files) {

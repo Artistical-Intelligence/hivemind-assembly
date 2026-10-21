@@ -25,7 +25,8 @@ class Acceptance:
         if (
             task["owner"]
             or task["step"]
-            or task["status"] not in ("queued", "paused", "waiting_quota")
+            or task["status"]
+            not in ("queued", "paused", "waiting_quota", "waiting_setup")
         ):
             raise Blocked("Define acceptance before the task starts")
         previous = self.store.rows(
@@ -62,7 +63,8 @@ class Acceptance:
             if (
                 current["owner"]
                 or current["step"]
-                or current["status"] not in ("queued", "paused", "waiting_quota")
+                or current["status"]
+                not in ("queued", "paused", "waiting_quota", "waiting_setup")
             ):
                 raise Blocked("Define acceptance before the task starts")
             if c.execute(
@@ -70,6 +72,12 @@ class Acceptance:
             ).fetchone():
                 raise Blocked("Acceptance cannot be changed after execution")
             self.store.put("acceptance_contract", task_id, contract, c)
+            if current["status"] == "waiting_setup":
+                c.execute(
+                    "UPDATE tasks SET status='queued',blocker='',updated=? WHERE id=?",
+                    (time.time(), task_id),
+                )
+                self.store.event(task_id, "queued", {"blocker": ""}, c)
         return self.describe(task_id)
 
     def describe(self, task_id):

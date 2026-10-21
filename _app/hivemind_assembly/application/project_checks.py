@@ -83,12 +83,17 @@ def starter(app, kind, request_id, allow_native=False):
         "[A-Za-z0-9_-]{16,80}", request_id
     ):
         raise ValueError("A stable starter request ID is required")
-    if kind not in ("registers", "native_python", "native_frames", "linked_arm64", "program_arm64", "program_windows", "program_frames"):
+    if kind not in ("registers", "native_python", "native_frames", "linked_arm64", "program_arm64", "program_windows", "program_frames", "autonomous_program"):
         raise ValueError("Unknown starter project")
     if kind in ("native_python", "native_frames") and allow_native is not True:
         raise Blocked(
             "Authorize the supplied native recipes before creating this native starter"
         )
+    objective = "Reconstruct the supplied example and verify its behavior independently."
+    if kind == "autonomous_program":
+        from .reconstruction_trial import OBJECTIVE
+
+        objective = OBJECTIVE
     # Retry resumes the same new project instead of creating duplicates.
     rows = app.store.rows(
         "SELECT payload FROM records WHERE kind='starter_request' AND id=?",
@@ -109,8 +114,9 @@ def starter(app, kind, request_id, allow_native=False):
                 "program_arm64": "AArch64 program reconstruction",
                 "program_windows": "Windows console reconstruction",
                 "program_frames": "Emulated frame reconstruction",
+                "autonomous_program": "Autonomous reconstruction trial",
             }[kind],
-            "Reconstruct the supplied example and verify its behavior independently.",
+            objective,
             paused=True,
             continuation=True,
         )
@@ -120,7 +126,11 @@ def starter(app, kind, request_id, allow_native=False):
     ):
         return task
     image = None
-    if kind == "linked_arm64":
+    if kind == "autonomous_program":
+        from .reconstruction_trial import example
+
+        files, contract, image = example(app)
+    elif kind == "linked_arm64":
         files, contract, image = arm64_example(app)
     elif kind == "program_arm64":
         files, contract, image = arm64_program_example(app)

@@ -7,6 +7,11 @@ Reservations survive uncertain sends and restarts. No extra inference judge.
 import time
 from .common import Blocked, Conflict, ContractError, uid
 
+ACCEPTANCE_REQUIRED = (
+    "Upload the target and pin independent acceptance checks before agents start. "
+    "Work starts automatically after checks are pinned unless the task is paused."
+)
+
 
 class GoalStopped(Blocked):
     pass
@@ -53,7 +58,28 @@ class Goals:
             "INSERT INTO goals VALUES(:id,:project_id,:task_id,:objective,:status,:max_turns,:turns,:updated)",
             goal,
         )
+        if task["status"] == "queued" and self.missing_acceptance(task_id, db):
+            db.execute(
+                "UPDATE tasks SET status='waiting_setup',blocker=? WHERE id=?",
+                (ACCEPTANCE_REQUIRED, task_id),
+            )
         self.store.event(task_id, "goal_prepared", {"goal": goal}, db)
+
+    def missing_acceptance(self, task_id, db=None):
+        """A continuing objective needs both its root and local task contracts."""
+        if db is None:
+            with self.store.tx() as db:
+                return self.missing_acceptance(task_id, db)
+        return (
+            db.execute(
+                "SELECT 1 FROM goals g JOIN tasks t ON t.project_id=g.project_id "
+                "WHERE t.id=? AND ("
+                "NOT EXISTS (SELECT 1 FROM records WHERE kind='acceptance_contract' AND id=g.task_id) "
+                "OR NOT EXISTS (SELECT 1 FROM records WHERE kind='acceptance_contract' AND id=t.id))",
+                (task_id,),
+            ).fetchone()
+            is not None
+        )
 
     def command(self, task_id, command):
         """Compatibility adapter for old clients; automation uses control directly."""

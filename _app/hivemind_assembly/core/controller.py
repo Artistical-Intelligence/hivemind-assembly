@@ -22,6 +22,12 @@ class Controller:
     def acquire(self, task_id, owner, seconds=300):
         with self.store.tx() as c:
             t = dict(c.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone())
+            from .goals import Goals, ACCEPTANCE_REQUIRED
+
+            if owner.startswith("worker.") and Goals(self.store).missing_acceptance(
+                task_id, c
+            ):
+                raise Blocked(ACCEPTANCE_REQUIRED)
             if t["status"] in (
                 "cancelled",
                 "accepted",

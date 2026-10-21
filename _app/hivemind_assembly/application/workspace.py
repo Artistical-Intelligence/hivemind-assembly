@@ -55,7 +55,15 @@ class Workspace:
 
     def guard(self, task_id):
         task = self.store.task(task_id)
-        if task["status"] != "paused" or task["owner"]:
+        preparing = (
+            task["status"] == "waiting_setup"
+            and not task["step"]
+            and not self.store.rows(
+                "SELECT id FROM records WHERE kind='acceptance_contract' AND id=?",
+                (task_id,),
+            )
+        )
+        if (task["status"] != "paused" and not preparing) or task["owner"]:
             raise Blocked("Pause the task before changing project files")
         if self.store.rows(
             "SELECT id FROM tasks WHERE project_id=? AND owner IS NOT NULL",
@@ -111,6 +119,7 @@ class Workspace:
             "files": rows,
             "truncated": truncated,
             "editable": not reason,
+            "preparing": task["status"] == "waiting_setup",
             "reason": reason,
             "acceptance": Acceptance(self.broker.controller, self.broker).describe(
                 task_id

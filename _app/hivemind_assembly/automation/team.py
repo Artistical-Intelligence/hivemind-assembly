@@ -8,7 +8,7 @@ from hivemind_assembly.learning.knowledge import Knowledge
 from hivemind_assembly.learning.scopes import KnowledgeScopes
 from hivemind_assembly.automation.recovery import Recovery
 from .hermes import HermesHost
-from hivemind_assembly.core.goals import Goals, GoalStopped
+from hivemind_assembly.core.goals import Goals, GoalStopped, ACCEPTANCE_REQUIRED
 from hivemind_assembly.core.acceptance import Acceptance
 from hivemind_assembly.core.common import (
     atomic_write,
@@ -115,7 +115,11 @@ class NativeTeam:
     async def poll(self):
         grouped = {}
         for route, cfg in self.config["routes"].items():
-            if cfg.get("conversation_url") and cfg.get("usage", {}).get("scope"):
+            if (
+                cfg.get("conversation_url")
+                and cfg.get("usage", {}).get("scope")
+                and cfg["usage"].get("url")
+            ):
                 grouped.setdefault(cfg["usage"]["scope"], []).append(route)
         for scope, routes in grouped.items():
             if not self.usage.claim_poll(scope):
@@ -390,6 +394,9 @@ class NativeTeam:
         if task["status"] in ("paused", "cancelled", "accepted", "awaiting_acceptance"):
             return
         if task["status"] == "waiting_retry" and not self.recovery.retry_due(task_id):
+            return
+        if self.goals.missing_acceptance(task_id):
+            self.store.state(task_id, "waiting_setup", ACCEPTANCE_REQUIRED)
             return
         # Execution already authorized by a retained brief does not consume a
         # model allowance. Drain it before choosing or promoting a reasoning route.
@@ -1239,7 +1246,7 @@ class NativeTeam:
                 await asyncio.sleep(0.1)
                 continue
             work = self.store.rows(
-                "SELECT * FROM tasks WHERE status IN ('queued','running','waiting_quota','waiting_dependencies','waiting_signin') OR (status='waiting_retry' AND id IN (SELECT task_id FROM retry_schedule WHERE due<=?))",
+                "SELECT * FROM tasks WHERE status IN ('queued','running','waiting_setup','waiting_quota','waiting_dependencies','waiting_signin') OR (status='waiting_retry' AND id IN (SELECT task_id FROM retry_schedule WHERE due<=?))",
                 (time.time(),),
             )
             evaluations = (

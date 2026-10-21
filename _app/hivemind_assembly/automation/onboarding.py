@@ -153,13 +153,6 @@ class NativeSetup:
                     evidence=evidence,
                     instruction="Exact controls observed. Native session acceptance remains pending.",
                 )
-            if persistent and self.sessions.accepted(route):
-                return self.save(
-                    route,
-                    stage="verified",
-                    evidence=evidence,
-                    instruction="Exact native route and both attachment directions verified.",
-                )
             if not usage.get("url"):
                 return self.save(
                     route,
@@ -173,8 +166,11 @@ class NativeSetup:
                     stage="waiting_quota",
                     instruction="Session acceptance waits for sufficient allowance under the 24-hour polling policy.",
                 )
-            await self.sessions.renew("session_setup", route)
-            self.pages[route] = self.browser.pages[route]
+            if not (persistent and self.sessions.accepted(route)):
+                await self.sessions.renew("session_setup", route)
+                self.pages[route] = self.browser.pages[route]
+            # A durable session commit can precede a process crash. Publish
+            # readiness from the retained allowance even when no renewal is needed.
             self.team.observations[route] = observation
             from dataclasses import asdict
 
