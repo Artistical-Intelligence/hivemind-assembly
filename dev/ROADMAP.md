@@ -5,18 +5,24 @@ checks, protected knowledge/procedure rollouts, shared learning reservations,
 Qiling file/memory replay, deeper Ghidra/REA queries and installed-tool checks.
 It is not a declaration that the requested product has passed all gates.
 
-Version 0.19 adds Windows x64 console PE builds and Speakeasy-backed replay,
-sealed original/input acceptance, worker tools, tested-source checkpoint support,
-and an editable dashboard starter. Its explicit contract covers redirected-file
-standard streams, exit and fixed tick clocks. Unsupported imports, TLS, direct CPU
-environment queries, faults and exhausted execution budgets cannot pass.
-CRT, GUI, filesystem, threading and arbitrary Windows applications remain outside
-this first Windows program contract.
+Version 0.20.1 adds Windows x64 console PE builds, declared in-memory files,
+explicit command-line/environment inputs, sealed acceptance, worker tools,
+automatic verified-source checkpoints and an editable file-transform starter.
+Speakeasy supplies loading and Win64 dispatch; HA checks streams, final files,
+exit status and optional strict file/process/clock traces. Native Windows
+oracles independently exercise the emitted PEs and their Win32 file/process
+behavior. Unsupported effects, faults and exhausted budgets cannot pass.
+Directories, CRT, GUI, threads and arbitrary Windows compatibility remain outside
+the emulated Windows contract. Trusted native recipes remain a separate option.
 
-The Windows lane passed native Windows PE execution, nine real Chromium checks,
-and package installation/update/backup restoration at 3f3269c (contract run
-39543882461). Full Linux/Windows suites and fresh Ghidra/REA/Hermes installation
-also passed. Native signed-in model acceptance remains separate.
+The v0.20.0 file checkpoint passed all four hosted jobs at a2979c8 in run
+39546328046: Linux 614 passed/14 skipped, Windows 602 passed/26 skipped, twelve
+native checks, nine Chromium checks and packaged install/update/restore.
+The final v0.20.1 implementation 0948323 passed run 39547306791: Linux
+633 passed/15 skipped, Windows 622 passed/26 skipped, thirteen native checks,
+nine Chromium checks and packaged install/update/restore.
+Fresh Ghidra/REA/Hermes installation previously passed run 39543882473.
+Signed-in model acceptance remains separate.
 
 Version 0.18 adds ordered raw RGBA frame sequences, per-frame tolerances and
 failure locations, a synchronized capture scrubber, direct workspace capture
@@ -198,3 +204,9 @@ and broader Windows effects remain outside this contract.
 The v0.20.0 checkpoint a2979c8 passed all four jobs in run 39546328046:
 Linux 614 passed/14 skipped, Windows 602 passed/26 skipped, twelve separate
 native Windows checks, nine Chromium checks and packaged install/update/restore.
+
+Final v0.20.1 verification: all four jobs passed at implementation 0948323 in
+run 39547306791. The 648-case suite passed on Linux (633/15) and Windows
+(622/26); thirteen separate native Windows checks, nine Chromium checks and
+packaged Windows install/update/restore also passed. This does not close the
+signed-in account or broader target gates above.

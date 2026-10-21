@@ -664,11 +664,13 @@ faults or budget exhaustion never pass. This is corpus evidence within the
 explicit runtime contract, not proof of arbitrary Windows application equivalence.
 
 
-Validation for implementation `3f3269c`: [run 39543882461](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39543882461)
-passed Linux (588 tests), Windows (575 tests plus 11 native checks), nine real
-Chromium cases, and Windows package installation/update/backup restoration.
-The [separate foundations run](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39543882473)
+Validation for implementation `0948323`: [run 39547306791](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39547306791)
+passed Linux (633 tests, 15 platform skips), Windows (622 tests, 26 skips,
+plus 13 separate native checks), nine real Chromium cases, and Windows package
+installation/update/backup restoration. Native tests independently checked PE
+standard streams, regular-file effects and ANSI/UTF-16 process inputs.
+The earlier [foundations run](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39543882473)
 passed fresh Ghidra/REA/Hermes installation and actual adapter probes. These
 checks use source-known targets and scripted interactions, not signed-in model
-sessions. The tested Windows/source packages are available in the contract
-run's artifacts.
+sessions. The [tested Windows/source packages](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39547306791/artifacts/12322176122)
+are retained in the contract run's artifacts.
