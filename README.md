@@ -908,11 +908,19 @@ explicit runtime contract, not proof of arbitrary Windows application equivalenc
 
 | Evidence | Commit | Runs | Host | Model inference |
 | --- | --- | --- | --- | --- |
+| hosted-ci-improvements (2026-10-21) | `7bb76bb` | [39674657186](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39674657186), [39674657324](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39674657324) | GitHub Linux and Windows | no |
+| audit-2026-10-21 (2026-10-21) | `7bb76bb` | [39674657186](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39674657186) | Linux x86-64 local and hosted CI | no |
+| windows-pe-composition (2026-10-21) | `7bb76bb` | [39674657186](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39674657186) | Linux local and hosted Windows | no |
+| public-holdout-import (2026-10-21) | `7bb76bb` | local | Linux x86-64 local | no |
 | hosted-ci-0.25 (2026-10-21) | `4f057ab` | [39650550445](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39650550445) | GitHub Linux and Windows | no |
 | project-reconstruction-suite (2026-10-21) | `4f057ab` | [39650550445](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39650550445) | Linux x86-64 local and hosted CI | no |
 | ghidra-project-plan (2026-10-21) | `4907b10` | [39650087898](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39650087898) | Fresh Linux x86-64 install and hosted Windows | no |
 | baseline-suite-1c05abf (2026-10-21) | `1c05abf` | [39632598272](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39632598272) | GitHub Linux and Windows | no |
 
+- **hosted-ci-improvements** (`7bb76bb`): All four contract jobs passed: Linux 828 passed/19 skipped; Windows 807 passed/40 skipped; fifteen native Windows checks; ten Chromium checks; Windows package install, update and restore of the 0.25.0 package. Hosted Windows foundations passed, including the Ghidra project plan.
+- **audit-2026-10-21** (`7bb76bb`): Fixes for the findings in dev/AUDIT.md, including the high-severity leak of sealed function cases to workers; each has a regression test that fails on the earlier code where applicable.
+- **windows-pe-composition** (`7bb76bb`): The game target built as an x64 Windows console PE composes four recovered regions with original rendering, passes frame/audio cases and rejects the right-wall physics mutant at program level. A static glibc tool composes and runs natively with identical output; a wrong region changes it.
+- **public-holdout-import** (`7bb76bb`): HumanEval-Decompile C subset fetched at the pinned commit and SHA-256 (656 rows); problem-level families keep every optimization level of a problem in one split; the benchmark's reference function passes its sealed test natively. The fetch test runs only with HA_BENCHMARK_FETCH=1.
 - **hosted-ci-0.25** (`4f057ab`): All four jobs passed: Linux 807 passed/18 skipped; Windows 788 passed/37 skipped after one rerun of an unrelated native compile timeout; fifteen native Windows checks; ten Chromium checks; Windows package install, update and restore. The package was built before the 0.25.0 version label.
 - **project-reconstruction-suite** (`4f057ab`): Fixed source-known Stop 3 suite: x86-64 utility with original-code fallback, AArch64 original rebuilt as x86-64, game state/frame/audio target. Thirteen planted incorrect variants rejected, eight only by whole-program checks. The composed utility ran natively with output identical to the original.
 - **ghidra-project-plan** (`4907b10`): Fresh Ghidra 12.1.4, REA 6.7.0 and Hermes c0015464f0f4 installations passed every foundation check, including composition over an actual Ghidra callgraph plan (30 functions, four regions recovered).
@@ -924,9 +932,10 @@ Still required:
 - Unattended real worker/adviser/reviewer/Ghidra/REA artifact, recovery and acceptance loops.
 - Native cross-project learning gains, provider account-wide memory isolation and repeated timing evidence.
 - Desktop prerequisite installation through WinGet; hosted Windows package install/update/restore and full foundation installation/basic native adapters have passed.
-- Separately requested full audit and revision pass.
 - Run the managed native workflow through HA using a live authorized account with a configured spending boundary; review representative Linux/Windows target recipes and retained artifacts.
 - Run the Stop 3 suite through a live native team with Ghidra-produced plans; broader application targets beyond the fixed suite remain separate scope.
+- Audit the surfaces dev/AUDIT.md lists as not yet audited (native browser automation, backup archives, Codespaces import, dashboard HTTP surface).
+- Measure native learning gains on the HumanEval-Decompile holdout once live routes exist.
 <!-- status:end -->
 
 Older validation history is kept below, in [ROADMAP](dev/ROADMAP.md) and in `historical_checks` of

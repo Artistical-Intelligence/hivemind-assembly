@@ -63,9 +63,10 @@
     "Unattended real worker/adviser/reviewer/Ghidra/REA artifact, recovery and acceptance loops.",
     "Native cross-project learning gains, provider account-wide memory isolation and repeated timing evidence.",
     "Desktop prerequisite installation through WinGet; hosted Windows package install/update/restore and full foundation installation/basic native adapters have passed.",
-    "Separately requested full audit and revision pass.",
     "Run the managed native workflow through HA using a live authorized account with a configured spending boundary; review representative Linux/Windows target recipes and retained artifacts.",
-    "Run the Stop 3 suite through a live native team with Ghidra-produced plans; broader application targets beyond the fixed suite remain separate scope."
+    "Run the Stop 3 suite through a live native team with Ghidra-produced plans; broader application targets beyond the fixed suite remain separate scope.",
+    "Audit the surfaces dev/AUDIT.md lists as not yet audited (native browser automation, backup archives, Codespaces import, dashboard HTTP surface).",
+    "Measure native learning gains on the HumanEval-Decompile holdout once live routes exist."
   ],
   "model_api_inference": false,
   "paid_overage": false,
@@ -182,21 +183,64 @@
     "linked_memory_checkpoint": "Preceding release evidence (0.23.1): Implementation 2512728 passed all four jobs in run 39608363476: Linux 745 passed/18 skipped (565.805s); Windows 727 passed/36 skipped (859.134s); fifteen separate native Windows execution checks (61.578s); ten actual Chromium checks (122.384s); and Windows package install/update/restore. Local linked-memory regression passed 745/18 (678.83s); corrected corpus batching passed eight focused checks separately (27.16s). The earlier hosted O0 ARM corpus wall-bound failure is resolved without changing product limits or removing vectors. Fresh Ghidra/REA/Hermes installation and adapters passed at a2eadb2 in run 39606521680. These are source-known/scripted checks, not signed-in model acceptance."
   },
   "verified_package": {
-    "implementation_commit": "73fd1d9b71b4d5542ef6450d9b3eb7f3afe5d480",
-    "workflow_run": 39615843168,
-    "artifact_id": 12352452923,
-    "url": "https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39615843168/artifacts/12352452923",
+    "implementation_commit": "7bb76bba2178a68d3cc22d78861800ec1358873b",
+    "workflow_run": 39674657186,
+    "artifact_id": 12382400194,
+    "url": "https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39674657186/artifacts/12382400194",
     "retention_days": 14
   },
   "automated_tests": {
-    "passed": 807,
-    "skipped": 18,
+    "passed": 828,
+    "skipped": 19,
     "failed": 0,
-    "elapsed_seconds": 650.98,
+    "elapsed_seconds": 751.16,
     "host": "GitHub Linux Python 3.12",
-    "scope": "Full regression at implementation 4f057ab, run 39650550445. Windows: 788 passed/37 skipped in 1233.12s. No live native-model acceptance inferred."
+    "scope": "Full regression at implementation 7bb76bb, run 39674657186. Windows: 807 passed/40 skipped in 1316.67s. No live native-model acceptance inferred."
   },
   "evidence": [
+    {
+      "id": "hosted-ci-improvements",
+      "date": "2026-10-21",
+      "commit": "7bb76bba2178a68d3cc22d78861800ec1358873b",
+      "runs": [
+        39674657186,
+        39674657324
+      ],
+      "host": "GitHub Linux and Windows",
+      "live_model_inference": false,
+      "summary": "All four contract jobs passed: Linux 828 passed/19 skipped; Windows 807 passed/40 skipped; fifteen native Windows checks; ten Chromium checks; Windows package install, update and restore of the 0.25.0 package. Hosted Windows foundations passed, including the Ghidra project plan."
+    },
+    {
+      "id": "audit-2026-10-21",
+      "date": "2026-10-21",
+      "commit": "7bb76bba2178a68d3cc22d78861800ec1358873b",
+      "runs": [
+        39674657186
+      ],
+      "host": "Linux x86-64 local and hosted CI",
+      "live_model_inference": false,
+      "summary": "Fixes for the findings in dev/AUDIT.md, including the high-severity leak of sealed function cases to workers; each has a regression test that fails on the earlier code where applicable."
+    },
+    {
+      "id": "windows-pe-composition",
+      "date": "2026-10-21",
+      "commit": "7bb76bba2178a68d3cc22d78861800ec1358873b",
+      "runs": [
+        39674657186
+      ],
+      "host": "Linux local and hosted Windows",
+      "live_model_inference": false,
+      "summary": "The game target built as an x64 Windows console PE composes four recovered regions with original rendering, passes frame/audio cases and rejects the right-wall physics mutant at program level. A static glibc tool composes and runs natively with identical output; a wrong region changes it."
+    },
+    {
+      "id": "public-holdout-import",
+      "date": "2026-10-21",
+      "commit": "7bb76bba2178a68d3cc22d78861800ec1358873b",
+      "runs": [],
+      "host": "Linux x86-64 local",
+      "live_model_inference": false,
+      "summary": "HumanEval-Decompile C subset fetched at the pinned commit and SHA-256 (656 rows); problem-level families keep every optimization level of a problem in one split; the benchmark's reference function passes its sealed test natively. The fetch test runs only with HA_BENCHMARK_FETCH=1."
+    },
     {
       "id": "hosted-ci-0.25",
       "date": "2026-10-21",
