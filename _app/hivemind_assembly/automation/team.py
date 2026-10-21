@@ -1339,7 +1339,7 @@ TOOL_SCHEMAS = {
         "validation": "successful host-recorded validation operation ID; publishes only its exact checked source files"
     },
     "build_linked_function": {
-        "manifest_path": "JSON sources/declarations/optimization; multiple freestanding C files",
+        "manifest_path": "JSON sources/declarations/optimization; multiple freestanding C files. Built-in memcpy/memmove/memset/memcmp declarations use compiler size type __SIZE_TYPE__ (64-bit); compiler-generated initialization and struct copies work. Candidate definitions override bundled fallbacks; guest buffers retain bounds and permissions.",
         "function": "defined entry symbol",
         "candidate_abi": "sysv, win64, aapcs64 or winarm64 (requires Clang/LLD)",
     },

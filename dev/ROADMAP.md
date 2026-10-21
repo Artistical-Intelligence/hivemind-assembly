@@ -1,6 +1,6 @@
 # Hivemind Assembly roadmap
 
-Version 0.23.0 remains an engineering preview. Implementation, automated
+Version 0.23.1 remains an engineering preview. Implementation, automated
 verification and live account acceptance are separate. Successful fixtures do not
 establish unattended reconstruction or measured native-model learning gains.
 
@@ -44,8 +44,9 @@ An emulated renderer starter catches a one-frame delay with unchanged final stat
 This adds output-level temporal checks, not GPU or arbitrary GUI compatibility.
 
 Version 0.23 adds pinned musl memory routines to Windows and Linux program
-builds. Compiler-generated zero initialization and struct copies now link without
-custom helper functions. Candidate definitions retain precedence; source hashes
+builds; 0.23.1 extends the same runtime to linked-function builds for all four
+calling conventions, including Windows ARM64. Compiler-generated zero
+initialization and struct copies now link without custom helper functions. Candidate definitions retain precedence; source hashes
 and embedded license notices are checked during builds. General CRT/OS support
 remains a separate scope.
 
@@ -81,7 +82,11 @@ The new memory runtime passed 34 focused local checks, with one native-Windows
 skip. Cross-target corpus/implicit-call, overlap/alignment, candidate override,
 page-boundary, invalid-access, native Linux and source-integrity checks passed.
 Integrated runtime, Windows-program and capture regression passed 64 checks with
-two native-Windows skips. Full regression and hosted checks for 0.23 are pending.
+two native-Windows skips. The linked-function extension passed 15 focused and
+69 integrated checks,
+including protected acceptance, independent byte expectations, read-only/bounded
+buffers and strong candidate overrides. Full regression and hosted checks for the
+combined 0.23.1 checkpoint are pending.
 
 Version 0.22 checkpoint `0923d43` passed 19 focused capture checks and 87 integrated
 checks (one native-Windows skip). Full local regression passed 696 tests with

@@ -599,3 +599,11 @@ license is retained and embedded in generated images; hashes are verified before
 builds. This reuses mature memory code without pulling in a host libc or musl's
 Linux syscall layer. The [upstream repository](https://git.musl-libc.org/cgit/musl)
 and mirror/tag/commit/file hashes are recorded in vendor/provenance.json.
+
+The same verified memory runtime also serves linked-function reconstruction for
+SysV x64, Windows x64, Linux ARM64 and Windows ARM64. An ARM64 PE struct-copy
+fixture reproduced unresolved `memset`/`memcpy` calls before integration.
+Independent Python snapshots verify the resulting caller-buffer bytes and
+read-only/bounds enforcement; candidate definitions remain stronger than the
+bundled fallback. The scalar relocation-free function extractor retains its
+existing contract; calls requiring a runtime use linked-function reconstruction.

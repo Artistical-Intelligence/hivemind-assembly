@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.23.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.23.1 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -564,10 +564,12 @@ Static AArch64 program reconstruction is available from **Project files → Crea
 
 ## Freestanding C memory support
 
-Windows x64 and Linux x64/AArch64 program builds provide `memcpy`, `memmove`,
+Windows x64 and Linux x64/AArch64 program builds, and linked-function builds for
+SysV x64, Windows x64, Linux ARM64 and Windows ARM64, provide `memcpy`, `memmove`,
 `memset` and `memcmp`, including calls the compiler generates for array
 initialization or struct copies. Their declarations are supplied automatically;
-counts use `ha_size` (64-bit on each supported target). No host headers are needed.
+program counts use `ha_size`, and linked-function counts use the compiler type
+`__SIZE_TYPE__` (both 64-bit on supported targets). No host headers are needed.
 `memmove` supports overlapping ranges; `memcmp` compares unsigned bytes and only
 its negative/zero/positive sign is a portable result.
 

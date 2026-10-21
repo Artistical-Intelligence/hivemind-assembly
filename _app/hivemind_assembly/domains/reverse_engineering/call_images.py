@@ -15,6 +15,7 @@ from pathlib import Path
 from hivemind_assembly.core.common import Blocked, ContractError, file_hash, uid, digest
 from .program import sources, load_image as load_elf
 from .semantics import run_reference
+from . import program_libc
 
 ABIS = {
     "sysv": (
@@ -232,9 +233,14 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
         for index, text in enumerate(units.values()):
             name = f"unit_{index}.c"
             (stage / name).write_text(
-                manifest.get("declarations", "") + "\n" + text, encoding="utf-8"
+                program_libc.HEADER.replace("ha_size", "__SIZE_TYPE__")
+                + manifest.get("declarations", "")
+                + "\n"
+                + text,
+                encoding="utf-8",
             )
             paths.append(name)
+        memory_sources, memory_hash = program_libc.stage(stage)
         output = "candidate.dll" if abi in PE_ABIS else "candidate.elf"
         argv = [executable]
         if clang:
@@ -249,6 +255,8 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
                 "-fuse-ld=lld",
             ]
         argv += ["-march=armv8-a", "-ffixed-x18"] if abi in ARM_ABIS else ["-m64"]
+        if not clang:
+            argv += ["-fno-tree-loop-distribute-patterns"]
         argv += [
             "-std=c11",
             "-" + manifest.get("optimization", "O2"),
@@ -256,6 +264,7 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
             "-fno-builtin",
             "-fno-stack-protector",
             "-nostdinc",
+            "-Imemory_include",
             "-nostdlib",
             "-fno-asynchronous-unwind-tables",
             "-fno-unwind-tables",
@@ -264,6 +273,7 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
             argv += [
                 "-Wl,/dll,/noentry,/nodefaultlib,/fixed:no,/base:0x180000000,/timestamp:0",
                 "-Wl,/export:" + function,
+                "-Wl,/include:ha_memory_runtime_notice",
             ]
         else:
             argv += [
@@ -271,10 +281,11 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
                 "-fno-pic",
                 "-fno-pie",
                 "-Wl,--build-id=none,-e," + function,
+                "-Wl,--undefined=ha_memory_runtime_notice",
             ]
             if not clang:
                 argv += ["-no-pie"]
-        argv += [*paths, "-o", output]
+        argv += [*paths, *memory_sources, "-o", output]
         result = jobs.run(uid("linked-build"), argv, stage, timeout=60, cancel=cancel)
         if result["status"] != "completed" or result["exit_code"] != 0:
             return {"passed": False, "stage": "compile", "build": result}
@@ -282,6 +293,7 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
         if not path.exists() or path.stat().st_size > MAX_IMAGE:
             raise Blocked("Missing or oversized linked image")
         data = path.read_bytes()
+        program_libc.verify_notice(data)
         image = load(data, symbol=function)
         if image["abi"] != abi:
             raise Blocked("Compiler produced an image for a different ABI")
@@ -297,6 +309,7 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
             "source_hashes": hashes,
             "manifest_sha256": digest(manifest),
             "compiler_sha256": fingerprint,
+            "memory_runtime_sha256": memory_hash,
             "build": result,
         }
 
