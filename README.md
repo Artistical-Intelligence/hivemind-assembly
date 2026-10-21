@@ -908,6 +908,9 @@ explicit runtime contract, not proof of arbitrary Windows application equivalenc
 
 | Evidence | Commit | Runs | Host | Model inference |
 | --- | --- | --- | --- | --- |
+| hosted-ci-second-audit (2026-10-21) | `62e53a7` | [39688769075](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39688769075) | GitHub Linux and Windows | no |
+| windows-project-acceptance (2026-10-21) | `62e53a7` | [39688769075](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39688769075) | Linux local and hosted Windows | no |
+| audit-second-pass (2026-10-21) | `62e53a7` | [39688769075](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39688769075) | Linux x86-64 local and hosted CI | no |
 | hosted-ci-improvements (2026-10-21) | `7bb76bb` | [39674657186](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39674657186), [39674657324](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39674657324) | GitHub Linux and Windows | no |
 | audit-2026-10-21 (2026-10-21) | `7bb76bb` | [39674657186](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39674657186) | Linux x86-64 local and hosted CI | no |
 | windows-pe-composition (2026-10-21) | `7bb76bb` | [39674657186](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39674657186) | Linux local and hosted Windows | no |
@@ -917,6 +920,9 @@ explicit runtime contract, not proof of arbitrary Windows application equivalenc
 | ghidra-project-plan (2026-10-21) | `4907b10` | [39650087898](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39650087898) | Fresh Linux x86-64 install and hosted Windows | no |
 | baseline-suite-1c05abf (2026-10-21) | `1c05abf` | [39632598272](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39632598272) | GitHub Linux and Windows | no |
 
+- **hosted-ci-second-audit** (`62e53a7`): All four contract jobs passed: Linux 842 passed/18 skipped, including the pinned HumanEval-Decompile fetch and scoring test; Windows 819 passed/41 skipped in 30 minutes under the new 40-minute limit; fifteen native Windows checks; ten Chromium checks; Windows package install, update and restore.
+- **windows-project-acceptance** (`62e53a7`): windows_project acceptance seals the Windows game target with pinned addresses, rejects the physics mutant at program level and moved region addresses, and accepts the repaired candidate with four recovered regions.
+- **audit-second-pass** (`62e53a7`): Fixes for the browser automation, backup, Codespaces and dashboard findings in dev/AUDIT.md, each with a regression test.
 - **hosted-ci-improvements** (`7bb76bb`): All four contract jobs passed: Linux 828 passed/19 skipped; Windows 807 passed/40 skipped; fifteen native Windows checks; ten Chromium checks; Windows package install, update and restore of the 0.25.0 package. Hosted Windows foundations passed, including the Ghidra project plan.
 - **audit-2026-10-21** (`7bb76bb`): Fixes for the findings in dev/AUDIT.md, including the high-severity leak of sealed function cases to workers; each has a regression test that fails on the earlier code where applicable.
 - **windows-pe-composition** (`7bb76bb`): The game target built as an x64 Windows console PE composes four recovered regions with original rendering, passes frame/audio cases and rejects the right-wall physics mutant at program level. A static glibc tool composes and runs natively with identical output; a wrong region changes it.

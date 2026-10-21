@@ -182,21 +182,54 @@
     "linked_memory_checkpoint": "Preceding release evidence (0.23.1): Implementation 2512728 passed all four jobs in run 39608363476: Linux 745 passed/18 skipped (565.805s); Windows 727 passed/36 skipped (859.134s); fifteen separate native Windows execution checks (61.578s); ten actual Chromium checks (122.384s); and Windows package install/update/restore. Local linked-memory regression passed 745/18 (678.83s); corrected corpus batching passed eight focused checks separately (27.16s). The earlier hosted O0 ARM corpus wall-bound failure is resolved without changing product limits or removing vectors. Fresh Ghidra/REA/Hermes installation and adapters passed at a2eadb2 in run 39606521680. These are source-known/scripted checks, not signed-in model acceptance."
   },
   "verified_package": {
-    "implementation_commit": "7bb76bba2178a68d3cc22d78861800ec1358873b",
-    "workflow_run": 39674657186,
-    "artifact_id": 12382400194,
-    "url": "https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39674657186/artifacts/12382400194",
+    "implementation_commit": "62e53a7be8cc5833a61b8a9890a25e0714883ce1",
+    "workflow_run": 39688769075,
+    "artifact_id": 12387273177,
+    "url": "https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39688769075/artifacts/12387273177",
     "retention_days": 14
   },
   "automated_tests": {
-    "passed": 828,
-    "skipped": 19,
+    "passed": 842,
+    "skipped": 18,
     "failed": 0,
-    "elapsed_seconds": 751.16,
+    "elapsed_seconds": 646.67,
     "host": "GitHub Linux Python 3.12",
-    "scope": "Full regression at implementation 7bb76bb, run 39674657186. Windows: 807 passed/40 skipped in 1316.67s. No live native-model acceptance inferred."
+    "scope": "Full regression at implementation 62e53a7, run 39688769075. Windows: 819 passed/41 skipped in 1799.28s. No live native-model acceptance inferred."
   },
   "evidence": [
+    {
+      "id": "hosted-ci-second-audit",
+      "date": "2026-10-21",
+      "commit": "62e53a7be8cc5833a61b8a9890a25e0714883ce1",
+      "runs": [
+        39688769075
+      ],
+      "host": "GitHub Linux and Windows",
+      "live_model_inference": false,
+      "summary": "All four contract jobs passed: Linux 842 passed/18 skipped, including the pinned HumanEval-Decompile fetch and scoring test; Windows 819 passed/41 skipped in 30 minutes under the new 40-minute limit; fifteen native Windows checks; ten Chromium checks; Windows package install, update and restore."
+    },
+    {
+      "id": "windows-project-acceptance",
+      "date": "2026-10-21",
+      "commit": "62e53a7be8cc5833a61b8a9890a25e0714883ce1",
+      "runs": [
+        39688769075
+      ],
+      "host": "Linux local and hosted Windows",
+      "live_model_inference": false,
+      "summary": "windows_project acceptance seals the Windows game target with pinned addresses, rejects the physics mutant at program level and moved region addresses, and accepts the repaired candidate with four recovered regions."
+    },
+    {
+      "id": "audit-second-pass",
+      "date": "2026-10-21",
+      "commit": "62e53a7be8cc5833a61b8a9890a25e0714883ce1",
+      "runs": [
+        39688769075
+      ],
+      "host": "Linux x86-64 local and hosted CI",
+      "live_model_inference": false,
+      "summary": "Fixes for the browser automation, backup, Codespaces and dashboard findings in dev/AUDIT.md, each with a regression test."
+    },
     {
       "id": "hosted-ci-improvements",
       "date": "2026-10-21",
