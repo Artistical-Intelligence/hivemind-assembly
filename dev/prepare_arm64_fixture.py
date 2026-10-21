@@ -5,6 +5,7 @@ import hashlib
 import io
 from pathlib import Path
 import tarfile
+import tempfile
 import urllib.request
 import zstandard
 
@@ -49,7 +50,11 @@ def prepare(destination, package=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("destination")
+    parser.add_argument(
+        "destination",
+        nargs="?",
+        default=str(Path(tempfile.gettempdir()) / "ha-arm64-fixture"),
+    )
     parser.add_argument("--package", type=Path)
     args = parser.parse_args()
     prepare(args.destination, args.package.read_bytes() if args.package else None)
