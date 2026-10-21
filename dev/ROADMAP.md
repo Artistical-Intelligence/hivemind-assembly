@@ -1,6 +1,6 @@
 # Hivemind Assembly roadmap
 
-Version 0.24.0 remains an engineering preview. Implementation, automated
+Version 0.25.0 remains an engineering preview. Implementation, automated
 verification and live account acceptance are separate. Successful fixtures do not
 establish unattended reconstruction or measured native-model learning gains.
 
@@ -57,6 +57,13 @@ help diagnose failed reconstruction. Engine-reported timeout distinguishes time
 and instruction limits. Pre-execution and periodic cancellation now reaches these
 replay engines. Diagnostics stay outside equivalence decisions; sealed-original
 preflight evidence remains protected.
+
+Version 0.25 adds project-level reconstruction: dependency-ordered function checks,
+recovered-region composition into the original static ELF with original-code
+fallback for every other function, cumulative isolation of regions that break the
+program, rollback of regressed regions, verified source snapshots for local and
+connected projects, a `linux_project` acceptance scope and the fixed three-target
+suite. A read-only MCP publication status completes the reconnect path.
 
 Inbound project-scoped MCP, outbound tool grants, standard HTTP OAuth onboarding,
 private-tunnel supervision and optional Codespaces snapshot jobs are implemented.
@@ -167,6 +174,20 @@ live acceptance. They do not close the stop; independent implementation continue
 Native credentials, profiles and protected target data remain outside GitHub.
 
 ## Verification
+
+### Session of 2026-10-21, version 0.25 (Linux cloud host)
+
+- Implementation `4f057ab` passed all four jobs in
+  [run 39650550445](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39650550445):
+  Linux 807 passed/18 skipped; Windows 788 passed/37 skipped (one rerun after a native
+  compile timeout in an unrelated existing test); fifteen native Windows checks; ten
+  Chromium checks; Windows package installation, update and restoration.
+- Hosted [Windows foundations run 39650087898](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39650087898)
+  and a fresh local Linux installation both passed every foundation check, including
+  the Ghidra-callgraph project composition. No model inference was involved.
+- Still blocked on this host: no signed-in HA native browser profiles or desktop
+  display, so live route acceptance remains 0 of 5 and no unattended reconstruction
+  through actual models is claimed.
 
 ### Session of 2026-10-21 (Linux cloud host, implementation `1c05abf`)
 
