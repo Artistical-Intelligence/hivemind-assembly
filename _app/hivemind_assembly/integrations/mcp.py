@@ -546,6 +546,31 @@ class Gateway:
             return self.app.action("/api/control", args)
         if tool == "ha_goal":
             return {"goal": self.app.action("/api/goal", args)}
+        if tool == "ha_publication_status":
+            # Read-only: lets a client confirm verified checkpoints after a
+            # disconnect without being able to publish or see protected inputs.
+            project = task["project_id"]
+            broker = self.app.broker
+            listing = broker.verified_sources.listing(
+                task["id"], broker.workspace(task["id"]), 5
+            )
+            return {
+                "repository": self.app.repositories.status(project),
+                "publication": (
+                    broker.publications.status(project)
+                    if broker.publications
+                    else {"sha": None}
+                ),
+                "verified_snapshots": [
+                    {
+                        "validation": item["validation"],
+                        "tool": item["tool"],
+                        "current": item["current"],
+                        "files": sorted(item["files"]),
+                    }
+                    for item in listing["snapshots"]
+                ],
+            }
         if tool == "ha_list_files":
             return self.app.workspace.listing(task["id"])
         if tool == "ha_read_file":
@@ -608,6 +633,11 @@ def build_server(call):
             return call("ha_goal", {"task": task, "command": command})
         return call("ha_goal", {"task": task, "action": action,
                                 "max_turns": max_turns, "objective": objective})
+
+    @server.tool()
+    def ha_publication_status(task: str) -> dict[str, Any]:
+        """Read a shared project's repository link, last published checkpoint and recent host-verified source snapshots. Read-only; safe to poll after reconnecting."""
+        return call("ha_publication_status", {"task": task})
 
     @server.tool()
     def ha_list_files(task: str) -> dict[str, Any]:

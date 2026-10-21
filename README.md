@@ -551,6 +551,10 @@ restart never silently reruns a check. Results report success, revision stalenes
 and execution status without exposing protected cases or expected outputs. These
 checks leave the project paused; objective completion still requires a separate
 independent acceptance run. Native recipes require prior owner authorization.
+`ha_publication_status(task)` reports the project's repository link, the last
+published checkpoint and recent host-verified source snapshots, so a client that
+reconnects can confirm what was verified and published. It is read-only; MCP
+clients cannot publish or change repository settings.
 
 External stdio and HTTP MCP connections have explicit project and tool grants.
 Workers receive only their authorized connection names and tool names. Calls use

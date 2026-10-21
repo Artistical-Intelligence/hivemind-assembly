@@ -211,3 +211,28 @@ def test_http_authentication_and_endpoint_bound_session_secret(app):
         server.should_exit = True
         thread.join(5)
         sock.close()
+
+
+def test_publication_status_is_read_only_and_survives_reconnect(app):
+    enable(app)
+
+    async def exercise():
+        async with Client(build_server(app.mcp_gateway.call)) as client:
+            created = await client.call_tool(
+                "ha_create_project",
+                {"name": "status", "objective": "general tool", "request_id": "status"},
+            )
+            task = created.structured_content["id"]
+        # A new client session after disconnect sees the same retained state.
+        async with Client(build_server(app.mcp_gateway.call)) as client:
+            status = await client.call_tool("ha_publication_status", {"task": task})
+            assert not status.is_error
+            value = status.structured_content
+            assert value["repository"] == {"status": "unlinked"}
+            assert value["publication"]["sha"] is None
+            assert value["verified_snapshots"] == []
+            names = [t.name for t in (await client.list_tools()).tools]
+            assert "ha_publication_status" in names
+            assert not any("publish" in n and n != "ha_publication_status" for n in names)
+
+    asyncio.run(exercise())
