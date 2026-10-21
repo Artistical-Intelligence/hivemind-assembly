@@ -6,9 +6,9 @@
     "passed": 575,
     "skipped": 11,
     "failed": 0,
-    "elapsed_seconds": 145.669,
+    "elapsed_seconds": 157.712,
     "host": "GitHub Linux Python 3.12",
-    "scope": "586-case full regression at implementation 3154f00, run 39537954248. Windows: 561 passed/25 skipped, plus ten native execution/cleanup checks. Eight actual Chromium checks and Windows package install/update/restore passed. The raw-capture download follow-up awaits its hosted run."
+    "scope": "586-case full regression at implementation 79c293a, run 39539093109. Windows: 561 passed/25 skipped, plus ten native execution/cleanup checks. Eight actual Chromium checks (including raw capture download contents) and Windows package install/update/restore passed."
   },
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -17,7 +17,7 @@
     "static": "pyflakes on changed implementation/tests, JavaScript syntax and git diff --check passed. Workflow template matches the source workflow; runtime and source release archives are separately manifest-checked.",
     "goals": "Fixture native responses exercised root goal continuation through real local capture execution and a second fresh independent acceptance run. This is not signed-in native model acceptance.",
     "historical_evidence": "Checks under historical_checks were recorded in earlier development runs and are not newly claimed from this release verification.",
-    "github_ci": "Run 39537954248 at 3154f00 passed all four jobs: Linux 575 passed/11 skipped, Windows 561 passed/25 skipped plus ten native execution/cleanup cases, eight actual Chromium cases, and packaged Windows installation/update/backup restoration including frame replay. These are source-known and scripted checks, not signed-in model acceptance.",
+    "github_ci": "Run 39539093109 at 79c293a passed all four jobs: Linux 575 passed/11 skipped, Windows 561 passed/25 skipped plus ten native execution/cleanup cases, eight actual Chromium cases, and packaged Windows installation/update/backup restoration including frame replay. These are source-known and scripted checks, not signed-in model acceptance.",
     "windows_runtime": "The extracted Windows package installed its bundled Python and hash-locked dependencies in a fresh data directory, ran register and native Python checks, survived removal/re-extraction of the application folder, and restored a verified backup with project files intact. Paths contained spaces. Tested in GitHub Windows CI, not a manual desktop or complete Ghidra/REA installation.",
     "project_workspace": "Real Chromium and the HTTP controller completed starter creation, uploads, editing, draft preservation, positive/negative checks, byte-exact download, reload persistence, native observations and fresh guided exact-output setup. A separate local jsdom/controller run compiled and checked a C utility through the guided form with automatic compiler discovery. Authenticated streaming, version-checked snapshots, stale edits, immutable references, invalid paths and local-check independence from optional publication passed backend tests.",
     "mcp_codespaces": "Official MCP SDK in-process and real stdio bridge exchanges; outbound stdio discovery/tool/project grants; standalone Linux runner execution, deadline and credential removal; parallel spaces, queued cancellation, interrupted startup, GPU requirement rejection and output import conflict checks. Real HTTP controller with jsdom validated connection settings. No live Codespace or web tunnel acceptance.",
@@ -40,7 +40,7 @@
     "automatic_objectives": "New dashboard/MCP projects and starters retain continuation atomically with creation without unpausing prepared work. Legacy projects acquire it on explicit task resume. Structured start/status/pause/resume/clear/budget actions replace command entry; old command strings are compatibility only. New objectives have no HA request cap; existing limits remain. Official-SDK MCP calls, real controller/protected acceptance without commands, request-limit fencing, retried-start pause preservation, creation rollback and dashboard controls passed. Full local regression: 542 passed, ten skipped. No signed-in model acceptance inferred.",
     "arm64_dynamic": "Thirteen targeted cases passed with real Clang/LLD outputs and the pinned Ubuntu ARM64 loader/libc: PIE/shared-library relocation, initial-exec/global-dynamic TLS, baseline auxv, normal libc startup and printf, independent native output oracles, static x64 reconstruction, protected dependency pinning and wrong-output rejection. Missing/mixed/replaced dependencies, constructor I/O, invalid TLS, counters/cache-line zero, cancellation and startup bounds are rejected. Host file/process/network forwarding remains disabled. Full local regression: 555 passed, ten skipped.",
     "replay_diagnostics": "Stopped Qiling runs retain guest PC/instruction bytes, active syscall, phase, declared image identity and mapping without host staging paths. Tests resolve reported PCs against actual x64/ARM ELF bytes. Failed original preflight retains a protected diagnostic, rejects worker reads and does not create an acceptance contract. Runtime/reconstruction focused suite: 46 passed; additional acceptance/ARM static regression: 23 passed. Successful results and comparison criteria are unchanged. Full hosted regression subsequently passed on Linux and Windows in run 39520414838.",
-    "frame_sequences": "Ordered, bounded raw RGBA8 sequences compare every frame at the same index with explicit per-frame pixel tolerances and exact defaults. The dashboard provides synchronized reference/candidate scrubbing, first-failure navigation and direct workspace inspection. Eighteen focused checks cover malformed recipes, alpha/bounds, per-frame allowances, missing/reordered frames, compiled C/Python temporal replay and protected starter authorization/oracle/recipe retention. A one-frame input delay fails despite identical final image and state. The capture-view DOM fixture passed; actual Chromium sequence inspection and Windows packaged frame replay/install/update/restore passed in run 39537954248. Raw reference/candidate downloads now preserve the stored bytes without canvas re-encoding; the DOM download fixture passed and the extended actual browser download check awaits the next hosted run. Declared frame rates do not measure wall-clock timing."
+    "frame_sequences": "Ordered, bounded raw RGBA8 sequences compare every frame at the same index with explicit per-frame pixel tolerances and exact defaults. The dashboard provides synchronized reference/candidate scrubbing, first-failure navigation, direct workspace inspection and owner-initiated downloads of the original stored bytes without canvas re-encoding. Eighteen focused checks cover malformed recipes, alpha/bounds, per-frame allowances, missing/reordered frames, compiled C/Python temporal replay and protected starter authorization/oracle/recipe retention. A one-frame input delay fails despite identical final image and state. Actual Chromium checks verify synchronized canvas pixels and complete downloaded file contents. Windows package install/update/restore retains and reruns frame replay. All passed in run 39539093109. Declared frame rates do not measure wall-clock timing."
   },
   "native_live_acceptance": {
     "validated_routes": 0,
@@ -147,10 +147,10 @@
     }
   },
   "verified_package": {
-    "implementation_commit": "3154f00be9d794388c8e9c5d9f4af00ade43774f",
-    "workflow_run": 39537954248,
-    "artifact_id": 12317969033,
-    "url": "https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39537954248/artifacts/12317969033",
+    "implementation_commit": "79c293ac45546a5cf66b45bbf93dfadeae2e3f8e",
+    "workflow_run": 39539093109,
+    "artifact_id": 12317724515,
+    "url": "https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39539093109/artifacts/12317724515",
     "retention_days": 14
   }
 }

@@ -158,3 +158,9 @@ Linux 575 passed/11 skipped, Windows 561 passed/25 skipped, ten additional nativ
 Windows checks, eight Chromium checks, and packaged installation/update/restore
 including frame replay. Version 0.18.1 adds owner-initiated raw capture downloads
 for external frame/audio inspection without canvas re-encoding.
+
+The final v0.18.1 implementation at 79c293a passed all four jobs in run
+39539093109: Linux 575 passed/11 skipped, Windows 561 passed/25 skipped, ten
+additional native Windows checks, eight Chromium checks including actual capture
+download contents, and Windows package installation/update/restore. Live model
+accounts and broader target-level reconstruction remain the gates listed above.
