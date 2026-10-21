@@ -186,3 +186,29 @@ def test_arm_qiling_cancellation_and_dependency_boundary(tmp_path):
     assert replay(binary, cancel=cancel)["status"] == "cancelled"
     with pytest.raises(ContractError, match="bounds"):
         replay(binary, dependencies={"/lib/unknown.so": b"not a library"})
+
+
+def test_failed_replay_retains_guest_location_without_host_paths(tmp_path, image):
+    import io
+    import json
+    from elftools.elf.elffile import ELFFile
+
+    binary = image(tmp_path, 'int ha_main(void){return (int)ha_open("/proc/secret",0,0);}')
+    result = replay(binary)
+    assert result['status'] == 'filesystem_boundary'
+    context = result['stop_context']
+    assert context['phase'] == 'application' and context['image'] == 'program'
+    assert context['syscall_number'] in (2, 56)
+    assert context['instruction_hex'] in ('0f05', '010000d4')
+    # Resolve the reported virtual address against the real ELF file, rather
+    # than accepting a plausible-looking PC from the runtime itself.
+    pc = context['image_virtual_address']
+    elf = ELFFile(io.BytesIO(binary))
+    segment = next(s for s in elf.iter_segments() if s['p_type'] == 'PT_LOAD' and s['p_vaddr'] <= pc < s['p_vaddr'] + s['p_filesz'])
+    offset = segment['p_offset'] + pc - segment['p_vaddr']
+    size = len(bytes.fromhex(context['instruction_hex']))
+    assert binary[offset:offset+size].hex() == context['instruction_hex']
+    assert 'x' in context['mapping']['permissions']
+    assert 'ha-qiling-' not in json.dumps(context) and str(tmp_path) not in json.dumps(context)
+    success = replay(image(tmp_path, 'int ha_main(void){return 0;}'))
+    assert success['status'] == 'completed' and success['stop_context'] is None

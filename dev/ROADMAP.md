@@ -133,3 +133,8 @@ Missing/mismatched libraries, mutation, constructor I/O, invalid TLS, counters,
 cache-line zero, cancellation and startup budgets have rejection checks.
 Development CI downloads the hash-pinned guest fixture without installing or
 executing package scripts; no guest libraries enter runtime releases.
+
+Version 0.17.1 adds guest instruction/syscall/phase diagnostics to stopped
+Qiling replay and protected preflight failure artifacts. ELF-byte resolution and
+worker-access rejection are tested. Diagnostic fields do not participate in
+acceptance or expose the sealed corpus to workers.

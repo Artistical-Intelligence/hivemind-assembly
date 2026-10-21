@@ -196,6 +196,11 @@ def test_dynamic_arm_startup_budget_and_cancellation(dynamic):
     )
     assert result["status"] == "budget_exhausted" and not result["loader_completed"]
     assert result["input_consumed"] == 0 and result["events"] == []
+    context = result["stop_context"]
+    assert context["phase"] == "loader"
+    assert context["image"] == "/lib/ld-linux-aarch64.so.1"
+    assert context["image_offset"] >= 0
+    assert "ha-qiling-" not in json.dumps(context)
     cancel = threading.Event()
     cancel.set()
     result = platform_runtime.replay(
@@ -277,6 +282,23 @@ def test_dynamic_arm_protected_dependencies_and_legacy_scope(dynamic, store):
         "cases": [{"runtime": "qiling_linux", "input_hex": v} for v in ("", "616263")],
     }
     service = ProgramAcceptance()
+    with pytest.raises(Blocked, match="protected diagnostic") as failed:
+        service.prepare(
+            root,
+            {**spec, "cases": [{**c, "max_instructions": 30} for c in spec["cases"]]},
+            artifacts,
+            task["project_id"],
+            context,
+        )
+    diagnostic_id = str(failed.value).split(": ")[-1]
+    diagnostic = json.loads(
+        artifacts.read(diagnostic_id, "evaluator", task["project_id"])
+    )
+    assert diagnostic["status"] == "budget_exhausted"
+    assert diagnostic["stop_context"]["phase"] == "loader"
+    assert "input_hex" not in diagnostic and "stdout_hex" not in diagnostic
+    with pytest.raises(Blocked, match="Protected"):
+        artifacts.read(diagnostic_id, "worker", task["project_id"])
     contract = service.prepare(root, spec, artifacts, task["project_id"], context)
     for path in ["original.elf", *paths.values()]:
         (root / path).write_bytes(b"changed after pinning")

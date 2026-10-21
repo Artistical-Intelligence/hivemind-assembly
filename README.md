@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.17.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.17.1 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -189,7 +189,12 @@ and hashed; no host libraries are discovered automatically. The rebuilt C
 candidate remains freestanding and static. Loader metadata, mapping, TLS setup
 and single-thread registration use an explicit guest contract. Constructors
 cannot consume standard input or perform external writes before program entry.
-Loader activity is retained separately from application events.
+Loader activity is retained separately from application events. Stopped Qiling
+replays retain the guest instruction address/bytes, loader or application phase,
+active syscall, declared image identity and executable mapping. Program virtual
+addresses can be looked up in Ghidra; host staging paths are omitted. These
+diagnostics accompany comparison evidence and never relax acceptance. Failed
+original preflight also retains a protected diagnostic artifact for owner review.
 ARM dynamic replay supplies baseline FP/ASIMD capability metadata, guest TLS,
 explicit ordering barriers and backward-compatible BTI hints for its Cortex-A72
 CPU. SVE, LSE, PAC, MTE, hardware counters and cache-line zero operations are not

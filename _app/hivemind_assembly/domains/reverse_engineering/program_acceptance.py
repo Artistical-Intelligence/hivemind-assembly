@@ -30,9 +30,7 @@ class ProgramAcceptance:
         dependencies = read_dependencies(root, spec.get("original_dependencies", {}))
         info = validate(original, dependencies)
         if info["dynamic"] and spec["scope"] == "static_x86_64_linux_program":
-            raise ContractError(
-                "Dynamic images require linux_program acceptance"
-            )
+            raise ContractError("Dynamic images require linux_program acceptance")
         cases = spec["cases"]
         if not isinstance(cases, list) or not 2 <= len(cases) <= 256:
             raise ContractError("Program acceptance requires 2–256 input cases")
@@ -80,7 +78,9 @@ class ProgramAcceptance:
             elif case.get("runtime", "unicorn_linux") != "unicorn_linux":
                 raise ContractError("Unknown program runtime")
             elif case.get("files") or case.get("random_hex") or dependencies:
-                raise ContractError("Files, random input and ELF dependencies require the Qiling lane")
+                raise ContractError(
+                    "Files, random input and ELF dependencies require the Qiling lane"
+                )
             result = runner(
                 original,
                 bytes.fromhex(case.get("input_hex", "")),
@@ -92,8 +92,21 @@ class ProgramAcceptance:
                 **extra,
             )
             if result["status"] != "completed":
+                diagnostic = artifacts.add(
+                    canonical(
+                        {
+                            "status": result["status"],
+                            "stop_context": result.get("stop_context"),
+                            "fault": result.get("fault"),
+                        }
+                    ),
+                    "program-preflight-diagnostic.json",
+                    project,
+                    "protected",
+                )
                 raise Blocked(
-                    "Original program does not complete within the declared replay contract"
+                    "Original program does not complete within the declared replay contract; "
+                    "protected diagnostic: " + diagnostic["id"]
                 )
         pinned = artifacts.add(original, "original-program.elf", project, "protected")
         suite = artifacts.add(

@@ -271,8 +271,13 @@ def replay(
                         return True
             return False
 
+        last_instruction = (ql.loader.entry_point, b"")
+        active_syscall = None
+
         def dispatch(os):
+            nonlocal active_syscall
             original_number = number = os.get_syscall()
+            active_syscall = original_number
             args = [
                 ql.arch.regs.read(r) for r in (("x0", "x1", "x2", "x3", "x4", "x5") if arm else ("rdi", "rsi", "rdx", "r10", "r8", "r9"))
             ]
@@ -506,8 +511,10 @@ def replay(
         ql.os.load_syscall = MethodType(dispatch, ql.os)
 
         def instruction(engine, address, size):
+            nonlocal last_instruction, active_syscall
             state["instructions"] += 1
             raw = bytes(ql.mem.read(address, size)) if 1 <= size <= 15 else b""
+            last_instruction, active_syscall = (address, raw), None
             op = opcode(raw) if not arm else None
             if arm:
                 from .arm64 import unsupported_instruction
@@ -595,8 +602,17 @@ def replay(
                 )
         if len(outputs) > 128 or sum(len(v) // 2 for v in outputs.values()) > 8_000_000:
             state["status"] = "filesystem_limit"
+        context = None
+        if state["status"] != "completed":
+            from .replay_diagnostics import stopped_context
+
+            context = stopped_context(
+                ql, root, binary, dependencies, last_instruction,
+                "loader" if phase["loading"] else "application", active_syscall,
+            )
         return {
             **state,
+            "stop_context": context,
             "stdout_hex": stdout.getvalue().hex(),
             "stderr_hex": stderr.getvalue().hex(),
             "input_consumed": stdin.tell(),
