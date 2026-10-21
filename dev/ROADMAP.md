@@ -143,8 +143,15 @@ scope or weighting must be stated rather than silently changing the denominator.
   Thirteen incorrect alternatives are rejected, eight of them only by whole-program
   composition or replay. The composed utility also runs natively on x86-64 Linux with
   output identical to the original. A worker-path test restores a regressed source
-  from its verified snapshot and passes protected acceptance. Callgraph plans in these
-  tests are source-known fixtures, not Ghidra output.
+  from its verified snapshot and passes protected acceptance. Callgraph plans in the
+  unit tests are source-known fixtures.
+- Integration evidence: the foundation verifier now pages the actual Ghidra
+  callgraph of the compiled utility, plans it and composes the project over that
+  plan. On a fresh Linux x86-64 installation (Ghidra 12.1.4, REA 6.7.0, Hermes
+  `c0015464f0f4`, JDK 21, Node 24.22.0) every check passed, including
+  `project_plan`: 30 Ghidra functions in 30 groups, four regions recovered and
+  `pack` plus the 25 runtime/memory functions left on original code. No model
+  inference was involved.
 - Still open: run the suite through a live native team with actual Ghidra
   callgraph plans; stripped originals rely on owner/Ghidra-supplied addresses;
   inlined original copies of a recovered function are not redirected.

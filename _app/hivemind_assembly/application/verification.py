@@ -50,6 +50,71 @@ def build_analysis_fixture(root, foundations, jobs, host=None):
     }
 
 
+def verify_project_plan(root, foundations, jobs):
+    """Real Ghidra callgraph pages drive a project composition with fallback."""
+    from hivemind_assembly.application import project_targets
+    from hivemind_assembly.domains.reverse_engineering import planning, project_reconstruction
+
+    root = Path(root)
+    root.mkdir(parents=True, exist_ok=True)
+    target = project_targets.target("utility", jobs, foundations.get("c_compiler", ""))
+    binary = root / "utility"
+    binary.write_bytes(target["original"])
+    bridge = GhidraBridge(foundations.get("ghidra_home"), jobs)
+    project = root / "ghidra"
+    bridge.run(project, binary.name, {"action": "inventory", "operation_id": "import"}, binary)
+    pages, offset = [], 0
+    while True:
+        page = bridge.run(
+            project,
+            binary.name,
+            {
+                "action": "context_callgraph",
+                "operation_id": "callgraph_" + str(offset),
+                "offset": offset,
+                "limit": 2000,
+            },
+        )
+        pages.append(page)
+        offset = page["next_offset"]
+        if not page["has_more"] or len(pages) > 20:
+            break
+    plan = planning.plan(pages)
+    position = {
+        name: index
+        for index, group in enumerate(plan["groups"])
+        for name in group["names"].values()
+    }
+    if not position.get("run_length", 99) < position.get("pack", -1) < position.get("ha_main", -1):
+        raise Blocked("Ghidra callgraph plan does not order the known dependencies")
+    workspace = root / "workspace"
+    workspace.mkdir()
+    for name, text in target["files"].items():
+        (workspace / name).write_text(text, encoding="utf-8")
+    result = project_reconstruction.check(
+        workspace,
+        target["manifest_path"],
+        target["original"],
+        target["function_checks"],
+        target["cases"],
+        jobs,
+        foundations.get("c_compiler", ""),
+        None,
+        plan,
+    )
+    composition = result["composition"]
+    if not result["passed"] or "pack" not in composition["fallback"] or len(composition["recovered"]) != 4:
+        raise Blocked("Project composition over the Ghidra plan did not pass")
+    return {
+        "passed": True,
+        "ghidra_functions": plan["function_count"],
+        "plan_groups": len(plan["groups"]),
+        "recovered": composition["recovered"],
+        "fallback_planned": composition["fallback_planned"],
+        "model_inference": False,
+    }
+
+
 def verify_foundations(root, foundations, jobs=None):
     root = Path(root).resolve() / ("foundation-check-" + uid("run"))
     root.mkdir(parents=True)
@@ -160,6 +225,13 @@ def verify_foundations(root, foundations, jobs=None):
         except Exception as error:
             result["checks"]["rea"] = {"passed": False, "reason": str(error)}
         save()
+        try:
+            result["checks"]["project_plan"] = verify_project_plan(
+                root / "project-plan", foundations, jobs
+            )
+        except Exception as error:
+            result["checks"]["project_plan"] = {"passed": False, "reason": str(error)}
+        save()
     try:
         from hivemind_assembly.automation.hermes import HermesHost
 
@@ -197,6 +269,7 @@ def verify_foundations(root, foundations, jobs=None):
         "linked_functions",
         "ghidra",
         "rea",
+        "project_plan",
         "hermes",
     } and all(c["passed"] for c in result["checks"].values())
     save()
