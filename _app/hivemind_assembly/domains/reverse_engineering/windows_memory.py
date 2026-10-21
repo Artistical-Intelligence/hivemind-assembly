@@ -41,7 +41,7 @@ class _Memory:
             return
         end = address + size
         if address < 0 or size < 0 or end > 2**64:
-            self.memory.state.stop("fault", "Invalid API buffer range")
+            self.memory.deny(address, size, write, "Invalid API buffer range")
         required = UC_PROT_WRITE if write else UC_PROT_READ
         cursor = address
         # Unicorn exposes inclusive ends and its own protection bits. Check the
@@ -54,7 +54,9 @@ class _Memory:
             cursor = min(end, hi + 1)
             if cursor == end:
                 return
-        self.memory.state.stop("fault", "API buffer violates mapped page permissions")
+        self.memory.deny(
+            address, size, write, "API buffer violates mapped page permissions"
+        )
 
 
 class Memory:
@@ -63,6 +65,15 @@ class Memory:
         self.regions = []
         self.total = 0
         self.next_base = 0x400000000
+        self.fault_access = None
+
+    def deny(self, address, size, write, reason):
+        self.fault_access = {
+            "address": address,
+            "size": size,
+            "access": "write" if write else "read",
+        }
+        self.state.stop("fault", reason)
 
     def memory(self, emu):
         return _Memory(emu, self)
@@ -79,8 +90,11 @@ class Memory:
             last = (hi - 1 - region["base"]) // PAGE
             allowed = (4,) if write else (2, 4)
             if any(p not in allowed for p in region["pages"][first : last + 1]):
-                self.state.stop(
-                    "fault", "API buffer accesses inaccessible virtual memory"
+                self.deny(
+                    address,
+                    size,
+                    write,
+                    "API buffer accesses inaccessible virtual memory",
                 )
 
     def region(self, address, size):

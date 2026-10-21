@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.21.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.21.1 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -683,6 +683,15 @@ observable comparison allows different allocation strategies with identical
 external results. The editable Windows starter exercises file-size-driven
 allocation, read-only output buffers, release and page-crossing inputs.
 
+Stopped Windows replays include guest-only `stop_context` diagnostics: the last
+program instruction, absolute address, image-relative offset, on-disk file offset
+when available, mapped permissions and the active API with its numeric arguments.
+API buffer permission faults report the attempted address, byte count and access
+direction. Successful replays have no stop diagnostic. These fields help locate
+the failure in Ghidra; they do not participate in equivalence comparison.
+Diagnostics for sealed originals remain protected evaluator artifacts, while
+development comparisons return diagnostics for the caller's declared samples.
+
 Streams model redirected regular files, including EOF; handles are virtual.
 Standard-stream metadata, seek and close operations remain unsupported. Every
 replay starts fresh and must call ExitProcess. Input/output, image, instruction,
@@ -693,13 +702,16 @@ faults or budget exhaustion never pass. This is corpus evidence within the
 explicit runtime contract, not proof of arbitrary Windows application equivalence.
 
 
-Earlier validation for implementation `0948323` (before virtual-memory support): [run 39547306791](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39547306791)
-passed Linux (633 tests, 15 platform skips), Windows (622 tests, 26 skips,
-plus 13 separate native checks), nine real Chromium cases, and Windows package
-installation/update/backup restoration. Native tests independently checked PE
-standard streams, regular-file effects and ANSI/UTF-16 process inputs.
+The memory implementation `90fc291` passed all four jobs in
+[run 39552405664](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39552405664):
+Linux 670 passed/16 skipped, Windows 660 passed/26 skipped, fourteen separate
+native Windows checks, nine Chromium checks and packaged install/update/restore.
+Native PEs independently checked streams, files, process inputs and virtual memory.
+The diagnostic follow-up passed the full local suite (677 passed/16 skipped);
+its hosted verification is pending.
+
 The earlier [foundations run](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39543882473)
 passed fresh Ghidra/REA/Hermes installation and actual adapter probes. These
 checks use source-known targets and scripted interactions, not signed-in model
-sessions. The [tested Windows/source packages](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39547306791/artifacts/12322176122)
-are retained in the contract run's artifacts.
+sessions. The [tested v0.21.0 Windows/source packages](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39552405664/artifacts/12324391481)
+are retained in the memory checkpoint's contract artifacts.

@@ -123,7 +123,12 @@ def image_info(data):
             or h.SizeOfHeapReserve > 8_000_000
         ):
             raise Blocked("Windows image resources exceed replay bounds")
-        return {"imports": sorted(set(imports)), "image": image}
+        return {
+            "imports": sorted(set(imports)),
+            "image": image,
+            "image_base": h.ImageBase,
+            "image_size": h.SizeOfImage,
+        }
     finally:
         pe.close()
 
@@ -321,7 +326,7 @@ def replay(
             "env": {} if env is None else env,
         }
     )
-    image_info(data)
+    info = image_info(data)
     command_line, env = process_inputs(
         {"command_line": command_line, "env": {} if env is None else env}
     )
@@ -336,6 +341,7 @@ def replay(
         "instructions": 0,
         "runtime": "speakeasy_windows",
         "files": {},
+        "stop_context": None,
     }
     streams = {0xFFFFFFF5: bytearray(), 0xFFFFFFF4: bytearray()}
     config = get_default_config_dict()
@@ -357,6 +363,8 @@ def replay(
     decoder, cache = Cs(CS_ARCH_X86, CS_MODE_64), {}
     started = time.monotonic()
     calls = 0
+    last_instruction = None
+    active_api = None
 
     class ReplayStop(Exception):
         pass
@@ -377,11 +385,14 @@ def replay(
             stop("budget_exhausted", "Wall-clock limit")
 
     def guarded_instruction(emu, address, size):
+        nonlocal last_instruction
+        raw = bytes(emu.mem_read(address, min(size, 15)))
+        if info["image_base"] <= address < info["image_base"] + info["image_size"]:
+            last_instruction = (address, raw)
         check()
         result["instructions"] += 1
         if result["instructions"] > max_instructions:
             stop("budget_exhausted", "Instruction limit")
-        raw = bytes(emu.mem_read(address, min(size, 15)))
         key = (address, raw)
         if key not in cache:
             ins = next(decoder.disasm(raw, address), None)
@@ -516,10 +527,13 @@ def replay(
         return original(args)
 
     def api(emu, name, original, args):
+        nonlocal active_api
+        active_api = {"name": name, "arguments": list(args[:8])}
         value = dispatch_api(
             process.memory(memory.memory(emu)), name, original, args, emu
         )
         process.check(emu)
+        active_api = None
         return value
 
     try:
@@ -543,6 +557,18 @@ def replay(
         if result["status"] in ("completed", "incomplete"):
             result.update(status="fault", fault=str(exc)[:2000])
     finally:
+        if result["status"] != "completed":
+            from .windows_diagnostics import stopped_context
+
+            try:
+                result["stop_context"] = stopped_context(
+                    se, data, last_instruction, active_api, memory.fault_access
+                )
+            except Exception:
+                # Diagnostics must never replace the replay's original outcome.
+                result["stop_context"] = {
+                    "phase": "application" if last_instruction else "initialization"
+                }
         se.shutdown()
         result["stdout_hex"] = streams[0xFFFFFFF5].hex()
         result["stderr_hex"] = streams[0xFFFFFFF4].hex()

@@ -222,5 +222,13 @@ signed-in account or broader target gates above.
 Current v0.21 local verification: 115 passed, four native-Windows skips across
 the Windows replay and owner-workspace suite (119 cases, 227.43s). Dashboard
 DOM/capture checks, the installed verification command, static checks and release
-archive construction passed. Full hosted regression and native Windows memory
-oracle verification are pending for this implementation checkpoint.
+archive construction passed. Full hosted regression and the native Windows memory oracle subsequently passed
+at 90fc291 in run 39552405664: Linux 670/16, Windows 660/26, fourteen separate
+native checks, nine Chromium checks and packaged install/update/restore.
+
+Version 0.21.1 adds guest instruction/image offsets, active API arguments and
+faulting API-buffer addresses to stopped Windows replays. Original preflight
+diagnostics remain protected; successful execution and acceptance comparisons do
+not depend on diagnostic fields. Nine focused location, isolation and regression
+checks passed locally in 15.82s. The full local suite then passed 677 cases with
+16 platform skips (693 total, 448.25s). Hosted verification for this addition is pending.
