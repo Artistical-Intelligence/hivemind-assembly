@@ -82,6 +82,7 @@ def runner():
             "arm64": file_hash(folder / "arm64.py"),
             "semantics": file_hash(folder / "semantics.py"),
             "cpu_boundary": file_hash(folder / "guest_cpu.py"),
+            "replay_diagnostics": file_hash(folder / "unicorn_diagnostics.py"),
             "image_loader": file_hash(folder / "program.py"),
             "adapter": file_hash(Path(__file__)),
             "workflow": file_hash(Path(workflows.__file__)),

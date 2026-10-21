@@ -1,6 +1,6 @@
 # Hivemind Assembly roadmap
 
-Version 0.23.1 remains an engineering preview. Implementation, automated
+Version 0.24.0 remains an engineering preview. Implementation, automated
 verification and live account acceptance are separate. Successful fixtures do not
 establish unattended reconstruction or measured native-model learning gains.
 
@@ -50,6 +50,14 @@ initialization and struct copies now link without custom helper functions. Candi
 and embedded license notices are checked during builds. General CRT/OS support
 remains a separate scope.
 
+Version 0.24 adds failure locations to static Linux and all four linked-function
+ABIs, including relocated supplied DLLs. Guest instruction bytes, image/file
+offsets, memory bounds, active syscalls and calling-convention register violations
+help diagnose failed reconstruction. Engine-reported timeout distinguishes time
+and instruction limits. Pre-execution and periodic cancellation now reaches these
+replay engines. Diagnostics stay outside equivalence decisions; sealed-original
+preflight evidence remains protected.
+
 Inbound project-scoped MCP, outbound tool grants, standard HTTP OAuth onboarding,
 private-tunnel supervision and optional Codespaces snapshot jobs are implemented.
 Repository creation and Codespaces are optional. Local-only projects and existing
@@ -77,6 +85,11 @@ manual overrides and do not impose a default HA usage budget.
 | Audit and revision | Perform the separately requested full audit, then revise its findings. This implementation pass is not that audit. |
 
 ## Verification
+
+Current replay-diagnostic work passed 31 focused checks with actual compiled
+x64/ARM64 images and real Unicorn timeout behavior, plus 59 existing integrated
+program/call/memory checks. Full local and hosted verification is in progress.
+The results below describe the preceding verified checkpoint.
 
 The linked-memory implementation passed the full local suite: 745 tests and
 18 skips, 763 total, in 678.83 seconds. Fifteen focused linked-memory checks and

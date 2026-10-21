@@ -67,6 +67,7 @@ def load(data, symbol=None, address=None, *, _imports_resolved=False):
         if machine not in (62, 183):
             raise Blocked("Linked ELF calls support x86-64 or little-endian AArch64")
         _, parts = load_elf(data, machine=machine)
+        base = min(s["address"] for s in parts)
         elf = ELFFile(io.BytesIO(data))
         if any(s["p_type"] == "PT_TLS" for s in elf.iter_segments()):
             raise Blocked("TLS requires a separately modeled runtime")
@@ -76,6 +77,7 @@ def load(data, symbol=None, address=None, *, _imports_resolved=False):
                     "address": s["address"],
                     "size": s["size"],
                     "hex": s["data"].hex(),
+                    "file_offset": s["file_offset"],
                     "permissions": "".join(
                         p
                         for bit, p in ((4, "r"), (2, "w"), (1, "x"))
@@ -131,6 +133,7 @@ def load(data, symbol=None, address=None, *, _imports_resolved=False):
                 "address": base,
                 "size": h.SizeOfHeaders,
                 "hex": data[: h.SizeOfHeaders].hex(),
+                "file_offset": 0,
                 "permissions": "r",
             }
         )
@@ -150,6 +153,7 @@ def load(data, symbol=None, address=None, *, _imports_resolved=False):
                     "hex": data[
                         s.PointerToRawData : s.PointerToRawData + s.SizeOfRawData
                     ].hex(),
+                    "file_offset": s.PointerToRawData,
                     "permissions": "".join(
                         p
                         for bit, p in (
@@ -196,11 +200,14 @@ def load(data, symbol=None, address=None, *, _imports_resolved=False):
             pages.add(p)
     if len(pages) * 4096 > 32_000_000:
         raise ContractError("Image memory exceeds bounds")
+    fingerprint = hashlib.sha256(data).hexdigest()
+    for segment in segments:
+        segment.update(image="program", image_base=base, image_sha256=fingerprint)
     return {
         "abi": abi,
         "entry": address,
         "segments": segments,
-        "sha256": hashlib.sha256(data).hexdigest(),
+        "sha256": fingerprint,
     }
 
 
@@ -212,7 +219,9 @@ def build(root, manifest, function, abi, jobs, compiler="", cancel=None):
     if "architecture" in manifest and manifest["architecture"] != (
         "aarch64" if abi in ARM_ABIS else "x86_64"
     ):
-        raise ContractError("Manifest architecture conflicts with the selected calling convention")
+        raise ContractError(
+            "Manifest architecture conflicts with the selected calling convention"
+        )
     executable = (
         shutil.which(compiler)
         if compiler
@@ -379,7 +388,7 @@ def validate_case(case):
     return case
 
 
-def execute(image, case):
+def execute(image, case, cancel=None):
     validate_case(case)
     abi = image["abi"]
     if abi not in ABIS:
@@ -473,32 +482,36 @@ def execute(image, case):
             "code_ranges": ranges,
             "observe_memory": observe,
             "max_instructions": case.get("max_instructions", 100000),
-        }
+        },
+        cancel=cancel,
+        diagnose_completion=True,
     )
-    abi_ok = result["registers"]["SP" if arm else "RSP"] == rsp + (
-        0 if arm else 8
-    ) and all(
-        result["registers"][name] == registers[name] for name in (*preserved, *xmm)
-    )
+    checks = [("SP" if arm else "RSP", rsp + (0 if arm else 8), None)]
+    checks += [(name, registers[name], None) for name in (*preserved, *xmm)]
     if arm:
         # AAPCS64 preserves only the low 64 bits of v8-v15. Reserve x18 because
         # its use is platform-specific; the freestanding compiler does likewise.
-        abi_ok = (
-            abi_ok
-            and result["registers"]["X18"] == registers["X18"]
-            and all(
-                result["registers"][name] & ((1 << 64) - 1)
-                == registers[name] & ((1 << 64) - 1)
-                for name in vectors
-            )
-            and result["registers"]["FPCR"] == 0
-        )
+        checks += [("X18", registers["X18"], None), ("FPCR", 0, None)]
+        checks += [(name, registers[name], (1 << 64) - 1) for name in vectors]
     else:
-        abi_ok = (
-            abi_ok
-            and result["registers"]["FPCW"] == 0x37F
-            and result["registers"]["MXCSR"] & 0xFFC0 == 0x1F80
-        )
+        checks += [("FPCW", 0x37F, None), ("MXCSR", 0x1F80, 0xFFC0)]
+    violations = []
+    for name, expected, mask in checks:
+        actual = result["registers"][name]
+        if mask is not None:
+            expected, actual = expected & mask, actual & mask
+        if actual != expected:
+            violations.append(
+                {"register": name, "expected": expected, "actual": actual}
+            )
+    abi_ok = not violations
+    context = None
+    if result["status"] != "completed" or not abi_ok:
+        from .unicorn_diagnostics import locate
+
+        context = locate(result["stop_context"], image["segments"], observe)
+        if result["status"] == "completed" and violations:
+            context.update(stop_reason="abi_violation", abi_violations=violations)
     return {
         "status": result["status"],
         "abi_ok": abi_ok,
@@ -507,6 +520,7 @@ def execute(image, case):
         "buffers": result["memory"],
         "instructions": len(result["trace"]),
         "fault": result["fault"],
+        "stop_context": context,
     }
 
 
@@ -517,7 +531,9 @@ def compare(original, candidate, cases, cancel=None):
     for index, case in enumerate(cases):
         if cancel is not None and cancel.is_set():
             raise Blocked("Linked-call verification cancelled")
-        reference, result = execute(original, case), execute(candidate, case)
+        reference, result = execute(original, case, cancel), execute(
+            candidate, case, cancel
+        )
         if not (
             reference["status"] == result["status"] == "completed"
             and reference["abi_ok"]

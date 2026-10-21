@@ -67,10 +67,24 @@ class CallAcceptance:
         for case in cases:
             if context.cancel.is_set():
                 raise Blocked("Acceptance preparation cancelled")
-            result = call_images.execute(image, case)
+            result = call_images.execute(image, case, context.cancel)
             if result["status"] != "completed" or not result["abi_ok"]:
+                diagnostic = artifacts.add(
+                    canonical(
+                        {
+                            "status": result["status"],
+                            "abi_ok": result["abi_ok"],
+                            "stop_context": result.get("stop_context"),
+                            "fault": result["fault"],
+                        }
+                    ),
+                    "call-preflight-diagnostic.json",
+                    project,
+                    "protected",
+                )
                 raise Blocked(
-                    "Original call is outside the declared linked-function contract"
+                    "Original call is outside the declared linked-function contract; "
+                    "protected diagnostic: " + diagnostic["id"]
                 )
         pinned = artifacts.add(
             original, "original-call-image.bin", project, "protected"

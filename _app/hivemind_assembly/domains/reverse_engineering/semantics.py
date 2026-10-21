@@ -294,9 +294,13 @@ class PcodeMachine:
             return self.result("unsupported", {"reason": str(e)})
 
 
-def run_reference(case):
+def run_reference(case, *, cancel=None, diagnose_completion=False):
     import unicorn as u
     from unicorn import x86_const as xc
+
+    from .unicorn_diagnostics import stopped_context, memory_access
+
+    last_instruction, access_detail, cancelled = None, None, False
 
     machine = u.Uc(u.UC_ARCH_X86, u.UC_MODE_64)
     writes = {}
@@ -330,12 +334,13 @@ def run_reference(case):
             writes[str(address + i)] = (value >> (8 * i)) & 255
 
     def on_access(m, access, address, size, value, data):
-        nonlocal unsupported
+        nonlocal unsupported, access_detail
         permission = "w" if access == u.UC_MEM_WRITE else "r"
         if not any(
             start <= address and address + size <= end and permission in perms
             for start, end, perms in case["access_ranges"]
         ):
+            access_detail = memory_access(access, address, size)
             unsupported = {
                 "reason": "Access left the declared memory bounds",
                 "address": address,
@@ -345,7 +350,8 @@ def run_reference(case):
             m.emu_stop()
 
     def on_fault(m, access, address, size, value, data):
-        nonlocal fault
+        nonlocal fault, access_detail
+        access_detail = memory_access(access, address, size)
         kinds = {
             u.UC_MEM_READ_UNMAPPED: "r",
             u.UC_MEM_WRITE_UNMAPPED: "w",
@@ -363,8 +369,13 @@ def run_reference(case):
         machine.hook_add(u.UC_HOOK_MEM_READ | u.UC_HOOK_MEM_WRITE, on_access)
 
     def on_code(m, address, size, data):
-        nonlocal unsupported
+        nonlocal unsupported, last_instruction, cancelled
+        if cancel is not None and len(trace) % 1024 == 0 and cancel.is_set():
+            cancelled = True
+            m.emu_stop()
+            return
         trace.append(address)
+        last_instruction = (address, b"")
         if not 1 <= size <= 15:
             unsupported = {
                 "reason": "Invalid x86 instruction length",
@@ -372,7 +383,9 @@ def run_reference(case):
             }
             m.emu_stop()
             return
-        nondeterministic = unsupported_cpu(bytes(m.mem_read(address, size)))
+        code = bytes(m.mem_read(address, size))
+        last_instruction = (address, code)
+        nondeterministic = unsupported_cpu(code)
         if nondeterministic:
             unsupported = {
                 "reason": "Host-dependent CPU state or port I/O is outside deterministic replay",
@@ -400,12 +413,15 @@ def run_reference(case):
     machine.hook_add(u.UC_HOOK_INSN, on_system, None, 1, 0, xc.UC_X86_INS_SYSCALL)
     machine.hook_add(u.UC_HOOK_INSN, on_system, None, 1, 0, xc.UC_X86_INS_SYSENTER)
     try:
-        machine.emu_start(
-            case["start"],
-            case["stop"],
-            timeout=2_000_000,
-            count=case.get("max_instructions", 1000),
-        )
+        if cancel is not None and cancel.is_set():
+            cancelled = True
+        else:
+            machine.emu_start(
+                case["start"],
+                case["stop"],
+                timeout=2_000_000,
+                count=case.get("max_instructions", 1000),
+            )
         status = (
             "completed"
             if machine.reg_read(xc.UC_X86_REG_RIP) == case["stop"]
@@ -417,6 +433,8 @@ def run_reference(case):
             fault = {"reason": str(e)}
     if unsupported is not None:
         status, fault = "unsupported", unsupported
+    if cancelled:
+        status = "cancelled"
     ef = machine.reg_read(xc.UC_X86_REG_EFLAGS)
     # Invalid writes may invoke the write hook before faulting; only committed bytes count.
     committed = {}
@@ -427,6 +445,19 @@ def run_reference(case):
         except u.UcError:
             pass
     return {
+        "stop_context": (
+            stopped_context(
+                machine,
+                False,
+                status,
+                last_instruction,
+                count=len(trace),
+                budget=case.get("max_instructions", 1000),
+                access=access_detail,
+            )
+            if status != "completed" or diagnose_completion
+            else None
+        ),
         "status": status,
         "registers": {
             k: machine.reg_read(getattr(xc, "UC_X86_REG_" + k))

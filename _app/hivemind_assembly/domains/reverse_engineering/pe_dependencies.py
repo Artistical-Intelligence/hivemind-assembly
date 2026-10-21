@@ -28,7 +28,10 @@ def parsed(raw, machine=None):
         pe = pefile.PE(data=raw, fast_load=False)
     except pefile.PEFormatError as error:
         raise ContractError("Invalid PE dependency") from error
-    if pe.FILE_HEADER.Machine not in (0x8664, 0xAA64) or pe.OPTIONAL_HEADER.Magic != 0x20B:
+    if (
+        pe.FILE_HEADER.Machine not in (0x8664, 0xAA64)
+        or pe.OPTIONAL_HEADER.Magic != 0x20B
+    ):
         raise Blocked("Dependencies must be standard PE32+ x86-64 or ARM64")
     if machine is not None and pe.FILE_HEADER.Machine != machine:
         raise Blocked("DLL dependency architecture does not match the root image")
@@ -216,6 +219,12 @@ def load(data, symbol=None, address=None, dependencies=None):
             address=pe.OPTIONAL_HEADER.ImageBase + choices[0].VirtualAddress,
             _imports_resolved=True,
         )
+        for segment in image["segments"]:
+            segment.update(
+                image="program" if name == "<root>" else name,
+                original_image_base=record["original_base"],
+                source_image_sha256=hashlib.sha256(record["raw"]).hexdigest(),
+            )
         segments.extend(image["segments"])
         total += sum(s["size"] for s in image["segments"])
     if total > 64_000_000:

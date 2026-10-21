@@ -30,9 +30,13 @@ def unsupported_instruction(code):
     return False
 
 
-def replay(case):
+def replay(case, *, cancel=None, diagnose_completion=False):
     import unicorn as u
     from unicorn import arm64_const as ac
+
+    from .unicorn_diagnostics import stopped_context, memory_access
+
+    last_instruction, access_detail, cancelled = None, None, False
 
     machine = u.Uc(u.UC_ARCH_ARM64, u.UC_MODE_ARM)
     machine.ctl_set_cpu_model(ac.UC_CPU_ARM64_A57)
@@ -63,12 +67,13 @@ def replay(case):
     machine.reg_write(ac.UC_ARM64_REG_NZCV, 0)
 
     def on_access(m, access, address, size, value, data):
-        nonlocal unsupported
+        nonlocal unsupported, access_detail
         permission = "w" if access == u.UC_MEM_WRITE else "r"
         if not any(
             start <= address and address + size <= end and permission in perms
             for start, end, perms in case["access_ranges"]
         ):
+            access_detail = memory_access(access, address, size)
             unsupported = {
                 "reason": "Access left the declared memory bounds",
                 "address": address,
@@ -78,7 +83,8 @@ def replay(case):
             m.emu_stop()
 
     def on_fault(m, access, address, size, value, data):
-        nonlocal fault
+        nonlocal fault, access_detail
+        access_detail = memory_access(access, address, size)
         kinds = {
             u.UC_MEM_READ_UNMAPPED: "r",
             u.UC_MEM_WRITE_UNMAPPED: "w",
@@ -91,8 +97,15 @@ def replay(case):
         return False
 
     def on_code(m, address, size, data):
-        nonlocal unsupported
+        nonlocal unsupported, last_instruction, cancelled
+        if cancel is not None and len(trace) % 1024 == 0 and cancel.is_set():
+            cancelled = True
+            m.emu_stop()
+            return
         trace.append(address)
+        last_instruction = (address, b"")
+        if size == 4:
+            last_instruction = (address, bytes(m.mem_read(address, size)))
         reason = None
         if size != 4 or address % 4:
             reason = "Invalid AArch64 instruction alignment or length"
@@ -103,7 +116,7 @@ def replay(case):
             reason = "Execution left the declared function bytes"
         elif m.reg_read(ac.UC_ARM64_REG_SP) % 16:
             reason = "AArch64 replay requires a 16-byte aligned stack"
-        elif unsupported_instruction(bytes(m.mem_read(address, size))):
+        elif unsupported_instruction(last_instruction[1]):
             reason = (
                 "AArch64 system state, exceptions and extended branches are not modeled"
             )
@@ -123,12 +136,15 @@ def replay(case):
     machine.hook_add(u.UC_HOOK_CODE, on_code)
     machine.hook_add(u.UC_HOOK_INTR, on_system)
     try:
-        machine.emu_start(
-            case["start"],
-            case["stop"],
-            timeout=2_000_000,
-            count=case.get("max_instructions", 100000),
-        )
+        if cancel is not None and cancel.is_set():
+            cancelled = True
+        else:
+            machine.emu_start(
+                case["start"],
+                case["stop"],
+                timeout=2_000_000,
+                count=case.get("max_instructions", 100000),
+            )
         status = (
             "completed"
             if machine.reg_read(ac.UC_ARM64_REG_PC) == case["stop"]
@@ -140,7 +156,22 @@ def replay(case):
             fault = {"reason": str(error)}
     if unsupported is not None:
         status, fault = "unsupported", unsupported
+    if cancelled:
+        status = "cancelled"
     return {
+        "stop_context": (
+            stopped_context(
+                machine,
+                True,
+                status,
+                last_instruction,
+                count=len(trace),
+                budget=case.get("max_instructions", 100000),
+                access=access_detail,
+            )
+            if status != "completed" or diagnose_completion
+            else None
+        ),
         "status": status,
         "registers": {
             name: machine.reg_read(getattr(ac, "UC_ARM64_REG_" + name))

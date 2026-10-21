@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.23.1 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.24.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -195,6 +195,20 @@ active syscall, declared image identity and executable mapping. Program virtual
 addresses can be looked up in Ghidra; host staging paths are omitted. These
 diagnostics accompany comparison evidence and never relax acceptance. Failed
 original preflight also retains a protected diagnostic artifact for owner review.
+
+Static Linux replay and linked-function calls across all four supported ABIs also
+return `stop_context` on failure. It retains the last observed instruction address
+and bytes, the current program counter, executable mapping, image hash and image/
+file offsets. Supplied PE dependencies identify their own DLL and relocated base,
+with the original source hash and base retained separately. Invalid memory accesses
+include direction, size and, when applicable, the caller buffer and exact bounds.
+Static programs identify the active unsupported syscall; linked calls identify
+registers that violate the calling convention. Unicorn's timeout query distinguishes
+wall-clock exhaustion from instruction exhaustion. Cancellation is checked before
+execution and every 1,024 instructions. Successful calls have no stop diagnostic;
+these fields never affect equivalence. Sealed-original preflight failures retain
+protected diagnostics available to the owner and evaluator.
+
 ARM dynamic replay supplies baseline FP/ASIMD capability metadata, guest TLS,
 explicit ordering barriers and backward-compatible BTI hints for its Cortex-A72
 CPU. SVE, LSE, PAC, MTE, hardware counters and cache-line zero operations are not

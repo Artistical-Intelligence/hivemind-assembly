@@ -607,3 +607,16 @@ Independent Python snapshots verify the resulting caller-buffer bytes and
 read-only/bounds enforcement; candidate definitions remain stronger than the
 bundled fallback. The scalar relocation-free function extractor retains its
 existing contract; calls requiring a runtime use linked-function reconstruction.
+
+## Replay stop evidence (0.24)
+
+Unicorn already supplies code/memory hooks, mapped permissions and
+[`UC_QUERY_TIMEOUT`](https://github.com/unicorn-engine/unicorn/blob/master/include/unicorn/unicorn.h).
+HA reuses those engine observations instead of estimating why execution stopped
+from elapsed host time. The last observed instruction is retained separately from
+the engine's final program counter, which can point beyond that instruction.
+Existing ELF/PE loaders supply file offsets and image identity; relocated supplied
+DLLs retain both loaded and original source identities. These are bounded guest
+diagnostics, not a second debugger or an equivalence criterion. Real compiled
+faults, calling-convention mutations and engine timeouts exercise the evidence;
+protected preflight tests check that original details are not exposed to workers.

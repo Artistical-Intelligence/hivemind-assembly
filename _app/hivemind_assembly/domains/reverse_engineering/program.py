@@ -22,7 +22,8 @@ from hivemind_assembly.core.common import (
     uid,
 )
 
-HEADER = """typedef unsigned long ha_size;
+HEADER = (
+    """typedef unsigned long ha_size;
 long ha_argc(void);
 const char *ha_argv(long index);
 const char *ha_getenv(const char *name);
@@ -43,7 +44,9 @@ long ha_rename(const char *old_path, const char *new_path);
 long ha_clock(long clock_id, long *seconds, long *nanoseconds);
 long ha_random(void *buffer, ha_size count, long flags);
 int ha_main(void);
-""" + program_libc.HEADER
+"""
+    + program_libc.HEADER
+)
 PROCESS_RUNTIME = r"""
 static long ha_runtime_argc;
 static char **ha_runtime_argv, **ha_runtime_env;
@@ -53,7 +56,9 @@ const char *ha_getenv(const char *name){if(!name || !*name)return (const char*)0
 int ha_boot(unsigned long *stack){ha_runtime_argc=(long)*stack;ha_runtime_argv=(char**)(stack+1);ha_runtime_env=ha_runtime_argv+ha_runtime_argc+1;return ha_main();}
 """
 RUNTIME = (
-    HEADER + PROCESS_RUNTIME + r"""
+    HEADER
+    + PROCESS_RUNTIME
+    + r"""
 long ha_read(void *p, ha_size n) { long r; __asm__ volatile("syscall":"=a"(r):"a"(0L),"D"(0L),"S"(p),"d"(n):"rcx","r11","memory"); return r; }
 long ha_write(const void *p, ha_size n) { long r; __asm__ volatile("syscall":"=a"(r):"a"(1L),"D"(1L),"S"(p),"d"(n):"rcx","r11","memory"); return r; }
 void ha_exit(int n) { __asm__ volatile("syscall"::"a"(60L),"D"((long)n):"rcx","r11","memory"); __builtin_unreachable(); }
@@ -106,7 +111,9 @@ def sources(root, manifest):
         raise ContractError("Declarations exceed bounds")
     for source in [*result.values(), declarations]:
         # No preprocessor, assembler or host headers; fixed trusted runtime only.
-        if "#" in source or re.search(r"\b(?:asm|__asm|__asm__|_Pragma|__pragma)\b", source):
+        if "#" in source or re.search(
+            r"\b(?:asm|__asm|__asm__|_Pragma|__pragma)\b", source
+        ):
             raise Blocked(
                 "Use declarations and separate C files; preprocessor and inline assembly are outside this build lane"
             )
@@ -200,14 +207,20 @@ def build(root, manifest, jobs, compiler="", cancel=None):
             },
             "manifest_sha256": hashlib.sha256(canonical(manifest).encode()).hexdigest(),
             "compiler_sha256": compiler_hash,
-            "runtime_sha256": hashlib.sha256((runtime + memory_hash).encode()).hexdigest(),
+            "runtime_sha256": hashlib.sha256(
+                (runtime + memory_hash).encode()
+            ).hexdigest(),
             "memory_runtime_sha256": memory_hash,
             "build": result,
         }
 
 
 def image_machine(data):
-    if not isinstance(data, bytes) or len(data) < 64 or data[:7] != b"\x7fELF\x02\x01\x01":
+    if (
+        not isinstance(data, bytes)
+        or len(data) < 64
+        or data[:7] != b"\x7fELF\x02\x01\x01"
+    ):
         raise ContractError("Expected a little-endian ELF64 executable")
     machine = struct.unpack_from("<H", data, 18)[0]
     if machine not in (62, 183):
@@ -256,6 +269,7 @@ def load_image(data, *, machine=62):
                 "size": memory,
                 "flags": flags,
                 "data": data[start : start + size],
+                "file_offset": start,
             }
         )
     if (
@@ -295,12 +309,17 @@ def replay(
         raise ContractError("Replay input, clock or instruction bound invalid")
     from .process_inputs import normalize, entry_stack
     from .guest_cpu import unsupported as unsupported_cpu
+    from .unicorn_diagnostics import stopped_context, locate, memory_access
 
     argv, env = normalize(argv, env)
     machine = image_machine(data)
     arm = machine == 183
     entry, segments = load_image(data, machine=machine)
-    uc = u.Uc(u.UC_ARCH_ARM64, u.UC_MODE_ARM) if arm else u.Uc(u.UC_ARCH_X86, u.UC_MODE_64)
+    uc = (
+        u.Uc(u.UC_ARCH_ARM64, u.UC_MODE_ARM)
+        if arm
+        else u.Uc(u.UC_ARCH_X86, u.UC_MODE_64)
+    )
     if arm:
         uc.ctl_set_cpu_model(ac.UC_CPU_ARM64_A57)
         uc.reg_write(ac.UC_ARM64_REG_CPACR_EL1, 3 << 20)
@@ -309,11 +328,13 @@ def replay(
     number_register = ac.UC_ARM64_REG_X8 if arm else x.UC_X86_REG_RAX
     argument_registers = (
         (ac.UC_ARM64_REG_X0, ac.UC_ARM64_REG_X1, ac.UC_ARM64_REG_X2)
-        if arm else (x.UC_X86_REG_RDI, x.UC_X86_REG_RSI, x.UC_X86_REG_RDX)
+        if arm
+        else (x.UC_X86_REG_RDI, x.UC_X86_REG_RSI, x.UC_X86_REG_RDX)
     )
     syscall_names = (
         {63: "read", 64: "write", 93: "exit", 94: "exit", 113: "clock"}
-        if arm else {0: "read", 1: "write", 60: "exit", 231: "exit", 228: "clock"}
+        if arm
+        else {0: "read", 1: "write", 60: "exit", 231: "exit", 228: "clock"}
     )
     pages = {}
     for s in segments:
@@ -340,6 +361,7 @@ def replay(
     events, output, stderr = [], bytearray(), bytearray()
     cursor, count, status, exit_code = 0, 0, "budget_exhausted", None
     fault = None
+    last_instruction, active_syscall, access_detail = None, None, None
 
     def stop(reason):
         nonlocal status
@@ -370,13 +392,15 @@ def replay(
         )
 
     def syscall(engine, _):
-        nonlocal cursor, exit_code
+        nonlocal cursor, exit_code, active_syscall
         number = engine.reg_read(number_register)
         operation = syscall_names.get(number)
-        a, b, n = [
-            engine.reg_read(r)
-            for r in argument_registers
-        ]
+        a, b, n = [engine.reg_read(r) for r in argument_registers]
+        active_syscall = {
+            "number": number,
+            "name": operation or "unsupported",
+            "arguments": [a, b, n],
+        }
         result = 0
         if len(events) >= 4096:
             stop("event_limit")
@@ -425,19 +449,27 @@ def replay(
             engine.reg_write(x.UC_X86_REG_R11, engine.reg_read(x.UC_X86_REG_EFLAGS))
 
     def instruction(engine, address, size, _):
-        nonlocal count
-        count += 1
+        nonlocal count, last_instruction, active_syscall
         if cancel is not None and count % 1024 == 0 and cancel.is_set():
             stop("cancelled")
             return
+        count += 1
+        active_syscall = None
+        last_instruction = (address, b"")
+        if (arm and size != 4) or (not arm and not 1 <= size <= 15):
+            stop("unsupported_cpu_state")
+            return
         code = bytes(engine.mem_read(address, size))
+        last_instruction = (address, code)
         if arm:
             from .arm64 import unsupported_instruction
 
             if size != 4 or address % 4 or engine.reg_read(stack_register) % 16:
                 stop("unsupported_cpu_state")
                 return
-            if code == b"\x01\x00\x00\xd4":  # Linux SVC #0, handled without host forwarding.
+            if (
+                code == b"\x01\x00\x00\xd4"
+            ):  # Linux SVC #0, handled without host forwarding.
                 syscall(engine, None)
                 engine.reg_write(ac.UC_ARM64_REG_PC, address + 4)
                 return
@@ -449,8 +481,9 @@ def replay(
             return
 
     def invalid(engine, access, address, size, value, _):
-        nonlocal fault
+        nonlocal fault, access_detail
         fault = {"access": access, "address": address, "size": size}
+        access_detail = memory_access(access, address, size)
         stop("fault")
         return False
 
@@ -459,7 +492,10 @@ def replay(
     uc.hook_add(u.UC_HOOK_CODE, instruction)
     uc.hook_add(u.UC_HOOK_MEM_INVALID, invalid)
     try:
-        uc.emu_start(entry, 0, count=max_instructions, timeout=5_000_000)
+        if cancel is not None and cancel.is_set():
+            status = "cancelled"
+        else:
+            uc.emu_start(entry, 0, count=max_instructions, timeout=5_000_000)
     except u.UcError as error:
         if status != "fault":
             status = "unsupported_instruction_or_fault"
@@ -479,6 +515,22 @@ def replay(
         memory.append(
             {"address": address, "bytes": bytes(uc.mem_read(address, size)).hex()}
         )
+    context = None
+    if status != "completed":
+        context = stopped_context(
+            uc,
+            arm,
+            status,
+            last_instruction,
+            count=count,
+            budget=max_instructions,
+            access=access_detail,
+            syscall=active_syscall,
+        )
+        base = min(s["address"] for s in segments)
+        context = locate(context, [dict(s, image_base=base) for s in segments])
+        if "program_counter" in context:
+            context["image_sha256"] = hashlib.sha256(data).hexdigest()
     return {
         "status": status,
         "exit_code": exit_code,
@@ -489,6 +541,7 @@ def replay(
         "memory": memory,
         "fault": fault,
         "instructions": count,
+        "stop_context": context,
     }
 
 
@@ -524,7 +577,9 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
         elif runtime != "unicorn_linux":
             raise ContractError("Unknown program runtime")
         elif case.get("files") or case.get("random_hex") or dependencies:
-            raise ContractError("Files, random input and ELF dependencies require the Qiling lane")
+            raise ContractError(
+                "Files, random input and ELF dependencies require the Qiling lane"
+            )
         before = runner(
             original,
             bytes.fromhex(case.get("input_hex", "")),
@@ -550,7 +605,9 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
         capture_results = program_captures.compare(before, after, captures)
         if any(not metric["passed"] for metric in capture_results.values()):
             differences.append("captures")
-        if program_captures.exact_files(before, captures) != program_captures.exact_files(after, captures):
+        if program_captures.exact_files(
+            before, captures
+        ) != program_captures.exact_files(after, captures):
             differences.append("files")
         if before.get("directories") != after.get("directories"):
             differences.append("directories")
