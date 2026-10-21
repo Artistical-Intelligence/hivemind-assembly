@@ -16,6 +16,12 @@ from hivemind_assembly.core.common import (
 )
 
 
+def marker_pattern(marker):
+    import re
+
+    return re.compile(r"(?:^|\s)" + re.escape(marker) + r"(?:\s|$)")
+
+
 class NativeBrowser:
     def __init__(self, config, root, controller):
         self.config = config
@@ -50,9 +56,18 @@ class NativeBrowser:
         async with self.profile_locks.setdefault(profile, asyncio.Lock()):
             return await self._page(route)
 
-    async def service_page(self, profile, url):
+    async def service_page(self, profile, url, allowed_hosts=None):
         """Dedicated visible profile for owner-requested account setup."""
         profile = identifier(profile)
+        parts = urlsplit(url)
+        if (
+            parts.scheme != "https"
+            or parts.username
+            or parts.password
+            or (allowed_hosts is not None and parts.hostname not in allowed_hosts)
+        ):
+            # Never open an arbitrary page inside a signed-in provider profile.
+            raise Blocked("Setup URL is outside the configured service")
         async with self.profile_locks.setdefault(profile, asyncio.Lock()):
             await self.start()
             if profile not in self.contexts:
@@ -245,7 +260,8 @@ class NativeBrowser:
                 marker + "\n" + canonical({"request_id": message["id"], **payload})
             )
             users = page.locator(s["user_messages"])
-            echoes = users.filter(has_text=marker)
+            # Whole-token match: one request ID may be a prefix of another.
+            echoes = users.filter(has_text=marker_pattern(marker))
             exists = await echoes.count()
             state = message["state"]
             if exists > 1:
@@ -330,7 +346,7 @@ class NativeBrowser:
                 candidates = await page.evaluate(
                     """({users, assistants, marker}) => {
                     const u=[...document.querySelectorAll(users)];
-                    const hit=u.filter(e=>e.innerText.includes(marker));
+                    const hit=u.filter(e=>e.innerText.split(/\\s+/).includes(marker));
                     if(hit.length!==1) return [];
                     const start=hit[0], next=u[u.indexOf(start)+1];
                     return [...document.querySelectorAll(assistants)].filter(e=>
@@ -360,7 +376,7 @@ class NativeBrowser:
                 completed_here = await page.evaluate(
                     """({users, assistants, complete, marker}) => {
                     const us=[...document.querySelectorAll(users)];
-                    const hit=us.filter(e=>e.innerText.includes(marker));
+                    const hit=us.filter(e=>e.innerText.split(/\\s+/).includes(marker));
                     if(hit.length!==1)return false;
                     const start=hit[0], next=us[us.indexOf(start)+1];
                     const after=e=>(start.compareDocumentPosition(e)&Node.DOCUMENT_POSITION_FOLLOWING) &&
@@ -432,6 +448,12 @@ class NativeBrowser:
             destination.name + "." + uuid.uuid4().hex + ".download"
         )
         try:
+            # Check the browser's own temporary copy first and delete it when
+            # oversized, so a large download is never copied into the workspace.
+            temporary = await download.path()
+            if temporary is None or Path(temporary).stat().st_size > 32_000_000:
+                await download.delete()
+                raise Blocked("Returned artifact is missing or exceeds 32 MB")
             await download.save_as(stage)
             if stage.stat().st_size > 32_000_000:
                 raise Blocked("Returned artifact exceeds 32 MB")
@@ -453,7 +475,7 @@ class NativeBrowser:
             context = (await self.page(route)).context
             page = await context.new_page()
         else:
-            page = await self.service_page(cfg["profile"], usage["url"])
+            page = await self.service_page(cfg["profile"], usage["url"], cfg.get("allowed_hosts"))
         try:
             await page.goto(usage["url"], wait_until="domcontentloaded")
             self.validate_url(route, page.url)

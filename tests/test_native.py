@@ -44,7 +44,7 @@ def test_native_host_scope():
             b.validate_url("worker.opus", url)
 
 
-@pytest.mark.parametrize("failure", ["hash", "interrupted"])
+@pytest.mark.parametrize("failure", ["hash", "interrupted", "oversized"])
 def test_failed_download_preserves_verified_file(store, tmp_path, failure):
     import asyncio
     from pathlib import Path
@@ -52,8 +52,20 @@ def test_failed_download_preserves_verified_file(store, tmp_path, failure):
     from hivemind_assembly.core.controller import Controller
     from hivemind_assembly.core.common import ContractError
 
+    deleted = []
+
     class Download:
+        async def path(self):
+            temporary = tmp_path / "browser-temp"
+            with temporary.open("wb") as handle:
+                handle.truncate(33_000_000 if failure == "oversized" else 17)
+            return temporary
+
+        async def delete(self):
+            deleted.append(True)
+
         async def save_as(self, path):
+            assert failure != "oversized", "oversized downloads are never copied"
             Path(path).write_bytes(b"new invalid bytes")
             if failure == "interrupted":
                 raise ConnectionError("interrupted transfer")
@@ -98,7 +110,9 @@ def test_failed_download_preserves_verified_file(store, tmp_path, failure):
 
     target = tmp_path / "verified.bin"
     target.write_bytes(b"earlier verified bytes")
-    with pytest.raises((ContractError, ConnectionError)):
+    from hivemind_assembly.core.common import Blocked
+
+    with pytest.raises((ContractError, ConnectionError, Blocked)):
         asyncio.run(
             Native({}, tmp_path, Controller(store)).download(
                 "worker.opus", ".download", target, "0" * 64
@@ -106,3 +120,39 @@ def test_failed_download_preserves_verified_file(store, tmp_path, failure):
         )
     assert target.read_bytes() == b"earlier verified bytes"
     assert not list(tmp_path.glob("*.download"))
+    assert bool(deleted) == (failure == "oversized")
+
+
+def test_request_markers_match_whole_tokens_only():
+    from hivemind_assembly.automation.native import marker_pattern
+
+    pattern = marker_pattern("WORKBENCH_REQUEST:abc_session")
+    assert pattern.search("WORKBENCH_REQUEST:abc_session\n{...}")
+    assert pattern.search("prefix WORKBENCH_REQUEST:abc_session {...}")
+    assert not pattern.search("WORKBENCH_REQUEST:abc_session2\n{...}")
+
+
+def test_setup_pages_refuse_foreign_or_credentialed_urls(tmp_path, store):
+    import asyncio
+
+    from hivemind_assembly.automation.native import NativeBrowser
+    from hivemind_assembly.core.controller import Controller
+
+    browser = NativeBrowser({}, tmp_path, Controller(store))
+    for url in ("http://chatgpt.com/", "https://evil.example/", "https://u:p@chatgpt.com/"):
+        with pytest.raises(Blocked):
+            asyncio.run(browser.service_page("profile", url, ["chatgpt.com"]))
+
+
+def test_route_conversation_must_stay_on_provider_host():
+    import json
+    from pathlib import Path
+
+    from hivemind_assembly.automation.policy import validate_config
+    from hivemind_assembly.core.common import ContractError
+
+    config = json.loads((Path(__file__).parents[1] / "_app/config/default.json").read_text())
+    route = next(iter(config["routes"].values()))
+    route["conversation_url"] = "https://attacker.example/c/1"
+    with pytest.raises(ContractError, match="provider host"):
+        validate_config(config)

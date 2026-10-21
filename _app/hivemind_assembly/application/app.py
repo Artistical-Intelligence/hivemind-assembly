@@ -447,7 +447,10 @@ class Application:
             return self.codespaces.result(data["id"])
         if path == "/api/codespaces/import":
             return self.codespaces.import_output(
-                data["id"], data["path"], data.get("expected_sha")
+                data["id"],
+                data["path"],
+                data.get("expected_sha"),
+                data.get("allow_stale") is True,
             )
         if path == "/api/native/setup-all":
             if any(
@@ -811,6 +814,9 @@ class Application:
             return self.store.task(task)
         if path == "/api/import-target":
             task = data["task"]
+            # Same rules as any workspace edit: paused task, no other owner, no
+            # pending operations in the project.
+            self.workspace.guard(task)
             root = self.broker.workspace(task)
             source = Path(data["path"]).expanduser().resolve()
             if not source.is_file():
@@ -828,6 +834,8 @@ class Application:
                     or current["owner"]
                 ):
                     raise Blocked("Import targets before starting the task")
+                if target.exists() and file_hash(target) != file_hash(source):
+                    raise Blocked("A different file already has this name")
                 if not target.exists():
                     shutil.copy2(source, target)
                     c.execute(
@@ -1157,7 +1165,11 @@ def make_server(app, port=0):
             return True
 
         def authenticated(self):
-            return self.headers.get("X-Workbench-Token") == app.token
+            import hmac
+
+            return hmac.compare_digest(
+                (self.headers.get("X-Workbench-Token") or "").encode(), app.token.encode()
+            )
 
         def do_GET(self):
             if not self.trusted():
@@ -1268,10 +1280,24 @@ def make_server(app, port=0):
                     return
                 result = app.action(urlsplit(self.path).path, value)
                 self.send(200, result)
-            except (ContractError, KeyError, ValueError, FileNotFoundError) as e:
+            except FileNotFoundError as e:
+                # Name only: absolute host paths stay out of browser responses.
+                self.send(400, {"error": "File not found: " + Path(e.filename or "").name})
+            except (ContractError, KeyError, ValueError) as e:
                 self.send(400, {"error": str(e)})
             except Exception as e:
-                self.send(500, {"error": str(e)})
+                reference = uid("error")
+                try:
+                    log = app.store.root / "logs" / "dashboard-errors.log"
+                    log.parent.mkdir(parents=True, exist_ok=True)
+                    with log.open("a", encoding="utf-8") as handle:
+                        handle.write(reference + " " + type(e).__name__ + ": " + str(e) + "\n")
+                except OSError:
+                    pass
+                self.send(
+                    500,
+                    {"error": "Internal error (" + type(e).__name__ + "); details are in logs/dashboard-errors.log as " + reference},
+                )
 
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     private = app.store.root / "private"

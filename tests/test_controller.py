@@ -201,3 +201,59 @@ def test_backup_restore(ready, tmp_path):
         assert s.task(t["id"])["epoch"] == e
     finally:
         s.close()
+
+
+def _crafted_backup(path, files):
+    import hashlib
+    import json
+    import zipfile
+
+    manifest = {"format": 1, "created": 0, "excluded": [], "files": {}}
+    with zipfile.ZipFile(path, "w") as archive:
+        for name, data in files.items():
+            archive.writestr(name, data)
+            manifest["files"][name] = {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
+        archive.writestr("backup-manifest.json", json.dumps(manifest))
+    return path
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        {"foundations/ghidra/support/analyzeHeadless": b"#!/bin/sh\n"},
+        {"private/endpoint.json": b"{}"},
+        {"settings.json": b"{}", "Settings.json": b"{}"},
+    ],
+)
+def test_restore_accepts_only_owned_workspace_data(tmp_path, files):
+    from hivemind_assembly.core.backups import restore
+    from hivemind_assembly.core.common import ContractError
+
+    archive = _crafted_backup(tmp_path / "crafted.zip", files)
+    target = tmp_path / "restored"
+    with pytest.raises(ContractError):
+        restore(archive, target)
+    assert not target.exists() or [p.name for p in target.iterdir()] in ([], ["host.lock"])
+
+
+def test_failed_restore_leaves_no_partial_workspace(tmp_path, monkeypatch):
+    from hivemind_assembly.core import backups
+
+    archive = _crafted_backup(
+        tmp_path / "ok.zip",
+        {"settings.json": b"{}", "projects/p/workspace/a.c": b"int a;", "projects/p/workspace/b.c": b"int b;"},
+    )
+    target = tmp_path / "restored"
+    real = backups.Path.replace
+    calls = []
+
+    def flaky(self, other):
+        calls.append(self)
+        if len(calls) == 2:
+            raise OSError("disk failure")
+        return real(self, other)
+
+    monkeypatch.setattr(backups.Path, "replace", flaky)
+    with pytest.raises(OSError):
+        backups.restore(archive, target)
+    assert [p.name for p in target.iterdir()] in ([], ["host.lock"])

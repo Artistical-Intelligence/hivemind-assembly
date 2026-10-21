@@ -563,10 +563,20 @@ class Codespaces:
             self.app.broker.artifacts.read(row["result_artifact"], "controller")
         )
 
-    def import_output(self, key, name, expected_sha=None):
+    def import_output(self, key, name, expected_sha=None, allow_stale=False):
         row = self.latest("cloud_job:" + self.name(key))
         if not row:
             raise ContractError("Unknown cloud job")
+        task = self.store.task(row["task"])
+        current = self.store.project(task["project_id"])["revision"]
+        if row.get("revision") is not None and current != row["revision"] and allow_stale is not True:
+            raise Conflict(
+                "The project changed after this job's snapshot (revision "
+                + str(row["revision"])
+                + " → "
+                + str(current)
+                + "). Review the output, then import again with stale import confirmed."
+            )
         result = self.result(key)
         if result.get("request_hash") != row["request_hash"] or name not in result.get(
             "outputs", {}

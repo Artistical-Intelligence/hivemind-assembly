@@ -300,3 +300,58 @@ def test_uncertain_creation_reconciles_without_duplicate(app, monkeypatch):
     assert app.codespaces.create("owner", "repo.with.dots", "cpu", "recover") == created
     assert calls == ["POST", "GET"]
     assert app.codespaces.settings()["spaces"] == ["retained-space"]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Codespaces runner is Linux-only")
+def test_remote_output_scrubs_tokens_and_disables_git_credentials(tmp_path):
+    token = "ghp_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
+    script = (
+        "import os,subprocess;print('" + token + "');"
+        "print('Authorization: Bearer secretvalue123');"
+        "print(os.environ.get('GIT_CONFIG_NOSYSTEM'), os.environ.get('GIT_TERMINAL_PROMPT'))"
+    )
+    request = {
+        "id": "scrub",
+        "request_hash": "one",
+        "files": {},
+        "hashes": {},
+        "commands": [[sys.executable, "-c", script]],
+        "outputs": [],
+        "timeout": 10,
+    }
+    output = run_remote(tmp_path, request)["commands"][0]["output"]
+    assert token not in output and "secretvalue123" not in output
+    assert "1 0" in output
+    # A cached job result never answers a probe.
+    probe = run_remote(tmp_path, {"id": "scrub", "action": "probe"})
+    assert probe.get("request_hash") != "one"
+
+
+def test_stale_cloud_output_requires_confirmation(app):
+    task = app.store.create_project("stale", "test", paused=True)
+    original = app.workspace.write(task["id"], "answer.txt", "old")
+    revision = app.store.project(task["project_id"])["revision"]
+    row = {
+        "id": "stale",
+        "task": task["id"],
+        "project": task["project_id"],
+        "space": "cpu",
+        "request_hash": "matching",
+        "status": "completed",
+        "revision": revision,
+    }
+    app.store.put("cloud_request", "stale", {"outputs": ["answer.txt"]})
+    app.codespaces.retain(
+        row,
+        {
+            "id": "stale",
+            "request_hash": "matching",
+            "status": "completed",
+            "outputs": {"answer.txt": base64.b64encode(b"remote").decode()},
+        },
+    )
+    edited = app.workspace.write(task["id"], "answer.txt", "newer local edit", original["sha256"])
+    with pytest.raises(Conflict, match="changed after this job"):
+        app.codespaces.import_output("stale", "answer.txt", edited["sha256"])
+    app.codespaces.import_output("stale", "answer.txt", edited["sha256"], allow_stale=True)
+    assert app.workspace.read(task["id"], "answer.txt")["text"] == "remote"

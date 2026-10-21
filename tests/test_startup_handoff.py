@@ -29,7 +29,7 @@ def configuration():
 def make_team(store):
     cfg = configuration()
     for name, route in cfg["routes"].items():
-        route["conversation_url"] = "https://example.invalid/" + name
+        route["conversation_url"] = "https://" + route["allowed_hosts"][0] + "/c/fixture-" + name
     controller = Controller(store)
     team = NativeTeam(controller, Broker(controller, cfg), FixtureNative(), cfg)
     team.host = RecordingHost()

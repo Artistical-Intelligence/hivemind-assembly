@@ -198,6 +198,16 @@ def validate_config(config):
             raise ContractError("Exact route target changed")
         binding = route.get("conversation_url")
         if binding:
+            from urllib.parse import urlsplit
+
+            parts = urlsplit(binding)
+            if (
+                parts.scheme != "https"
+                or parts.hostname not in expected_hosts
+                or parts.username
+                or parts.password
+            ):
+                raise ContractError("Conversation URL must be on the route's provider host")
             if binding in seen:
                 raise ContractError("Each role requires a distinct conversation")
             seen.add(binding)

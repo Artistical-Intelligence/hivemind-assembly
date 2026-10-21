@@ -10,7 +10,7 @@ import copy
 import json
 import secrets
 from pathlib import Path
-from .native import NativeBrowser
+from .native import marker_pattern, NativeBrowser
 from .providers import CONTRACTS, discover, conversation_url, select_preferred_chat
 from hivemind_assembly.core.common import (
     Blocked,
@@ -227,7 +227,7 @@ class Sessions:
                     clone.config["routes"][route].update(
                         conversation_url=url, draft_session=False
                     )
-                    page = await self.browser.service_page(cfg["profile"], url)
+                    page = await self.browser.service_page(cfg["profile"], url, cfg.get("allowed_hosts"))
                 elif message_rows and message_rows[0]["state"] != "prepared":
                     # Search existing visible provider pages for the exact echo.
                     context = self.browser.contexts.get(cfg["profile"])
@@ -236,7 +236,7 @@ class Sessions:
                         if conversation_url(cfg, page.url):
                             loc = page.locator(
                                 cfg["selectors"]["user_messages"]
-                            ).filter(has_text="WORKBENCH_REQUEST:" + key)
+                            ).filter(has_text=marker_pattern("WORKBENCH_REQUEST:" + key))
                             if await loc.count() == 1:
                                 found.append(page)
                     if len(found) != 1:
@@ -250,7 +250,7 @@ class Sessions:
                     clone.config["routes"][route]["conversation_url"] = page.url
                 else:
                     page = await self.browser.service_page(
-                        cfg["profile"], CONTRACTS[cfg["provider"]]["new_url"]
+                        cfg["profile"], CONTRACTS[cfg["provider"]]["new_url"], cfg.get("allowed_hosts")
                     )
                 clone.pages[route] = page
                 chosen = self.store.rows(

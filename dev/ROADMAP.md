@@ -229,7 +229,6 @@ Still required:
 - Desktop prerequisite installation through WinGet; hosted Windows package install/update/restore and full foundation installation/basic native adapters have passed.
 - Run the managed native workflow through HA using a live authorized account with a configured spending boundary; review representative Linux/Windows target recipes and retained artifacts.
 - Run the Stop 3 suite through a live native team with Ghidra-produced plans; broader application targets beyond the fixed suite remain separate scope.
-- Audit the surfaces dev/AUDIT.md lists as not yet audited (native browser automation, backup archives, Codespaces import, dashboard HTTP surface).
 - Measure native learning gains on the HumanEval-Decompile holdout once live routes exist.
 <!-- status:end -->
 

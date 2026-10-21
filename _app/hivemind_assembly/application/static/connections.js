@@ -21,7 +21,7 @@ $('#cloud-job').onsubmit=async e=>{e.preventDefault();try{const f=Object.fromEnt
 document.querySelector('[data-tab="connections"]').addEventListener('click',loadConnections);
 setInterval(async()=>{if($('#connections').classList.contains('active')){try{const s=await api('status');renderMcpOAuth(s.mcp_authorizations);renderCloudJobs(s.codespaces.jobs)}catch{}}},5000);
 
-$('#cloud-import').onsubmit=async e=>{e.preventDefault();try{const f=Object.fromEntries(new FormData(e.target));f.expected_sha=f.expected_sha||null;$('#cloud-output').textContent=JSON.stringify(await api('codespaces/import',f),null,2);notice('Output imported; run project checks before accepting it.')}catch(x){notice(x.message,true)}};
+$('#cloud-import').onsubmit=async e=>{e.preventDefault();try{const f=Object.fromEntries(new FormData(e.target));f.expected_sha=f.expected_sha||null;f.allow_stale=f.allow_stale==='on';$('#cloud-output').textContent=JSON.stringify(await api('codespaces/import',f),null,2);notice('Output imported; run project checks before accepting it.')}catch(x){notice(x.message,true)}};
 
 $('#tunnel-configure').onsubmit=async e=>{e.preventDefault();const f=e.target.elements;try{const r=await api('tunnel/configure',{tunnel_id:f.tunnel_id.value,key:f.key.value,remember:f.remember.checked});f.key.value='';$('#tunnel-result').textContent=JSON.stringify(r,null,2);notice('Tunnel configured.')}catch(x){f.key.value='';notice(x.message,true)}};
 for(const action of ['install','doctor','start','stop','forget'])$('#tunnel-'+action).onclick=async()=>{try{const r=await api('tunnel/'+action,{});$('#tunnel-result').textContent=JSON.stringify(r,null,2);if(r.job)watchConnectionJob(r.job,'tunnel-result')}catch(e){notice(e.message,true)}};

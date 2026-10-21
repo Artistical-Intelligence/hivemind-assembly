@@ -32,7 +32,8 @@ def test_session_commit_and_crash_recovery_never_repeat_send(
     class Page:
         url = "https://chatgpt.com/"
 
-    async def service(profile, url):
+    async def service(profile, url, allowed_hosts=None):
+        assert allowed_hosts is None or url.split("/")[2] in allowed_hosts
         p = Page()
         p.url = url
         return p

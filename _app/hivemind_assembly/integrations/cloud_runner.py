@@ -13,6 +13,24 @@ import sys
 import time
 
 
+TOKEN_PATTERNS = (
+    r"gh[pousr]_[A-Za-z0-9]{20,255}",
+    r"github_pat_[A-Za-z0-9_]{20,255}",
+    r"(?i)(authorization:\s*(?:bearer|token|basic)\s+)[^\s]+",
+    r"(?i)(password=)[^\s&]+",
+)
+
+
+def scrub(text):
+    """Remove token-shaped values from output returned to the project."""
+    for value in {os.environ.get(k, "") for k in ("GITHUB_TOKEN", "GH_TOKEN")}:
+        if len(value) >= 8:
+            text = text.replace(value, "[redacted]")
+    for pattern in TOKEN_PATTERNS:
+        text = re.sub(pattern, lambda m: (m.group(1) if m.lastindex else "") + "[redacted]", text)
+    return text
+
+
 def main():
     request = json.loads(sys.stdin.read(24 * 1024 * 1024))
     job = request["id"]
@@ -21,7 +39,7 @@ def main():
     root = Path.home() / ".hivemind-assembly-jobs" / job
     result_file = root / "result.json"
     action = request.get("action", "run")
-    if result_file.exists():
+    if result_file.exists() and action in ("run", "status"):
         print(result_file.read_text())
         return
     if action == "status":
@@ -135,6 +153,15 @@ def main():
             for k, v in os.environ.items()
             if k in ("PATH", "HOME", "LANG", "JAVA_HOME")
         }
+        # No git credential helpers or global/system git config: model-authored
+        # commands must not be able to ask the Codespace for its GitHub token.
+        env.update(
+            GIT_CONFIG_NOSYSTEM="1",
+            GIT_CONFIG_GLOBAL=os.devnull,
+            GIT_TERMINAL_PROMPT="0",
+            GIT_ASKPASS="",
+            SSH_ASKPASS="",
+        )
         started = time.monotonic()
         records = []
         for index, argv in enumerate(request["commands"]):
@@ -168,7 +195,7 @@ def main():
                     except ProcessLookupError:
                         pass
                     proc.wait()
-            text = log.read_bytes()[-512000:].decode("utf-8", errors="replace")
+            text = scrub(log.read_bytes()[-512000:].decode("utf-8", errors="replace"))
             records.append(
                 {
                     "argv": argv,

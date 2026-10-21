@@ -89,7 +89,7 @@ class NativeSetup:
                 url = (
                     cfg.get("conversation_url") or CONTRACTS[cfg["provider"]]["new_url"]
                 )
-                page = await self.browser.service_page(cfg["profile"], url)
+                page = await self.browser.service_page(cfg["profile"], url, cfg["allowed_hosts"])
                 self.pages[route] = page
             if urlsplit(page.url).hostname not in cfg["allowed_hosts"]:
                 return self.save(

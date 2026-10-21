@@ -88,6 +88,19 @@ def _snapshot(store, destination):
     }
 
 
+DATA_PREFIXES = ("projects/", "artifacts/", "sources/", "knowledge/", "exports/")
+TOP_LEVEL = {"controller.sqlite3", "settings.json"}
+MAX_TOTAL = 16 * 1024**3  # Bounded restore size; larger workspaces need a manual move.
+MAX_MANIFEST = 64 * 1024**2
+
+
+def allowed_name(name):
+    """Only what snapshot() writes: owned data, never software, sessions or secrets."""
+    if name in TOP_LEVEL or name.startswith(DATA_PREFIXES):
+        return True
+    return "/" not in name and name.startswith("hermes") and name.endswith(".sqlite3")
+
+
 def verify(path):
     import hashlib
 
@@ -95,13 +108,22 @@ def verify(path):
         names = archive.namelist()
         if len(names) != len(set(names)):
             raise ContractError("Duplicate backup entries")
+        if archive.getinfo("backup-manifest.json").file_size > MAX_MANIFEST:
+            raise ContractError("Backup manifest exceeds bounds")
         manifest = json.loads(archive.read("backup-manifest.json"))
         if manifest.get("format") != 1 or set(names) != {
             *manifest["files"],
             "backup-manifest.json",
         }:
             raise ContractError("Backup manifest mismatch")
+        folded = [n.casefold() for n in manifest["files"]]
+        if len(folded) != len(set(folded)):
+            raise ContractError("Backup entries collide on case-insensitive filesystems")
+        if sum(archive.getinfo(n).file_size for n in manifest["files"]) > MAX_TOTAL:
+            raise ContractError("Backup exceeds the restore size limit")
         for name, evidence in manifest["files"].items():
+            if not allowed_name(name):
+                raise ContractError("Backup contains a file outside owned workspace data: " + name)
             if (
                 "\\" in name
                 or name.startswith("/")
@@ -131,11 +153,16 @@ def restore(path, destination):
     from .common import InstanceLock
     import hashlib
 
+    import shutil
+
     lock = InstanceLock(destination)
+    restored = []
     try:
         # Refuse a race with another process creating a workspace before the lock.
         if any(p.name != "host.lock" for p in destination.iterdir()):
             raise Blocked("Restore destination changed before the lock was acquired")
+        if shutil.disk_usage(destination).free < sum(e["size"] for e in manifest["files"].values()):
+            raise Blocked("Not enough free space to restore this backup")
         with zipfile.ZipFile(path) as archive:
             if set(archive.namelist()) != {*manifest["files"], "backup-manifest.json"}:
                 raise ContractError("Backup changed before restoration")
@@ -154,8 +181,19 @@ def restore(path, destination):
                     if size != evidence["size"] or h.hexdigest() != evidence["sha256"]:
                         raise ContractError("Backup changed during restoration")
                     pending.replace(target)
+                    restored.append(target)
                 finally:
                     pending.unlink(missing_ok=True)
+    except BaseException:
+        # Never leave a partly restored directory that could open as live data.
+        for item in destination.iterdir():
+            if item.name == "host.lock":
+                continue
+            if item.is_dir() and not item.is_symlink():
+                shutil.rmtree(item, ignore_errors=True)
+            else:
+                item.unlink(missing_ok=True)
+        raise
     finally:
         lock.close()
     return {"restored": str(destination)}

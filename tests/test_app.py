@@ -344,3 +344,29 @@ def test_resuming_legacy_project_prepares_continuation(app):
     goal = app.team.goals.status(task["id"])
     assert goal["objective"] == task["objective"] and goal["unlimited"]
     assert app.store.task(task["id"])["status"] == "queued"
+
+
+def test_errors_do_not_echo_host_paths_or_internals(server, app, monkeypatch, tmp_path):
+    secret_path = str(tmp_path / "private" / "deep" / "missing.bin")
+
+    def missing(path, data):
+        raise FileNotFoundError(2, "No such file", secret_path)
+
+    monkeypatch.setattr(app, "action", missing)
+    with pytest.raises(urllib.error.HTTPError) as e:
+        call(server, "/api/project", app.token, {"name": "x", "objective": "y"})
+    body = e.value.read().decode()
+    assert e.value.code == 400 and "missing.bin" in body and str(tmp_path) not in body
+
+    def broken(path, data):
+        raise RuntimeError("sqlite failure at " + secret_path)
+
+    monkeypatch.setattr(app, "action", broken)
+    with pytest.raises(urllib.error.HTTPError) as e:
+        call(server, "/api/project", app.token, {"name": "x", "objective": "y"})
+    body = e.value.read().decode()
+    assert e.value.code == 500 and str(tmp_path) not in body and "RuntimeError" in body
+    assert secret_path in (app.store.root / "logs" / "dashboard-errors.log").read_text()
+    with pytest.raises(urllib.error.HTTPError) as e:
+        call(server, "/api/status", app.token + "x")
+    assert e.value.code == 403
