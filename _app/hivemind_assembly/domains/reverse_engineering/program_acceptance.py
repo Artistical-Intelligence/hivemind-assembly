@@ -15,6 +15,11 @@ from hivemind_assembly.core.common import (
 
 
 class ProgramAcceptance:
+    build = staticmethod(build)
+    compare = staticmethod(compare)
+    image_key = "elf_hex"
+    image_name = "reconstructed-program.elf"
+
     def prepare(self, root, spec, artifacts, project, context):
         required = {"scope", "original_path", "manifest_path", "cases"}
         if not required <= set(spec) or set(spec) - required - {
@@ -170,7 +175,7 @@ class ProgramAcceptance:
             {"candidate_path": n, "file_sha256": file_hash(scoped(root, n))}
             for n in units
         )
-        compiled = build(
+        compiled = self.build(
             root,
             manifest,
             context.jobs,
@@ -184,11 +189,11 @@ class ProgramAcceptance:
                 "checks": checks,
                 "build": compiled,
             }
-        candidate = bytes.fromhex(compiled.pop("elf_hex"))
-        compared = compare(
+        candidate = bytes.fromhex(compiled.pop(self.image_key))
+        compared = self.compare(
             original, candidate, json.loads(raw), context.cancel, dependencies
         )
-        executable = artifacts.add(candidate, "reconstructed-program.elf", project)
+        executable = artifacts.add(candidate, self.image_name, project)
         for check in checks:
             check["passed"] = compared["passed"]
         # Keep sealed inputs and full original observations out of worker-visible

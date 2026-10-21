@@ -60,6 +60,9 @@ try:
         frames = starter(app, "native_frames", "packaged_frame_starter", True)
         assert run_checks(app, frames["id"])["passed"]
         app.store.put("package_probe", "frames", {"task": frames["id"]})
+        windows = starter(app, "program_windows", "packaged_pe_starter")
+        assert run_checks(app, windows["id"])["result"]["passed"]
+        app.store.put("package_probe", "windows", {"task": windows["id"]})
         check_packaged_mcp(app, task["id"])
     else:
         record = app.store.get("package_probe", "preserve")
@@ -68,6 +71,8 @@ try:
             == "Keep across a drop-in update.\n"
         )
         assert run_checks(app, record["task"])["result"]["passed"]
+        windows = app.store.get("package_probe", "windows")
+        assert run_checks(app, windows["task"])["result"]["passed"]
         frames = app.store.get("package_probe", "frames")
         assert run_checks(app, frames["task"])["passed"]
         assert app.action("/api/native-tests/results", {"task": frames["task"]})["passed"]
@@ -88,6 +93,7 @@ if phase == "verify-update":
         )
         assert run_checks(restored, record["task"])["result"]["passed"]
         assert run_checks(restored, frames["task"])["passed"]
+        assert run_checks(restored, windows["task"])["result"]["passed"]
     finally:
         restored.close()
 print(json.dumps({"phase": phase, "passed": True, "runtime": sys.executable}))

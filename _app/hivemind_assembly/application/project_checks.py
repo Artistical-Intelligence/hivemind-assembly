@@ -83,7 +83,7 @@ def starter(app, kind, request_id, allow_native=False):
         "[A-Za-z0-9_-]{16,80}", request_id
     ):
         raise ValueError("A stable starter request ID is required")
-    if kind not in ("registers", "native_python", "native_frames", "linked_arm64", "program_arm64"):
+    if kind not in ("registers", "native_python", "native_frames", "linked_arm64", "program_arm64", "program_windows"):
         raise ValueError("Unknown starter project")
     if kind in ("native_python", "native_frames") and allow_native is not True:
         raise Blocked(
@@ -107,6 +107,7 @@ def starter(app, kind, request_id, allow_native=False):
                 "native_frames": "Frame replay reconstruction",
                 "linked_arm64": "AArch64 function reconstruction",
                 "program_arm64": "AArch64 program reconstruction",
+                "program_windows": "Windows console reconstruction",
             }[kind],
             "Reconstruct the supplied example and verify its behavior independently.",
             paused=True,
@@ -122,6 +123,8 @@ def starter(app, kind, request_id, allow_native=False):
         files, contract, image = arm64_example(app)
     elif kind == "program_arm64":
         files, contract, image = arm64_program_example(app)
+    elif kind == "program_windows":
+        files, contract, image = windows_program_example(app)
     elif kind == "native_frames":
         from pathlib import Path
 
@@ -175,9 +178,10 @@ def starter(app, kind, request_id, allow_native=False):
         from pathlib import Path
 
         with tempfile.TemporaryDirectory(prefix="ha-example-image-") as folder:
-            path = Path(folder) / "original.elf"
+            name = "original.exe" if kind == "program_windows" else "original.elf"
+            path = Path(folder) / name
             path.write_bytes(image)
-            app.workspace.install(task["id"], "original.elf", path)
+            app.workspace.install(task["id"], name, path)
     if kind in ("native_python", "native_frames"):
         from hivemind_assembly.core.test_acceptance import NativeTestAcceptance
 
@@ -311,3 +315,49 @@ int ha_main(void) {
         "cases": [{"id": "case-" + str(i), "input_hex": data.hex()} for i, data in enumerate((b"", b"Hivemind Assembly", bytes(range(256)), b"\xff" * 129))],
     }
     return files, contract, bytes.fromhex(built["elf_hex"])
+
+
+def windows_program_example(app):
+    """A complete PE console program; target execution stays in the emulator."""
+    import tempfile
+    from pathlib import Path
+    from hivemind_assembly.domains.reverse_engineering.windows_program import build
+
+    original = 'int ha_main(void){unsigned char b[256];long long n=ha_read(b,256);for(long long i=0;i<n;i++)b[i]=(unsigned char)(b[i]*3+17);ha_write(b,n);ha_error("done",4);return 7;}'
+    candidate = 'int ha_main(void){unsigned char b[256];long long n=ha_read(b,256);for(long long i=0;i<n;i++)b[i]=(unsigned char)(b[i]+b[i]+b[i]+17);ha_write(b,n);ha_error("done",4);return 7;}\n'
+    with tempfile.TemporaryDirectory(prefix="ha-windows-example-") as folder:
+        root = Path(folder)
+        (root / "original.c").write_text(original, encoding="utf-8")
+        built = build(
+            root,
+            {"sources": ["original.c"], "optimization": "O0"},
+            app.broker.jobs,
+            app.config.get("foundations", {}).get("c_compiler", ""),
+        )
+        if not built["passed"]:
+            raise Blocked("Could not compile Windows example: " + canonical(built))
+    manifest = {
+        "sources": ["candidate.c"],
+        "architecture": "x86_64",
+        "optimization": "O2",
+    }
+    files = {
+        "candidate.c": candidate,
+        "build.json": json.dumps(manifest, indent=2) + "\n",
+        "README.txt": "The original is a real x64 Windows console executable, compiled with Clang/LLD. Speakeasy models the PE loader; HA restricts execution to synchronous standard streams, explicit ExitProcess and fixed tick clocks. Run checks, change +17 to +18, and rerun. Protected originals and inputs survive workspace edits. No Windows DLLs or native target execution are required. Files, CRT, GUI, threads and arbitrary Windows compatibility are outside this contract.\n",
+    }
+    cases = [
+        {"id": "empty", "input_hex": ""},
+        {"id": "text", "input_hex": b"hivemind\n".hex()},
+        {"id": "all-bytes", "input_hex": bytes(range(256)).hex()},
+    ]
+    return (
+        files,
+        {
+            "scope": "windows_program",
+            "original_path": "original.exe",
+            "manifest_path": "build.json",
+            "cases": cases,
+        },
+        bytes.fromhex(built["pe_hex"]),
+    )

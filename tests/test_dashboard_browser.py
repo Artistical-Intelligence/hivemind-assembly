@@ -338,3 +338,46 @@ def test_aarch64_example_to_x86_candidate_checks(server, app, button, old, new):
         )
         assert errors == []
         browser.close()
+
+
+def test_windows_console_starter_edit_and_protected_check(server, app):
+    import shutil
+    from playwright.sync_api import sync_playwright, expect
+
+    compiler = os.environ.get("HA_TEST_CLANG") or shutil.which("clang")
+    if not compiler:
+        pytest.skip("Clang/LLD required")
+    app.config["foundations"]["c_compiler"] = compiler
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ["WORKBENCH_TEST_CHROME"],
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+        page.get_by_role("button", name="Open project files & examples").click()
+        page.get_by_role(
+            "button", name="Create Windows console example", exact=True
+        ).click()
+        expect(page.locator("#file-path")).to_have_value("candidate.c", timeout=30000)
+        page.locator("#workspace-check").click()
+        expect(page.locator("#workspace-result-summary")).to_contain_text(
+            "Checks passed", timeout=30000
+        )
+        source = page.locator("#file-editor").input_value()
+        page.locator("#file-editor").fill(source.replace("+17", "+18"))
+        page.locator("#file-save").click()
+        expect(page.locator("#file-draft")).to_have_text("Saved on disk")
+        page.locator("#workspace-check").click()
+        expect(page.locator("#workspace-result-summary")).to_contain_text(
+            "Checks did not pass", timeout=30000
+        )
+        page.locator('[data-tab="projects"]').click()
+        page.locator("#acceptance-scope").select_option("windows_program")
+        expect(page.locator("#windows-fields")).to_be_visible()
+        expect(page.locator("#program-fields")).to_be_hidden()
+        assert not errors
+        browser.close()

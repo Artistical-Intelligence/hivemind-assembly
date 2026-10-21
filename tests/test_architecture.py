@@ -121,6 +121,8 @@ def test_original_specialist_capabilities_and_proof_are_preserved(ready):
         "build_linked_function",
         "compare_linked_function",
         "build_program",
+        "build_windows_program",
+        "compare_windows_program",
         "compare_program",
     }
     assert len(domain.skills()) == 20

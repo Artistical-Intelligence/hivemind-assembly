@@ -71,6 +71,7 @@ class Publications:
         if result.get("passed") is not True or tool not in (
             "validate_c_function",
             "compare_program",
+            "compare_windows_program",
             "compare_linked_function",
         ):
             return

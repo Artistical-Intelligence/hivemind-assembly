@@ -1,14 +1,14 @@
 {
-  "version": "0.18.1",
+  "version": "0.19.0",
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 575,
-    "skipped": 11,
-    "failed": 0,
-    "elapsed_seconds": 157.712,
-    "host": "GitHub Linux Python 3.12",
-    "scope": "586-case full regression at implementation 79c293a, run 39539093109. Windows: 561 passed/25 skipped, plus ten native execution/cleanup checks. Eight actual Chromium checks (including raw capture download contents) and Windows package install/update/restore passed."
+    "passed": 584,
+    "skipped": 13,
+    "failed": 1,
+    "elapsed_seconds": 213.45,
+    "host": "Development Linux Python 3.12",
+    "scope": "598-case regression: the sole failure was the capability inventory missing the two new Windows tools. Corrected inventory and all Windows cases rerun: 18 passed, 1 native-Windows-only skip in 48.62s. Hosted Windows/browser/package validation pending."
   },
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -40,7 +40,8 @@
     "automatic_objectives": "New dashboard/MCP projects and starters retain continuation atomically with creation without unpausing prepared work. Legacy projects acquire it on explicit task resume. Structured start/status/pause/resume/clear/budget actions replace command entry; old command strings are compatibility only. New objectives have no HA request cap; existing limits remain. Official-SDK MCP calls, real controller/protected acceptance without commands, request-limit fencing, retried-start pause preservation, creation rollback and dashboard controls passed. Full local regression: 542 passed, ten skipped. No signed-in model acceptance inferred.",
     "arm64_dynamic": "Thirteen targeted cases passed with real Clang/LLD outputs and the pinned Ubuntu ARM64 loader/libc: PIE/shared-library relocation, initial-exec/global-dynamic TLS, baseline auxv, normal libc startup and printf, independent native output oracles, static x64 reconstruction, protected dependency pinning and wrong-output rejection. Missing/mixed/replaced dependencies, constructor I/O, invalid TLS, counters/cache-line zero, cancellation and startup bounds are rejected. Host file/process/network forwarding remains disabled. Full local regression: 555 passed, ten skipped.",
     "replay_diagnostics": "Stopped Qiling runs retain guest PC/instruction bytes, active syscall, phase, declared image identity and mapping without host staging paths. Tests resolve reported PCs against actual x64/ARM ELF bytes. Failed original preflight retains a protected diagnostic, rejects worker reads and does not create an acceptance contract. Runtime/reconstruction focused suite: 46 passed; additional acceptance/ARM static regression: 23 passed. Successful results and comparison criteria are unchanged. Full hosted regression subsequently passed on Linux and Windows in run 39520414838.",
-    "frame_sequences": "Ordered, bounded raw RGBA8 sequences compare every frame at the same index with explicit per-frame pixel tolerances and exact defaults. The dashboard provides synchronized reference/candidate scrubbing, first-failure navigation, direct workspace inspection and owner-initiated downloads of the original stored bytes without canvas re-encoding. Eighteen focused checks cover malformed recipes, alpha/bounds, per-frame allowances, missing/reordered frames, compiled C/Python temporal replay and protected starter authorization/oracle/recipe retention. A one-frame input delay fails despite identical final image and state. Actual Chromium checks verify synchronized canvas pixels and complete downloaded file contents. Windows package install/update/restore retains and reruns frame replay. All passed in run 39539093109. Declared frame rates do not measure wall-clock timing."
+    "frame_sequences": "Ordered, bounded raw RGBA8 sequences compare every frame at the same index with explicit per-frame pixel tolerances and exact defaults. The dashboard provides synchronized reference/candidate scrubbing, first-failure navigation, direct workspace inspection and owner-initiated downloads of the original stored bytes without canvas re-encoding. Eighteen focused checks cover malformed recipes, alpha/bounds, per-frame allowances, missing/reordered frames, compiled C/Python temporal replay and protected starter authorization/oracle/recipe retention. A one-frame input delay fails despite identical final image and state. Actual Chromium checks verify synchronized canvas pixels and complete downloaded file contents. Windows package install/update/restore retains and reruns frame replay. All passed in run 39539093109. Declared frame rates do not measure wall-clock timing.",
+    "windows_pe_program": "Clang/LLD whole-PE build, Speakeasy loader, bounded standard streams and fixed tick clocks, strict/observable effects, protected original/cases, worker tool acceptance and owner editing passed locally. Seeded output changes, invalid memory, infinite loops, unsupported handles/overlapped APIs, direct CPU effects, missing ExitProcess and cancellation cannot pass. Host Windows execution and real browser/package validation are scheduled in CI; no live model acceptance."
   },
   "native_live_acceptance": {
     "validated_routes": 0,
@@ -144,6 +145,14 @@
       "elapsed_seconds": 139.047,
       "host": "GitHub Linux Python 3.12",
       "scope": "567-case full regression at implementation f595a1c. The same run passed Windows (543 passed, 24 skipped), ten additional native Windows execution/cleanup checks, seven actual Chromium checks, and packaged installation/update/restore."
+    },
+    "pre_0_19_automated_tests": {
+      "passed": 575,
+      "skipped": 11,
+      "failed": 0,
+      "elapsed_seconds": 157.712,
+      "host": "GitHub Linux Python 3.12",
+      "scope": "586-case full regression at implementation 79c293a, run 39539093109. Windows: 561 passed/25 skipped, plus ten native execution/cleanup checks. Eight actual Chromium checks (including raw capture download contents) and Windows package install/update/restore passed."
     }
   },
   "verified_package": {

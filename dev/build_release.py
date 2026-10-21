@@ -6,6 +6,7 @@ import hashlib, json, sys, urllib.request, zipfile
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = json.loads((ROOT / "_app/release_status.json").read_text())["version"]
 LOCAL_WHEELS = {
+    "lznt1-0.2-py3-none-any.whl": "4025efbe9274fb35c0e30f1315cafe512be981811cd6f0491b7e14293b314e95",
     "unicodecsv-0.14.1-py3-none-any.whl": "03f6c823c054ed114fe017b60c792ea05b1bddc4c3dc8b2222f6c3b4f19230fe",
 }
 BOOTSTRAP = {

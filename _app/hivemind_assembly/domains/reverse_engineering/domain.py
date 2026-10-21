@@ -47,6 +47,8 @@ class ReverseEngineeringDomain:
         Capability("validate_c_function", recovery="discard"),
         Capability("build_linked_function", recovery="discard"),
         Capability("compare_linked_function", recovery="discard"),
+        Capability("build_windows_program", recovery="discard"),
+        Capability("compare_windows_program", recovery="discard"),
         Capability("build_program", recovery="discard"),
         Capability("compare_program", recovery="discard"),
     )
@@ -180,9 +182,13 @@ class ReverseEngineeringDomain:
                     "Development evidence only; completion independently rebuilds against the pinned image and protected cases"
                 )
             return built
-        if tool in ("build_program", "compare_program"):
+        if tool in ("build_program", "compare_program", "build_windows_program", "compare_windows_program"):
             from .program import build, compare
             from .linux_dependencies import read_dependencies
+
+            windows = tool in ("build_windows_program", "compare_windows_program")
+            if windows:
+                from .windows_program import build, compare
 
             manifest_path = scoped(root, args["manifest_path"])
             if manifest_path.stat().st_size > 128000:
@@ -196,12 +202,12 @@ class ReverseEngineeringDomain:
                 context.cancel,
             )
             if built["passed"]:
-                machine = bytes.fromhex(built.pop("elf_hex"))
+                machine = bytes.fromhex(built.pop("pe_hex" if windows else "elf_hex"))
                 built["_artifact"] = {
                     "data": machine,
-                    "name": "reconstructed-program.elf",
+                    "name": "reconstructed-program.exe" if windows else "reconstructed-program.elf",
                 }
-                if tool == "compare_program":
+                if tool in ("compare_program", "compare_windows_program"):
                     original_path = scoped(root, args["original_path"])
                     if original_path.stat().st_size > 2_000_000:
                         raise Blocked("Original image exceeds bounds")
@@ -210,7 +216,7 @@ class ReverseEngineeringDomain:
                         machine,
                         args["cases"],
                         context.cancel,
-                        read_dependencies(root, args.get("original_dependencies", {})),
+                        (args.get("original_dependencies") or {}) if windows else read_dependencies(root, args.get("original_dependencies", {})),
                     )
                     built["passed"] = built["comparison"]["passed"]
                 built["claim"] = (

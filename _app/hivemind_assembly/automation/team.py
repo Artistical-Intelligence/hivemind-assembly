@@ -1373,6 +1373,14 @@ TOOL_SCHEMAS = {
         "lesson": "active executable lesson ID",
         "inputs": "named workflow inputs",
     },
+    "build_windows_program": {
+        "manifest_path": "JSON manifest: sources [relative C paths], declarations, optimization O0/O2, architecture x86_64. Entry int ha_main(void); ha_read/ha_write/ha_error(buffer,count), ha_exit(code), GetTickCount/64(). Clang/LLD required; no headers or assembly. Emits a native Windows PE console executable without requiring Windows DLLs on the build host."
+    },
+    "compare_windows_program": {
+        "manifest_path": "Windows build manifest",
+        "original_path": "x64 PE32+ console EXE using only kernel32 GetStdHandle, ReadFile/WriteFile on standard streams, ExitProcess, GetTickCount/64. Other APIs, CRT, GUI, threads and native CPU effects are rejected.",
+        "cases": [{"id": "development", "input_hex": "stdin bytes", "clock_ms": 0, "max_instructions": 1000000, "effect_policy": "strict or observable"}],
+    },
     "build_program": {
         "manifest_path": "JSON with sources [relative C paths], declarations (shared C declarations), optimization O0 or O2, architecture x86_64 (default) or aarch64 (requires Clang/LLD). C entry: int ha_main(void); runtime ha_read, ha_write, ha_exit, ha_argc, ha_argv(index), ha_getenv(name); filesystem ha_open, ha_close, ha_seek, ha_file_read/write, ha_mkdir/rmdir/remove/rename; ha_clock(clock_id,seconds*,nanoseconds*), ha_random(buffer,count,flags). Qiling supports bounded file/random/memory effects for static x86-64 and AArch64 programs. Both architectures support streams, exit, explicit argv/env and fixed clock. Supplied ELF dependencies and dynamic loading require x86-64. No preprocessor/inline assembly."
     },

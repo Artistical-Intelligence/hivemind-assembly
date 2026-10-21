@@ -560,3 +560,50 @@ The full foundation check passed at checkpoint `2f8785b` in [hosted run 39476662
 HTTP MCP authorization also accepts a hosted client metadata URL. In Connections, generate the public document using a fixed callback port, serve it at your HTTPS URL, and connect. HA uses the official SDK to prefer this registration when the server advertises support, retaining the choice for reconnects and token refresh. The document contains no credentials. Editing the registration or endpoint invalidates in-flight authorization; an HTTPS host is required for the document.
 
 Static AArch64 program reconstruction is available from **Project files → Create AArch64 program example**. This runs the complete source-known ARM ELF and compares an editable x64 reconstruction, including state across multiple input reads. Set `"architecture": "aarch64"` in the candidate build manifest to produce an ARM executable; the default is `x86_64`. Both support deterministic stream I/O, exit, explicit arguments/environment and clock under Unicorn. Choose `qiling_linux` for bounded file/memory effects and supplied dynamic dependencies on either architecture. Unknown OS effects remain unsupported. Protected acceptance uses `linux_program`; earlier program scope names remain accepted.
+
+
+## Windows console reconstruction
+
+Choose **Project files → Create Windows console example** to build a real x64
+Windows executable, edit its C reconstruction and run sealed comparisons. Clang
+and LLD are required; target execution uses Speakeasy and needs neither Windows
+DLLs nor native execution permission. The same generated PE can run on Windows.
+
+For your own target, upload the original `.exe` and candidate `.c` files, then
+create a build manifest such as:
+
+```json
+{"sources":["main.c","transform.c"],"architecture":"x86_64","optimization":"O2"}
+```
+
+The entry point is `int ha_main(void)`. The supplied runtime exposes
+`ha_read(buffer,count)`, `ha_write(buffer,count)`, `ha_error(buffer,count)` and
+`ha_exit(code)`. Counts use `ha_size` (64-bit); stream functions return signed
+64-bit counts. Shared C declarations belong in the manifest's `declarations`.
+Preprocessor directives, host headers and inline assembly are rejected.
+
+Select **Windows x64 console program** in Project acceptance. Use the original
+PE path and build manifest path, with at least two cases:
+
+```json
+[{"id":"empty","input_hex":""},
+ {"id":"sample","input_hex":"616263","clock_ms":1000}]
+```
+
+HA pins original bytes and cases outside worker access, independently rebuilds
+the current candidate at completion, and checks exact stdout, stderr, consumed
+input and unsigned 32-bit exit status. Strict mode also compares the sequence
+of fixed-clock observations; observable mode allows a different clock-query
+sequence. Development tools `build_windows_program` and
+`compare_windows_program` use the same runtime. Passing development comparisons
+can schedule verified source checkpoints when a project repository is connected.
+
+This lane admits only x64 PE32+ console images and kernel32 imports
+`GetStdHandle`, `ReadFile`, `WriteFile`, `ExitProcess`, `GetTickCount` and
+`GetTickCount64`. Streams model redirected regular files, including EOF; handles
+are virtual. Every replay starts fresh. A successful run must call ExitProcess.
+Input/output, image, instruction, API-call and elapsed-time bounds are enforced.
+TLS, other imports, overlapped I/O, arbitrary files, CRT, GUI, threads, direct CPU
+environment queries and host process/network effects are rejected. Matching
+faults or budget exhaustion never pass. This is corpus evidence within the
+explicit runtime contract, not proof of arbitrary Windows application equivalence.

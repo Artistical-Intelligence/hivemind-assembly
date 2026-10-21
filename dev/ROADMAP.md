@@ -5,6 +5,14 @@ checks, protected knowledge/procedure rollouts, shared learning reservations,
 Qiling file/memory replay, deeper Ghidra/REA queries and installed-tool checks.
 It is not a declaration that the requested product has passed all gates.
 
+Version 0.19 adds Windows x64 console PE builds and Speakeasy-backed replay,
+sealed original/input acceptance, worker tools, tested-source checkpoint support,
+and an editable dashboard starter. Its explicit contract covers redirected-file
+standard streams, exit and fixed tick clocks. Unsupported imports, TLS, direct CPU
+environment queries, faults and exhausted execution budgets cannot pass.
+CRT, GUI, filesystem, threading and arbitrary Windows applications remain outside
+this first Windows program contract.
+
 Version 0.18 adds ordered raw RGBA frame sequences, per-frame tolerances and
 failure locations, a synchronized capture scrubber, direct workspace capture
 inspection, and a runnable Python-reference/C-reconstruction frame replay starter.
@@ -55,7 +63,7 @@ Windows application reconstruction or live GitHub automation acceptance.
 4. Extend application reconstruction beyond the implemented static x86-64/AArch64 Linux
    and supplied-dependency x86-64/AArch64 Linux contracts. Full Qiling now executes bounded
    ELF interpreter/shared-library startup and explicit process/file/memory inputs.
-   Broader CPU/OS effects, Windows/game/graphics behavior and target-level
+   Broader CPU/OS effects beyond the Windows console contract, game/graphics behavior and target-level
    equivalence remain outside the implemented acceptance scope.
 5. Validate desktop prerequisite installation through WinGet. Hosted Windows
    has passed fresh embedded-runtime installation, register/native checks,

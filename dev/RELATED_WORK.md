@@ -493,3 +493,32 @@ replay engine or claim a RenderDoc integration. A target-specific capture adapte
 can export raw frames into an owner-pinned native recipe. The bundled software
 scene provides an independent temporal oracle; the existing EGL probe separately
 tests actual graphics readback. Neither proves arbitrary game equivalence.
+
+
+### Windows PE reconstruction runtime
+
+[Speakeasy](https://github.com/mandiant/speakeasy) provides a Windows PE loader,
+Unicorn execution, Windows call dispatch and API hooks. HA pins
+`speakeasy-emulator==2.0.0b9` and uses its loader/calling conventions instead of
+building a competing Windows emulator. The upstream
+[library interface](https://github.com/mandiant/speakeasy/blob/master/doc/library.md)
+permits loading bytes and intercepting APIs. HA loads only bytes, avoiding the
+path-based loader's automatic host-directory mount. Default file mappings and
+exception recovery are disabled. Import preflight and a wildcard API gate both
+reject unsupported effects; upstream fallback stubs cannot establish success.
+
+The first accepted Windows program contract deliberately exposes only standard
+streams with redirected-file semantics, ExitProcess and fixed tick clocks.
+Handles are virtual; unsupported standard-handle operations are rejected. The
+existing deterministic CPU guard is reused. Source-known PE tests compare a
+separate arithmetic oracle, reject seeded failures, and exercise protected
+acceptance. Native Windows CI separately executes generated PEs with real
+redirected file handles. Neither same-emulator comparison nor those fixtures
+establishes arbitrary Windows/CRT/GUI compatibility. Expanding the API boundary
+requires explicit inputs/observations and an independent native semantic check.
+
+Clang/LLD create freestanding PE programs and a generated import library from
+these declared kernel32 exports. No proprietary Windows SDK or system DLL is
+redistributed. The embedded Windows runtime includes a hash-verified unmodified
+lznt1 wheel (and its source/license) because this upstream dependency has no
+published binary wheel. Existing dependency versions remain unchanged.

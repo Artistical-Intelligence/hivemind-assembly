@@ -46,7 +46,7 @@ def test_native_edit_run_and_evidence(app):
     assert app.action("/api/project/check-result", {"task": key})["passed"] is False
 
 
-@pytest.mark.parametrize("kind,old,new", [("linked_arm64", "x << 5", "x << 4"), ("program_arm64", "state + state + state", "state + state")])
+@pytest.mark.parametrize("kind,old,new", [("linked_arm64", "x << 5", "x << 4"), ("program_arm64", "state + state + state", "state + state"), ("program_windows", "+17", "+18")])
 def test_arm64_example_edit_check_and_idempotent_retry(app, kind, old, new):
     import os
     import shutil
@@ -67,7 +67,7 @@ def test_arm64_example_edit_check_and_idempotent_retry(app, kind, old, new):
     result = run_checks(app, key)
     assert not result["result"]["passed"] and not result["task_accepted"]
     assert app.store.task(key)["status"] == "paused"
-    assert result["result"].get("tested", len(result["result"].get("cases", []))) == 4
+    assert result["result"].get("tested", len(result["result"].get("cases", []))) == (3 if kind == "program_windows" else 4)
 
 
 def test_edit_conflict_preserves_versions_and_lost_ack_retry(app):
