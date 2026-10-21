@@ -105,7 +105,7 @@ def sources(root, manifest):
         raise ContractError("Declarations exceed bounds")
     for source in [*result.values(), declarations]:
         # No preprocessor, assembler or host headers; fixed trusted runtime only.
-        if "#" in source or re.search(r"\b(?:asm|__asm|__asm__)\b", source):
+        if "#" in source or re.search(r"\b(?:asm|__asm|__asm__|_Pragma|__pragma)\b", source):
             raise Blocked(
                 "Use declarations and separate C files; preprocessor and inline assembly are outside this build lane"
             )

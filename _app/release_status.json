@@ -1,14 +1,14 @@
 {
-  "version": "0.19.0",
+  "version": "0.19.1",
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 584,
+    "passed": 585,
     "skipped": 13,
-    "failed": 1,
-    "elapsed_seconds": 213.45,
-    "host": "Development Linux Python 3.12",
-    "scope": "598-case regression: the sole failure was the capability inventory missing the two new Windows tools. Corrected inventory and all Windows cases rerun: 18 passed, 1 native-Windows-only skip in 48.62s. Hosted Windows/browser/package validation pending."
+    "failed": 0,
+    "elapsed_seconds": 221.17,
+    "host": "GitHub Linux Python 3.12",
+    "scope": "598-case regression at 7be6aed, run 39542934997. All four jobs passed, including Windows native PE execution, nine Chromium cases, and packaged install/update/restore. Subsequent build-directive rejection passed 12 tests locally (one Windows-only skip), with CPU-state rejection and existing build boundaries also passing; follow-up CI pending."
   },
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -17,7 +17,7 @@
     "static": "pyflakes on changed implementation/tests, JavaScript syntax and git diff --check passed. Workflow template matches the source workflow; runtime and source release archives are separately manifest-checked.",
     "goals": "Fixture native responses exercised root goal continuation through real local capture execution and a second fresh independent acceptance run. This is not signed-in native model acceptance.",
     "historical_evidence": "Checks under historical_checks were recorded in earlier development runs and are not newly claimed from this release verification.",
-    "github_ci": "Run 39539093109 at 79c293a passed all four jobs: Linux 575 passed/11 skipped, Windows 561 passed/25 skipped plus ten native execution/cleanup cases, eight actual Chromium cases, and packaged Windows installation/update/backup restoration including frame replay. These are source-known and scripted checks, not signed-in model acceptance.",
+    "github_ci": "Run 39542934997 at 7be6aed passed all four jobs: full Linux and Windows regressions, native Windows execution including the PE oracle, nine actual Chromium checks, and Windows package install/update/backup restoration including the Windows PE starter. Source-known and scripted checks, not signed-in model acceptance.",
     "windows_runtime": "The extracted Windows package installed its bundled Python and hash-locked dependencies in a fresh data directory, ran register and native Python checks, survived removal/re-extraction of the application folder, and restored a verified backup with project files intact. Paths contained spaces. Tested in GitHub Windows CI, not a manual desktop or complete Ghidra/REA installation.",
     "project_workspace": "Real Chromium and the HTTP controller completed starter creation, uploads, editing, draft preservation, positive/negative checks, byte-exact download, reload persistence, native observations and fresh guided exact-output setup. A separate local jsdom/controller run compiled and checked a C utility through the guided form with automatic compiler discovery. Authenticated streaming, version-checked snapshots, stale edits, immutable references, invalid paths and local-check independence from optional publication passed backend tests.",
     "mcp_codespaces": "Official MCP SDK in-process and real stdio bridge exchanges; outbound stdio discovery/tool/project grants; standalone Linux runner execution, deadline and credential removal; parallel spaces, queued cancellation, interrupted startup, GPU requirement rejection and output import conflict checks. Real HTTP controller with jsdom validated connection settings. No live Codespace or web tunnel acceptance.",
@@ -41,7 +41,7 @@
     "arm64_dynamic": "Thirteen targeted cases passed with real Clang/LLD outputs and the pinned Ubuntu ARM64 loader/libc: PIE/shared-library relocation, initial-exec/global-dynamic TLS, baseline auxv, normal libc startup and printf, independent native output oracles, static x64 reconstruction, protected dependency pinning and wrong-output rejection. Missing/mixed/replaced dependencies, constructor I/O, invalid TLS, counters/cache-line zero, cancellation and startup bounds are rejected. Host file/process/network forwarding remains disabled. Full local regression: 555 passed, ten skipped.",
     "replay_diagnostics": "Stopped Qiling runs retain guest PC/instruction bytes, active syscall, phase, declared image identity and mapping without host staging paths. Tests resolve reported PCs against actual x64/ARM ELF bytes. Failed original preflight retains a protected diagnostic, rejects worker reads and does not create an acceptance contract. Runtime/reconstruction focused suite: 46 passed; additional acceptance/ARM static regression: 23 passed. Successful results and comparison criteria are unchanged. Full hosted regression subsequently passed on Linux and Windows in run 39520414838.",
     "frame_sequences": "Ordered, bounded raw RGBA8 sequences compare every frame at the same index with explicit per-frame pixel tolerances and exact defaults. The dashboard provides synchronized reference/candidate scrubbing, first-failure navigation, direct workspace inspection and owner-initiated downloads of the original stored bytes without canvas re-encoding. Eighteen focused checks cover malformed recipes, alpha/bounds, per-frame allowances, missing/reordered frames, compiled C/Python temporal replay and protected starter authorization/oracle/recipe retention. A one-frame input delay fails despite identical final image and state. Actual Chromium checks verify synchronized canvas pixels and complete downloaded file contents. Windows package install/update/restore retains and reruns frame replay. All passed in run 39539093109. Declared frame rates do not measure wall-clock timing.",
-    "windows_pe_program": "Clang/LLD whole-PE build, Speakeasy loader, bounded standard streams and fixed tick clocks, strict/observable effects, protected original/cases, worker tool acceptance and owner editing passed locally. Seeded output changes, invalid memory, infinite loops, unsupported handles/overlapped APIs, direct CPU effects, missing ExitProcess and cancellation cannot pass. Host Windows execution and real browser/package validation are scheduled in CI; no live model acceptance."
+    "windows_pe_program": "Whole-PE builds, Speakeasy-backed bounded stream/clock replay, protected acceptance, worker tools and editable Windows starter passed local and hosted tests. The same source-known PEs matched actual Windows stdout/stderr/exit with redirected files. Real Chromium positive and negative editing checks passed. Follow-up rejects C pragma operators and emitted COFF linker-directive sections before linking; local tests passed. No arbitrary Windows/CRT/GUI or live model claim."
   },
   "native_live_acceptance": {
     "validated_routes": 0,

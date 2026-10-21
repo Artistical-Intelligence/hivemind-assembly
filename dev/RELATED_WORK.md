@@ -522,3 +522,8 @@ these declared kernel32 exports. No proprietary Windows SDK or system DLL is
 redistributed. The embedded Windows runtime includes a hash-verified unmodified
 lznt1 wheel (and its source/license) because this upstream dependency has no
 published binary wheel. Existing dependency versions remain unchanged.
+
+Windows builds also inspect compiled COFF sections before invoking LLD. C can
+emit `.drectve` through a section attribute without any `#` directive; rejecting
+that section prevents candidate-provided linker options from modifying the fixed
+recipe. Shared source validation rejects `_Pragma` and MSVC `__pragma` operators.

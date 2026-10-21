@@ -109,7 +109,11 @@ def test_windows_direct_cpu_effect_and_missing_exit_rejected(tmp_path):
     pe = pefile.PE(data=image)
     offset = pe.get_offset_from_rva(pe.OPTIONAL_HEADER.AddressOfEntryPoint)
     pe.close()
-    for code, status in ((b"\x0f\x31\xc3", "unsupported"), (b"\xc3", "incomplete")):
+    for code, status in (
+        (b"\x0f\x31\xc3", "unsupported"),
+        (b"\x0f\x01\x04\x24", "unsupported"),
+        (b"\xc3", "incomplete"),
+    ):
         mutated = image[:offset] + code + image[offset + len(code) :]
         result = replay(mutated)
         assert result["status"] == status, result
@@ -221,3 +225,17 @@ def test_windows_worker_tool_protected_acceptance_and_checkpoint(store):
     assert not broker.domain.acceptance.verify(
         root, contract, broker.artifacts, task["project_id"], broker.context(task["id"])
     )["passed"]
+
+
+@pytest.mark.parametrize(
+    "directive",
+    [
+        '_Pragma("comment(lib, "outside.lib")")',
+        '__pragma(comment(lib, "outside.lib"))',
+        '__attribute__((section(".drectve"),used)) const char link_options[]=" /defaultlib:outside.lib";',
+    ],
+)
+def test_windows_build_recipe_cannot_be_changed_by_candidate(tmp_path, directive):
+    (tmp_path / "main.c").write_text(directive + "\nint ha_main(void){return 0;}")
+    with pytest.raises(Blocked, match="preprocessor|linker directives"):
+        build(tmp_path, {"sources": ["main.c"]}, Jobs(), compiler())

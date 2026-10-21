@@ -7,6 +7,7 @@ No Windows DLLs, host mounts, network, CRT, GUI, threads or native target execut
 
 import hashlib
 import shutil
+import struct
 import tempfile
 from pathlib import Path
 
@@ -175,6 +176,25 @@ def build(root, manifest, jobs, compiler="", cancel=None):
             ]
             if len(matches) != 1:
                 raise Blocked("Compiler did not produce the expected object")
+            obj = stage / matches[0]
+            if obj.stat().st_size > 2_000_000:
+                raise Blocked("Windows object exceeds 2 MB")
+            raw = obj.read_bytes()
+            if len(raw) < 20:
+                raise Blocked("Truncated Windows object")
+            machine, count = struct.unpack_from("<HH", raw)
+            optional_size = struct.unpack_from("<H", raw, 16)[0]
+            if (
+                machine != 0x8664
+                or optional_size
+                or not 1 <= count <= 1024
+                or 20 + count * 40 > len(raw)
+            ):
+                raise Blocked("Unexpected Windows object format")
+            # Candidate C may emit .drectve with a section attribute, without
+            # using the preprocessor. Keep the fixed link recipe authoritative.
+            if any(raw[20 + i * 40 : 28 + i * 40] == b".drectve" for i in range(count)):
+                raise Blocked("Candidate object contains linker directives")
             objects.extend(matches)
         if not run(
             [
@@ -344,6 +364,19 @@ def replay(data, stdin=b"", *, clock_ms=0, max_instructions=LIMIT, cancel=None):
                     "rdmsr",
                     "wrmsr",
                     "xgetbv",
+                    "rdpmc",
+                    "rdpid",
+                    "rdfsbase",
+                    "rdgsbase",
+                    "wrfsbase",
+                    "wrgsbase",
+                    "sgdt",
+                    "sidt",
+                    "sldt",
+                    "smsw",
+                    "str",
+                    "rdpkru",
+                    "wrpkru",
                 }
                 or "fs:" in ins.op_str
                 or "gs:" in ins.op_str
@@ -379,7 +412,7 @@ def replay(data, stdin=b"", *, clock_ms=0, max_instructions=LIMIT, cancel=None):
             return handle
         if function in ("ReadFile", "WriteFile"):
             handle, address, count, count_ptr, overlapped = args
-            count &= 0xffffffff  # DWORD; upper argument-register bits are not part of the API.
+            count &= 0xFFFFFFFF  # DWORD; upper argument-register bits are not part of the API.
             if count > LIMIT or not count_ptr or overlapped:
                 stop("unsupported", "Only bounded synchronous stream I/O is supported")
             if function == "ReadFile":
