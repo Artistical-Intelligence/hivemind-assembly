@@ -209,6 +209,14 @@ execution and every 1,024 instructions. Successful calls have no stop diagnostic
 these fields never affect equivalence. Sealed-original preflight failures retain
 protected diagnostics available to the owner and evaluator.
 
+For targeted Ghidra inspection, select the diagnostic's `image`. For a relocated
+DLL imported at its original base, translate the observed instruction address as
+`program_counter - image_base + original_image_base`. `source_image_sha256`
+identifies the supplied original; `image_sha256` identifies the loaded image.
+`stop_reason` distinguishes `instruction_limit`, `wall_clock_limit` and
+`abi_violation`. Successful completed syscalls are not labeled active when a bound
+stops replay immediately after their return.
+
 ARM dynamic replay supplies baseline FP/ASIMD capability metadata, guest TLS,
 explicit ordering barriers and backward-compatible BTI hints for its Cortex-A72
 CPU. SVE, LSE, PAC, MTE, hardware counters and cache-line zero operations are not
@@ -786,17 +794,21 @@ faults or budget exhaustion never pass. This is corpus evidence within the
 explicit runtime contract, not proof of arbitrary Windows application equivalence.
 
 
-Validation for implementation `bb9de83`: all four jobs passed in
-[run 39553956769](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39553956769).
-Linux passed 677 tests with 16 platform skips; Windows passed 667 with 26 skips.
-Fourteen separate native Windows checks, nine Chromium checks and packaged
-Windows installation/update/backup restoration passed. Native PEs independently
-checked streams, files, process inputs and virtual memory. Guest failure locations
-and protected diagnostic access passed on both hosts. The full local suite also
-passed 677 tests with 16 skips.
+Validation for implementation `73fd1d9`: all four jobs passed in
+[run 39615843168](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39615843168).
+Linux passed 778 tests with 18 platform skips; Windows passed 760 with 36 skips.
+Fifteen separate native Windows checks, ten Chromium checks and packaged Windows
+installation/update/backup restoration passed. Replay diagnostics cover real
+x64/ARM64 faults, relocated DLLs, caller-buffer bounds, ABI violations, cancellation,
+engine timeouts and exact completed-syscall boundaries. Sealed-original details
+remain protected. The initial full local regression passed 776 tests with 18 skips;
+the final syscall-boundary correction passed all 37 targeted diagnostics/program
+checks before the full hosted suites.
 
-The earlier [foundations run](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39543882473)
-passed fresh Ghidra/REA/Hermes installation and actual adapter probes. These
-checks use source-known targets and scripted interactions, not signed-in model
-sessions. The [tested v0.22.0 Windows/source packages](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39601013676/artifacts/12345833885)
-are retained in the contract run's artifacts for fourteen days.
+Fresh [Ghidra/REA/Hermes installation and adapter checks](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39615843195)
+also passed at the same implementation, including four linked ABIs with a native
+oracle, ARM64 programs, both Qiling architectures, Ghidra context and reopened
+annotations, REA analysis and Hermes lifecycle. Model inference was not invoked;
+desktop prerequisites were preinstalled. The
+[tested v0.24.0 Windows/source packages](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39615843168/artifacts/12352452923)
+are retained for fourteen days.

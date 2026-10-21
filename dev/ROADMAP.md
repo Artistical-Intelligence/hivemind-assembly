@@ -86,38 +86,28 @@ manual overrides and do not impose a default HA usage budget.
 
 ## Verification
 
-Current replay-diagnostic work passed 31 focused checks with actual compiled
-x64/ARM64 images and real Unicorn timeout behavior, plus 59 existing integrated
-program/call/memory checks. Full local and hosted verification is in progress.
-The results below describe the preceding verified checkpoint.
+Corrected implementation `73fd1d9` passed all four jobs in
+[run 39615843168](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39615843168): Linux 778 passed/18 skipped
+(626.685 seconds); Windows 760 passed/36 skipped (992.269 seconds); 15 separate
+native Windows checks (80.399 seconds); ten Chromium checks (109.953 seconds);
+and Windows package installation, update and backup restoration. Both full suites
+collected 796 cases. The [verified runtime and source packages](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39615843168/artifacts/12352452923)
+include hash-checked manifests and are retained for fourteen days.
 
-The linked-memory implementation passed the full local suite: 745 tests and
-18 skips, 763 total, in 678.83 seconds. Fifteen focused linked-memory checks and
-69 integrated linked-call/ARM/dependency checks passed across all four calling
-conventions. The program-memory runtime passed 34 focused checks (one skip) and
-64 integrated program/capture checks (two skips).
+The initial diagnostics implementation passed the full local suite: 776 tests and
+18 skips in 707.60 seconds. A subsequent boundary regression reproduced stale
+completed-syscall metadata on x64 and ARM64. The correction passed all 37 targeted
+diagnostics/static-program checks (22.38 seconds), including both new regressions,
+before the full hosted suites. The initial integrated linked-call, ARM and memory
+suite also passed all 59 checks.
 
-Hosted Linux exposed a five-second wall-bound failure when all 64 unoptimized
-ARM corpus commands shared one replay. The unchanged corpus now runs in eight-case
-batches, retaining the product's execution limits. All eight compiler/optimization
-corpus combinations passed locally after this correction (27.16 seconds).
-
-Corrected checkpoint `2512728` passed all four jobs in
-[run 39608363476](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39608363476):
-Linux 745 passed/18 skipped (565.805 seconds); Windows 727 passed/36 skipped
-(859.134 seconds); 15 separate native Windows checks (61.578 seconds); ten actual
-Chromium checks (122.384 seconds); and Windows package installation, update and
-backup restoration. The [verified runtime and source packages](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39608363476/artifacts/12349711822)
-are retained by that run. The source and runtime archives were also independently
-hash-manifest checked locally, including all pinned memory sources and notices.
-
-Fresh Ghidra/REA/Hermes installation and actual adapters passed at `a2eadb2` in
-[run 39606521680](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39606521680):
-compiler, ARM64 program replay, x64/ARM64 Qiling file/process behavior, four linked
-ABIs with an independent native oracle, Ghidra context/reopened annotations,
-REA analysis and Hermes lifecycle. Model inference was not invoked; desktop
-prerequisites were preinstalled. No live native-model or arbitrary application
-compatibility claim follows from these source-known checks.
+Fresh Ghidra/REA/Hermes installation and actual adapters passed at the same
+implementation in [run 39615843195](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39615843195): compiler,
+ARM64 program replay, both Qiling architectures, four linked ABIs with an independent
+native oracle, Ghidra context/reopened annotations, REA analysis and Hermes lifecycle.
+Model inference was not invoked; desktop prerequisites were preinstalled. These
+source-known checks do not establish signed-in model acceptance or arbitrary
+application compatibility.
 
 Detailed current and historical evidence is retained in
 [`release_status.json`](../_app/release_status.json). Runtime boundaries and setup
