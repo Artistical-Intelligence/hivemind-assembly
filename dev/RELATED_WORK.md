@@ -553,3 +553,17 @@ permissions. Environment lookup reads only the declared case map. Non-ASCII
 code-page conversion and undefined insufficient-buffer contents remain rejected.
 A native Windows oracle checks ANSI/UTF-16 values, size queries, empty/missing
 variables and case-insensitive names independently of the emulator.
+
+Private virtual memory follows Microsoft's
+[VirtualAlloc](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualalloc),
+[VirtualProtect](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualprotect)
+and [VirtualFree](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualfree)
+contracts. HA reuses Speakeasy/Unicorn mapping and protection primitives while
+owning reservation state, page rounding, zeroing and release behavior. The pinned
+upstream VirtualFree handler returns success without enforcing release semantics,
+which is insufficient for equivalence checks. Host-side buffer reads/writes also
+need explicit checks because Unicorn's host API bypasses guest permissions.
+The narrow private-data contract rejects executable pages, fixed-address
+reservations, unmodeled flags and changes to loader memory. A native Windows
+oracle independently exercises the same generated PE and checks exact output,
+return values, page rounding, zeroing and old-protection values.

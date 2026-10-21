@@ -324,14 +324,17 @@ def windows_program_example(app):
     from hivemind_assembly.domains.reverse_engineering.windows_program import build
 
     original = '''int ha_main(void){
-  unsigned char b[256];ha_dword n=0,k=0;
+  ha_dword n=0,k=0,old=0;long long size=0;
   void *input=CreateFileA("input.bin",0x80000000UL,1,0,3,128,0);
-  if(input==(void*)-1||!ReadFile(input,b,256,&n,0))return 1;
+  if(input==(void*)-1||!GetFileSizeEx(input,&size)||size<0||size>8192)return 1;
+  unsigned char *b=VirtualAlloc(0,size?size:1,0x3000,4);
+  if(!b||!ReadFile(input,b,(ha_dword)size,&n,0)||n!=size)return 1;
   CloseHandle(input);
   for(ha_dword i=0;i<n;i++)b[i]=(unsigned char)(b[i]*3+17);
+  if(!VirtualProtect(b,size?size:1,2,&old))return 3;
   void *output=CreateFileA("output.bin",0x40000000UL,0,0,2,128,0);
   if(output==(void*)-1||!WriteFile(output,b,n,&k,0)||k!=n)return 2;
-  CloseHandle(output);ha_write(b,n);ha_error("done",4);return 7;
+  CloseHandle(output);ha_write(b,n);VirtualFree(b,0,0x8000);ha_error("done",4);return 7;
 }'''
     candidate = original.replace("b[i]*3", "b[i]+b[i]+b[i]") + "\n"
     with tempfile.TemporaryDirectory(prefix="ha-windows-example-") as folder:
@@ -353,12 +356,13 @@ def windows_program_example(app):
     files = {
         "candidate.c": candidate,
         "build.json": json.dumps(manifest, indent=2) + "\n",
-        "README.txt": "The original is a real x64 Windows console executable, compiled with Clang/LLD. It reads input.bin, transforms bytes, replaces output.bin and prints the result. Each sealed case supplies its own in-memory files; no host files are read or written by replay. Run checks, change +17 to +18, and rerun. Protected originals and inputs survive workspace edits. No Windows DLLs or native target execution are required. CRT, GUI, threads and arbitrary Windows compatibility are outside this contract.\n",
+        "README.txt": "The original is a real x64 Windows console executable, compiled with Clang/LLD. It sizes input.bin, allocates a private buffer, transforms bytes, protects the buffer read-only, replaces output.bin, prints the result and releases the buffer. Cases include data crossing a page boundary. Each sealed case supplies its own in-memory files; no host files are read or written by replay. Run checks, change +17 to +18, and rerun. Protected originals and inputs survive workspace edits. No Windows DLLs or native target execution are required. CRT, GUI, threads and arbitrary Windows compatibility are outside this contract.\n",
     }
     cases = [
         {"id": "empty", "files": {"input.bin": "", "output.bin": "ffff"}},
         {"id": "text", "files": {"input.bin": b"hivemind\n".hex()}},
         {"id": "all-bytes", "files": {"input.bin": bytes(range(256)).hex()}},
+        {"id": "page-crossing", "files": {"input.bin": (bytes(range(256)) * 16 + b"!").hex()}},
     ]
     return (
         files,

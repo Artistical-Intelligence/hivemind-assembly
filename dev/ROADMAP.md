@@ -5,6 +5,14 @@ checks, protected knowledge/procedure rollouts, shared learning reservations,
 Qiling file/memory replay, deeper Ghidra/REA queries and installed-tool checks.
 It is not a declaration that the requested product has passed all gates.
 
+Version 0.21 adds bounded private virtual memory to the Windows lane: reserve,
+commit, protection, decommit, recommit and release. Dynamic buffers are checked
+through CPU and API access; the starter now sizes files and crosses page boundaries.
+API buffer writes also respect read-only image pages; a reproduced false-success
+case now has regression coverage. Worker tool guidance now correctly includes
+dynamic AArch64 support already present in the runtime.
+Current-run verification is recorded separately below.
+
 Version 0.20.1 adds Windows x64 console PE builds, declared in-memory files,
 explicit command-line/environment inputs, sealed acceptance, worker tools,
 automatic verified-source checkpoints and an editable file-transform starter.
@@ -210,3 +218,9 @@ run 39547306791. The 648-case suite passed on Linux (633/15) and Windows
 (622/26); thirteen separate native Windows checks, nine Chromium checks and
 packaged Windows install/update/restore also passed. This does not close the
 signed-in account or broader target gates above.
+
+Current v0.21 local verification: 115 passed, four native-Windows skips across
+the Windows replay and owner-workspace suite (119 cases, 227.43s). Dashboard
+DOM/capture checks, the installed verification command, static checks and release
+archive construction passed. Full hosted regression and native Windows memory
+oracle verification are pending for this implementation checkpoint.

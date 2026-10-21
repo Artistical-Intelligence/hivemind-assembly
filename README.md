@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.20.1 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.21.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -593,8 +593,8 @@ PE path and build manifest path, with at least two cases:
 HA pins original bytes and cases outside worker access, independently rebuilds
 the current candidate at completion, and checks exact stdout, stderr, consumed
 input, unsigned 32-bit exit status and every final file. Strict mode also compares
-file operations and fixed-clock observations; observable mode allows different
-internal file/clock activity with identical final results. Development tools `build_windows_program` and
+file/process/memory operations and fixed-clock observations; observable mode allows different
+internal activity with identical final results. Development tools `build_windows_program` and
 `compare_windows_program` use the same runtime. Passing development comparisons
 can schedule verified source checkpoints when a project repository is connected.
 
@@ -602,6 +602,7 @@ This lane admits x64 PE32+ console images and kernel32 imports `GetStdHandle`,
 `ReadFile`, `WriteFile`, `ExitProcess`, `GetTickCount`, `GetTickCount64`,
 `CreateFileA/W`, `CloseHandle`, `SetFilePointerEx`, `GetFileSizeEx`,
 `SetEndOfFile`, `DeleteFileA/W`, `GetLastError` and `SetLastError`.
+Private memory uses VirtualAlloc, VirtualProtect and VirtualFree.
 Process input queries use `GetCommandLineA/W` and `GetEnvironmentVariableA/W`.
 These declarations are supplied automatically to C builds; no Windows headers
 are needed. `CreateFile` returns `(void*)-1` on failure. Use `ha_dword` for
@@ -654,6 +655,34 @@ comparisons permit different queries when final results match. Environment
 mutation, environment-block enumeration and non-ASCII code-page conversion are
 outside this contract. All process inputs are sealed with the acceptance corpus.
 
+Private dynamic buffers support `VirtualAlloc(address,size,flags,protection)`,
+`VirtualProtect(address,size,protection,old_protection_pointer)` and
+`VirtualFree(address,size,flags)`. Sizes and pointers are 64-bit; flags and the
+old-protection output are 32-bit. New reservations use a null address, with
+`MEM_RESERVE=0x2000`, `MEM_COMMIT=0x1000`, or both. A later commit can address
+pages within an owned reservation. Pages are 4096 bytes; reservation bases are
+64 KiB aligned. Newly committed pages contain zeros. Recommit preserves data;
+changing an already committed page's protection must use VirtualProtect.
+
+Supported protection is `PAGE_NOACCESS=1`, `PAGE_READONLY=2` or
+`PAGE_READWRITE=4`. Protection covers entire touched pages, including ranges
+crossing a page boundary. The previous protection of the first page is returned.
+The output pointer must not overlap those pages. Protecting uncommitted pages
+fails without changing them; its platform-specific last-error value is not modeled.
+
+`MEM_DECOMMIT=0x4000` returns touched pages to reserved state. At the allocation
+base, a zero size decommits the whole reservation. Recommit zeroes those pages.
+`MEM_RELEASE=0x8000` requires the allocation base and zero size. Released pages
+remain inaccessible during replay; access through CPU instructions or API buffers
+fails acceptance. Reservations total at most 16 MiB and 256 regions over a replay's
+lifetime, including released regions. Fixed-address reservations, executable
+memory, guards, copy-on-write and changes to loader/stack pages are unsupported.
+All modeled API buffers also respect the loaded PE and stack mapping permissions.
+Strict comparison includes allocation identities and operation sequences;
+observable comparison allows different allocation strategies with identical
+external results. The editable Windows starter exercises file-size-driven
+allocation, read-only output buffers, release and page-crossing inputs.
+
 Streams model redirected regular files, including EOF; handles are virtual.
 Standard-stream metadata, seek and close operations remain unsupported. Every
 replay starts fresh and must call ExitProcess. Input/output, image, instruction,
@@ -664,7 +693,7 @@ faults or budget exhaustion never pass. This is corpus evidence within the
 explicit runtime contract, not proof of arbitrary Windows application equivalence.
 
 
-Validation for implementation `0948323`: [run 39547306791](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39547306791)
+Earlier validation for implementation `0948323` (before virtual-memory support): [run 39547306791](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39547306791)
 passed Linux (633 tests, 15 platform skips), Windows (622 tests, 26 skips,
 plus 13 separate native checks), nine real Chromium cases, and Windows package
 installation/update/backup restoration. Native tests independently checked PE

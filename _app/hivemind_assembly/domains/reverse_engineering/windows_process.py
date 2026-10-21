@@ -102,7 +102,7 @@ class Process:
             raw.extend(part)
         self.state.unsupported("Oversized or unterminated environment variable name")
 
-    def call(self, emu, name, args):
+    def call(self, emu, name, args, initialize):
         from speakeasy.common import PERM_MEM_READ
 
         self.state.error = None
@@ -116,7 +116,9 @@ class Process:
                 # backing pages have broader permissions than individual blocks.
                 size = (len(data) + 4095) // 4096 * 4096
                 address = emu.mem_map(size, perms=PERM_MEM_READ, tag="ha.command_line")
-                emu.mem_write(address, data)
+                # Trusted initialization of newly allocated OS-owned pages is
+                # the only write that may bypass their read-only permissions.
+                initialize(address, data)
                 self.buffers[wide] = (address, data)
             return self.buffers[wide][0]
         address, output, size = args

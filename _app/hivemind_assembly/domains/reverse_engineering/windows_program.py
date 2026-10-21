@@ -22,6 +22,7 @@ from .program import sources
 from .guest_cpu import unsupported as unsupported_cpu
 from .windows_files import FILE_APIS, Files, declared_files
 from .windows_process import PROCESS_APIS, Process, inputs as process_inputs
+from .windows_memory import MEMORY_APIS, Memory
 
 API_NAMES = (
     (
@@ -34,6 +35,7 @@ API_NAMES = (
     )
     + FILE_APIS
     + PROCESS_APIS
+    + MEMORY_APIS
 )
 HEADER = """typedef unsigned long ha_dword;
 typedef unsigned long long ha_size;
@@ -57,6 +59,9 @@ __declspec(dllimport) char *GetCommandLineA(void);
 __declspec(dllimport) unsigned short *GetCommandLineW(void);
 __declspec(dllimport) ha_dword GetEnvironmentVariableA(const char *, char *, ha_dword);
 __declspec(dllimport) ha_dword GetEnvironmentVariableW(const unsigned short *, unsigned short *, ha_dword);
+__declspec(dllimport) void *VirtualAlloc(void *, ha_size, ha_dword, ha_dword);
+__declspec(dllimport) int VirtualProtect(void *, ha_size, ha_dword, ha_dword *);
+__declspec(dllimport) int VirtualFree(void *, ha_size, ha_dword);
 long long ha_read(void *, ha_size);
 long long ha_write(const void *, ha_size);
 long long ha_error(const void *, ha_size);
@@ -363,6 +368,7 @@ def replay(
 
     filesystem = Files({} if files is None else files, stop, result["events"])
     process = Process(command_line, env, filesystem)
+    memory = Memory(filesystem)
 
     def check():
         if cancel is not None and cancel.is_set():
@@ -441,7 +447,7 @@ def replay(
             return False
         return True
 
-    def dispatch_api(emu, name, original, args):
+    def dispatch_api(emu, name, original, args, raw):
         nonlocal calls
         check()
         calls += 1
@@ -450,8 +456,10 @@ def replay(
         if name not in {"kernel32." + n for n in API_NAMES} or original is None:
             stop("unsupported", "Unsupported Windows API: " + name)
         function = name.split(".")[-1]
+        if function in MEMORY_APIS:
+            return memory.call(raw, emu, function, args)
         if function in PROCESS_APIS:
-            return process.call(emu, function, args)
+            return process.call(emu, function, args, raw.mem_write)
         if function in FILE_APIS:
             # These three operations on redirected standard handles are outside
             # the declared regular-file contract; do not pretend they are invalid.
@@ -508,7 +516,9 @@ def replay(
         return original(args)
 
     def api(emu, name, original, args):
-        value = dispatch_api(process.memory(emu), name, original, args)
+        value = dispatch_api(
+            process.memory(memory.memory(emu)), name, original, args, emu
+        )
         process.check(emu)
         return value
 
@@ -587,5 +597,5 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
         "scope": "windows_program",
         "passed": len(results) == len(cases) and all(r["passed"] for r in results),
         "cases": results,
-        "claim": "Windows x64 console PE replay on the retained corpus with explicit command line and environment: exact standard streams, input consumption, process exit and final declared files; strict cases also match file/process queries and fixed-clock observations. No all-input proof, arbitrary Windows compatibility or native model acceptance.",
+        "claim": "Windows x64 console PE replay on the retained corpus with explicit command line and environment: exact standard streams, input consumption, process exit and final declared files; strict cases also match file/process queries, private virtual-memory operations and fixed-clock observations. No all-input proof, arbitrary Windows compatibility or native model acceptance.",
     }
