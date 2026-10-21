@@ -34,17 +34,39 @@ class ProjectAcceptance(ProgramAcceptance):
             raise ContractError(
                 "Project contract requires original_path, manifest_path, cases and function_checks"
             )
-        base = super().prepare(
-            root,
-            {k: spec[k] for k in ("scope", "original_path", "manifest_path", "cases")},
-            artifacts,
-            project,
-            context,
-        )
+        original = scoped(root, spec["original_path"]).read_bytes()
+        windows = original[:2] == b"MZ"
+        if windows != (spec["scope"] == "windows_project"):
+            raise ContractError(
+                "Use windows_project for x64 Windows console originals and linux_project for ELF"
+            )
+        if windows:
+            from .windows_acceptance import WindowsAcceptance
+
+            base = WindowsAcceptance().prepare(
+                root,
+                {k: spec[k] for k in ("scope", "original_path", "manifest_path", "cases")},
+                artifacts,
+                project,
+                context,
+            )
+            base["scope"] = spec["scope"]
+        else:
+            base = super().prepare(
+                root,
+                {k: spec[k] for k in ("scope", "original_path", "manifest_path", "cases")},
+                artifacts,
+                project,
+                context,
+            )
         checks = copy.deepcopy(spec["function_checks"])
         if not isinstance(checks, dict) or len(checks) > project_reconstruction.MAX_FUNCTIONS:
             raise ContractError("Supply at most 128 protected function checks")
-        original = scoped(root, spec["original_path"]).read_bytes()
+        manifest = {}
+        if windows:
+            # PE functions are located by address. Pin each address now so a
+            # later manifest edit cannot move the original under the check.
+            manifest, _, _, _ = project_reconstruction.read_manifest(root, spec["manifest_path"])
         for name, item in checks.items():
             call_images.function_name(name)
             if not isinstance(item, dict) or set(item) - {"original_symbol", "original_address", "cases"}:
@@ -52,7 +74,12 @@ class ProjectAcceptance(ProgramAcceptance):
             cases = item.get("cases")
             if not isinstance(cases, list) or not 1 <= len(cases) <= 256:
                 raise ContractError("Each protected function check needs 1–256 cases")
-            loaded = project_reconstruction.original_function(original, name, item)
+            if windows and "original_address" not in item:
+                address = (manifest.get("addresses") or {}).get(name, {}).get("address")
+                if address is None:
+                    raise ContractError("Windows function checks need an address: " + name)
+                item["original_address"] = address
+            loaded = project_reconstruction.original_callable(original, name, item, manifest)
             for case in cases:
                 call_images.validate_case(case)
                 observed = call_images.execute(loaded, case, context.cancel)
@@ -134,6 +161,28 @@ class ProjectAcceptance(ProgramAcceptance):
         # Protected checks for functions the candidate declares; a declared function
         # without its protected check would otherwise pass as program-only.
         protected = {n: held["checks"][n] for n in held["checks"] if n in manifest["functions"]}
+        # Composition patches the manifest's addresses (or ELF symbols). They
+        # must name the same entries as the pinned checks, or a region could
+        # redirect a different function while its check still passes.
+        lane_inventory = project_reconstruction.Lane(original).hybrid.inventory(
+            original, manifest.get("addresses")
+        )["functions"]
+        moved = sorted(
+            n
+            for n, check in protected.items()
+            if lane_inventory.get(n, {}).get("address")
+            != project_reconstruction.original_callable(original, n, check, manifest)["entry"]
+        )
+        if moved:
+            for item in checks:
+                item["passed"] = False
+            return {
+                "scope": contract["scope"],
+                "passed": False,
+                "checks": checks,
+                "moved_regions": moved,
+                "reason": "Region addresses differ from the pinned originals",
+            }
         result = project_reconstruction.check(
             root,
             contract["manifest_path"],
@@ -197,6 +246,7 @@ class ProjectAcceptance(ProgramAcceptance):
                 ],
             }
         if image is not None:
-            report["executable_artifact"] = artifacts.add(image, self.image_name, project)["id"]
+            name = "reconstructed-program.exe" if image[:2] == b"MZ" else self.image_name
+            report["executable_artifact"] = artifacts.add(image, name, project)["id"]
         report["claim"] = result["claim"]
         return report

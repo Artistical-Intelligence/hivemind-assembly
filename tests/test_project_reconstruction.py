@@ -546,3 +546,100 @@ def test_static_glibc_tool_composes_and_runs_natively(tmp_path, jobs):
         run = subprocess.run([str(path)], input=data, capture_output=True, timeout=10)
         assert run.returncode == 0
         assert (run.stdout == expected) is same
+
+
+def test_windows_project_acceptance_pins_addresses_and_requires_regions(store, jobs):
+    from hivemind_assembly.core.acceptance import Acceptance
+    from hivemind_assembly.core.broker import Broker
+    from hivemind_assembly.core.controller import Controller
+    from hivemind_assembly.domains.reverse_engineering.domain import (
+        ReverseEngineeringDomain,
+    )
+    import json
+
+    clang = _toolchain()
+    if not (shutil.which("lld-link") or os.path.exists(os.path.join(os.path.dirname(clang), "lld-link.exe"))):
+        pytest.skip("lld-link is required")
+    target = project_targets.target("game_windows", jobs, clang)
+    task = store.create_project("windows game", "Recover the game", paused=True)
+    root = store.root / "projects" / task["project_id"] / "workspace"
+    root.mkdir(parents=True, exist_ok=True)
+    files = _mutant(target, "right_wall")
+    for name, text in files.items():
+        (root / name).write_text(text)
+    (root / "original.exe").write_bytes(target["original"])
+    controller = Controller(store)
+    broker = Broker(controller, {"foundations": {"c_compiler": clang}}, ReverseEngineeringDomain())
+    service = Acceptance(controller, broker)
+    spec = {
+        "scope": "windows_project",
+        "original_path": "original.exe",
+        "manifest_path": "project.json",
+        "cases": target["cases"][:3],
+        "function_checks": target["function_checks"],
+        "required_functions": ["apply_input", "step_physics", "mix_audio"],
+    }
+    with pytest.raises(Exception, match="windows_project"):
+        service.configure(task["id"], dict(spec, scope="linux_project"))
+    service.configure(task["id"], spec)
+    contract = store.get("acceptance_contract", task["id"])
+    sealed = json.loads(broker.artifacts.read(contract["functions_artifact"], "evaluator", task["project_id"]))
+    assert all("original_address" in c for c in sealed["checks"].values())
+    verifier = broker.domain.acceptance
+    first = verifier.verify(root, contract, broker.artifacts, task["project_id"], broker.context(task["id"]))
+    assert first["passed"] is False
+    assert [r["function"] for r in first["composition"]["rejected"]] == ["step_physics"]
+    # Editing the manifest's addresses cannot move the pinned originals.
+    manifest = json.loads((root / "project.json").read_text())
+    manifest["addresses"]["apply_input"]["address"] += 16
+    (root / "logic.c").write_text(target["files"]["logic.c"])
+    (root / "project.json").write_text(json.dumps(manifest))
+    second = verifier.verify(root, contract, broker.artifacts, task["project_id"], broker.context(task["id"]))
+    assert second["passed"] is False and second["moved_regions"] == ["apply_input"]
+    manifest["addresses"]["apply_input"]["address"] -= 16
+    (root / "project.json").write_text(json.dumps(manifest))
+    third = verifier.verify(root, contract, broker.artifacts, task["project_id"], broker.context(task["id"]))
+    assert third["passed"] is True and third["executable_artifact"]
+    assert sorted(third["accepted_regions"]) == ["apply_input", "ha_main", "mix_audio", "step_physics"]
+
+
+def test_linux_project_rejects_address_override_of_checked_region(tmp_path, store, targets):
+    import json
+
+    from hivemind_assembly.core.acceptance import Acceptance
+    from hivemind_assembly.core.broker import Broker
+    from hivemind_assembly.core.controller import Controller
+    from hivemind_assembly.domains.reverse_engineering.domain import (
+        ReverseEngineeringDomain,
+    )
+    from hivemind_assembly.domains.reverse_engineering.project_hybrid import inventory
+
+    clang = _toolchain()
+    target = targets["utility"]
+    task = store.create_project("utility", "Recover", paused=True)
+    root = store.root / "projects" / task["project_id"] / "workspace"
+    root.mkdir(parents=True, exist_ok=True)
+    for name, text in target["files"].items():
+        (root / name).write_text(text)
+    (root / "original.elf").write_bytes(target["original"])
+    broker = Broker(Controller(store), {"foundations": {"c_compiler": clang}}, ReverseEngineeringDomain())
+    service = Acceptance(broker.controller, broker)
+    service.configure(
+        task["id"],
+        {
+            "scope": "linux_project",
+            "original_path": "original.elf",
+            "manifest_path": "project.json",
+            "cases": target["cases"][:3],
+            "function_checks": target["function_checks"],
+        },
+    )
+    # Point the checked region at another function's entry: its check would
+    # still pass, while the real original keeps running.
+    other = inventory(target["original"])["functions"]["pack"]
+    manifest = json.loads((root / "project.json").read_text())
+    manifest["addresses"] = {"run_length": {"address": other["address"], "size": other["size"]}}
+    (root / "project.json").write_text(json.dumps(manifest))
+    contract = store.get("acceptance_contract", task["id"])
+    result = broker.domain.acceptance.verify(root, contract, broker.artifacts, task["project_id"], broker.context(task["id"]))
+    assert result["passed"] is False and result["moved_regions"] == ["run_length"]
