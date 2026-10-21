@@ -77,6 +77,9 @@ def argv(value):
     return value
 
 
+BUILD_TIMEOUT = 120
+
+
 def validate(spec):
     if not isinstance(spec, dict) or set(spec) - {
         "version",
@@ -87,6 +90,7 @@ def validate(spec):
         "comparators",
         "repeats",
         "timeout_seconds",
+        "build_timeout_seconds",
         "platforms",
     }:
         raise ContractError("Unknown test suite fields")
@@ -209,6 +213,12 @@ def validate(spec):
         raise ContractError(
             "Use 2–10 repetitions and a 0.1–300 second process deadline"
         )
+    # Builds get their own deadline: a cold compiler start (for example MSVC
+    # library discovery on a fresh Windows host) is slower than a test run.
+    # Not defaulted into the stored spec so earlier pinned suites keep their hash.
+    build_timeout = value.get("build_timeout_seconds", BUILD_TIMEOUT)
+    if type(build_timeout) not in (int, float) or not 1 <= build_timeout <= 600:
+        raise ContractError("Use a 1–600 second build deadline")
     platforms = value.setdefault("platforms", ["Linux", "Windows"])
     if (
         not isinstance(platforms, list)
@@ -333,7 +343,7 @@ def execute(
                                 command(build, stage, tools),
                                 stage,
                                 timeout=min(
-                                    spec["timeout_seconds"],
+                                    spec.get("build_timeout_seconds", BUILD_TIMEOUT),
                                     max(0.01, deadline - time.monotonic()),
                                 ),
                                 cancel=cancel,

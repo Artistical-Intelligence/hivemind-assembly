@@ -240,3 +240,12 @@ def test_architectural_import_boundaries():
                                 "hivemind_assembly.application",
                             )
                         ), path
+
+
+@pytest.mark.parametrize("value", ["-deleteProject", "-okToDelete", ".", "..", ".hidden", ""])
+def test_identifiers_cannot_become_tool_options_or_hidden_paths(value):
+    from hivemind_assembly.core.common import ContractError, identifier
+
+    with pytest.raises(ContractError):
+        identifier(value)
+    assert identifier("program.elf") == "program.elf"

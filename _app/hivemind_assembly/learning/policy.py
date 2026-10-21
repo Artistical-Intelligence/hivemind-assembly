@@ -26,6 +26,12 @@ DEFAULTS = {
     "effort_override": None,
     "max_turns_per_evaluation": None,
     "allow_unknown_allowance": True,
+    # Owner choice: lessons captured from accepted tasks may be sent to native
+    # trial conversations for evaluation. Off by default (private task evidence).
+    "share_captured_lessons": False,
+    # Owner choice: external benchmark cases compile and run candidate code
+    # natively on this computer. Off by default.
+    "allow_native_benchmarks": False,
 }
 
 
@@ -33,7 +39,7 @@ def validate(value):
     if not isinstance(value, dict) or set(value) - set(DEFAULTS):
         raise ContractError("Unknown experimental-learning setting")
     result = {**DEFAULTS, **value}
-    for field in ("enabled", "chat_only", "allow_unknown_allowance"):
+    for field in ("enabled", "chat_only", "allow_unknown_allowance", "share_captured_lessons", "allow_native_benchmarks"):
         if type(result[field]) is not bool:
             raise ContractError(field + " must be boolean")
     if result["route_override"] not in (

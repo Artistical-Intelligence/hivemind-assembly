@@ -28,15 +28,31 @@ def active(store, asset, content, **extras):
             **extras,
         },
     )
-    ev = l.evaluate(
-        key,
-        {"reg": {"passed": True, "elapsed": 2}},
-        {"reg": {"passed": True, "elapsed": 1}, "held": {"passed": True, "elapsed": 1}},
-        ["held"],
-        {},
-        "evaluator",
+    # Host-run protected evaluation; the content is accepted as-is by this
+    # trusted fixture evaluator and must beat a baseline that always fails.
+    from hivemind_assembly.learning.experiments import Experiments
+
+    def run(candidate, inputs):
+        return {"ok": candidate == content}
+
+    experiments = Experiments(store, run, "playbook-fixture")
+    suite = experiments.protect(
+        [
+            {"id": "reg", "family": "a", "project": "one", "split": "regression",
+             "inputs": {}, "expected": {"ok": True}},
+            {"id": "held", "family": "b", "project": "two", "split": "holdout",
+             "inputs": {}, "expected": {"ok": True}},
+        ]
     )
-    l.promote(key, ev, "evaluator")
+    predecessor = store.rows(
+        "SELECT payload FROM lessons WHERE asset_key=? AND status='active'", (asset,)
+    )
+    import json
+
+    baseline = json.loads(predecessor[0]["payload"])["content"] if predecessor else None
+    ev = experiments.evaluate(key, baseline, suite, 3)
+    assert ev["eligible"]
+    l.promote(key, ev["evaluation"], "evaluator")
     return key
 
 
@@ -204,3 +220,30 @@ def test_malformed_or_detail_dropping_delta_is_rejected():
             {"a": entry("x")},
             [{"action": "remove", "id": "a", "expected_hash": digest(entry("x"))}],
         )
+
+
+def test_caller_supplied_results_cannot_promote(store):
+    learning = Learning(store)
+    key = learning.propose(
+        "forged",
+        "knowledge",
+        {
+            "scope": ["core"],
+            "preconditions": [],
+            "exclusions": [],
+            "evidence": ["claimed"],
+            "content": "unchecked",
+        },
+    )
+    forged = learning.evaluate(
+        key,
+        {"reg": {"passed": False, "elapsed": 2}},
+        {"reg": {"passed": True, "elapsed": 1}, "held": {"passed": True, "elapsed": 1}},
+        ["held"],
+        {},
+        "evaluator",
+    )
+    assert store.get("evaluation", forged)["eligible"]
+    with pytest.raises(Blocked, match="protected suite"):
+        learning.promote(key, forged, "evaluator")
+    assert store.one("SELECT status FROM lessons WHERE id=?", (key,))["status"] == "candidate"

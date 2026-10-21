@@ -95,10 +95,25 @@ behind hooks while the rest of the original binary keeps running. HA adds sealed
 whole-program replay, per-region entry counts, cumulative isolation of the region
 that breaks the program, and rollback against the last verified composition.
 
+`project_hybrid_pe` is the x64 PE counterpart: lld-link places the regions at the
+original SizeOfImage, absolute COFF symbols bind unrecovered names, and the new
+sections are appended to the original image. A `Lane` object in
+`project_reconstruction` selects ELF or PE builders, comparators and composition.
+
 `core.verified_sources` retains the exact sources of every passing host check as
 task artifacts and the last verified composition. The broker passes that history
 to `compare_project` through `ToolContext.verified`; restoring sources stays an
 ordinary fenced, reconcilable `write_file`.
+
+## Learning pipeline and independent holdouts
+
+`learning.pipeline` advances captured lessons through the steps the owner has
+permitted (sharing, categorization, native evaluation) and names the blocking step
+for each lesson. `Learning.promote` accepts only host-run evaluations over protected
+suites; executable assets stay bound to their first measured suite.
+`external_benchmarks` imports a pinned public decompilation benchmark as a sealed
+corpus for the existing native rollout evaluator, so improvement can be measured on
+work HA did not author.
 
 ## Compatibility and persistence
 

@@ -71,6 +71,23 @@ Accepted work retains evidence-backed knowledge and procedure candidates. A sing
 
 The executable workflow engine runs bounded registered operations without arbitrary shell or Python execution. Workflows compose region proofs and deterministic function/image calls, pass selected outputs between steps, and reuse identical operations within one invocation. Evaluation uses protected, family-separated regression and holdout cases; repeated trials alternate baseline/candidate order and compare all outputs. Promotion requires preserved correctness, measured aggregate speed improvement and bounded per-case slowdown. Execution is tied to the verified engine/dependency fingerprint, and active assets can be rolled back.
 
+Captured lessons move through a visible pipeline (**Knowledge & skills → Learning
+pipeline**): owner permission to send them to native trials, categorization when the
+task chose no tags, then native evaluation against a protected suite and promotion
+only on measured gains. Two owner settings, both off by default, remove manual steps:
+*send captured lessons to native trials* and a *default suite* for future captured
+lessons. Each lesson shows the step it is waiting for. Promotion accepts only
+evaluations the host ran itself over a protected suite; caller-supplied results are
+advisory.
+
+For an independent holdout that HA did not author, **Build or import protected
+corpus → HumanEval-Decompile** fetches the C subset of the public LLM4Decompile
+benchmark (MIT; pinned commit and SHA-256) and seals its tests. Problems, not
+optimization levels, define families, so a problem never spans regression and
+holdout. Scoring compiles each candidate with the benchmark's own test and runs it
+on this computer, so it also needs *Allow public benchmark checks to run candidate
+code* in Experimental learning.
+
 Use **Knowledge & skills → Evaluate workflow optimization** and choose proofs or function calls, or run `python _app/launch.py learn --workflow calls --data-dir <state-directory>` while the application is stopped. The two built-in optimizers each measure four local cases; function calls include independent scalar and pointer-buffer expectations. These measure bounded reuse optimizations. Native knowledge/procedure effectiveness and broader real cross-project improvement remain unverified; the donor-backed candidate and evaluation paths are described below.
 
 ## Updates and architecture
@@ -89,7 +106,9 @@ For development:
 python -m venv .venv
 # Activate the environment for your shell.
 python -m pip install -r _app/requirements.txt pytest
-python -m pytest tests -q
+python -m pytest tests -q                 # everything (CI)
+python -m pytest tests -q -m "not slow"  # quick tier, about two minutes
+python dev/status_docs.py                # status blocks match release_status.json
 python _app/launch.py verify
 python _app/launch.py serve
 ```
@@ -284,6 +303,25 @@ snapshots and whether the workspace still matches them; restoring one uses ordin
 fenced `write_file` operations. A region that belonged to the last verified
 composition and now fails is reported as `regressed` and `rolled_back` to original
 code automatically.
+
+**Windows console executables.** The same composition works for x64 PE
+originals: recovered regions are linked by lld-link as new sections that begin at
+the original image end, unrecovered functions and data bind to absolute addresses,
+each replaced entry receives a jump and the image is marked non-relocatable so the
+regions stay valid. Frames and audio use the Windows capture comparators. PE files
+rarely carry symbols, so region addresses come from the manifest's `addresses`, from
+an owner-built image's linker map (`build_windows_program` returns `symbols`) or from
+a saved Ghidra inventory (`inventory_path`; detached chunks are bounded by the next
+function entry). Recovered regions have no unwind data.
+
+**Ordinary libc programs.** Composition binds only the symbols the regions use, so
+static glibc tools compose too; the test suite runs one natively and a wrong region
+changes its output. The emulated lane still stops such images at CPU feature probes
+(CPUID), so they are checked through owner-authorized native test recipes.
+
+**Inlined originals.** For a region that never ran, `no_direct_callers` names
+regions whose original entry no direct call or jump reaches: the original compiler
+inlined them or they are reached only indirectly.
 
 The `linux_project` acceptance scope seals the original, the program corpus and
 every function corpus. `required_functions` must be recovered and validated, not

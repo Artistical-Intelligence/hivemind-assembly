@@ -211,7 +211,8 @@ class ReaBridge:
             raise Blocked(
                 "REA failed: "
                 + job["output"][:3000]
-                + "\nFull local output: "
-                + str(error_path)
+                # Name only: absolute host paths stay out of worker messages and traces.
+                + "\nFull output saved in the working folder as "
+                + error_path.name
             )
         return {"evidence": json.loads(job["output"]), "elapsed": job["elapsed"]}

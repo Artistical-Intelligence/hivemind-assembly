@@ -62,6 +62,8 @@
     const value = {
       enabled: f.has('enabled'), chat_only: f.has('chat_only'),
       allow_unknown_allowance: f.has('allow_unknown_allowance'),
+      share_captured_lessons: f.has('share_captured_lessons'),
+      allow_native_benchmarks: f.has('allow_native_benchmarks'),
       route_override: f.get('route_override') || null,
       model_override: f.get('model_override').trim() || null,
       effort_override: f.get('effort_override').trim() || null,

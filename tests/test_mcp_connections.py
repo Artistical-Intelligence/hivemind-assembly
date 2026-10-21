@@ -236,3 +236,25 @@ def test_publication_status_is_read_only_and_survives_reconnect(app):
             assert not any("publish" in n and n != "ha_publication_status" for n in names)
 
     asyncio.run(exercise())
+
+
+def test_bearer_redaction_covers_encoded_echoes():
+    import base64
+    from urllib.parse import quote
+
+    from hivemind_assembly.integrations.mcp import redact
+
+    secret = "s3cr3t/token+value=="
+    echoed = {
+        "plain": "Bearer " + secret,
+        "url": "token=" + quote(secret, safe=""),
+        "b64": base64.b64encode(secret.encode()).decode(),
+        "b64url": base64.urlsafe_b64encode(secret.encode()).decode().rstrip("="),
+        "hex": secret.encode().hex(),
+        "other": "unrelated text",
+    }
+    cleaned = json.dumps(redact(echoed, [secret]))
+    assert "[redacted]" in cleaned and "unrelated text" in cleaned
+    for value in echoed.values():
+        if value != "unrelated text":
+            assert value.replace("Bearer ", "").replace("token=", "") not in cleaned

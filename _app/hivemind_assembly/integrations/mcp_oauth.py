@@ -151,10 +151,9 @@ class OAuthStorage:
         self.write("client", client_info.model_dump(mode="json"))
 
     def redact(self, value):
-        raw = json.dumps(value)
-        for secret in sorted(self.secrets, key=len, reverse=True):
-            raw = raw.replace(secret, "[redacted]")
-        return json.loads(raw)
+        from .mcp import redact
+
+        return redact(value, sorted(self.secrets, key=len, reverse=True))
 
 
 class LoopbackCallback:

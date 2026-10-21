@@ -431,3 +431,118 @@ def test_worker_project_check_retains_snapshot_and_rolls_back(store, targets):
         {"result_operations": ["project-check-3"], "summary": "Recovered regions"},
     )
     assert accepted["passed"]
+
+
+def test_windows_game_regions_compose_into_the_original_pe(tmp_path, jobs):
+    clang = _toolchain()
+    if not shutil.which("lld-link") and not (
+        os.path.exists(os.path.join(os.path.dirname(clang), "lld-link"))
+        or os.path.exists(os.path.join(os.path.dirname(clang), "lld-link.exe"))
+    ):
+        pytest.skip("lld-link is required")
+    target = project_targets.target("game_windows", jobs, clang)
+    assert target["original"][:2] == b"MZ"
+    result = _check(tmp_path, target)
+    composition = result["composition"]
+    assert result["passed"] is True
+    assert sorted(composition["recovered"]) == ["apply_input", "ha_main", "mix_audio", "step_physics"]
+    assert composition["fallback_planned"] == ["render_frame"]
+    assert composition["executions"]["mix_audio"] == 5 * 12
+    import pefile
+
+    pe = pefile.PE(data=result["image"])
+    # Regions were appended as sections; the image is not relocatable away from them.
+    assert len(pe.sections) > len(pefile.PE(data=target["original"]).sections)
+    assert not pe.OPTIONAL_HEADER.DllCharacteristics & 0x40
+    folder = tmp_path / "wall"
+    folder.mkdir()
+    wall = _check(folder, target, _mutant(target, "right_wall"))
+    assert [r["function"] for r in wall["composition"]["rejected"]] == ["step_physics"]
+    assert "step_physics" in wall["composition"]["fallback"]
+
+
+def test_ghidra_inventory_supplies_addresses_without_symbols(tmp_path, targets):
+    from hivemind_assembly.domains.reverse_engineering.project_hybrid import inventory
+
+    target = targets["utility"]
+    known = inventory(target["original"])["functions"]
+    # Shape of inspect_program pages; detached-chunk sizes are capped at the next entry.
+    pages = [
+        {
+            "functions": [
+                {"name": n, "entry": format(v["address"], "x"), "size": v["size"] + 4096, "external": False, "thunk": False}
+                for n, v in known.items()
+            ]
+            + [{"name": "printf", "entry": "ffff", "size": 8, "external": True, "thunk": False}]
+        }
+    ]
+    addresses = project_reconstruction.addresses_from_inventory(pages)
+    assert "printf" not in addresses
+    ordered = sorted(addresses.values(), key=lambda v: v["address"])
+    for left, right in zip(ordered, ordered[1:]):
+        assert left["address"] + left["size"] <= right["address"]
+    import json
+
+    files = dict(target["files"])
+    manifest = json.loads(files["project.json"])
+    manifest["inventory_path"] = "inventory.json"
+    files["project.json"] = json.dumps(manifest)
+    files["inventory.json"] = json.dumps(pages)
+    result = _check(tmp_path, target, files)
+    assert result["passed"] and "inventory.json" in result["source_hashes"]
+
+
+def test_unexercised_region_reports_missing_direct_callers(tmp_path, jobs):
+    from hivemind_assembly.application.reconstruction_trial import SOURCE
+
+    _toolchain()
+    (tmp_path / "o.c").write_text(SOURCE)
+    original = bytes.fromhex(
+        program.build(tmp_path, {"sources": ["o.c"], "optimization": "O2"}, jobs)["elf_hex"]
+    )
+    (tmp_path / "advance.c").write_text(
+        "unsigned advance(unsigned s, unsigned char b) { return (s * 33u) ^ (b + 17u); }\n"
+    )
+    (tmp_path / "project.json").write_text(
+        '{"sources": ["advance.c"], "functions": {"advance": {"sources": ["advance.c"]}}}'
+    )
+    result = project_reconstruction.check(
+        tmp_path, "project.json", original, {}, [{"id": "t", "input_hex": "616263", "effect_policy": "observable"}], jobs
+    )
+    # ha_main inlined advance: nothing calls the original entry directly.
+    assert result["composition"]["no_direct_callers"] == ["advance"]
+
+
+@pytest.mark.skipif(
+    platform.system() != "Linux" or platform.machine() not in ("x86_64", "AMD64"),
+    reason="Native execution of a static glibc ELF needs an x86-64 Linux host",
+)
+def test_static_glibc_tool_composes_and_runs_natively(tmp_path, jobs):
+    gcc = shutil.which("gcc")
+    _toolchain()
+    if not gcc:
+        pytest.skip("GCC with static glibc is required")
+    (tmp_path / "tool.c").write_text(
+        "#include <stdio.h>\n#include <string.h>\n"
+        "__attribute__((noinline)) unsigned checksum(const char *s){unsigned h=5381;while(*s)h=h*33+(unsigned char)*s++;return h;}\n"
+        "__attribute__((noinline)) int classify(unsigned h){return (int)(h%7);}\n"
+        "int main(void){char line[256];int n=0;while(fgets(line,sizeof line,stdin)){line[strcspn(line,\"\\n\")]=0;"
+        "unsigned h=checksum(line);printf(\"%d %u %d\\n\",n++,h,classify(h));}return 0;}\n"
+    )
+    built = subprocess.run(
+        [gcc, "-O2", "-static", "-no-pie", "-fno-pie", "tool.c", "-o", "tool"], cwd=tmp_path, capture_output=True
+    )
+    if built.returncode:
+        pytest.skip("Static glibc is not installed")
+    original = (tmp_path / "tool").read_bytes()
+    recovered = "unsigned checksum(const char *s){unsigned h=5381;while(*s)h=h*33+(unsigned char)*s++;return h;}\n"
+    data = b"hello\nworld\nHivemind Assembly\n" * 20
+    expected = subprocess.run([str(tmp_path / "tool")], input=data, capture_output=True).stdout
+    for source, same in ((recovered, True), (recovered.replace("33", "31"), False)):
+        composed = project_hybrid.compose(tmp_path, {"c.c": source}, "", "O2", original, ["checksum"], jobs)
+        path = tmp_path / ("composed-" + str(same))
+        path.write_bytes(composed["image"])
+        path.chmod(0o755)
+        run = subprocess.run([str(path)], input=data, capture_output=True, timeout=10)
+        assert run.returncode == 0
+        assert (run.stdout == expected) is same

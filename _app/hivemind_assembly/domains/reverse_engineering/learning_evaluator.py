@@ -7,10 +7,12 @@ from hivemind_assembly.core.common import Blocked, digest, file_hash
 
 
 class FunctionEvaluator:
-    def __init__(self, jobs, compiler=""):
+    def __init__(self, jobs, compiler="", allow_native=None):
         import shutil
 
         self.jobs = jobs
+        # Callable returning the owner's permission for native benchmark runs.
+        self.allow_native = allow_native or (lambda: False)
         self.compiler = (
             shutil.which(compiler)
             if compiler
@@ -29,12 +31,19 @@ class FunctionEvaluator:
                         "reconstruction.py",
                         "semantics.py",
                         "guest_cpu.py",
+                        "external_benchmarks.py",
                     )
                 },
             }
         )
 
     def __call__(self, output, expected):
+        if expected.get("kind") == "humaneval_decompile":
+            from .external_benchmarks import evaluate
+
+            return evaluate(
+                output, expected, self.jobs, "", allow_native=self.allow_native() is True
+            )
         if not isinstance(output, dict) or set(output) != {"source"}:
             return False
         result = compile_function(output["source"], "target", self.jobs, self.compiler)
@@ -58,6 +67,13 @@ class FunctionEvaluator:
         if result["blocked"]:
             raise Blocked("Compiler corpus did not finish")
         return self.protect_manifest(experiments, root)
+
+    def import_benchmark(self, experiments, root, limit=None):
+        """Protect HumanEval-Decompile C cases as an independent holdout corpus."""
+        from .external_benchmarks import cases, fetch
+
+        path = fetch(Path(root), self.jobs)
+        return experiments.protect(cases(path, self.jobs, limit=limit))
 
     def protect_manifest(self, experiments, root):
         """Import the independently generated compiler corpus through owner UI.

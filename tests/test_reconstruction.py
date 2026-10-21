@@ -151,9 +151,26 @@ def test_protected_compiled_acceptance_does_not_trust_worker_checks(store):
     )
     task = store.task(task["id"])
     (root / "sum.c").write_text("unsigned sum(unsigned a,unsigned b){return a-b;}")
-    assert not a.evaluate(
+    rejected = a.evaluate(
         task, {"result_operations": ["inspect"], "request_id": "bad"}
-    )["passed"]
+    )
+    assert not rejected["passed"]
+    # The worker-visible rejection carries counts, never sealed inputs/outputs.
+    import json
+
+    sealed = json.loads(
+        b.artifacts.read(
+            store.get("acceptance_contract", task["id"])["checks"][0]["cases_artifact"],
+            "evaluator",
+            task["project_id"],
+        )
+    )["cases"]
+    comparison = rejected["checks"][0]["comparison"]
+    assert comparison["failure_count"] > 0 and "failures" not in comparison
+    visible = json.dumps(rejected)
+    assert not any(json.dumps(case) in visible for case in sealed[:8])
+    with pytest.raises(Exception):
+        b.artifacts.read(comparison["protected_details"], "worker", task["project_id"])
     # Editing the workspace original cannot substitute for pinned truth.
     (root / "original.hex").write_text("89f829f0c3")
     (root / "sum.c").write_text("unsigned sum(unsigned a,unsigned b){return a+b;}")

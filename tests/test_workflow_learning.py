@@ -319,3 +319,17 @@ def test_revoked_workflow_cannot_be_used_or_revised_by_native_worker(
     with pytest.raises(Blocked, match="externally authorized"):
         learning.propose_variant("task", candidate, PLAN, ["op"], "revise")
     assert learning.execute(candidate, {"n": 4})["outputs"] == [{"value": 16}] * 3
+
+
+def test_promotion_cannot_switch_to_another_protected_suite(store, monkeypatch):
+    learning = service(store, monkeypatch)
+    first = learning.protect_suite(CASES)
+    candidate = learning.propose("square", PLAN, [first])
+    learning.learning.promote(candidate, learning.evaluate(candidate, first)["evaluation"], "evaluator")
+    learning.learning.rollback(candidate)
+    other = learning.protect_suite(CASES)
+    retry = learning.propose("square", PLAN, [other])
+    result = learning.evaluate(retry, other)
+    assert result["eligible"]
+    with pytest.raises(Blocked, match="bound to this asset"):
+        learning.learning.promote(retry, result["evaluation"], "evaluator")

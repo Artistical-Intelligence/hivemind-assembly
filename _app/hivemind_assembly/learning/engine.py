@@ -125,6 +125,9 @@ class Learning:
             "holdouts": holdout_ids,
             "criteria": criteria,
             "eligible": no_regression and holdouts and improved,
+            # Results here are supplied by the caller, so they are an advisory
+            # record only. Promotion requires a host-run protected-suite evaluation.
+            "provenance": "caller_supplied",
         }
         key = uid("evaluation")
         self.store.put("evaluation", key, result)
@@ -136,6 +139,44 @@ class Learning:
         result = self.store.get("evaluation", evaluation)
         if result["candidate"] != candidate or not result["eligible"]:
             raise Blocked("Independent evaluation does not justify promotion")
+        # The role string is a caller assertion. Require evidence the host
+        # produced itself: a protected suite it ran, with retained samples.
+        suite = result.get("suite")
+        rows = (
+            self.store.rows("SELECT classification FROM artifacts WHERE id=?", (suite,))
+            if isinstance(suite, str)
+            else []
+        )
+        if (
+            result.get("provenance") == "caller_supplied"
+            or not rows
+            or rows[0]["classification"] != "protected"
+            or not result.get("samples")
+        ):
+            raise Blocked(
+                "Promotion requires a host-run evaluation over a protected suite"
+            )
+        lesson = self.store.one("SELECT kind,asset_key FROM lessons WHERE id=?", (candidate,))
+        if lesson["kind"] == "executable":
+            # Executable workflows are shared across projects: the evidence must
+            # come from the suite bound to this asset, not any protected artifact.
+            bound = {
+                json.loads(row["payload"])["artifact"]
+                for row in self.store.rows(
+                    "SELECT payload FROM records WHERE kind='workflow_suite' AND id LIKE ?",
+                    (lesson["asset_key"] + ":%",),
+                )
+            }
+            if not bound:
+                # The first measured suite binds the asset; later candidates
+                # cannot shop for a different protected corpus.
+                self.store.put(
+                    "workflow_suite",
+                    lesson["asset_key"] + ":" + str(result.get("engine", "bound")),
+                    {"artifact": suite},
+                )
+            elif suite not in bound:
+                raise Blocked("Workflow evidence must come from the suite bound to this asset")
         with self.store.tx() as c:
             row = c.execute("SELECT * FROM lessons WHERE id=?", (candidate,)).fetchone()
             if not row or row["status"] != "candidate":

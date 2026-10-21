@@ -24,6 +24,33 @@ from hivemind_assembly.core.common import (
 from hivemind_assembly.paths import APP_ROOT
 
 
+def secret_forms(secret):
+    """The secret and encodings a server might echo it in."""
+    import base64
+    from urllib.parse import quote
+
+    raw = secret.encode()
+    forms = {
+        secret,
+        quote(secret, safe=""),
+        raw.hex(),
+        base64.b64encode(raw).decode(),
+        base64.urlsafe_b64encode(raw).decode(),
+    }
+    forms |= {f.rstrip("=") for f in forms}
+    # Encodings of very short values would match unrelated text; the exact
+    # value is always redacted.
+    return sorted({secret, *(f for f in forms if len(f) >= 8)}, key=len, reverse=True)
+
+
+def redact(value, secrets):
+    text = canonical(value)
+    for secret in secrets:
+        for form in secret_forms(secret):
+            text = text.replace(json.dumps(form)[1:-1], "[redacted]")
+    return json.loads(text)
+
+
 class Connections:
     def __init__(self, store):
         self.store = store
@@ -324,6 +351,14 @@ class Connections:
                         + type(error).__name__
                         + "). Reconnect in Connections if authorization has expired."
                     ) from None
+                if spec.get("transport") == "http" and not isinstance(
+                    error, (Blocked, ContractError)
+                ):
+                    # Transport errors can quote request headers or server
+                    # responses; keep only the type in results and traces.
+                    raise Blocked(
+                        "MCP call failed (" + type(error).__name__ + ")"
+                    ) from None
                 raise
             finally:
                 lock.release()
@@ -406,9 +441,7 @@ class Connections:
                             raise Blocked("MCP discovery repeated a cursor")
                         seen.add(cursor)
                     if secret:
-                        inventory = json.loads(
-                            canonical(inventory).replace(secret, "[redacted]")
-                        )
+                        inventory = redact(inventory, [secret])
                     if oauth_storage:
                         oauth_storage.check()
                         inventory = oauth_storage.redact(inventory)
@@ -433,11 +466,7 @@ class Connections:
                 if oauth_storage:
                     oauth_storage.check()
                     value = oauth_storage.redact(value)
-                return (
-                    json.loads(canonical(value).replace(secret, "[redacted]"))
-                    if secret
-                    else value
-                )
+                return redact(value, [secret]) if secret else value
 
 
 class Gateway:

@@ -31,7 +31,7 @@ import json
 from hivemind_assembly.core.common import Blocked, ContractError, digest, scoped
 from . import call_images, pe_dependencies, program, project_hybrid
 
-ABI_ARCHITECTURE = {"sysv": "x86_64", "aapcs64": "aarch64"}
+ABI_ARCHITECTURE = {"sysv": "x86_64", "aapcs64": "aarch64", "win64": "x86_64"}
 MACHINE_ARCHITECTURE = {62: "x86_64", 183: "aarch64"}
 MAX_FUNCTIONS = 128
 MAX_GREEDY = 48
@@ -54,9 +54,10 @@ def read_manifest(root, path):
         "optimization",
         "functions",
         "addresses",
+        "inventory_path",
     }:
         raise ContractError(
-            "Project manifest allows build, sources, declarations, optimization, functions and addresses"
+            "Project manifest allows build, sources, declarations, optimization, functions, addresses and inventory_path"
         )
     build = build_text = None
     if "build" in project:
@@ -98,11 +99,59 @@ def read_manifest(root, path):
                 "Function sources must be distinct files from the project units: " + name
             )
         if spec.get("abi", "sysv") not in ABI_ARCHITECTURE:
-            raise ContractError("Linux project functions use sysv or aapcs64")
+            raise ContractError("Project functions use sysv, aapcs64 or win64")
     addresses = project.get("addresses", {})
     if not isinstance(addresses, dict) or len(addresses) > 4096:
         raise ContractError("Supplied addresses must map at most 4096 names")
+    if "inventory_path" in project:
+        # Saved Ghidra inventory pages (inspect_program results) for stripped
+        # originals; explicit addresses take precedence over inventory entries.
+        pages = json.loads(_text(root, project["inventory_path"], 8_000_000))
+        project = dict(project, addresses={**addresses_from_inventory(pages), **addresses})
     return project, build, build_text, units
+
+
+def addresses_from_inventory(pages):
+    """Function addresses and contiguous sizes from Ghidra inventory pages.
+
+    Ghidra's body size counts every address of a function, including detached
+    chunks, so a region never extends past the next function's entry. External,
+    thunk, duplicate and non-C names are skipped.
+    """
+    from .project_hybrid import NAME
+
+    if isinstance(pages, dict):
+        pages = [pages]
+    if not isinstance(pages, list) or not 1 <= len(pages) <= 10000:
+        raise ContractError("Supply Ghidra inventory pages")
+    rows, seen, duplicate = [], set(), set()
+    for page in pages:
+        for item in page.get("functions", []) if isinstance(page, dict) else []:
+            name, entry = item.get("name"), item.get("entry")
+            if (
+                not isinstance(name, str)
+                or not NAME.fullmatch(name)
+                or not isinstance(entry, str)
+                or item.get("external")
+                or item.get("thunk")
+            ):
+                continue
+            try:
+                address = int(entry.split(":")[-1], 16)
+            except ValueError:
+                continue
+            if name in seen:
+                duplicate.add(name)
+            seen.add(name)
+            rows.append((address, name, item.get("size", 0)))
+    rows.sort()
+    result = {}
+    for index, (address, name, size) in enumerate(rows):
+        if name in duplicate:
+            continue
+        bound = rows[index + 1][0] - address if index + 1 < len(rows) else size
+        result[name] = {"address": address, "size": max(0, min(int(size or 0), bound))}
+    return result
 
 
 def normalized_hash(text):
@@ -163,6 +212,112 @@ def order(names, plan):
     return [(n, position.get(n)) for n in ordered], sorted(planned)
 
 
+class Lane:
+    """Format-specific builders: static Linux ELF or x64 Windows console PE."""
+
+    def __init__(self, original):
+        self.pe = original[:2] == b"MZ"
+        if self.pe:
+            from . import project_hybrid_pe, windows_program
+
+            windows_program.image_info(original)
+            self.architecture = "x86_64"
+            self.hybrid = project_hybrid_pe
+            self.build = windows_program.build
+            self.compare = windows_program.compare
+            self.image_key = "pe_hex"
+        else:
+            self.architecture = MACHINE_ARCHITECTURE[program.image_machine(original)]
+            self.hybrid = project_hybrid
+            self.build = program.build
+            self.compare = program.compare
+            self.image_key = "elf_hex"
+
+    def static_reason(self, original):
+        if self.pe:
+            return None
+        try:
+            program.load_image(original, machine=program.image_machine(original))
+        except Blocked as error:
+            return "Region replacement needs a static ET_EXEC original: " + str(error)
+        return None
+
+
+def executable_ranges(original):
+    """(address, bytes, arm) for every executable, file-backed range of the original."""
+    if original[:2] == b"MZ":
+        import pefile
+
+        pe = pefile.PE(data=original)
+        try:
+            base = pe.OPTIONAL_HEADER.ImageBase
+            return [
+                (base + s.VirtualAddress, s.get_data()[: s.SizeOfRawData], False)
+                for s in pe.sections
+                if s.Characteristics & 0x20000000
+            ]
+        finally:
+            pe.close()
+    machine = program.image_machine(original)
+    _, segments = program.load_image(original, machine=machine)
+    return [(s["address"], s["data"], machine == 183) for s in segments if s["flags"] & 1]
+
+
+def direct_references(original, targets):
+    """Count direct call/jump encodings that land on each target entry.
+
+    A byte scan, so counts are an upper bound (data bytes can look like a call),
+    but zero means no direct call or jump reaches the entry: the region is only
+    reached indirectly, or the original compiler inlined every use.
+    """
+    import struct
+
+    wanted = {address: name for name, address in targets.items()}
+    counts = {name: 0 for name in targets}
+    for start, data, arm in executable_ranges(original):
+        if arm:
+            for offset in range(0, len(data) - 3, 4):
+                word = struct.unpack_from("<I", data, offset)[0]
+                if word & 0x7C000000 == 0x14000000:  # B / BL imm26
+                    imm = word & 0x3FFFFFF
+                    if imm & 0x2000000:
+                        imm -= 0x4000000
+                    target = start + offset + imm * 4
+                    if target in wanted:
+                        counts[wanted[target]] += 1
+        else:
+            for offset in range(len(data) - 4):
+                if data[offset] in (0xE8, 0xE9):
+                    delta = struct.unpack_from("<i", data, offset + 1)[0]
+                    target = start + offset + 5 + delta
+                    if target in wanted:
+                        counts[wanted[target]] += 1
+    return counts
+
+
+def original_callable(original, name, check, project, dependencies=None):
+    if original[:2] != b"MZ":
+        return original_function(original, name, check, dependencies)
+    # PE executables rarely export functions: use the check's address or the
+    # project's address table. Imports are not resolved; a function that calls
+    # one faults instead of passing.
+    address = check.get("original_address")
+    if address is None:
+        address = (project.get("addresses") or {}).get(name, {}).get("address")
+    if isinstance(address, str):
+        address = int(address, 16)
+    if type(address) is not int:
+        raise ContractError(
+            "Windows function checks need original_address or a project address: " + name
+        )
+    from .windows_program import image_info
+
+    base = image_info(original)["image_base"]
+    if address < base:
+        address += base
+    return call_images.load(original, address=address, _imports_resolved=True)
+
+
 def _function_results(project, original, function_checks, sequence, jobs, compiler, cancel, dependencies, optimization, declarations):
     functions = []
     for name, group in sequence:
@@ -187,7 +342,7 @@ def _function_results(project, original, function_checks, sequence, jobs, compil
             functions.append(item)
             continue
         compared = call_images.compare(
-            original_function(original, name, function_checks[name], dependencies),
+            original_callable(original, name, function_checks[name], project, dependencies),
             call_images.load(bytes.fromhex(built["image_hex"]), symbol=name),
             function_checks[name]["cases"],
             cancel,
@@ -220,18 +375,19 @@ def _summary(compared):
     ]
 
 
-def compose_and_compare(root, units, declarations, optimization, original, selection, cases, jobs, compiler, cancel, addresses):
+def compose_and_compare(root, units, declarations, optimization, original, selection, cases, jobs, compiler, cancel, addresses, cache=None):
     """One composition attempt; never raises for candidate-caused failures."""
+    lane = Lane(original)
     try:
-        built = project_hybrid.compose(
-            root, units, declarations, optimization, original, selection, jobs, compiler, cancel, addresses
+        built = lane.hybrid.compose(
+            root, units, declarations, optimization, original, selection, jobs, compiler, cancel, addresses, cache
         )
     except ContractError as error:
         return {"passed": False, "stage": "compose", "reason": str(error)}
     if not built["passed"]:
         return {"passed": False, "stage": built["stage"], "build": built["build"]}
     coverage = {r["recovered_address"]: r["function"] for r in built["regions"]}
-    compared = program.compare(original, built["image"], cases, cancel, coverage=coverage)
+    compared = lane.compare(original, built["image"], cases, cancel, coverage=coverage)
     hits = {name: 0 for name in coverage.values()}
     for r in compared["cases"]:
         for name, count in r["candidate"].get("coverage", {}).items():
@@ -262,7 +418,7 @@ def check(
     project = dict(project, _root=root)
     function_checks = function_checks or {}
     validate_checks(function_checks, project)
-    machine = program.image_machine(original)
+    lane = Lane(original)
     declarations = (build or project).get("declarations", "")
     optimization = (build or project).get("optimization", "O2")
     sequence, planned = order(project["functions"], plan)
@@ -285,22 +441,25 @@ def check(
         "source_hashes": {
             **{n: hashlib.sha256(t.encode()).hexdigest() for n, t in units.items()},
             **({project["build"]: normalized_hash(build_text)} if build else {}),
+            **(
+                {project["inventory_path"]: normalized_hash(_text(root, project["inventory_path"], 8_000_000))}
+                if "inventory_path" in project
+                else {}
+            ),
         },
-        "manifest_sha256": digest({k: v for k, v in project.items() if k != "_root"}),
+        "manifest_sha256": digest(json.loads(_text(root, manifest_path))),
     }
     image = None
     candidate_architectures = {
         ABI_ARCHITECTURE[s.get("abi", "sysv")] for s in project["functions"].values()
     } | ({build.get("architecture", "x86_64")} if build else set())
-    same = candidate_architectures <= {MACHINE_ARCHITECTURE[machine]}
+    same = candidate_architectures <= {lane.architecture}
     reason = "Candidate architecture differs from the original; regions cannot share one image"
     if same:
-        try:
-            program.load_image(original, machine=machine)
-        except Blocked as error:
-            # Dynamic/PIE originals keep the complete-build path only.
-            same = False
-            reason = "Region replacement needs a static ET_EXEC original: " + str(error)
+        # Dynamic/PIE originals keep the complete-build path only.
+        blocked = lane.static_reason(original)
+        if blocked:
+            same, reason = False, blocked
     composition = {"applicable": same}
     if not same:
         composition["reason"] = reason
@@ -308,6 +467,7 @@ def check(
         eligible = [f["function"] for f in functions if f["passed"] is not False]
         regressed = sorted(previous - set(eligible))
         attempts = []
+        objects = {}
 
         def attempt(selection):
             units_for = {}
@@ -326,6 +486,7 @@ def check(
                 compiler,
                 cancel,
                 project.get("addresses"),
+                objects,
             )
             attempts.append(
                 {
@@ -365,9 +526,17 @@ def check(
         regressed = sorted(
             set(regressed) | (previous & {r["function"] for r in rejected})
         )
-        inventory = project_hybrid.inventory(original, project.get("addresses"))
+        inventory = lane.hybrid.inventory(original, project.get("addresses"))
         hits = outcome.get("hits", {}) if outcome else {}
         unexercised = sorted(n for n in accepted if not hits.get(n))
+        references = direct_references(
+            original,
+            {
+                n: inventory["functions"][n]["address"]
+                for n in unexercised
+                if n in inventory["functions"]
+            },
+        )
         unvalidated = sorted(
             n for n in accepted if n not in function_checks and not hits.get(n)
         )
@@ -382,6 +551,9 @@ def check(
             "regressed": regressed,
             "rolled_back": sorted(set(regressed) - set(accepted)),
             "unexercised": unexercised,
+            # Unexercised regions with no direct call or jump in the original:
+            # reached only indirectly, or inlined into their callers.
+            "no_direct_callers": sorted(n for n, c in references.items() if c == 0),
             "unvalidated": unvalidated,
             "executions": hits,
             "attempts": attempts,
@@ -395,12 +567,12 @@ def check(
         composition |= {"passed": None, "reason": "No recovered regions declared"}
     result["composition"] = composition
     if build is not None:
-        built = program.build(root, build, jobs, compiler, cancel)
+        built = lane.build(root, build, jobs, compiler, cancel)
         if not built["passed"]:
             result["program"] = {"passed": False, "stage": "build", "build": built["build"]}
         else:
-            complete = bytes.fromhex(built.pop("elf_hex"))
-            compared = program.compare(original, complete, program_cases, cancel, dependencies or {})
+            complete = bytes.fromhex(built.pop(lane.image_key))
+            compared = lane.compare(original, complete, program_cases, cancel, dependencies or None)
             result["program"] = compared
             result["program_sha256"] = built["sha256"]
             if compared["passed"]:

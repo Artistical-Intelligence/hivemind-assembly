@@ -112,7 +112,24 @@ class ReconstructionAcceptance:
                         check["output_bits"],
                         context.cancel,
                     )
-                    result.update(passed=compared["passed"], comparison=compared)
+                    # Failures contain sealed inputs and original outputs; keep
+                    # them protected and release only counts to the worker.
+                    details = artifacts.add(
+                        canonical(compared),
+                        "function-acceptance-details.json",
+                        project,
+                        "protected",
+                    )
+                    result.update(
+                        passed=compared["passed"],
+                        comparison={
+                            "passed": compared["passed"],
+                            "tested": compared.get("tested"),
+                            "total": compared.get("total"),
+                            "failure_count": len(compared.get("failures", [])),
+                            "protected_details": details["id"],
+                        },
+                    )
                 if file_hash(path) != result["file_sha256"]:
                     raise Conflict("Candidate changed during compilation")
             except Conflict:

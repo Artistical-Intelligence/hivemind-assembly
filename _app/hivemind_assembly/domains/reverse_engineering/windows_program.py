@@ -239,6 +239,7 @@ def build(root, manifest, jobs, compiler="", cancel=None):
                 "/nodefaultlib",
                 "/timestamp:0",
                 "/out:program.exe",
+                "/map:program.map",
                 *objects,
                 "kernel32.lib",
             ]
@@ -250,6 +251,13 @@ def build(root, manifest, jobs, compiler="", cancel=None):
         data = path.read_bytes()
         program_libc.verify_notice(data)
         image_info(data)
+        from .project_hybrid_pe import map_functions
+
+        symbols = map_functions(
+            (stage / "program.map").read_text("utf-8", "replace")
+            if (stage / "program.map").is_file()
+            else ""
+        )
         if fingerprints != {
             "compiler_sha256": file_hash(executable),
             "linker_sha256": file_hash(linker),
@@ -267,6 +275,8 @@ def build(root, manifest, jobs, compiler="", cancel=None):
             "manifest_sha256": hashlib.sha256(canonical(manifest).encode()).hexdigest(),
             "runtime_sha256": hashlib.sha256((RUNTIME + memory_hash).encode()).hexdigest(),
             "memory_runtime_sha256": memory_hash,
+            # Linker-map function addresses for owner-built images (not part of the image).
+            "symbols": symbols,
             **fingerprints,
             "build": logs,
         }
@@ -321,6 +331,7 @@ def replay(
     clock_ms=0,
     max_instructions=LIMIT,
     cancel=None,
+    coverage=None,
 ):
     import time
     import speakeasy
@@ -395,8 +406,17 @@ def replay(
         if time.monotonic() - started > 10:
             stop("budget_exhausted", "Wall-clock limit")
 
+    entries = dict(coverage or {})
+    if len(entries) > 256 or not all(type(a) is int for a in entries):
+        raise ContractError("Coverage observes at most 256 integer entry addresses")
+    hits = {name: 0 for name in entries.values()}
+    if coverage is not None:
+        result["coverage"] = hits
+
     def guarded_instruction(emu, address, size):
         nonlocal last_instruction
+        if entries and address in entries:
+            hits[entries[address]] += 1
         raw = bytes(emu.mem_read(address, min(size, 15)))
         if info["image_base"] <= address < info["image_base"] + info["image_size"]:
             last_instruction = (address, raw)
@@ -589,7 +609,8 @@ def replay(
     return result
 
 
-def compare(original, candidate, cases, cancel=None, dependencies=None):
+def compare(original, candidate, cases, cancel=None, dependencies=None, coverage=None):
+    """`coverage` maps candidate entry addresses to names; hits are reported per case."""
     if dependencies:
         raise ContractError("Windows console replay does not accept external DLLs")
     if not isinstance(cases, list) or not 1 <= len(cases) <= 256:
@@ -608,7 +629,8 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
             "command_line": case.get("command_line", "program.exe"),
             "env": case.get("env", {}),
         }
-        before, after = replay(original, data, **args), replay(candidate, data, **args)
+        before = replay(original, data, **args)
+        after = replay(candidate, data, coverage=coverage, **args)
         fields = [
             "status",
             "exit_code",

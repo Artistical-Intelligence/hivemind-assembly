@@ -539,4 +539,63 @@ def target(kind, jobs, compiler=""):
             "plan_pages": _callgraph("game", sha, edges),
             "mutants": dict(GAME_MUTANTS),
         }
+    if kind == "game_windows":
+        # The same game as an x64 Windows console PE; stderr goes through ha_error.
+        from hivemind_assembly.domains.reverse_engineering import windows_program
+
+        source = GAME.replace("ha_file_write(2, samples, sizeof samples)", "ha_error(samples, sizeof samples)")
+        with tempfile.TemporaryDirectory(prefix="ha-project-target-") as folder:
+            root = Path(folder)
+            (root / "original.c").write_text(source, encoding="utf-8")
+            built = windows_program.build(
+                root, {"sources": ["original.c"], "optimization": "O2"}, jobs, compiler
+            )
+        if not built["passed"]:
+            raise Blocked("Windows project target requires Clang and lld-link: " + str(built.get("build")))
+        original = bytes.fromhex(built["pe_hex"])
+        sha = hashlib.sha256(original).hexdigest()
+        names = ("apply_input", "step_physics", "render_frame", "mix_audio", "ha_main", "ha_read", "ha_write", "ha_error")
+        missing = [n for n in names if n not in built["symbols"]]
+        if missing:
+            raise Blocked("Linker map lacks target functions: " + ", ".join(missing))
+        # Owner-supplied address table, as Ghidra or a map would provide for a PE.
+        addresses = {n: built["symbols"][n] for n in names}
+        if "world" not in built["symbols"]:
+            raise Blocked("Linker map lacks the shared game state")
+        addresses["world"] = {"address": built["symbols"]["world"]["address"], "size": 28, "kind": "object"}
+        files = {
+            name: text.replace("ha_file_write(2, samples, 32)", "ha_error(samples, 32)")
+            for name, text in GAME_CANDIDATE.items()
+        }
+        functions = {
+            "apply_input": {"sources": ["logic.c"], "abi": "win64"},
+            "step_physics": {"sources": ["logic.c"], "abi": "win64"},
+            "mix_audio": {"sources": ["audio.c"], "abi": "win64"},
+            "ha_main": {"sources": ["loop.c"], "abi": "win64"},
+        }
+        project = {
+            "sources": list(files),
+            "declarations": GAME_DECLARATIONS,
+            "optimization": "O2",
+            "functions": functions,
+            "addresses": addresses,
+        }
+        files["project.json"] = json.dumps(project, indent=2) + "\n"
+        edges = {
+            "apply_input": [],
+            "step_physics": [],
+            "render_frame": [],
+            "mix_audio": [],
+            "ha_main": ["apply_input", "step_physics", "render_frame", "mix_audio"],
+        }
+        cases = [dict(case, captures={"stdout": FRAME_RULE, "stderr": AUDIO_RULE}) for case in _game_cases()]
+        return {
+            "original": original,
+            "files": files,
+            "manifest_path": "project.json",
+            "function_checks": _game_function_checks(),
+            "cases": cases,
+            "plan_pages": _callgraph("game_windows", sha, edges),
+            "mutants": dict(GAME_MUTANTS),
+        }
     raise ValueError("Unknown project target")

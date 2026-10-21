@@ -279,3 +279,33 @@ def test_nonportable_paths_rejected(name):
     spec["programs"]["candidate"]["files"] = [name]
     with pytest.raises(ContractError):
         validate(spec)
+
+
+def test_builds_have_their_own_deadline(tmp_path):
+    from hivemind_assembly.core.common import ContractError
+
+    (tmp_path / "slow_build.py").write_text("import time\ntime.sleep(1.5)\nopen('built.txt','w').write('ok')\n")
+    (tmp_path / "run.py").write_text("import sys\nsys.stdout.write(open('built.txt').read())\n")
+    spec = {
+        "version": 1,
+        "programs": {
+            "candidate": {
+                "files": ["slow_build.py", "run.py"],
+                "build": [["{python}", "slow_build.py"]],
+                "argv": ["{python}", "run.py"],
+            }
+        },
+        "cases": [
+            {
+                "id": "built",
+                "stdin_hex": "",
+                "expected": {"exit_code": 0, "stdout_hex": b"ok".hex(), "stderr_hex": "", "files": {}},
+            }
+        ],
+        "timeout_seconds": 1,
+    }
+    # A cold build slower than the per-run deadline is not reported as a timeout.
+    assert execute(tmp_path, spec, allow_native=True)["passed"]
+    assert execute(tmp_path, dict(spec, build_timeout_seconds=1), allow_native=True)["status"] == "build_failed"
+    with pytest.raises(ContractError):
+        execute(tmp_path, dict(spec, build_timeout_seconds=0), allow_native=True)

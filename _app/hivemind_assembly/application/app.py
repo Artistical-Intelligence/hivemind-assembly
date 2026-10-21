@@ -5,6 +5,7 @@ from pathlib import Path
 from urllib.parse import urlsplit, unquote, quote
 from hivemind_assembly import __version__
 from hivemind_assembly.paths import APP_ROOT
+from hivemind_assembly.learning.pipeline import stages as learning_stages
 from hivemind_assembly.domains.reverse_engineering.domain import (
     ReverseEngineeringDomain,
 )
@@ -146,7 +147,11 @@ class Application:
             from hivemind_assembly.learning.native_rollouts import NativeRollouts
 
             evaluator = FunctionEvaluator(
-                self.broker.jobs, self.config["foundations"].get("c_compiler", "")
+                self.broker.jobs,
+                self.config["foundations"].get("c_compiler", ""),
+                allow_native=lambda: self.team.experimental.settings()[
+                    "allow_native_benchmarks"
+                ],
             )
             self.native_learning = NativeRollouts(
                 self.store,
@@ -216,6 +221,9 @@ class Application:
                 else []
             ),
             "native_learning_error": self.native_learning_error,
+            "learning_pipeline": learning_stages(
+                self.store, self.team.experimental.settings(), self.native_learning
+            ),
             "github_setup": self.github_setup.status(),
             "repositories": [
                 self.repositories.status(p["id"])
@@ -465,7 +473,13 @@ class Application:
             if not self.native_learning:
                 raise Blocked(self.native_learning_error)
             suite = (
-                self.native_learning.verifier.protect_manifest(
+                self.native_learning.verifier.import_benchmark(
+                    self.native_learning,
+                    self.store.root / "private" / "benchmarks",
+                    data.get("limit"),
+                )
+                if data.get("benchmark") == "humaneval_decompile"
+                else self.native_learning.verifier.protect_manifest(
                     self.native_learning, data["path"]
                 )
                 if data.get("path")
@@ -507,6 +521,18 @@ class Application:
                     "repeats": data.get("repeats", 3),
                 },
             )
+            if data.get("default_suite") is True:
+                from hivemind_assembly.learning.pipeline import DEFAULT_SUITE
+
+                self.store.put(
+                    DEFAULT_SUITE,
+                    uid("binding"),
+                    {
+                        "suite": data["suite"],
+                        "route": data.get("route") or None,
+                        "repeats": data.get("repeats", 3),
+                    },
+                )
             self.native_learning.state(key, "queued")
             return {"evaluation": key}
         if path == "/api/native/renew":

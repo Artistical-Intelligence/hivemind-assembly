@@ -129,6 +129,25 @@ scope or weighting must be stated rather than silently changing the denominator.
   trial through real Ghidra/REA and model calls; verify retained live evidence and
   publication. No live route or autonomous-reconstruction completion is claimed.
 
+### Improvement pass (2026-10-21, after 0.25.0)
+
+- Learning: captured lessons no longer stall silently. A pipeline shares,
+  categorizes and queues them for native evaluation as the owner permits, falls back
+  to a default protected suite for new asset keys, and shows each lesson's blocker.
+  Promotion requires host-run protected evaluations; workflows stay bound to their
+  suite. Still open: measured native gains (needs live routes).
+- Independent holdouts: HumanEval-Decompile's C subset (pinned, MIT) can be imported
+  as a sealed corpus with problem-level families and native re-executability scoring
+  behind an explicit owner permission.
+- Region replacement: x64 Windows console PE composition, Ghidra-inventory and
+  linker-map addresses for symbol-less originals, `no_direct_callers` for inlined
+  originals, and static glibc tools (native check). A Windows build of the game
+  target passes with frames/audio and rejects the program-level mutant.
+- Speed and tooling: compiled objects are reused across composition attempts; a
+  quick test tier (`-m "not slow"`); native test builds get their own deadline.
+- Audit: see [AUDIT](AUDIT.md); one high-severity leak of sealed cases fixed.
+- Status: README/ROADMAP evidence is generated from `release_status.json`.
+
 ### Stop 3 implementation and acceptance
 
 - Implemented: `compare_project` checks recovered functions in callgraph-plan

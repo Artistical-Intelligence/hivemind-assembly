@@ -208,6 +208,8 @@
     "model_override": null,
     "effort_override": null,
     "max_turns_per_evaluation": null,
-    "allow_unknown_allowance": true
+    "allow_unknown_allowance": true,
+    "share_captured_lessons": false,
+    "allow_native_benchmarks": false
   }
 }

@@ -102,7 +102,7 @@ def test_learning_promotion_and_rollback(store):
     a = l.propose("method", "procedure", p)
     with pytest.raises(Blocked):
         l.evaluate(a, {}, {}, [], {}, "worker")
-    ev = l.evaluate(
+    supplied = l.evaluate(
         a,
         {"reg": {"passed": True, "elapsed": 2}},
         {"reg": {"passed": True, "elapsed": 1}, "held": {"passed": True, "elapsed": 1}},
@@ -110,7 +110,20 @@ def test_learning_promotion_and_rollback(store):
         {},
         "evaluator",
     )
-    l.promote(a, ev, "evaluator")
+    # Caller-supplied results are advisory; promotion needs a host-run suite.
+    with pytest.raises(Blocked, match="protected suite"):
+        l.promote(a, supplied, "evaluator")
+    from hivemind_assembly.learning.experiments import Experiments
+
+    experiments = Experiments(store, lambda content, inputs: {"ok": content == "method"}, "fixture")
+    suite = experiments.protect(
+        [
+            {"id": "reg", "family": "a", "project": "one", "split": "regression", "inputs": {}, "expected": {"ok": True}},
+            {"id": "held", "family": "b", "project": "two", "split": "holdout", "inputs": {}, "expected": {"ok": True}},
+        ]
+    )
+    ev = experiments.evaluate(a, None, suite, 3)
+    l.promote(a, ev["evaluation"], "evaluator")
     assert (
         store.one("SELECT status FROM lessons WHERE id=?", (a,))["status"] == "active"
     )

@@ -157,8 +157,13 @@ def compose(
     compiler="",
     cancel=None,
     addresses=None,
+    cache=None,
 ):
-    """Build the original with `recovered` functions replaced. Returns image and map."""
+    """Build the original with `recovered` functions replaced. Returns image and map.
+
+    `cache` (a dict owned by one project check) reuses compiled objects across
+    composition attempts; keys cover unit text, weak set, flags and compiler hash.
+    """
     inv = inventory(original, addresses)
     machine = inv["machine"]
     arm = machine == 183
@@ -222,11 +227,15 @@ def compose(
             objects = []
             for i, text in enumerate(units.values()):
                 pragmas = "".join("#pragma weak " + n + "\n" for n in sorted(weak.get(i, ())))
+                source = program.HEADER + "\n" + declarations + "\n" + pragmas + text
+                key = hashlib.sha256(
+                    "\0".join([compiler_hash, *flags[1:], source]).encode()
+                ).hexdigest()
+                if cache is not None and key in cache:
+                    objects.append(cache[key])
+                    continue
                 name = f"unit_{i}"
-                (stage / (name + ".c")).write_text(
-                    program.HEADER + "\n" + declarations + "\n" + pragmas + text,
-                    encoding="utf-8",
-                )
+                (stage / (name + ".c")).write_text(source, encoding="utf-8")
                 result = jobs.run(
                     uid("hybrid"),
                     flags + ["-c", name + ".c", "-o", name + ".o"],
@@ -236,7 +245,10 @@ def compose(
                 )
                 if result["status"] != "completed" or result["exit_code"] != 0:
                     return None, result
-                objects.append((stage / (name + ".o")).read_bytes())
+                data = (stage / (name + ".o")).read_bytes()
+                if cache is not None:
+                    cache[key] = data
+                objects.append(data)
             return objects, None
 
         objects, failure = compile_units({})
@@ -279,8 +291,12 @@ def compose(
                 if result["status"] != "completed" or result["exit_code"] != 0:
                     return {"passed": False, "stage": "compile", "build": result}
                 extra.append(source + ".o")
+        # Bind only what the regions reference or redefine: assigning every
+        # original symbol would collide with linker-reserved names (for example
+        # _GLOBAL_OFFSET_TABLE_ in static glibc images).
+        referenced = undefined | {n for names in weak.values() for n in names}
         bind = {}
-        for name in sorted(known - set(recovered)):
+        for name in sorted((known & referenced) - set(recovered)):
             item = inv["functions"].get(name) or inv["objects"][name]
             bind[name] = item["address"]
         script = [
@@ -410,9 +426,15 @@ def _assemble(original, inv, part, recovered):
                 PAGE,
             )
         )
-    table_vaddr = (max(s["p_vaddr"] + s["p_memsz"] for s in loads) + PAGE - 1) & ~(PAGE - 1)
-    out.extend(b"\0" * ((-len(out)) % PAGE))
-    table_offset = len(out)
+    # Loaders differ in how they find program headers: Linux uses PT_PHDR,
+    # Qiling uses the first load segment's base plus e_phoff. Keep the table at
+    # the file offset that satisfies both (vaddr - offset as in the original).
+    first = min(inv["segments"], key=lambda seg: seg["address"])
+    delta = first["address"] - first["file_offset"]
+    end = (max(s["p_vaddr"] + s["p_memsz"] for s in loads) + PAGE - 1) & ~(PAGE - 1)
+    table_offset = max((len(out) + PAGE - 1) & ~(PAGE - 1), end - delta)
+    out.extend(b"\0" * (table_offset - len(out)))
+    table_vaddr = table_offset + delta
     count = len(kept) + len(added) + 2
     size = 56 * count
     phdr = struct.pack("<IIQQQQQQ", 6, 4, table_offset, table_vaddr, table_vaddr, size, size, 8)

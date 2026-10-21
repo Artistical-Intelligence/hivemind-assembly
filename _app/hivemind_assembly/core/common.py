@@ -127,6 +127,8 @@ def scoped(root, relative):
 
 
 def identifier(value):
-    if not isinstance(value, str) or not re.fullmatch(r"[a-zA-Z0-9_.-]{1,128}", value):
+    # A leading '-' would be read as an option by command-line tools (for
+    # example Ghidra's -deleteProject); a leading '.' names hidden or parent paths.
+    if not isinstance(value, str) or not re.fullmatch(r"[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}", value):
         raise ContractError("Invalid identifier")
     return value
