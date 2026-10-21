@@ -616,6 +616,22 @@ class Application:
                 ("manual_check:" + task["id"],),
             )
             return json.loads(rows[0]["payload"]) if rows else {"status": "not_run"}
+        if path == "/api/project/captures":
+            task = self.store.task(data["task"])
+            contract = Acceptance(self.controller, self.broker).describe(task["id"])
+            if contract and contract["scope"] == "native_tool_tests":
+                return self._action("/api/native-tests/results", data)
+            report = self._action("/api/project/check-result", data)
+            details = report.get("result", {}).get("protected_details")
+            if not details:
+                return {"status": "not_run", "cases": []}
+            result = json.loads(self.broker.artifacts.read(
+                details, "evaluator", task["project_id"]
+            ))
+            # This owner-only dashboard route is not exported to workers or MCP.
+            result["checked_revision"] = report["revision"]
+            result["current_revision"] = self.store.project(task["project_id"])["revision"]
+            return result
         if path == "/api/project":
             if not data.get("name") or not data.get("objective"):
                 raise ContractError("Name and objective are required")

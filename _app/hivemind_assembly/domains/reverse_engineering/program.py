@@ -487,8 +487,11 @@ def replay(
 def compare(original, candidate, cases, cancel=None, dependencies=None):
     if not isinstance(cases, list) or not 1 <= len(cases) <= 256:
         raise ContractError("Program comparison requires 1–256 cases")
+    from . import program_captures
+
+    rules = [program_captures.validate(case) for case in cases]
     results = []
-    for case in cases:
+    for case, captures in zip(cases, rules):
         policy = case.get("effect_policy", "strict")
         if policy not in ("strict", "observable"):
             raise ContractError("Unknown program effect comparison policy")
@@ -534,8 +537,12 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
             "input_consumed",
             "fault",
         )
+        fields = [key for key in fields if key.removesuffix("_hex") not in captures]
         differences = [key for key in fields if before[key] != after[key]]
-        if before.get("files") != after.get("files"):
+        capture_results = program_captures.compare(before, after, captures)
+        if any(not metric["passed"] for metric in capture_results.values()):
+            differences.append("captures")
+        if program_captures.exact_files(before, captures) != program_captures.exact_files(after, captures):
             differences.append("files")
         if before.get("directories") != after.get("directories"):
             differences.append("directories")
@@ -559,6 +566,8 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
                 "effect_policy": policy,
                 "passed": passed,
                 "differences": differences,
+                "captures": captures,
+                "capture_results": capture_results,
                 "original": before,
                 "candidate": after,
             }
@@ -567,5 +576,5 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
         "passed": all(r["passed"] for r in results),
         "scope": "linux_program",
         "cases": results,
-        "claim": "Deterministic bounded corpus. Strict cases also match application effects and random consumption; observable cases compare streams, exit, input consumption, selected memory and final files/directories. Traces are retained. No all-input proof or arbitrary OS compatibility.",
+        "claim": "Deterministic bounded corpus. Strict cases also match application effects and random consumption; observable cases compare streams, exit, input consumption, selected memory and final files/directories. Only owner-declared raw frame/audio outputs use their pinned comparators; all other outputs stay exact. Traces are retained. No all-input proof or arbitrary OS compatibility.",
     }

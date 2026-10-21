@@ -567,3 +567,17 @@ The narrow private-data contract rejects executable pages, fixed-address
 reservations, unmodeled flags and changes to loader memory. A native Windows
 oracle independently exercises the same generated PE and checks exact output,
 return values, page rounding, zeroing and old-protection values.
+
+## Emulated frame and audio observations (0.22)
+
+[Playwright visual comparisons](https://playwright.dev/docs/test-snapshots) use
+retained baselines, repeated screenshot stabilization and configurable pixel
+differences. Its [screenshot assertions](https://playwright.dev/docs/api/class-pageassertions)
+support animation handling and perceptual thresholds. Those choices suit browser
+UI regression; HA's reconstruction contract needs every declared frame, raw alpha
+and explicit sample values to remain observable. We therefore reuse HA's existing
+raw capture comparators and viewer for emulated programs rather than adding a
+second image-diff library or silently stabilizing away temporal differences.
+Original capture shapes and tolerances are sealed before candidate work. A delayed
+frame mutant with the correct final position verifies that temporal errors remain
+visible. Native repeated execution remains a separate recipe capability.

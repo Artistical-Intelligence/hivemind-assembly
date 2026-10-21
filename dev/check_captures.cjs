@@ -66,5 +66,23 @@ assert.ok(target.textContent.includes('sequence dimensions or frame rate are inv
 w.renderNativeCaptures({status:'not_run'}, target);
 assert.equal(target.querySelectorAll('canvas').length, 0);
 assert.ok(target.textContent.includes('not_run'));
+const emulated = {scope:'windows_program', passed:false, checked_revision:2, current_revision:3, cases:[{
+  id:'emulated', passed:false, captures:{stdout:{format:'rgba8_sequence',width:1,height:1,frames:2,frame_rate_num:60,frame_rate_den:1}},
+  capture_results:{stdout:{first_failed_frame:1,frames:[{passed:true},{passed:false}]}},
+  original:{stdout_hex:'010203ff040506ff'}, candidate:{stdout_hex:'010203ff070809ff'}
+}]};
+w.renderNativeCaptures(emulated,target);
+assert.ok(target.textContent.includes('project has changed'));
+assert.ok(target.textContent.includes('Native timing and repeatability are not measured'));
+assert.ok(!target.textContent.includes('Repeated captures were identical'));
+[...target.querySelectorAll('button')].find(b=>b.textContent==='First failing frame').click();
+assert.deepEqual(images.slice(-2),[[4,5,6,255],[7,8,9,255]]);
+assert.ok(target.textContent.includes('Frame 2 / 2'));
+emulated.cases[0].captures={'file:sound.pcm':{format:'pcm_s16le',channels:1,frames:2,sample_rate:8000}};
+emulated.cases[0].original={files:{'sound.pcm':'01000200'}};
+emulated.cases[0].candidate={files:{'sound.pcm':'01000300'}};
+w.renderNativeCaptures(emulated,target);
+assert.equal(target.querySelectorAll('canvas').length,2);
+assert.ok(target.textContent.includes('1 channels'));
 dom.window.close();
 console.log('Capture view fixture passed: RGBA bytes, synchronized sequence scrubbing and failure jump, PCM channel waveform, missing captures, bounds and escaped labels');

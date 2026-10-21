@@ -63,6 +63,10 @@ try:
         windows = starter(app, "program_windows", "packaged_pe_starter")
         assert run_checks(app, windows["id"])["result"]["passed"]
         app.store.put("package_probe", "windows", {"task": windows["id"]})
+        emulated = starter(app, "program_frames", "packaged_emulated_frames")
+        assert run_checks(app, emulated["id"])["result"]["passed"]
+        assert app.action("/api/project/captures", {"task": emulated["id"]})["passed"]
+        app.store.put("package_probe", "emulated", {"task": emulated["id"]})
         check_packaged_mcp(app, task["id"])
     else:
         record = app.store.get("package_probe", "preserve")
@@ -76,6 +80,8 @@ try:
         frames = app.store.get("package_probe", "frames")
         assert run_checks(app, frames["task"])["passed"]
         assert app.action("/api/native-tests/results", {"task": frames["task"]})["passed"]
+        emulated = app.store.get("package_probe", "emulated")
+        assert run_checks(app, emulated["task"])["result"]["passed"]
         check_packaged_mcp(app, record["task"])
         backup = data.parent / "package-backup.zip"
         snapshot(app.store, backup)
@@ -94,6 +100,8 @@ if phase == "verify-update":
         assert run_checks(restored, record["task"])["result"]["passed"]
         assert run_checks(restored, frames["task"])["passed"]
         assert run_checks(restored, windows["task"])["result"]["passed"]
+        assert run_checks(restored, emulated["task"])["result"]["passed"]
+        assert restored.action("/api/project/captures", {"task": emulated["task"]})["passed"]
     finally:
         restored.close()
 print(json.dumps({"phase": phase, "passed": True, "runtime": sys.executable}))

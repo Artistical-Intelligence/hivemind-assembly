@@ -2,6 +2,7 @@
 
 import copy
 from .program_acceptance import ProgramAcceptance
+from . import program_captures
 from .windows_program import build, compare, image_info, replay, validate_case
 from hivemind_assembly.core.common import Blocked, ContractError, canonical, scoped
 
@@ -34,6 +35,8 @@ class WindowsAcceptance(ProgramAcceptance):
         inputs = [validate_case(c) for c in cases]
         for case, data in zip(cases, inputs):
             case.setdefault("effect_policy", "strict")
+            if "captures" in case:
+                case["captures"] = program_captures.validate(case, windows=True)
             result = replay(
                 original,
                 data,
@@ -55,6 +58,7 @@ class WindowsAcceptance(ProgramAcceptance):
                     "Original Windows program did not complete; protected diagnostic: "
                     + diagnostic["id"]
                 )
+            program_captures.preflight(result, case.get("captures", {}))
         pinned = artifacts.add(original, "original-program.exe", project, "protected")
         corpus = artifacts.add(
             canonical(cases), "windows-holdouts.json", project, "protected"

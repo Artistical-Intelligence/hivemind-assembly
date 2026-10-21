@@ -381,3 +381,49 @@ def test_windows_console_starter_edit_and_protected_check(server, app):
         expect(page.locator("#program-fields")).to_be_hidden()
         assert not errors
         browser.close()
+
+
+def test_emulated_frames_protected_capture_scrubbing(server, app, tmp_path):
+    from playwright.sync_api import sync_playwright, expect
+    from test_windows_program import compiler
+
+    app.config["foundations"]["c_compiler"] = compiler()
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=os.environ["WORKBENCH_TEST_CHROME"], headless=True, args=["--no-sandbox"])
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+        page.locator('[data-tab="workspace"]').click()
+        # This example does not request native execution permission.
+        page.get_by_role("button", name="Create emulated frame example", exact=True).click()
+        expect(page.locator("#file-path")).to_have_value("candidate.c", timeout=30000)
+        page.locator("#workspace-check").click()
+        expect(page.locator("#workspace-result-summary")).to_contain_text("Checks passed", timeout=30000)
+        code = page.locator("#file-editor").input_value()
+        page.locator("#file-editor").fill(code.replace("if (input[frame])", "if (frame > 0 && input[frame - 1])"))
+        page.locator("#file-save").click()
+        expect(page.locator("#file-draft")).to_have_text("Saved on disk")
+        page.locator("#workspace-check").click()
+        expect(page.locator("#workspace-result-summary")).to_contain_text("Checks did not pass", timeout=30000)
+        page.locator("#workspace-captures").click()
+        view = page.locator("#workspace-capture-view")
+        expect(view.locator("select")).to_be_visible()
+        view.locator("select").select_option("1")
+        expect(view).to_contain_text("Native timing and repeatability are not measured")
+        view.get_by_role("button", name="First failing frame").click()
+        expect(view.locator('input[type="range"]')).to_have_value("1")
+        pixels = "els => els.map(c => Array.from(c.getContext('2d').getImageData(0,0,c.width,c.height).data))"
+        reference, candidate = view.locator("canvas").evaluate_all(pixels)
+        assert reference != candidate
+        view.locator('input[type="range"]').fill("7")
+        reference, candidate = view.locator("canvas").evaluate_all(pixels)
+        assert reference == candidate
+        with page.expect_download() as download:
+            view.get_by_role("button", name="Download candidate capture", exact=True).click()
+        output = tmp_path / "capture.raw"
+        download.value.save_as(output)
+        assert len(output.read_bytes()) == 8 * 8 * 4 * 8
+        assert output.read_bytes()[-256:] == bytes(candidate)
+        assert errors == []
+        browser.close()

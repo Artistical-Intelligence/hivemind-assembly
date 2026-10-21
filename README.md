@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.21.1 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.22.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -562,6 +562,51 @@ HTTP MCP authorization also accepts a hosted client metadata URL. In Connections
 Static AArch64 program reconstruction is available from **Project files → Create AArch64 program example**. This runs the complete source-known ARM ELF and compares an editable x64 reconstruction, including state across multiple input reads. Set `"architecture": "aarch64"` in the candidate build manifest to produce an ARM executable; the default is `x86_64`. Both support deterministic stream I/O, exit, explicit arguments/environment and clock under Unicorn. Choose `qiling_linux` for bounded file/memory effects and supplied dynamic dependencies on either architecture. Unknown OS effects remain unsupported. Protected acceptance uses `linux_program`; earlier program scope names remain accepted.
 
 
+## Frame and audio checks for emulated programs
+
+Choose **Project files → Create emulated frame example** for a complete local
+workflow: compile a Windows PE renderer, edit the reconstruction, run sealed
+checks and inspect eight synchronized frames. Clang and LLD are required. The
+example emits raw frames through the bounded emulator; it needs no native target
+execution permission. A one-frame delay fails even when final position matches.
+
+Windows and Linux program cases accept an optional `captures` map:
+
+```json
+{"id":"motion","input_hex":"0001000100000000",
+ "captures":{"stdout":{"format":"rgba8_sequence","width":8,"height":8,
+ "frames":8,"frame_rate_num":60,"frame_rate_den":1}}}
+```
+
+Selectors are `stdout`, `stderr` or `file:<guest path>`. Windows file selectors
+use canonical lowercase basenames such as `file:frames.rgba`; Linux file
+selectors use canonical absolute paths such as `file:/frames.rgba` and require
+`runtime: "qiling_linux"`. Streams work in both Linux runtime lanes, including
+AArch64. Files refer to final guest contents, never host paths.
+
+The existing raw `rgba8`, `rgba8_sequence` and `pcm_s16le` comparators are shared
+with native-tool checks. Defaults are exact; the owner may pin the same explicit
+pixel/channel/peak/RMS tolerances described above. Each capture is limited to
+1 MB; dimensions, frame count and sample layout must match exactly. Missing or
+malformed captures fail even when both programs produce the same malformed data.
+Original capture shapes are checked before sealing acceptance. Frames match by
+index, including alpha; no alignment, dropped-frame compensation, resampling or
+normalization is performed.
+
+Only selected outputs use these comparators. All other streams/files, exit codes,
+input consumption, selected memory and strict effects keep their existing checks.
+Strict file traces may reject differing writes despite an allowed final-capture
+tolerance; choose observable effects explicitly when internal writes may differ.
+Workers cannot edit protected original images, cases or tolerances. Fresh
+acceptance rebuilds the candidate and retains detailed metrics and raw captures
+in protected evidence. **Inspect captures** loads that evidence for the owner,
+shows the checked revision, scrubs frames, plots audio and downloads original raw
+bytes. Editing the visible example `acceptance.json` does not change pinned rules.
+
+These are bounded emulated program observations, not a GPU/window-system or
+arbitrary game runtime. Frame rate and sample rate describe the declared data;
+native hardware timing and repeated native execution are not measured here.
+
 ## Windows console reconstruction
 
 Choose **Project files → Create Windows console example** to build a real x64
@@ -592,7 +637,8 @@ PE path and build manifest path, with at least two cases:
 
 HA pins original bytes and cases outside worker access, independently rebuilds
 the current candidate at completion, and checks exact stdout, stderr, consumed
-input, unsigned 32-bit exit status and every final file. Strict mode also compares
+input, unsigned 32-bit exit status and every final file (except outputs with explicit
+raw capture comparators described above). Strict mode also compares
 file/process/memory operations and fixed-clock observations; observable mode allows different
 internal activity with identical final results. Development tools `build_windows_program` and
 `compare_windows_program` use the same runtime. Passing development comparisons

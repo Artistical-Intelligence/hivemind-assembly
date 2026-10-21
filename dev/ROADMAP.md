@@ -1,6 +1,6 @@
 # Hivemind Assembly roadmap
 
-Version 0.21.1 remains an engineering preview. Implementation, automated
+Version 0.22.0 remains an engineering preview. Implementation, automated
 verification and live account acceptance are separate. Successful fixtures do not
 establish unattended reconstruction or measured native-model learning gains.
 
@@ -37,6 +37,12 @@ tolerances, repeatability checks and visual review. Actual offscreen Mesa readba
 was previously exercised. These facilities do not establish arbitrary game or
 graphics-driver equivalence.
 
+Version 0.22 also applies the shared raw frame/audio comparators to bounded
+Windows and Linux program streams/files, including AArch64. Protected cases pin
+shapes and tolerances; the dashboard inspects their retained frames and waveforms.
+An emulated renderer starter catches a one-frame delay with unchanged final state.
+This adds output-level temporal checks, not GPU or arbitrary GUI compatibility.
+
 Inbound project-scoped MCP, outbound tool grants, standard HTTP OAuth onboarding,
 private-tunnel supervision and optional Codespaces snapshot jobs are implemented.
 Repository creation and Codespaces are optional. Local-only projects and existing
@@ -64,6 +70,11 @@ manual overrides and do not impose a default HA usage budget.
 | Audit and revision | Perform the separately requested full audit, then revise its findings. This implementation pass is not that audit. |
 
 ## Verification
+
+Version 0.22 capture integration passed 19 focused local checks across compiled
+Windows, x64 Linux and AArch64 Linux outputs, including protected acceptance and
+the independent Python frame oracle. Full regression and hosted validation are
+pending for this implementation checkpoint.
 
 The v0.21.0 memory checkpoint `90fc291` passed every job in
 [run 39552405664](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39552405664):

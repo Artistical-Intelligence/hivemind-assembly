@@ -22,7 +22,7 @@
     byId('file-upload').disabled = !editable;
     byId('file-new').disabled = !editable;
     byId('workspace-check').disabled = !editable || !!pendingJob || !listing?.acceptance;
-    byId('workspace-captures').disabled = !selected || !!pendingJob || listing?.acceptance?.scope !== 'native_tool_tests';
+    byId('workspace-captures').disabled = !selected || !!pendingJob || !['native_tool_tests','windows_program','linux_program','static_x86_64_linux_program'].includes(listing?.acceptance?.scope);
     byId('file-editor').readOnly = !editable;
     byId('file-draft').textContent = dirty ? 'Unsaved draft' : opened ? 'Saved on disk' : '';
     byId('file-discard').disabled = !dirty || busy;
@@ -88,7 +88,7 @@
   }
   byId('workspace-captures').onclick = guarded(async () => {
     const task = selected, seq = ++captureGeneration;
-    const result = await api('native-tests/results', {task});
+    const result = await api('project/captures', {task});
     if (task !== selected || seq !== captureGeneration) return;
     renderNativeCaptures(result, byId('workspace-capture-view'));
   });
@@ -204,7 +204,7 @@
     try {
       const task = await api('project/starter', {kind,request_id:request,allow_native:allow});
       sessionStorage.removeItem(key); await refresh(); await selectTask(task.id); tab('workspace');
-      await openFile(kind === 'registers' ? 'candidate.hex' : ['linked_arm64','program_arm64','program_windows','native_frames'].includes(kind) ? 'candidate.c' : 'candidate.py');
+      await openFile(kind === 'registers' ? 'candidate.hex' : ['linked_arm64','program_arm64','program_windows','program_frames','native_frames'].includes(kind) ? 'candidate.c' : 'candidate.py');
       message('Example ready. Run checks, edit the candidate, and check again.');
     } finally { b.disabled = false; }
   }));

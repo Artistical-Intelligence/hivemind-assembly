@@ -4,6 +4,7 @@
 window.renderNativeCaptures = function(result, target) {
   target.replaceChildren();
   const cases = result.cases || [], rules = result.comparators || {};
+  const program = ['windows_program','linux_program'].includes(result.scope);
   const paths = Object.keys(rules);
   const element = (tag, text, parent = target) => {
     const node = document.createElement(tag);
@@ -11,13 +12,16 @@ window.renderNativeCaptures = function(result, target) {
     parent.append(node);
     return node;
   };
-  element('p', `${result.status || 'No observations'} · ${cases.filter(c => c.passed).length} / ${cases.length} cases passed`);
-  if (!paths.length || !cases.length) return;
+  element('p', `${result.status || (program ? 'Emulated program observations' : 'No observations')} · ${cases.filter(c => c.passed).length} / ${cases.length} cases passed`);
+  if (result.checked_revision !== undefined) element('p', `Checked revision ${result.checked_revision}${result.checked_revision !== result.current_revision ? ' · project has changed; rerun checks for current code.' : ''}`);
+  if (!cases.length || !(program ? cases.some(c => Object.keys(c.captures || {}).length) : paths.length)) {
+    element('p', 'No frame or audio captures are declared in this result.'); return;
+  }
   const label = element('label', 'Capture');
   const select = element('select', undefined, label);
   const choices = [];
-  for (const item of cases) for (const path of paths) {
-    const index = choices.push({item, path, rule: rules[path]}) - 1;
+  for (const item of cases) for (const path of (program ? Object.keys(item.captures || {}) : paths)) {
+    const index = choices.push({item, path, rule: program ? item.captures[path] : rules[path]}) - 1;
     const option = element('option', `${item.id} · ${path}`, select);
     option.value = index;
   }
@@ -25,8 +29,9 @@ window.renderNativeCaptures = function(result, target) {
   function show() {
     pane.replaceChildren();
     const {item, path, rule} = choices[Number(select.value) || 0];
-    element('p', item.repeatable ? 'Repeated captures were identical.' : 'Repeated captures differed; this case cannot pass.', pane);
-    const metric = item.comparisons?.candidate?.[0]?.files?.[path];
+    if (program) element('p', 'One bounded emulated replay per image with declared inputs. Native timing and repeatability are not measured.', pane);
+    else element('p', item.repeatable ? 'Repeated captures were identical.' : 'Repeated captures differed; this case cannot pass.', pane);
+    const metric = program ? item.capture_results?.[path] : item.comparisons?.candidate?.[0]?.files?.[path];
     const sequence = rule.format === 'rgba8_sequence';
     if (metric) {
       const {frames, ...summary} = metric;
@@ -62,11 +67,12 @@ window.renderNativeCaptures = function(result, target) {
       element('p', 'Frames are compared at the same index. Times come from the declared frame rate; wall-clock timing is not measured.', pane);
       detail = element('pre', undefined, pane);
     }
-    const reference = item.expected || item.runs?.original?.[0];
-    for (const [name, row] of [['Reference', reference], ['Candidate', item.runs?.candidate?.[0]]]) {
-      const hex = row?.file_contents_hex?.[path];
+    const reference = program ? item.original : item.expected || item.runs?.original?.[0];
+    const candidate = program ? item.candidate : item.runs?.candidate?.[0];
+    for (const [name, row] of [['Reference', reference], ['Candidate', candidate]]) {
+      const hex = program ? (path === 'stdout' || path === 'stderr' ? row?.[path + '_hex'] : row?.files?.[path.slice(5)]) : row?.file_contents_hex?.[path];
       const panel = element('figure', undefined, pane);
-      element('figcaption', `${name} · first repetition`, panel);
+      element('figcaption', `${name} · ${program ? 'emulated replay' : 'first repetition'}`, panel);
       if (typeof hex !== 'string' || hex.length > 4194304 || hex.length % 2 || !/^[0-9a-f]*$/i.test(hex)) {
         element('p', 'Capture unavailable or invalid.', panel); continue;
       }
@@ -80,7 +86,7 @@ window.renderNativeCaptures = function(result, target) {
         const url = URL.createObjectURL(new Blob([bytes], {type: 'application/octet-stream'}));
         const link = document.createElement('a');
         link.href = url;
-        link.download = `${name.toLowerCase()}-${path.split(/[\\/]/).pop() || 'capture.bin'}`;
+        link.download = `${name.toLowerCase()}-${path.replace(/^file:/, '').split(/[\\/]/).pop() || 'capture.bin'}`;
         panel.append(link); link.click(); link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       };

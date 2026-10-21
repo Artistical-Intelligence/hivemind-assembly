@@ -275,9 +275,10 @@ def validate_case(case):
         "files",
         "command_line",
         "env",
+        "captures",
     }:
         raise ContractError(
-            "Windows cases allow id, input_hex, files, command_line, env, clock_ms, max_instructions and effect_policy"
+            "Windows cases allow id, input_hex, files, command_line, env, clock_ms, max_instructions, effect_policy and captures"
         )
     value = case.get("input_hex", "")
     if not isinstance(value, str) or len(value) > LIMIT * 2:
@@ -295,6 +296,9 @@ def validate_case(case):
         value = case.get(key, default)
         if type(value) is not int or not low <= value <= high:
             raise ContractError("Invalid Windows " + key)
+    from .program_captures import validate as validate_captures
+
+    validate_captures(case, windows=True)
     declared_files(case.get("files", {}))
     process_inputs(case)
     return data
@@ -583,9 +587,12 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
         raise ContractError("Windows console replay does not accept external DLLs")
     if not isinstance(cases, list) or not 1 <= len(cases) <= 256:
         raise ContractError("Windows comparison requires 1–256 cases")
+    from . import program_captures
+
     inputs = [validate_case(c) for c in cases]
+    rules = [program_captures.validate(c, windows=True) for c in cases]
     results = []
-    for case, data in zip(cases, inputs):
+    for case, data, captures in zip(cases, inputs, rules):
         args = {
             "clock_ms": case.get("clock_ms", 0),
             "max_instructions": case.get("max_instructions", LIMIT),
@@ -601,11 +608,16 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
             "stdout_hex",
             "stderr_hex",
             "input_consumed",
-            "files",
         ]
         if case.get("effect_policy", "strict") == "strict":
             fields.append("events")
+        fields = [f for f in fields if f.removesuffix("_hex") not in captures]
         differences = [f for f in fields if before[f] != after[f]]
+        if program_captures.exact_files(before, captures) != program_captures.exact_files(after, captures):
+            differences.append("files")
+        capture_results = program_captures.compare(before, after, captures)
+        if any(not metric["passed"] for metric in capture_results.values()):
+            differences.append("captures")
         passed = before["status"] == after["status"] == "completed" and not differences
         results.append(
             {
@@ -613,6 +625,8 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
                 "passed": passed,
                 "differences": differences,
                 "effect_policy": case.get("effect_policy", "strict"),
+                "captures": captures,
+                "capture_results": capture_results,
                 "original": before,
                 "candidate": after,
             }
@@ -623,5 +637,5 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
         "scope": "windows_program",
         "passed": len(results) == len(cases) and all(r["passed"] for r in results),
         "cases": results,
-        "claim": "Windows x64 console PE replay on the retained corpus with explicit command line and environment: exact standard streams, input consumption, process exit and final declared files; strict cases also match file/process queries, private virtual-memory operations and fixed-clock observations. No all-input proof, arbitrary Windows compatibility or native model acceptance.",
+        "claim": "Windows x64 console PE replay on the retained corpus with explicit command line and environment: standard streams and final files are exact unless owner-declared raw frame/audio comparators apply, with exact input consumption and process exit; strict cases also match file/process queries, private virtual-memory operations and fixed-clock observations. No all-input proof, arbitrary Windows compatibility or native model acceptance.",
     }

@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 from .program import build, compare, replay, sources
+from . import program_captures
 from hivemind_assembly.core.common import (
     scoped,
     canonical,
@@ -47,6 +48,8 @@ class ProgramAcceptance:
                 raise ContractError("Program cases must be objects")
             case["argv"], case["env"] = normalize(case.get("argv"), case.get("env"))
             case.setdefault("effect_policy", "strict")
+            if "captures" in case:
+                case["captures"] = program_captures.validate(case)
         if len(canonical(cases)) > 2_000_000:
             raise ContractError("Program corpus exceeds bounds")
         for case in cases:
@@ -63,6 +66,7 @@ class ProgramAcceptance:
                 "argv",
                 "env",
                 "effect_policy",
+                "captures",
             }:
                 raise ContractError("Unknown program case field")
             if case.get("effect_policy", "strict") not in ("strict", "observable"):
@@ -94,6 +98,7 @@ class ProgramAcceptance:
                 env=case.get("env"),
                 max_instructions=case.get("max_instructions", 1_000_000),
                 observations=case.get("original_memory", ()),
+                cancel=context.cancel,
                 **extra,
             )
             if result["status"] != "completed":
@@ -113,6 +118,7 @@ class ProgramAcceptance:
                     "Original program does not complete within the declared replay contract; "
                     "protected diagnostic: " + diagnostic["id"]
                 )
+            program_captures.preflight(result, case.get("captures", {}))
         pinned = artifacts.add(original, "original-program.elf", project, "protected")
         suite = artifacts.add(
             canonical(cases), "program-holdouts.json", project, "protected"
