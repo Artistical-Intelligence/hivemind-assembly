@@ -38,6 +38,8 @@ class WindowsAcceptance(ProgramAcceptance):
                 original,
                 data,
                 files=case.get("files", {}),
+                command_line=case.get("command_line", "program.exe"),
+                env=case.get("env", {}),
                 clock_ms=case.get("clock_ms", 0),
                 max_instructions=case.get("max_instructions", 1_000_000),
                 cancel=context.cancel,

@@ -541,3 +541,15 @@ semantics. In particular, [SetEndOfFile](https://learn.microsoft.com/en-us/windo
 does not define the added bytes when extending a file; HA rejects that extension
 instead of assuming zeros. ASCII regular files, known attributes and synchronous
 operations are explicit scope limits, not substitutes for the complete foundations.
+
+
+Explicit process inputs follow Microsoft's
+[GetCommandLine](https://learn.microsoft.com/en-us/windows/win32/api/processenv/nf-processenv-getcommandlinew)
+and [GetEnvironmentVariable](https://learn.microsoft.com/en-us/windows/win32/api/processenv/nf-processenv-getenvironmentvariablew)
+contracts. HA retains the observed raw command line rather than inventing an
+argument parser. Whole read-only guest pages hold command-line values; an API
+return check also detects host-side emulation writes that bypass Unicorn page
+permissions. Environment lookup reads only the declared case map. Non-ASCII
+code-page conversion and undefined insufficient-buffer contents remain rejected.
+A native Windows oracle checks ANSI/UTF-16 values, size queries, empty/missing
+variables and case-insensitive names independently of the emulator.

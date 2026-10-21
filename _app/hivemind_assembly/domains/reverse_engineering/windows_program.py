@@ -21,15 +21,20 @@ from hivemind_assembly.core.common import (
 from .program import sources
 from .guest_cpu import unsupported as unsupported_cpu
 from .windows_files import FILE_APIS, Files, declared_files
+from .windows_process import PROCESS_APIS, Process, inputs as process_inputs
 
 API_NAMES = (
-    "GetStdHandle",
-    "ReadFile",
-    "WriteFile",
-    "ExitProcess",
-    "GetTickCount",
-    "GetTickCount64",
-) + FILE_APIS
+    (
+        "GetStdHandle",
+        "ReadFile",
+        "WriteFile",
+        "ExitProcess",
+        "GetTickCount",
+        "GetTickCount64",
+    )
+    + FILE_APIS
+    + PROCESS_APIS
+)
 HEADER = """typedef unsigned long ha_dword;
 typedef unsigned long long ha_size;
 __declspec(dllimport) void *GetStdHandle(ha_dword);
@@ -48,6 +53,10 @@ __declspec(dllimport) int DeleteFileA(const char *);
 __declspec(dllimport) int DeleteFileW(const unsigned short *);
 __declspec(dllimport) ha_dword GetLastError(void);
 __declspec(dllimport) void SetLastError(ha_dword);
+__declspec(dllimport) char *GetCommandLineA(void);
+__declspec(dllimport) unsigned short *GetCommandLineW(void);
+__declspec(dllimport) ha_dword GetEnvironmentVariableA(const char *, char *, ha_dword);
+__declspec(dllimport) ha_dword GetEnvironmentVariableW(const unsigned short *, unsigned short *, ha_dword);
 long long ha_read(void *, ha_size);
 long long ha_write(const void *, ha_size);
 long long ha_error(const void *, ha_size);
@@ -254,9 +263,11 @@ def validate_case(case):
         "max_instructions",
         "effect_policy",
         "files",
+        "command_line",
+        "env",
     }:
         raise ContractError(
-            "Windows cases allow id, input_hex, files, clock_ms, max_instructions and effect_policy"
+            "Windows cases allow id, input_hex, files, command_line, env, clock_ms, max_instructions and effect_policy"
         )
     value = case.get("input_hex", "")
     if not isinstance(value, str) or len(value) > LIMIT * 2:
@@ -275,11 +286,20 @@ def validate_case(case):
         if type(value) is not int or not low <= value <= high:
             raise ContractError("Invalid Windows " + key)
     declared_files(case.get("files", {}))
+    process_inputs(case)
     return data
 
 
 def replay(
-    data, stdin=b"", *, files=None, clock_ms=0, max_instructions=LIMIT, cancel=None
+    data,
+    stdin=b"",
+    *,
+    files=None,
+    command_line="program.exe",
+    env=None,
+    clock_ms=0,
+    max_instructions=LIMIT,
+    cancel=None,
 ):
     import time
     import speakeasy
@@ -292,9 +312,14 @@ def replay(
             "clock_ms": clock_ms,
             "max_instructions": max_instructions,
             "files": {} if files is None else files,
+            "command_line": command_line,
+            "env": {} if env is None else env,
         }
     )
     image_info(data)
+    command_line, env = process_inputs(
+        {"command_line": command_line, "env": {} if env is None else env}
+    )
     result = {
         "status": "incomplete",
         "exit_code": None,
@@ -314,7 +339,7 @@ def replay(
         max_total_time=10,
         max_instructions=max_instructions + 1,
         max_api_count=10001,
-        command_line="program.exe",
+        command_line=command_line,
         env={},
         current_dir="C:\\work",
         stack_size=0x100000,
@@ -337,6 +362,7 @@ def replay(
         raise ReplayStop(reason)
 
     filesystem = Files({} if files is None else files, stop, result["events"])
+    process = Process(command_line, env, filesystem)
 
     def check():
         if cancel is not None and cancel.is_set():
@@ -415,7 +441,7 @@ def replay(
             return False
         return True
 
-    def api(emu, name, original, args):
+    def dispatch_api(emu, name, original, args):
         nonlocal calls
         check()
         calls += 1
@@ -424,6 +450,8 @@ def replay(
         if name not in {"kernel32." + n for n in API_NAMES} or original is None:
             stop("unsupported", "Unsupported Windows API: " + name)
         function = name.split(".")[-1]
+        if function in PROCESS_APIS:
+            return process.call(emu, function, args)
         if function in FILE_APIS:
             # These three operations on redirected standard handles are outside
             # the declared regular-file contract; do not pretend they are invalid.
@@ -479,6 +507,11 @@ def replay(
         result["status"] = "completed"
         return original(args)
 
+    def api(emu, name, original, args):
+        value = dispatch_api(process.memory(emu), name, original, args)
+        process.check(emu)
+        return value
+
     try:
         if cancel is not None and cancel.is_set():
             result.update(status="cancelled", fault="Cancelled")
@@ -522,6 +555,8 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
             "max_instructions": case.get("max_instructions", LIMIT),
             "cancel": cancel,
             "files": case.get("files", {}),
+            "command_line": case.get("command_line", "program.exe"),
+            "env": case.get("env", {}),
         }
         before, after = replay(original, data, **args), replay(candidate, data, **args)
         fields = [
@@ -552,5 +587,5 @@ def compare(original, candidate, cases, cancel=None, dependencies=None):
         "scope": "windows_program",
         "passed": len(results) == len(cases) and all(r["passed"] for r in results),
         "cases": results,
-        "claim": "Windows x64 console PE replay on the retained corpus: exact standard streams, input consumption, process exit and final declared files; strict cases also match file operations and fixed-clock observations. No all-input proof, arbitrary Windows compatibility or native model acceptance.",
+        "claim": "Windows x64 console PE replay on the retained corpus with explicit command line and environment: exact standard streams, input consumption, process exit and final declared files; strict cases also match file/process queries and fixed-clock observations. No all-input proof, arbitrary Windows compatibility or native model acceptance.",
     }

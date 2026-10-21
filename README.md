@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.20.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.20.1 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -602,6 +602,7 @@ This lane admits x64 PE32+ console images and kernel32 imports `GetStdHandle`,
 `ReadFile`, `WriteFile`, `ExitProcess`, `GetTickCount`, `GetTickCount64`,
 `CreateFileA/W`, `CloseHandle`, `SetFilePointerEx`, `GetFileSizeEx`,
 `SetEndOfFile`, `DeleteFileA/W`, `GetLastError` and `SetLastError`.
+Process input queries use `GetCommandLineA/W` and `GetEnvironmentVariableA/W`.
 These declarations are supplied automatically to C builds; no Windows headers
 are needed. `CreateFile` returns `(void*)-1` on failure. Use `ha_dword` for
 DWORD values and signed `long long` for 64-bit file positions/sizes.
@@ -626,6 +627,32 @@ the added contents as undefined. `GetLastError` is supported after a failed call
 `SetLastError`, or the defined `CREATE_ALWAYS`/`OPEN_ALWAYS` outcomes; querying
 unspecified successful-call error state is rejected.
 `CREATE_ALWAYS` requires generic write access in this contract.
+
+Cases may also provide `command_line` and `env`, for example:
+
+```json
+{"id":"copy-mode","command_line":"program.exe --mode copy",
+ "env":{"HA_MODE":"copy"},"files":{"input.bin":"616263"}}
+```
+
+The command line is the exact string observed by the program, including its
+executable name and quoting; HA does not parse it into arguments or promise
+`CreateProcess` path normalization. It defaults to `program.exe`. The environment
+defaults to empty and never inherits host values. Names are case-insensitive
+ASCII letters/digits/underscores (starting with a letter or underscore, maximum
+128 characters), and duplicate aliases are rejected. Up to 128 variables and
+64 KB of environment text are admitted. Command lines and individual values
+are NUL-free ASCII, at most 8192 characters; empty environment values are allowed.
+Both ANSI and UTF-16 API entry points are supported for these ASCII values.
+
+Use zero capacity for an environment size query, then allocate enough room for
+the value and its terminator. Missing variables return error 203. Positive
+insufficient capacities are rejected because Windows leaves those output bytes
+undefined. Command-line buffers are read-only, including writes attempted through
+other API calls. Strict comparisons retain process-query sequences; observable
+comparisons permit different queries when final results match. Environment
+mutation, environment-block enumeration and non-ASCII code-page conversion are
+outside this contract. All process inputs are sealed with the acceptance corpus.
 
 Streams model redirected regular files, including EOF; handles are virtual.
 Standard-stream metadata, seek and close operations remain unsupported. Every

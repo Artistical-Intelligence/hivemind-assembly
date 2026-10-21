@@ -187,3 +187,14 @@ inputs and rebuilds candidates; a separate native Windows oracle checks file
 bytes, pointer behavior, EOF, sharing and documented errors. Directories,
 special devices, asynchronous I/O, CRT/GUI/thread effects and live model gates
 remain beyond this bounded lane.
+
+
+Version 0.20.1 extends the Windows contract with explicit raw command-line and
+environment inputs, ANSI/UTF-16 queries, protected corpus pinning and independent
+native process checks. Host environment inheritance and mutation of OS-owned
+command-line buffers are rejected. Code-page conversion, environment mutation
+and broader Windows effects remain outside this contract.
+
+The v0.20.0 checkpoint a2979c8 passed all four jobs in run 39546328046:
+Linux 614 passed/14 skipped, Windows 602 passed/26 skipped, twelve separate
+native Windows checks, nine Chromium checks and packaged install/update/restore.
