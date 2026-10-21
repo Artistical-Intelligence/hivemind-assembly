@@ -71,33 +71,30 @@ manual overrides and do not impose a default HA usage budget.
 
 ## Verification
 
-Version 0.22 capture integration passed 19 focused local checks across compiled
-Windows, x64 Linux and AArch64 Linux outputs, including protected acceptance and
-the independent Python frame oracle. Full regression and hosted validation are
-pending for this implementation checkpoint.
+Version 0.22 checkpoint `0923d43` passed 19 focused capture checks and 87 integrated
+checks (one native-Windows skip). Full local regression passed 696 tests with
+17 skips, 713 total, in 494.04 seconds.
 
-The v0.21.0 memory checkpoint `90fc291` passed every job in
-[run 39552405664](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39552405664):
-670 Linux tests with 16 skips, 660 Windows tests with 26 skips, fourteen separate
-native Windows checks, nine Chromium checks and packaged install/update/restore.
-The native PE oracle independently checked virtual-memory return values, page
-rounding, zeroing, old protections and exact output bytes.
+In [run 39601013676](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39601013676),
+hosted Linux passed 696 tests with 17 skips (343.771s), Windows passed 686 tests
+with 27 skips (854.945s), fourteen separate native Windows checks passed
+(27.374s), ten actual Chromium checks passed (116.710s), and packaged Windows
+installation/update/restore passed. The
+[tested Windows/source packages](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39601013676/artifacts/12345833885)
+include the emulated frame example and are retained for fourteen days.
 
-The v0.21.1 diagnostic checkpoint `bb9de83` passed the full local suite:
-677 tests with 16 platform skips, 693 total, in 448.25 seconds. Nine focused
-diagnostic checks also passed, including PE-byte resolution and protected-evidence
-access. All four hosted jobs then passed in
-[run 39553956769](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39553956769):
-Linux 677 passed/16 skipped (421.716s), Windows 667 passed/26 skipped (741.856s),
-fourteen separate native Windows checks (27.413s), nine Chromium checks (82.535s)
-and packaged Windows install/update/restore. The
-[tested Windows/source packages](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39553956769/artifacts/12324534067)
-are retained for fourteen days.
+Fresh pinned Ghidra/REA/Hermes installation and actual adapters on Windows passed
+again in [run 39601013723](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39601013723):
+compiler, ARM64 program replay, x64/ARM64 Qiling file/process effects, four linked
+ABIs and native oracle, Ghidra context/reopened annotations, REA analysis and
+Hermes lifecycle. Model inference was not invoked; prerequisites were preinstalled.
 
-Earlier [run 39543882473](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39543882473)
-passed fresh pinned Ghidra/REA/Hermes installation and actual adapters on Windows.
-These are source-known and scripted checks; signed-in model validation remains
-separate.
+The new capture evidence includes compiled Windows/x64 Linux/AArch64 Linux
+outputs, an independent Python pixel oracle, a one-frame delay with unchanged
+final state, exact non-capture outputs, invalid original shapes, sealed rules,
+owner-only raw evidence, synchronized browser inspection and complete downloads.
+No live native-model or arbitrary game compatibility claim follows from these
+source-known checks.
 
 Detailed current and historical evidence is retained in
 [`release_status.json`](../_app/release_status.json). Runtime boundaries and setup

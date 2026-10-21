@@ -760,5 +760,5 @@ passed 677 tests with 16 skips.
 The earlier [foundations run](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39543882473)
 passed fresh Ghidra/REA/Hermes installation and actual adapter probes. These
 checks use source-known targets and scripted interactions, not signed-in model
-sessions. The [tested v0.21.1 Windows/source packages](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39553956769/artifacts/12324534067)
+sessions. The [tested v0.22.0 Windows/source packages](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39601013676/artifacts/12345833885)
 are retained in the contract run's artifacts for fourteen days.
