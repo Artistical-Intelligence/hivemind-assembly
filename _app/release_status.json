@@ -189,11 +189,57 @@
     "retention_days": 14
   },
   "automated_tests": {
-    "passed": 778,
+    "passed": 807,
     "skipped": 18,
     "failed": 0,
-    "elapsed_seconds": 626.685,
+    "elapsed_seconds": 650.98,
     "host": "GitHub Linux Python 3.12",
-    "scope": "796-case full regression at implementation 73fd1d9, run 39615843168. Windows: 760 passed/36 skipped in 992.269s; fifteen separate native execution/cleanup checks passed in 80.399s. Ten actual Chromium cases passed in 109.953s. Packaged Windows install/update/backup restoration passed. Fresh installed foundations passed run 39615843195. Initial diagnostics local full regression: 776 passed/18 skipped in 707.60s; final boundary correction: 37 targeted checks passed in 22.38s. No live native-model acceptance inferred."
-  }
+    "scope": "Full regression at implementation 4f057ab, run 39650550445. Windows: 788 passed/37 skipped in 1233.12s. No live native-model acceptance inferred."
+  },
+  "evidence": [
+    {
+      "id": "hosted-ci-0.25",
+      "date": "2026-10-21",
+      "commit": "4f057ab04ecf5a1ac815822c4d258fb23a4f9e6c",
+      "runs": [
+        39650550445
+      ],
+      "host": "GitHub Linux and Windows",
+      "live_model_inference": false,
+      "summary": "All four jobs passed: Linux 807 passed/18 skipped; Windows 788 passed/37 skipped after one rerun of an unrelated native compile timeout; fifteen native Windows checks; ten Chromium checks; Windows package install, update and restore. The package was built before the 0.25.0 version label."
+    },
+    {
+      "id": "project-reconstruction-suite",
+      "date": "2026-10-21",
+      "commit": "4f057ab04ecf5a1ac815822c4d258fb23a4f9e6c",
+      "runs": [
+        39650550445
+      ],
+      "host": "Linux x86-64 local and hosted CI",
+      "live_model_inference": false,
+      "summary": "Fixed source-known Stop 3 suite: x86-64 utility with original-code fallback, AArch64 original rebuilt as x86-64, game state/frame/audio target. Thirteen planted incorrect variants rejected, eight only by whole-program checks. The composed utility ran natively with output identical to the original."
+    },
+    {
+      "id": "ghidra-project-plan",
+      "date": "2026-10-21",
+      "commit": "4907b107cb4861748a42a12d53bc3a3dbfbb9045",
+      "runs": [
+        39650087898
+      ],
+      "host": "Fresh Linux x86-64 install and hosted Windows",
+      "live_model_inference": false,
+      "summary": "Fresh Ghidra 12.1.4, REA 6.7.0 and Hermes c0015464f0f4 installations passed every foundation check, including composition over an actual Ghidra callgraph plan (30 functions, four regions recovered)."
+    },
+    {
+      "id": "baseline-suite-1c05abf",
+      "date": "2026-10-21",
+      "commit": "1c05abff81c7cdffdd2fb29e6fe1f396c854d364",
+      "runs": [
+        39632598272
+      ],
+      "host": "GitHub Linux and Windows",
+      "live_model_inference": false,
+      "summary": "Handoff baseline: all four jobs passed; local Linux full suite 795 passed/18 skipped."
+    }
+  ]
 }

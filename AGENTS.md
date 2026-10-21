@@ -29,3 +29,7 @@
   GitHub repository during long runs. Do not defer all publication until the
   final release. Preserve remote changes; never force-push. Exclude credentials,
   private runtime data and source material without sharing permission.
+
+- Record verified evidence in `_app/release_status.json` (`evidence`, with full
+  commit SHAs and run IDs), then run `python dev/status_docs.py --write`; the README
+  and ROADMAP status blocks are generated and checked by tests.
