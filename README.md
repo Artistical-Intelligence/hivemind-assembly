@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.18.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.18.1 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -396,6 +396,9 @@ Exit status and stdout/stderr remain exact. **Inspect captures** beside workspac
 checks, or **View latest observations** in test setup, shows frame and per-channel
 waveform previews with quantitative comparison results. Sequences have a shared
 reference/candidate slider and a jump to the first failing frame.
+Each preview also offers a raw download of its complete stored capture, preserving
+the original pixel/sample bytes for external inspection rather than re-encoding
+the canvas. Downloads stay on your computer unless you choose to share them.
 Captures and oracle details stay in protected evidence, tied to the task and
 suite that produced them; they are not disclosed to workers or published.
 

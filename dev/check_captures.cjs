@@ -4,6 +4,10 @@ const root = process.argv[2];
 const dom = new JSDOM('<div id="target"></div>', {runScripts: 'outside-only'});
 const w = dom.window;
 const images = [], strokes = [];
+const downloads = [], blobs = [];
+w.URL.createObjectURL = blob => { blobs.push(blob); return 'blob:fixture'; };
+w.URL.revokeObjectURL = () => {};
+w.HTMLAnchorElement.prototype.click = function() { downloads.push({name:this.download,href:this.href}); };
 w.HTMLCanvasElement.prototype.getContext = () => ({
   createImageData: (width, height) => ({data: new Uint8ClampedArray(width * height * 4)}),
   putImageData: data => images.push([...data.data]),
@@ -40,13 +44,17 @@ w.renderNativeCaptures(frames, target);
 assert.deepEqual(images, [[1,2,3,255],[1,2,3,255]]);
 const slider = target.querySelector('input[type=range]');
 assert.equal(slider.max, '2');
-target.querySelector('button').click();
+[...target.querySelectorAll('button')].find(b => b.textContent === 'First failing frame').click();
 assert.equal(slider.value, '1');
 assert.deepEqual(images.slice(-2), [[4,5,6,255],[10,11,12,255]]);
 assert.ok(target.textContent.includes('index 1 · declared time 0.016667 s'));
 slider.value='2'; slider.dispatchEvent(new w.Event('input'));
 assert.deepEqual(images.slice(-2), [[7,8,9,255],[7,8,9,255]]);
 assert.ok([...target.querySelectorAll('canvas')].every(c => c.getAttribute('aria-label').includes('index 2')));
+[...target.querySelectorAll('button')].find(b => b.textContent === 'Download candidate capture').click();
+assert.deepEqual(downloads, [{name:'candidate-scene',href:'blob:fixture'}]);
+assert.equal(blobs[0].size,12);
+assert.equal(blobs[0].type,'application/octet-stream');
 frames.cases[0].runs.candidate[0].file_contents_hex.scene = '00';
 w.renderNativeCaptures(frames,target);
 assert.equal(target.querySelectorAll('canvas').length,1);

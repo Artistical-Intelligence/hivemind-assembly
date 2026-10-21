@@ -9,7 +9,8 @@ In HA, authorize the supplied native examples, then create the frame replay
 example. Run checks, change "tick == frame" to "tick == frame - 1" in candidate.c,
 save, and run again. For the supplied movements, final.bin still matches but
 intermediate frames fail. Click Inspect captures, choose frames.rgba and scrub
-both captures together or jump to the first failing frame. The original, cases
+both captures together or jump to the first failing frame. Download either raw
+capture from its preview to inspect all frames with external tools. The original, cases
 and comparison thresholds are pinned independently of editable workspace files.
 
 Command-line execution from the HA root:
@@ -17,7 +18,7 @@ python _app/launch.py test-programs --suite _app/examples/frame_replay/suite.jso
 
 frames.rgba uses the FFmpeg rawvideo layout. To inspect a retained raw capture
 outside HA, with FFmpeg tools installed:
-ffplay -f rawvideo -pixel_format rgba -video_size 16x16 -framerate 60 frames.rgba
+ffplay -f rawvideo -pixel_format rgba -video_size 16x16 -framerate 60 candidate-frames.rgba
 
 This verifies sampled software output and input ordering, not arbitrary games,
 graphics driver behavior, display timing or all possible input sequences.

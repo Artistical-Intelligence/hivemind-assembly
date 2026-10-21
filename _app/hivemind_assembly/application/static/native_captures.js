@@ -71,6 +71,19 @@ window.renderNativeCaptures = function(result, target) {
         element('p', 'Capture unavailable or invalid.', panel); continue;
       }
       const bytes = Uint8Array.from(hex.match(/../g) || [], v => parseInt(v, 16));
+      const download = element('button', `Download ${name.toLowerCase()} capture`, panel);
+      download.type = 'button';
+      download.onclick = () => {
+        // The owner's explicit click exports the stored bytes, not a canvas
+        // encoding (which could change alpha/color values). No capture is sent
+        // to an external service or stored in a shareable URL.
+        const url = URL.createObjectURL(new Blob([bytes], {type: 'application/octet-stream'}));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${name.toLowerCase()}-${path.split(/[\\/]/).pop() || 'capture.bin'}`;
+        panel.append(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      };
       if (rule.format === 'rgba8' || sequence) {
         if (!dimensionsValid || rule.width * rule.height * 4 * frameCount !== bytes.length) {
           element('p', 'Capture dimensions do not match.', panel); continue;

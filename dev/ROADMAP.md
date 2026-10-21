@@ -152,3 +152,9 @@ Windows checks, seven Chromium checks, and packaged Windows installation,
 update and restoration. Full pinned Windows foundations also passed at
 75960e5 in run 39519833574. Signed-in account and broader target gates above
 remain; these results do not establish native model inference.
+
+Version 0.18 passed all four hosted jobs at 3154f00 in run 39537954248:
+Linux 575 passed/11 skipped, Windows 561 passed/25 skipped, ten additional native
+Windows checks, eight Chromium checks, and packaged installation/update/restore
+including frame replay. Version 0.18.1 adds owner-initiated raw capture downloads
+for external frame/audio inspection without canvas re-encoding.

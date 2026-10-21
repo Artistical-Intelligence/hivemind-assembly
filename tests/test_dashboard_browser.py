@@ -102,7 +102,7 @@ def test_edit_upload_check_and_draft_retention(server, app):
         browser.close()
 
 
-def test_frame_replay_starter_and_synchronized_capture_inspection(server, app):
+def test_frame_replay_starter_and_synchronized_capture_inspection(server, app, tmp_path):
     import shutil
     from playwright.sync_api import sync_playwright, expect
 
@@ -145,6 +145,15 @@ def test_frame_replay_starter_and_synchronized_capture_inspection(server, app):
         expect(slider).to_have_value("0")
         reference, candidate = view.locator("canvas").evaluate_all(pixels)
         assert reference != candidate
+        with page.expect_download() as download:
+            view.get_by_role("button", name="Download candidate capture", exact=True).click()
+        assert download.value.suggested_filename == "candidate-frames.rgba"
+        output = tmp_path / "candidate-frames.rgba"
+        download.value.save_as(output)
+        raw = output.read_bytes()
+        assert len(raw) == 16 * 16 * 4 * 16
+        assert raw[:16 * 16 * 4] == bytes(candidate)
+        assert raw[-16 * 16 * 4:] != raw[:16 * 16 * 4]
         # Switching projects removes the previous project's protected captures.
         page.get_by_role("button", name="Create register example", exact=True).click()
         expect(page.locator("#file-path")).to_have_value("candidate.hex")
