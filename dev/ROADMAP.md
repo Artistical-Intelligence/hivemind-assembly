@@ -134,6 +134,21 @@ Native credentials, profiles and protected target data remain outside GitHub.
 
 ## Verification
 
+### Session of 2026-10-21 (Linux cloud host, implementation `1c05abf`)
+
+- Full local suite at `1c05abf` (Python 3.12, Clang/LLD): 795 passed,
+  18 skipped (609.94 seconds).
+- Fresh pinned Ghidra 12.1.4 (archive SHA-256 matched), REA 6.7.0 and Hermes
+  `c0015464f0f4` installed through `dev/check_installed_foundations.py` on
+  Linux x86-64 with JDK 21 and Node 24.22.1; source-known adapter verification
+  passed. No model inference was invoked.
+- Blocked on this host: no signed-in HA browser profiles or desktop display,
+  so live native route acceptance remains 0 of 5.
+- Unmerged branch `wip/project-level-checks` (`730d080`) adds a dependency-ordered
+  `compare_project` function/program check, a protected `linux_project` scope and
+  a read-only `verified_sources` rollback lookup. The existing tests it touches
+  (50) pass; it has no dedicated tests and is not part of this release.
+
 The Stop 1 startup/trial checkpoint `23cab3483cc7e15d04be5e38095473a57dfac2d4`
 passed 69 focused local checks. In
 [run 39625848828](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39625848828),
