@@ -46,6 +46,7 @@ class Availability:
     observed: float = 0
     windows: list[Window] = field(default_factory=list)
     blocked: str = ""
+    blocked_kind: str = ""
 
     def eligible(self, now=None):
         now = time.time() if now is None else now

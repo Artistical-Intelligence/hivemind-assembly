@@ -7,6 +7,7 @@ from urllib.parse import urlsplit, urljoin
 from hivemind_assembly.core.common import (
     Blocked,
     WaitingForSignIn,
+    AllowanceUnavailable,
     Retryable,
     atomic_write,
     canonical,
@@ -66,11 +67,14 @@ class NativeSetup:
                     observation.route = route
                     break
         if observation is not None:
+            if observation.blocked_kind == "quota":
+                return observation
             # The exact identity just observed authorizes only the canary here.
             # Work readiness is published after both transfer directions pass.
             observation = copy.deepcopy(observation)
             observation.ready = True
             observation.blocked = ""
+            observation.blocked_kind = ""
         return observation
 
     async def step(self, route):
@@ -188,6 +192,12 @@ class NativeSetup:
             except WaitingForSignIn as error:
                 result = self.save(
                     route, stage="authentication", instruction=str(error)
+                )
+            except AllowanceUnavailable as error:
+                if self.team is not None:
+                    self.team.block_allowance(error.route or route, str(error))
+                result = self.save(
+                    route, stage="waiting_quota", instruction=str(error)
                 )
             except Retryable as error:
                 result = self.save(

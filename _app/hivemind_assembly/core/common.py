@@ -22,6 +22,10 @@ class WaitingForSignIn(Blocked):
 class AllowanceUnavailable(Blocked):
     """Reasoning waits for the scheduled allowance observation, not user repair."""
 
+    def __init__(self, message, *, route=None):
+        super().__init__(message)
+        self.route = route
+
 
 class Conflict(ContractError):
     pass

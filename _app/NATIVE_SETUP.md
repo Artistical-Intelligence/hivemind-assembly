@@ -76,3 +76,17 @@ fixtures do not certify native learning effectiveness.
 No model API, changed model/effort, Chat-for-Work substitution, paid overage or
 manual message relay satisfies native acceptance. Current evidence and limits
 are recorded in `release_status.json`.
+
+## Recovery after sign-in
+
+If a scheduled allowance check finds a sign-in screen or broken conversation
+binding, HA can recheck the native conversation after it is restored. Rechecks
+are spaced at least 30 seconds apart, require previously accepted two-way
+transport and retain the original allowance timestamp. They send no model
+request and do not visit the usage page again. Stale, unknown or exhausted
+allowance cannot be renewed by a conversation recheck.
+
+Quota warnings retain the affected route across application restarts. An adviser
+warning does not incorrectly mark the active worker as exhausted. Native setup
+waits for quota automatically; reopening setup cannot clear a recorded quota
+exhaustion using an older balance.

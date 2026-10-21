@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio, json, time, re
+from dataclasses import asdict, replace
 from pathlib import Path
 from contextlib import contextmanager
 from hivemind_assembly.core.common import uid, digest, canonical, Blocked, ContractError
@@ -54,6 +55,7 @@ class NativeTeam:
         self.active = {}
         self.recovery = Recovery(self.store)
         self.observations = {}
+        self.readiness_checked = {}
         from hivemind_assembly.learning.policy import ExperimentalLearning
 
         self.experimental = ExperimentalLearning(
@@ -112,6 +114,72 @@ class NativeTeam:
                 self.controller._fence(c, task, owner, epoch)
             self.store.put("flow:" + task, uid("flow"), flow, c)
 
+    @staticmethod
+    def readiness_failure(error):
+        if isinstance(error, AllowanceUnavailable):
+            return "quota"
+        if isinstance(error, WaitingForSignIn):
+            return "signin"
+        return "binding" if isinstance(error, Blocked) else "transport"
+
+    def block_allowance(self, route, reason):
+        if route in self.observations:
+            observed = replace(
+                self.observations[route],
+                ready=False,
+                blocked=reason,
+                blocked_kind="quota",
+            )
+            self.observations[route] = observed
+            self.store.put("availability", uid("usage"), asdict(observed))
+
+    async def refresh_readiness(self, route):
+        """Retry native identity after setup/sign-in, retaining the quota timestamp.
+
+        This observes the conversation only. It never refreshes exhausted or stale
+        allowance, verifies an unaccepted transport or sends a model request.
+        """
+        observation = self.observations.get(route)
+        if (
+            observation is None
+            or observation.ready
+            or observation.blocked_kind not in ("signin", "binding", "transport")
+            or not observation.allowance_known
+            or not 0 <= time.time() - observation.observed <= 86400
+            or self.sessions is None
+            or not self.sessions.accepted(route)
+        ):
+            return
+        now = time.monotonic()
+        if now - self.readiness_checked.get(route, float("-inf")) < 30:
+            return
+        lock = self.route_locks.setdefault(route, asyncio.Lock())
+        if lock.locked():
+            return
+        async with lock:
+            self.readiness_checked[route] = now
+            try:
+                await self.browser.observe(route)
+                if not self.sessions.accepted(route):
+                    return
+                refreshed = replace(
+                    observation, ready=True, blocked="", blocked_kind=""
+                )
+            except Exception as error:
+                refreshed = replace(
+                    observation,
+                    ready=False,
+                    blocked=str(error),
+                    blocked_kind=self.readiness_failure(error),
+                )
+            # Settings or setup may have replaced the allowance while observe
+            # awaited the UI. Never resurrect the old account/session evidence.
+            if self.observations.get(route) is not observation:
+                return
+            if refreshed != observation:
+                self.observations[route] = refreshed
+                self.store.put("availability", uid("usage"), asdict(refreshed))
+
     async def poll(self):
         grouped = {}
         for route, cfg in self.config["routes"].items():
@@ -123,6 +191,8 @@ class NativeTeam:
                 grouped.setdefault(cfg["usage"]["scope"], []).append(route)
         for scope, routes in grouped.items():
             if not self.usage.claim_poll(scope):
+                for route in routes:
+                    await self.refresh_readiness(route)
                 continue
             try:
                 usage = await self.browser.poll_usage(routes[0])
@@ -138,6 +208,7 @@ class NativeTeam:
                     "observed": usage["observed"],
                     "windows": usage["windows"],
                     "blocked": "",
+                    "blocked_kind": "",
                 }
                 try:
                     await self.browser.observe(route)
@@ -148,6 +219,7 @@ class NativeTeam:
                     obs["ready"] = True
                 except Exception as e:
                     obs["blocked"] = str(e)
+                    obs["blocked_kind"] = self.readiness_failure(e)
                 self.observations[route] = Availability(
                     **{**obs, "windows": [Window(**w) for w in obs["windows"]]}
                 )
@@ -1167,6 +1239,7 @@ class NativeTeam:
                 ):
                     self.store.state(task, "waiting_signin", reason)
             elif isinstance(e, AllowanceUnavailable):
+                self.block_allowance(e.route, reason)
                 self.store.state(task, "waiting_quota", reason)
             elif "quota" in reason.lower() and route in self.observations:
                 self.observations[route].blocked = reason

@@ -104,6 +104,9 @@ scope or weighting must be stated rather than silently changing the denominator.
 - Implemented: unset usage-page mappings cannot consume the daily polling attempt.
   Setup recovers readiness after a durable session commit without another canary
   request or usage-page fetch inside the existing polling interval.
+- Implemented: sign-in/binding recovery rechecks the accepted native session using
+  the original fresh allowance observation, without refreshing quota. Exhaustion
+  persists on the actual affected route and remains blocked through setup/restart.
 - Implemented: the dashboard's autonomous reconstruction trial supplies a compiled
   multi-function x64 ELF, an unfinished C candidate, development inputs and nine
   protected input cases. Original C and protected inputs are absent from the
@@ -127,6 +130,18 @@ live acceptance. They do not close the stop; independent implementation continue
 Native credentials, profiles and protected target data remain outside GitHub.
 
 ## Verification
+
+The Stop 1 startup/trial checkpoint `23cab3483cc7e15d04be5e38095473a57dfac2d4`
+passed 69 focused local checks. In
+[run 39625848828](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39625848828),
+its Linux artifact records 784 passed/18 skipped (802 total, 419.197 seconds),
+and its Chromium artifact records 10 passed (112.731 seconds). Windows packaging
+also passed. These results belong to that checkpoint, not to subsequent changes.
+
+The subsequent sign-in recovery change passed 69 focused native/session/controller
+checks (6.11 seconds) and 20 native-learning/policy/objective checks (10.55 seconds).
+These use scripted model responses; they establish no live provider acceptance.
+
 
 Corrected implementation `73fd1d9` passed all four jobs in
 [run 39615843168](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39615843168): Linux 778 passed/18 skipped

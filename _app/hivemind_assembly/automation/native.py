@@ -12,6 +12,7 @@ from hivemind_assembly.core.common import (
     file_hash,
     identifier,
     WaitingForSignIn,
+    AllowanceUnavailable,
 )
 
 
@@ -171,6 +172,10 @@ class NativeBrowser:
             raise Blocked("Conversation binding changed or sign-in required")
         for kind in ("authentication", "quota", "approval"):
             if await self.visible(page, selectors.get(kind, "")):
+                if kind == "quota":
+                    raise AllowanceUnavailable(
+                        f"{route}: quota required or exhausted", route=route
+                    )
                 raise Blocked(f"{route}: {kind} required or exhausted")
         evidence = {}
         for field in ("model", "mode", "effort", "account"):
