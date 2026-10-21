@@ -86,7 +86,11 @@ two native-Windows skips. The linked-function extension passed 15 focused and
 69 integrated checks,
 including protected acceptance, independent byte expectations, read-only/bounded
 buffers and strong candidate overrides. Full regression and hosted checks for the
-combined 0.23.1 checkpoint are pending.
+combined 0.23.1 checkpoint are pending. The preceding program-memory checkpoint
+passed 730 local tests with 18 skips (636.43s). Hosted Linux exposed a five-second
+wall-bound failure when all 64 unoptimized ARM corpus commands shared one replay.
+The same corpus now runs in eight-case batches; all eight compiler/optimization
+combinations passed locally, with product execution limits unchanged.
 
 Version 0.22 checkpoint `0923d43` passed 19 focused capture checks and 87 integrated
 checks (one native-Windows skip). Full local regression passed 696 tests with

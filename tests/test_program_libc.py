@@ -94,11 +94,18 @@ def test_memory_routines_match_independent_snapshot_oracle(
     image = compile_at(tmp_path, SOURCE, lane, optimization)
     data, expected = corpus()
     replay = windows_program.replay if lane == "windows" else program.replay
-    result = replay(image, data, max_instructions=5_000_000)
-    assert result["status"] == "completed", result
-    assert result["exit_code"] == 0
-    assert bytes.fromhex(result["stdout_hex"]) == expected
-    assert result["input_consumed"] == len(data)
+    # Each replay retains the product's wall/instruction limits. An O0 ARM
+    # build can exceed the wall limit on a hosted runner if all 64 independent
+    # commands share one replay. Bound each batch without dropping any cases.
+    for first in range(0, len(data) // 8, 8):
+        batch = data[first * 8 : (first + 8) * 8]
+        result = replay(image, batch, max_instructions=5_000_000)
+        assert result["status"] == "completed", result
+        assert result["exit_code"] == 0
+        assert bytes.fromhex(result["stdout_hex"]) == expected[
+            first * 385 : (first + 8) * 385
+        ]
+        assert result["input_consumed"] == len(batch)
 
 
 IMPLICIT = """struct Block {unsigned char bytes[768];};
