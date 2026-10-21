@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.16.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.17.0 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -173,13 +173,13 @@ name) and `env`; both replay engines supply exactly these UTF-8 inputs and never
 inherit host environment variables. Defaults are `["program"]` and `{}`.
 Recovered C reads them through `ha_argc()`, `ha_argv(index)` and `ha_getenv(name)`.
 Direct clock/random instructions and port I/O are rejected in the low-level lane.
-The Qiling dependency lane uses a verified Haswell guest CPU and a fixed timestamp
+The x86-64 Qiling dependency lane uses a verified Haswell guest CPU and a fixed timestamp
 counter tied to `clock_ns`; CPU random instructions still stop replay. Host files, process creation and networking are not
 forwarded. `ha_mkdir`, `ha_rmdir`, `ha_remove`, `ha_rename`, `ha_clock` and
 `ha_random` expose the corresponding declared effects to recovered C.
 
-**Complete Linux x64 / AArch64 program** acceptance supports static ELF for both architectures, and bounded x86-64 dynamic
-ELF/PIE originals under Qiling. Static AArch64 Qiling replay also supports declared
+**Complete Linux x64 / AArch64 program** acceptance supports static ELF for both architectures, and bounded dynamic
+ELF/PIE originals for both architectures under Qiling. AArch64 replay supports declared
 files, directories, mappings and supplied random bytes, with a verified Cortex-A72
 guest CPU. Cross-architecture reconstructions can use observable comparison when
 the two ABIs express the same file operation through different syscall sequences.
@@ -190,6 +190,13 @@ candidate remains freestanding and static. Loader metadata, mapping, TLS setup
 and single-thread registration use an explicit guest contract. Constructors
 cannot consume standard input or perform external writes before program entry.
 Loader activity is retained separately from application events.
+ARM dynamic replay supplies baseline FP/ASIMD capability metadata, guest TLS,
+explicit ordering barriers and backward-compatible BTI hints for its Cortex-A72
+CPU. SVE, LSE, PAC, MTE, hardware counters and cache-line zero operations are not
+modeled. The interpreter and libraries must match the dynamic program architecture.
+A static reconstruction may inspect the preserved original dependency files,
+but does not execute them. Actual glibc startup, printf, initial-exec and dynamic
+TLS have regression fixtures; this is not arbitrary Linux compatibility.
 
 Acceptance pins the original, dependencies and input corpus, rebuilds
 independently, and retains the resulting executable. Strict mode (the default)
@@ -523,4 +530,4 @@ The full foundation check passed at checkpoint `2f8785b` in [hosted run 39476662
 
 HTTP MCP authorization also accepts a hosted client metadata URL. In Connections, generate the public document using a fixed callback port, serve it at your HTTPS URL, and connect. HA uses the official SDK to prefer this registration when the server advertises support, retaining the choice for reconnects and token refresh. The document contains no credentials. Editing the registration or endpoint invalidates in-flight authorization; an HTTPS host is required for the document.
 
-Static AArch64 program reconstruction is available from **Project files → Create AArch64 program example**. This runs the complete source-known ARM ELF and compares an editable x64 reconstruction, including state across multiple input reads. Set `"architecture": "aarch64"` in the candidate build manifest to produce an ARM executable; the default is `x86_64`. Both support deterministic stream I/O, exit, explicit arguments/environment and clock under Unicorn. ARM dynamic linking, file effects and other OS services remain outside this lane; x64 Qiling support is unchanged. Protected acceptance uses `linux_program`; earlier program scope names remain accepted.
+Static AArch64 program reconstruction is available from **Project files → Create AArch64 program example**. This runs the complete source-known ARM ELF and compares an editable x64 reconstruction, including state across multiple input reads. Set `"architecture": "aarch64"` in the candidate build manifest to produce an ARM executable; the default is `x86_64`. Both support deterministic stream I/O, exit, explicit arguments/environment and clock under Unicorn. Choose `qiling_linux` for bounded file/memory effects and supplied dynamic dependencies on either architecture. Unknown OS effects remain unsupported. Protected acceptance uses `linux_program`; earlier program scope names remain accepted.

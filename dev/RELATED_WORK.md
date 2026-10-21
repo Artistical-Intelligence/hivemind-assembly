@@ -452,3 +452,26 @@ and verifier, with project scoping, no replay after interruption, and no protect
 corpus in responses. This is an application job API, not a new JSON-RPC protocol
 implementation. A future Tasks adapter can wrap the same retained records when
 both clients and the pinned SDK extension support it.
+
+### ARM64 dynamic Linux replay
+
+Reuse [Qiling's ELF/rootfs loader](https://docs.qiling.io/en/latest/howto/) rather
+than implementing ELF relocation or TLS allocation. Qiling 1.4.6 emits generic
+x86 capability/platform metadata for 64-bit ELF; HA corrects the ARM guest auxv
+to baseline FP/ASIMD and aarch64, following the
+[Linux HWCAP contract](https://docs.kernel.org/arch/arm64/elf_hwcaps.html).
+Only explicit guest TLS registers, DCZID with cache-line zero prohibited, and
+single-thread ordering barriers are modeled.
+[Arm documents BTI's backward-compatible NOP encoding](https://developer.arm.com/community/arm-community-blogs/b/architectures-and-processors-blog/posts/enabling-pac-and-bti-on-aarch64);
+HA applies that behavior to its A72 guest without advertising BTI protection.
+Unknown system instructions remain rejected.
+
+Tests fetch the hash-pinned Ubuntu Noble libc6-arm64-cross 2.39-0ubuntu8cross1
+package from Ubuntu's official archive. They extract only the loader and libc
+as guest data, without installing the package or running its scripts. Compiled
+PIE/shared-library and TLS fixtures test the real loader. A minimal ABI startup
+shim invokes libc's normal __libc_start_main, consistent with
+[glibc's startup design](https://sourceware.org/pipermail/libc-alpha/2021-February/122794.html).
+Actual printf output agrees with an independently executed host libc program.
+Strict effects still differ from a freestanding reconstruction; an explicitly
+selected observable contract can accept equivalent output and final state.

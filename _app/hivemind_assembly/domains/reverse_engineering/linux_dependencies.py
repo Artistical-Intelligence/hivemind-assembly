@@ -33,10 +33,10 @@ def inspect(data, library=False):
         if (
             elf.elfclass != 64
             or not elf.little_endian
-            or elf["e_machine"] != "EM_X86_64"
+            or elf["e_machine"] not in ("EM_X86_64", "EM_AARCH64")
             or elf["e_type"] not in ("ET_EXEC", "ET_DYN")
         ):
-            raise Blocked("Linux replay requires little-endian x86-64 ELF")
+            raise Blocked("Linux replay requires little-endian x86-64 or AArch64 ELF")
         if not 1 <= elf.num_segments() <= 128:
             raise ContractError("ELF segment count exceeds bounds")
         total, executable, interpreter, needed, dynamic = 0, False, None, [], False
@@ -82,7 +82,12 @@ def inspect(data, library=False):
             raise ContractError("Invalid or oversized ELF image")
         if not library and dynamic and not interpreter:
             raise Blocked("Dynamic executable requires a declared ELF interpreter")
-        return {"interpreter": interpreter, "needed": needed, "dynamic": dynamic}
+        return {
+            "interpreter": interpreter,
+            "needed": needed,
+            "dynamic": dynamic,
+            "machine": elf["e_machine"],
+        }
     except (Blocked, ContractError):
         raise
     except Exception as error:
@@ -98,7 +103,12 @@ def validate(data, dependencies=None):
     total = 0
     for name, content in dependencies.items():
         guest_path(name)
-        modules.append(inspect(content, library=True))
+        module = inspect(content, library=True)
+        # Static reconstructions retain original modules as read-only input files;
+        # they do not load them. A dynamic loader must only execute its own ISA.
+        if info["dynamic"] and module["machine"] != info["machine"]:
+            raise Blocked("ELF dependencies must match the program architecture")
+        modules.append(module)
         total += len(content)
     if total > 32_000_000:
         raise ContractError("ELF dependencies exceed 32 MB")

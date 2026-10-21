@@ -179,10 +179,10 @@ def test_arm_qiling_rejects_unknown_effects(tmp_path, source, status):
 
 def test_arm_qiling_cancellation_and_dependency_boundary(tmp_path):
     import threading
-    from hivemind_assembly.core.common import Blocked
+    from hivemind_assembly.core.common import ContractError
     binary = _image(tmp_path, 'int ha_main(void){for(;;){}return 0;}', architecture="aarch64")
     cancel = threading.Event()
     cancel.set()
     assert replay(binary, cancel=cancel)["status"] == "cancelled"
-    with pytest.raises(Blocked, match="dynamic"):
+    with pytest.raises(ContractError, match="bounds"):
         replay(binary, dependencies={"/lib/unknown.so": b"not a library"})

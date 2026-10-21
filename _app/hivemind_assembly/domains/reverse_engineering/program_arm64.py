@@ -25,6 +25,14 @@ def qiling_operation(number, args):
     from hivemind_assembly.core.common import Blocked
 
     handler = None
+    if number == 48:  # faccessat, the three-argument asm-generic syscall
+        if args[0] & 0xFFFFFFFF != 0xFFFFFF9C:
+            raise Blocked("unsupported_directory_fd")
+        if args[2] & ~7:
+            raise Blocked("unsupported_access_mode")
+        from qiling.os.posix.syscall.unistd import ql_syscall_access
+
+        return 21, [args[1], args[2], 0, 0, 0, 0], (ql_syscall_access, 2)
     if number in (34, 35, 38):
         if args[0] & 0xFFFFFFFF != 0xFFFFFF9C or (
             number == 38 and args[2] & 0xFFFFFFFF != 0xFFFFFF9C

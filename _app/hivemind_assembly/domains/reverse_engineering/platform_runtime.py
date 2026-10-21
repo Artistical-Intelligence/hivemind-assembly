@@ -133,17 +133,11 @@ def replay(
     argv, env = normalize(argv, env)
     from .linux_dependencies import validate
     from .linux_abi import LinuxABI
-    from .program import image_machine, load_image
+    from .program import image_machine
 
     dependencies = {} if dependencies is None else dependencies
     arm = image_machine(data) == 183
-    if arm:
-        load_image(data, machine=183)
-        if dependencies:
-            raise Blocked("AArch64 dynamic loading is outside the platform contract")
-        info = {"interpreter": None, "dynamic": False}
-    else:
-        info = validate(data, dependencies)
+    info = validate(data, dependencies)
     declared = files_spec(files or {})
     if set(declared) & set(dependencies):
         raise ContractError("Guest files cannot replace executable dependencies")
@@ -219,6 +213,10 @@ def replay(
 
         if ql.uc.ctl_get_cpu_model() != (UC_CPU_ARM64_A72 if arm else UC_CPU_X86_HASWELL):
             raise Blocked("Unsupported guest CPU model; revalidate the runtime")
+        if arm:
+            from .arm64_linux import configure_auxv
+
+            configure_auxv(ql)
         dependency_paths = {root / name.lstrip("/") for name in dependencies}
         application_entry = ql.loader.elf_entry
 
@@ -513,9 +511,14 @@ def replay(
             op = opcode(raw) if not arm else None
             if arm:
                 from .arm64 import unsupported_instruction
+                from .arm64_linux import runtime_instruction
 
-                if size != 4 or address % 4 or ql.arch.regs.sp % 16 or (
-                    raw != b"\x01\x00\x00\xd4" and unsupported_instruction(raw)
+                valid_state = size == 4 and address % 4 == 0 and ql.arch.regs.sp % 16 == 0
+                handled = valid_state and bool(info["interpreter"]) and runtime_instruction(
+                    ql, int.from_bytes(raw, "little"), address, memory_allowed, record
+                )
+                if not valid_state or (
+                    not handled and raw != b"\x01\x00\x00\xd4" and unsupported_instruction(raw)
                 ):
                     record({"call": "unsupported_cpu", "instruction": raw.hex()})
                     stop("unsupported_cpu_state")

@@ -1,14 +1,14 @@
 {
-  "version": "0.16.0",
+  "version": "0.17.0",
   "status": "engineering_preview",
   "requested_product_complete": false,
   "automated_tests": {
-    "passed": 542,
+    "passed": 555,
     "skipped": 10,
     "failed": 0,
-    "elapsed_seconds": 122.28,
+    "elapsed_seconds": 141.39,
     "host": "Linux Python 3.12",
-    "scope": "552-case local regression for controller-owned objectives and structured dashboard/MCP actions. Prior hosted evidence below describes its named checkpoint."
+    "scope": "565-case local regression including real pinned ARM64 dynamic ELF/PIE, TLS, libc, native oracles and protected cross-architecture reconstruction. Hosted evidence below describes its named earlier checkpoint."
   },
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -17,7 +17,7 @@
     "static": "pyflakes on changed implementation/tests, JavaScript syntax and git diff --check passed. Workflow template matches the source workflow; runtime and source release archives are separately manifest-checked.",
     "goals": "Fixture native responses exercised root goal continuation through real local capture execution and a second fresh independent acceptance run. This is not signed-in native model acceptance.",
     "historical_evidence": "Checks under historical_checks were recorded in earlier development runs and are not newly claimed from this release verification.",
-    "github_ci": "Final run 39515502062 at aa5f79f passed all four jobs: Linux 524 passed/24 skipped; Windows 526 passed/22 skipped plus ten native execution/cleanup cases; seven actual Chromium cases; packaged Windows installation, drop-in update and backup restoration. Both MCP polling races and clock-order regressions passed on Linux and Windows.",
+    "github_ci": "Run 39518445791 at be0220d passed all four jobs: Linux and Windows contract suites, actual Chromium checks, and packaged Windows installation/update/restore. This is the v0.16 objective checkpoint, before ARM dynamic additions.",
     "windows_runtime": "The extracted Windows package installed its bundled Python and hash-locked dependencies in a fresh data directory, ran register and native Python checks, survived removal/re-extraction of the application folder, and restored a verified backup with project files intact. Paths contained spaces. Tested in GitHub Windows CI, not a manual desktop or complete Ghidra/REA installation.",
     "project_workspace": "Real Chromium and the HTTP controller completed starter creation, uploads, editing, draft preservation, positive/negative checks, byte-exact download, reload persistence, native observations and fresh guided exact-output setup. A separate local jsdom/controller run compiled and checked a C utility through the guided form with automatic compiler discovery. Authenticated streaming, version-checked snapshots, stale edits, immutable references, invalid paths and local-check independence from optional publication passed backend tests.",
     "mcp_codespaces": "Official MCP SDK in-process and real stdio bridge exchanges; outbound stdio discovery/tool/project grants; standalone Linux runner execution, deadline and credential removal; parallel spaces, queued cancellation, interrupted startup, GPU requirement rejection and output import conflict checks. Real HTTP controller with jsdom validated connection settings. No live Codespace or web tunnel acceptance.",
@@ -37,7 +37,8 @@
     "mcp_check_requests": "Official SDK and real stdio-to-authenticated-controller exchanges run owner-pinned checks and poll durable summaries. Lost-response retries retain identity, interrupted requests do not rerun, pre-execution revision changes are rejected, stale outcomes are labeled, project revocation and prior native-execution grants are enforced, and shutdown cancels and joins checks before store closure. Protected evaluator data stays outside MCP responses; detailed errors are protected artifacts. Concurrent polling is serialized with request startup so retained-but-not-yet-started work cannot be reported as interrupted; all 14 MCP connection/check-request tests passed after this refinement. Windows CI exposed a second completion/poll race: result absence and worker termination could be observed across a just-committed completion. A deterministic regression reproduced the false interruption locally. Completion now uses the polling lock, and all 30 focused MCP/application tests passed after the fix.",
     "goal_program_integration": "Scripted worker/adviser responses exercised the real goal controller, ARM-original/x64-candidate Qiling file comparison and fresh protected acceptance. Valid code completes; a mutation after the worker check does not accept the task or achieve the goal. This is not signed-in model acceptance.",
     "journal_order": "Authoritative permission, skill, workflow, setup, evaluation, publication and session-recovery records follow durable append order rather than wall-clock timestamps. Ten paired tie/rollback cases cover revocations and scope changes, skill updates/reverts, retained states, session binding chains and repeated-attempt escalation; two further cases protect export cursor ordering. Nine of the first ten cases reproduced failures before the fix. All twelve and the full 548-case local regression pass after it. Final hosted run 39515502062 also passed these cases on Linux and Windows.",
-    "automatic_objectives": "New dashboard/MCP projects and starters retain continuation atomically with creation without unpausing prepared work. Legacy projects acquire it on explicit task resume. Structured start/status/pause/resume/clear/budget actions replace command entry; old command strings are compatibility only. New objectives have no HA request cap; existing limits remain. Official-SDK MCP calls, real controller/protected acceptance without commands, request-limit fencing, retried-start pause preservation, creation rollback and dashboard controls passed. Full local regression: 542 passed, ten skipped. No signed-in model acceptance inferred."
+    "automatic_objectives": "New dashboard/MCP projects and starters retain continuation atomically with creation without unpausing prepared work. Legacy projects acquire it on explicit task resume. Structured start/status/pause/resume/clear/budget actions replace command entry; old command strings are compatibility only. New objectives have no HA request cap; existing limits remain. Official-SDK MCP calls, real controller/protected acceptance without commands, request-limit fencing, retried-start pause preservation, creation rollback and dashboard controls passed. Full local regression: 542 passed, ten skipped. No signed-in model acceptance inferred.",
+    "arm64_dynamic": "Thirteen targeted cases passed with real Clang/LLD outputs and the pinned Ubuntu ARM64 loader/libc: PIE/shared-library relocation, initial-exec/global-dynamic TLS, baseline auxv, normal libc startup and printf, independent native output oracles, static x64 reconstruction, protected dependency pinning and wrong-output rejection. Missing/mixed/replaced dependencies, constructor I/O, invalid TLS, counters/cache-line zero, cancellation and startup bounds are rejected. Host file/process/network forwarding remains disabled. Full local regression: 555 passed, ten skipped."
   },
   "native_live_acceptance": {
     "validated_routes": 0,
@@ -47,7 +48,7 @@
     "hosted_windows_foundations": true
   },
   "remaining_implementation": [
-    "Extend bounded x86-64/AArch64 function and static Linux application lanes to dynamic ARM loading, broader Windows/game/graphics effects and target-level equivalence.",
+    "Extend bounded x86-64/AArch64 function and static/dynamic Linux application lanes to broader Windows/game/graphics effects and target-level equivalence.",
     "Resolve any provider-specific adapter gaps identified by signed-in account validation; current ambiguous controls remain blocked.",
     "Extend MCP onboarding where provider-specific requires additional integration; standard HTTP OAuth setup is implemented, with live account consent and tunnel authorization still acceptance gates."
   ],
@@ -63,7 +64,7 @@
   "model_api_inference": false,
   "paid_overage": false,
   "runtime_contract": {
-    "program": "Static little-endian x86-64 and AArch64 Linux ELF. Unicorn supports streams, exit, argv/env and a fixed clock; Qiling adds bounded files, directories, mappings, deterministic metadata and supplied random input. Qiling also accepts x86-64 dynamic ELF/PIE with explicitly supplied and pinned interpreter/libraries. No host file, process/network forwarding, unknown syscalls or constructor I/O. Strict effects remain the default; explicit observable policy compares streams, exit, input consumption, selected memory and final files/directories. Event traces retained.",
+    "program": "Static little-endian x86-64 and AArch64 Linux ELF. Unicorn supports streams, exit, argv/env and a fixed clock; Qiling adds bounded files, directories, mappings, deterministic metadata and supplied random input. Qiling also accepts x86-64 and AArch64 dynamic ELF/PIE with explicitly supplied and pinned interpreter/libraries. No host file, process/network forwarding, unknown syscalls or constructor I/O. Strict effects remain the default; explicit observable policy compares streams, exit, input consumption, selected memory and final files/directories. Event traces retained.",
     "data_location": "Existing UnifiedWorkbench user-data path is unchanged",
     "credentials": "OS vault; browser credentials are not copied to code, configuration, releases or backups"
   },

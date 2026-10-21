@@ -46,7 +46,7 @@ Windows application reconstruction or live GitHub automation acceptance.
    Rollout control, protected truth, resumption and promotion are implemented
    and fixture-tested; genuine native learning gains remain unmeasured.
 4. Extend application reconstruction beyond the implemented static x86-64/AArch64 Linux
-   and supplied-dependency x86-64 Linux contracts. Full Qiling now executes bounded
+   and supplied-dependency x86-64/AArch64 Linux contracts. Full Qiling now executes bounded
    ELF interpreter/shared-library startup and explicit process/file/memory inputs.
    Broader CPU/OS effects, Windows/game/graphics behavior and target-level
    equivalence remain outside the implemented acceptance scope.
@@ -82,7 +82,7 @@ consent and live account policies remain gates. Hosted client metadata document 
 Version 0.14 adds bounded AArch64 linked-function reconstruction, cross-architecture
 comparison with x86-64, protected acceptance, reusable workflow calls, installed
 runtime probes, and an editable dashboard example. It uses Clang/LLD and Unicorn
-with explicit AAPCS64 integer/pointer contracts. Version 0.15 also executes complete static ARM Linux programs with explicit streams, argv/env and clock. Static ARM Qiling replay now also covers bounded file/directory/memory effects and supplied random input. Broader ARM dynamic execution, console-specific loaders, graphics runtime and target-level equivalence remain work.
+with explicit AAPCS64 integer/pointer contracts. Version 0.15 also executes complete static ARM Linux programs with explicit streams, argv/env and clock. Static ARM Qiling replay now also covers bounded file/directory/memory effects and supplied random input. Version 0.17 extends this to bounded ARM dynamic ELF/PIE and explicit libraries. Console-specific loaders, graphics runtime and target-level equivalence remain work.
 
 The Windows foundation verification fixture now uses PE for Ghidra/REA while
 retaining the separate ELF runtime probe. A dedicated hosted workflow exercises
@@ -124,3 +124,12 @@ projects retain objectives automatically; prepared tasks stay paused until start
 Dashboard controls and structured MCP actions replace command entry. No provider
 slash-command support is required. New objectives have no HA request cap; existing
 configured caps remain. Independent acceptance still owns completion.
+
+Version 0.17 reuses Qiling for ARM64 dynamic ELF/PIE, guest TLS and supplied
+shared libraries. Pinned Ubuntu loader/libc fixtures exercise startup, relocations,
+initial-exec and global-dynamic TLS, capability metadata, printf, and ARM-to-x64
+protected reconstruction. Linux native oracles check outputs independently.
+Missing/mismatched libraries, mutation, constructor I/O, invalid TLS, counters,
+cache-line zero, cancellation and startup budgets have rejection checks.
+Development CI downloads the hash-pinned guest fixture without installing or
+executing package scripts; no guest libraries enter runtime releases.

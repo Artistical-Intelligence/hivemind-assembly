@@ -3,7 +3,7 @@
 import copy
 import hashlib
 import json
-from .program import build, compare, replay, sources, image_machine, load_image
+from .program import build, compare, replay, sources
 from hivemind_assembly.core.common import (
     scoped,
     canonical,
@@ -28,17 +28,10 @@ class ProgramAcceptance:
         from .linux_dependencies import read_dependencies, validate
 
         dependencies = read_dependencies(root, spec.get("original_dependencies", {}))
-        arm = image_machine(original) == 183
-        if arm:
-            load_image(original, machine=183)
-            if dependencies:
-                raise ContractError("AArch64 program replay requires a static image without dependencies")
-            info = {"dynamic": False}
-        else:
-            info = validate(original, dependencies)
+        info = validate(original, dependencies)
         if info["dynamic"] and spec["scope"] == "static_x86_64_linux_program":
             raise ContractError(
-                "Dynamic images require x86_64_linux_program acceptance"
+                "Dynamic images require linux_program acceptance"
             )
         cases = spec["cases"]
         if not isinstance(cases, list) or not 2 <= len(cases) <= 256:
