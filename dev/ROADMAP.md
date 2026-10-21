@@ -13,6 +13,11 @@ environment queries, faults and exhausted execution budgets cannot pass.
 CRT, GUI, filesystem, threading and arbitrary Windows applications remain outside
 this first Windows program contract.
 
+The Windows lane passed native Windows PE execution, nine real Chromium checks,
+and package installation/update/backup restoration at 3f3269c (contract run
+39543882461). Full Linux/Windows suites and fresh Ghidra/REA/Hermes installation
+also passed. Native signed-in model acceptance remains separate.
+
 Version 0.18 adds ordered raw RGBA frame sequences, per-frame tolerances and
 failure locations, a synchronized capture scrubber, direct workspace capture
 inspection, and a runnable Python-reference/C-reconstruction frame replay starter.

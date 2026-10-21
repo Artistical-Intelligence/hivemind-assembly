@@ -1,6 +1,6 @@
 # Hivemind Assembly
 
-A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.18.1 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
+A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Version 0.19.1 is an engineering preview. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
 ## Start on Windows
 
@@ -65,7 +65,7 @@ One application contains separate core, automation, learning, reverse-engineerin
 
 ## Development and verification
 
-Use Python 3.12. Windows release dependencies are fully locked in `_app/requirements-windows.lock`; `dev/lock_windows.py` checks Windows-specific dependency markers and wheel hashes. Source archives include the pure-Python bootstrap wheel needed to reproduce that lock.
+Use Python 3.12. Windows release dependencies are fully locked in `_app/requirements-windows.lock`; `dev/lock_windows.py` checks Windows-specific dependency markers and wheel hashes. Source archives include the pure-Python bootstrap wheels needed to reproduce that lock.
 
 For development:
 
@@ -607,3 +607,13 @@ TLS, other imports, overlapped I/O, arbitrary files, CRT, GUI, threads, direct C
 environment queries and host process/network effects are rejected. Matching
 faults or budget exhaustion never pass. This is corpus evidence within the
 explicit runtime contract, not proof of arbitrary Windows application equivalence.
+
+
+Validation for implementation `3f3269c`: [run 39543882461](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39543882461)
+passed Linux (588 tests), Windows (575 tests plus 11 native checks), nine real
+Chromium cases, and Windows package installation/update/backup restoration.
+The [separate foundations run](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39543882473)
+passed fresh Ghidra/REA/Hermes installation and actual adapter probes. These
+checks use source-known targets and scripted interactions, not signed-in model
+sessions. The tested Windows/source packages are available in the contract
+run's artifacts.
