@@ -4,13 +4,13 @@
   "requested_product_complete": false,
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
-    "capture_preview": "jsdom checked raw RGBA canvas bytes, PCM waveform samples, invalid shapes and escaped labels. All nine actual Chromium checks passed in run 39547306791, including ordered capture scrubbing and complete raw capture download bytes.",
+    "capture_preview": "Local DOM checks passed for raw RGBA canvas bytes, synchronized sequence scrubbing, PCM waveforms, invalid shapes and escaped labels. All nine actual Chromium checks passed in run 39553956769, including capture scrubbing and complete raw downloads.",
     "hosted_requests": "Durable exact-commit tag selection, managed workflow validation, optional owner-authorized dispatch, 30-second tracking, lost tag/dispatch responses across restart, bounded run discovery, identity/attempt checks, cancellation, artifact metadata recovery and project-only worker status passed API fixtures. Dashboard submit/retry identity and refresh/cancel controls passed jsdom. No live hosted run was dispatched in this release validation.",
     "static": "pyflakes on changed implementation/tests, JavaScript syntax and git diff --check passed. Workflow template matches the source workflow; runtime and source release archives are separately manifest-checked.",
     "goals": "Fixture native responses exercised root goal continuation through real local capture execution and a second fresh independent acceptance run. This is not signed-in native model acceptance.",
     "historical_evidence": "Checks under historical_checks were recorded in earlier development runs and are not newly claimed from this release verification.",
-    "github_ci": "All four hosted jobs passed at 90fc291 in run 39552405664; this validates v0.21.0 memory support. The v0.21.1 diagnostic follow-up is awaiting hosted verification. Live signed-in model gates remain separate.",
-    "windows_runtime": "v0.21.0 packaged Windows install/update/backup restoration passed run 39552405664, including the dynamic-buffer file-transform starter and page-crossing case. The diagnostic follow-up is pending hosted verification.",
+    "github_ci": "Implementation bb9de83 passed all four jobs in run 39553956769: Linux 677 passed/16 skipped; Windows 667 passed/26 skipped; fourteen separate native execution/cleanup checks; nine actual Chromium checks; and packaged Windows install/update/restore including dynamic-buffer PE reconstruction. Earlier fresh Ghidra/REA/Hermes installation and actual adapters passed run 39543882473. These source-known/scripted checks do not establish signed-in model acceptance.",
+    "windows_runtime": "The extracted v0.21.1 Windows package installed embedded Python and hash-locked dependencies, ran register/native Python/frame/dynamic-buffer Windows PE checks, survived application removal and re-extraction, and restored a verified backup including the PE starter. Paths contained spaces. Run 39553956769 passed. Desktop prerequisite installation and signed-in model sessions remain unverified.",
     "project_workspace": "Real Chromium and the HTTP controller completed starter creation, uploads, editing, draft preservation, positive/negative checks, byte-exact download, reload persistence, native observations and fresh guided exact-output setup. A separate local jsdom/controller run compiled and checked a C utility through the guided form with automatic compiler discovery. Authenticated streaming, version-checked snapshots, stale edits, immutable references, invalid paths and local-check independence from optional publication passed backend tests.",
     "mcp_codespaces": "Official MCP SDK in-process and real stdio bridge exchanges; outbound stdio discovery/tool/project grants; standalone Linux runner execution, deadline and credential removal; parallel spaces, queued cancellation, interrupted startup, GPU requirement rejection and output import conflict checks. Real HTTP controller with jsdom validated connection settings. No live Codespace or web tunnel acceptance.",
     "private_mcp_tunnel": "Downloaded official tunnel-client v0.0.16, verified its published archive digest and installed binary hash. Official doctor accepted the generated configuration with a fixture credential; no real account or tunnel was connected. Session-only credential exclusion, OS-vault separation, checksum changes, process supervision and log redaction passed targeted tests.",
@@ -36,8 +36,8 @@
     "windows_pe_program": "Clang/LLD PE builds, Speakeasy-backed bounded stream/file/process/clock replay, protected originals/cases, fresh acceptance rebuilds, worker tools and editable Windows starter passed local and hosted checks. Independent native Windows oracles passed stream, file and process input semantics. C pragma operators and emitted COFF linker directives are rejected before linking; unsupported CPU-state queries, imports, overlapped I/O, faults, missing ExitProcess and exhausted budgets cannot pass. No arbitrary Windows/CRT/GUI or live model claim.",
     "windows_file_program": "Implementation 0948323 passed all four jobs in run 39547306791. Native Windows file oracle agrees on shared bytes/independent cursors, case aliases, EOF, seek, zero-gap writes, truncation, creation, sharing and documented errors. Final-file mutants fail in observable mode. Protected file inputs, host isolation, resource bounds and editable file-transform starter passed; packaged update/restore retained the starter.",
     "windows_process_inputs": "Explicit raw command-line and case-insensitive declared environment inputs passed full Linux/Windows CI at 0948323 in run 39547306791. Independent native Windows execution agrees on ANSI/UTF-16 values, size queries, empty/missing variables and observed quoting. Protected acceptance, host isolation, read-only command-line pages (including host-side API writes), undefined buffer rejection and strict/observable policies passed. No host environment inheritance or general code-page conversion claim.",
-    "virtual_memory": "v0.21.0 full Linux/Windows regression and independent native Windows oracle passed in run 39552405664. Reserve/commit/protect/decommit/recommit/release, zeroing, cross-page ranges, invalid CPU/API accesses, cumulative reservation bounds, allocation-policy comparison, protected dynamic-buffer starter and reproduced read-only PE API-write rejection covered. Native PE oracle independently checked exact outputs, return values and page/protection behavior.",
-    "windows_diagnostics": "Nine local focused checks passed (15.82s): guest instruction bytes resolve against independently parsed PE file offsets; active API arguments and faulting buffer addresses retained; no stale location after precancel; successful replay has no diagnostic; diagnostic metadata excluded from comparison; protected original preflight diagnostics blocked from worker access. Native hosted validation pending for this addition."
+    "virtual_memory": "Full Linux/Windows suites and independent native Windows PE oracle passed in run 39553956769. Reserve/commit/protect/decommit/recommit/release, zeroing, cross-page ranges, CPU/API permissions, cumulative reservation bounds, allocation-policy comparison, protected dynamic-buffer starter and reproduced read-only PE API-write rejection covered. The native oracle independently checked exact outputs, return values and page/protection behavior.",
+    "windows_diagnostics": "Focused guest-location checks and full Linux/Windows suites passed at bb9de83 in run 39553956769. Guest instruction bytes resolve against independently parsed PE offsets; active API arguments and faulting buffer addresses are retained; precancel has no stale guest location; successful replay has no diagnostic; diagnostic metadata is excluded from comparison; sealed-original preflight evidence is blocked from worker access."
   },
   "native_live_acceptance": {
     "validated_routes": 0,
@@ -173,18 +173,18 @@
     "windows_memory_checkpoint": "v0.21.0 implementation 90fc291972518e1d3608e2a895a10349f58bc6d2 passed all four jobs in run 39552405664: Linux 670 passed/16 skipped (388.801s), Windows 660 passed/26 skipped (671.377s), fourteen separate native checks (26.451s), nine Chromium checks (96.660s) and Windows package install/update/restore. Full corpus: 686 cases."
   },
   "verified_package": {
-    "implementation_commit": "90fc291972518e1d3608e2a895a10349f58bc6d2",
-    "workflow_run": 39552405664,
-    "artifact_id": 12324391481,
-    "url": "https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39552405664/artifacts/12324391481",
+    "implementation_commit": "bb9de83828a1512aded14a121f359b4c2ef8cb0e",
+    "workflow_run": 39553956769,
+    "artifact_id": 12324534067,
+    "url": "https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39553956769/artifacts/12324534067",
     "retention_days": 14
   },
   "automated_tests": {
     "passed": 677,
     "skipped": 16,
     "failed": 0,
-    "elapsed_seconds": 448.25,
-    "host": "Local Linux Python 3.12",
-    "scope": "Full 693-case regression on the v0.21.1 diagnostic follow-up. Focused diagnostic checks: nine passed. Hosted Windows/Linux/Chromium/package validation pending for this checkpoint; v0.21.0 hosted results retained separately."
+    "elapsed_seconds": 421.716,
+    "host": "GitHub Linux Python 3.12",
+    "scope": "693-case full regression at implementation bb9de83, run 39553956769. Windows: 667 passed/26 skipped in 741.856s; fourteen separate native execution/cleanup checks passed in 27.413s. Nine actual Chromium cases passed in 82.535s. Packaged Windows install/update/backup restoration passed. Earlier full Windows foundations passed run 39543882473. Local full regression: 677 passed/16 skipped in 448.25s."
   }
 }

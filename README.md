@@ -702,16 +702,17 @@ faults or budget exhaustion never pass. This is corpus evidence within the
 explicit runtime contract, not proof of arbitrary Windows application equivalence.
 
 
-The memory implementation `90fc291` passed all four jobs in
-[run 39552405664](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39552405664):
-Linux 670 passed/16 skipped, Windows 660 passed/26 skipped, fourteen separate
-native Windows checks, nine Chromium checks and packaged install/update/restore.
-Native PEs independently checked streams, files, process inputs and virtual memory.
-The diagnostic follow-up passed the full local suite (677 passed/16 skipped);
-its hosted verification is pending.
+Validation for implementation `bb9de83`: all four jobs passed in
+[run 39553956769](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39553956769).
+Linux passed 677 tests with 16 platform skips; Windows passed 667 with 26 skips.
+Fourteen separate native Windows checks, nine Chromium checks and packaged
+Windows installation/update/backup restoration passed. Native PEs independently
+checked streams, files, process inputs and virtual memory. Guest failure locations
+and protected diagnostic access passed on both hosts. The full local suite also
+passed 677 tests with 16 skips.
 
 The earlier [foundations run](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39543882473)
 passed fresh Ghidra/REA/Hermes installation and actual adapter probes. These
 checks use source-known targets and scripted interactions, not signed-in model
-sessions. The [tested v0.21.0 Windows/source packages](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39552405664/artifacts/12324391481)
-are retained in the memory checkpoint's contract artifacts.
+sessions. The [tested v0.21.1 Windows/source packages](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39553956769/artifacts/12324534067)
+are retained in the contract run's artifacts for fourteen days.
