@@ -293,11 +293,17 @@ def check(
         ABI_ARCHITECTURE[s.get("abi", "sysv")] for s in project["functions"].values()
     } | ({build.get("architecture", "x86_64")} if build else set())
     same = candidate_architectures <= {MACHINE_ARCHITECTURE[machine]}
+    reason = "Candidate architecture differs from the original; regions cannot share one image"
+    if same:
+        try:
+            program.load_image(original, machine=machine)
+        except Blocked as error:
+            # Dynamic/PIE originals keep the complete-build path only.
+            same = False
+            reason = "Region replacement needs a static ET_EXEC original: " + str(error)
     composition = {"applicable": same}
     if not same:
-        composition["reason"] = (
-            "Candidate architecture differs from the original; regions cannot share one image"
-        )
+        composition["reason"] = reason
     elif project["functions"]:
         eligible = [f["function"] for f in functions if f["passed"] is not False]
         regressed = sorted(previous - set(eligible))
