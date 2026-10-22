@@ -18,6 +18,8 @@ mcp==2.3.0
 
 # Hermes plugins (browser-use, Browserbase, Firecrawl, Krea, xAI) import requests from this runtime.
 requests==2.34.2
+# Permanent (Cloudflare Workers) browser connection: outbound WebSocket to the relay.
+websocket-client==1.9.2
 
 # Windows PE loader/runtime with an explicit HA API boundary.
 speakeasy-emulator==2.0.0b9
