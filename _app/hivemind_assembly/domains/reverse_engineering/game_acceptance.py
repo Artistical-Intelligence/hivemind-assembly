@@ -84,6 +84,10 @@ class GameAcceptance:
         if not path.is_file() or path.stat().st_size > 262144:
             raise ContractError("Game spec is missing or exceeds 256 KiB")
         game = gs.validate(json.loads(path.read_text("utf-8")))
+        if "native" in game:
+            raise Blocked(
+                "game_play acceptance seals emulated games; play-test native games with saved regressions"
+            )
         original_path = spec.get("original_path", game.get("original_path"))
         manifest_path = spec.get("manifest_path", game.get("candidate_manifest"))
         if not original_path or not manifest_path:
