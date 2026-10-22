@@ -124,3 +124,18 @@ def test_relay_answers_in_parts_and_never_replays(tmp_path):
     assert len(parts) == 3 and all(p["id"] == "r1" and p["total"] == 3 for p in parts)
     assert json.loads("".join(p["text"] for p in parts))["result"]["text"] == "x" * 130000
     assert len(handled) == 1
+
+
+def test_worker_handles_approval_tokens_and_relay():
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("needs Node.js")
+    root = Path(__file__).resolve().parents[1]
+    worker = root / "_app/hivemind_assembly/integrations/web_bridge/worker.mjs"
+    out = subprocess.run([node, str(root / "dev/check_worker.mjs"), str(worker)], capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    assert "Worker check passed" in out.stdout
