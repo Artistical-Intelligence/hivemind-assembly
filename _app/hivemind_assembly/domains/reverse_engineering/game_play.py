@@ -191,13 +191,14 @@ class GamePlay:
         for side in ("original", "candidate"):
             try:
                 images = self.images(context, spec, side)
+                if images[side] is None:
+                    result["sides"][side] = {"available": False, "build": images["build"]}
+                    continue
+                session = self._session(spec, images[side], side, context.cancel)
             except (Blocked, ContractError) as error:
+                # One unusable side (for example a dynamic ELF) still leaves the other.
                 result["sides"][side] = {"available": False, "reason": str(error)}
                 continue
-            if images[side] is None:
-                result["sides"][side] = {"available": False, "build": images["build"]}
-                continue
-            session = self._session(spec, images[side], side, context.cancel)
             result["sides"][side] = {
                 "available": True,
                 "capabilities": session.engine.capabilities,
