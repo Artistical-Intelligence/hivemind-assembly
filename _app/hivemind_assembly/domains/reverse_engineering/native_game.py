@@ -934,4 +934,24 @@ def determinism(make_runner, spec, ticks=60):
     if not identical:
         size = gs.record_sizes(spec)["stdout"] or 1
         result["runs"] = [{"status": run[2], "records": len(run[0]) // size} for run in observed]
+        if difference is not None:
+            result["first_difference"] = _first_difference(spec, first[0], second[0], difference)
     return result
+
+
+def _first_difference(spec, first, second, tick):
+    """Which declared value differs first at a tick: a state field, or a segment name."""
+    a = gs.tick_segments(spec, first, b"", tick)
+    b = gs.tick_segments(spec, second, b"", tick)
+    state = spec.get("state")
+    for segment in spec["output"]["stdout"]:
+        name = segment["name"]
+        if a[name] == b[name]:
+            continue
+        if state and name == state["segment"]:
+            left, right = gs.decode_state(spec, a), gs.decode_state(spec, b)
+            for field in state["fields"]:
+                if left[field["name"]] != right[field["name"]]:
+                    return {"value": "state:" + field["name"], "runs": [left[field["name"]], right[field["name"]]]}
+        return {"value": name}
+    return None
