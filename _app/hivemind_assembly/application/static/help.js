@@ -84,6 +84,7 @@
   };
   const byAttr = {
     starter: 'Create a ready-made example project.',
+    go: 'Go to that page.',
     file: 'Open this file.',
     removeCase: 'Remove this test input.',
     evaluationResume: 'Try the unfinished runs again.',
