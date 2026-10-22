@@ -24,7 +24,10 @@
     el('quick-start').hidden = running;
     el('quick-stop').hidden = !running;
     let text = q.message || 'Not started.';
-    if (q.address_changed) text += ' The address changed, so connect ChatGPT and Claude again.';
+    const auto = q.auto;
+    if (q.address_changed) text += auto?.providers?.length
+      ? ' The address changed; HA is reconnecting ' + auto.providers.join(' and ') + ' itself.'
+      : ' The address changed, so connect ChatGPT and Claude again.';
     el('quick-status').textContent = text;
     el('quick-status').classList.toggle('warn-text', q.state === 'error');
     const d = q.download;
@@ -32,10 +35,25 @@
     if (d && d.total_bytes) el('quick-download-bar').value = Math.round(100 * d.done_bytes / d.total_bytes);
     el('quick-ready').hidden = q.state !== 'ready';
     if (el('quick-address').value !== q.endpoint) el('quick-address').value = q.endpoint || '';
+    if (auto) renderAuto(auto);
     const services = q.services || {};
     el('quick-services').replaceChildren(...Object.keys(providers).map(name => {
       const li = document.createElement('li');
       li.textContent = serviceLine(name, services[name] || {});
+      return li;
+    }));
+  }
+
+  let autoLoaded = false;
+  function renderAuto(auto) {
+    if (!autoLoaded) {
+      for (const box of el('quick-auto').elements.provider) box.checked = auto.providers.includes(box.value);
+      autoLoaded = true;
+    }
+    el('quick-auto-progress').replaceChildren(...Object.entries(auto.progress || {}).map(([name, p]) => {
+      const li = document.createElement('li');
+      li.textContent = `${name}: ${p.message} (${ago(p.at)})`;
+      li.classList.toggle('warn-text', p.stage === 'manual');
       return li;
     }));
   }
@@ -102,6 +120,25 @@
       notice('Folder copied.');
     } catch {
       el('helper-folder').select();
+    }
+  };
+
+  el('quick-auto').onsubmit = async e => {
+    e.preventDefault();
+    try {
+      const chosen = [...e.target.elements.provider].filter(b => b.checked).map(b => b.value);
+      renderAuto(await api('quick/auto', {providers: chosen}));
+      notice(chosen.length ? 'HA will reconnect ' + chosen.join(' and ') + ' itself when the address changes.' : 'Automatic reconnect is off.');
+    } catch (x) {
+      notice(x.message, true);
+    }
+  };
+  el('quick-reconnect').onclick = async () => {
+    try {
+      renderAuto(await api('quick/reconnect', {}));
+      notice('Reconnecting in HA\'s assistant windows. Progress shows below.');
+    } catch (x) {
+      notice(x.message, true);
     }
   };
 
