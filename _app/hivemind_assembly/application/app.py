@@ -320,11 +320,20 @@ class Application:
             job["name"] == "Install pinned foundations" and job["status"] == "completed"
             for job in self.background.values()
         )
+        progress = next(
+            (
+                job.get("progress")
+                for job in self.background.values()
+                if job["name"] == "Install pinned foundations" and job["status"] == "running"
+            ),
+            None,
+        )
         return {
             "ready": all(present.values()),
             "present": present,
             "installing": installing,
             "restart_needed": installed_now and not all(present.values()),
+            "progress": progress,
         }
 
     def jobs_view(self):
@@ -340,7 +349,7 @@ class Application:
             view[key] = item
         return view
 
-    def background_job(self, name, fn):
+    def background_job(self, name, fn, progress=False):
         finished = [k for k, j in self.background.items() if j["status"] != "running"]
         for old in finished[: max(0, len(finished) - 40)]:
             # Keep recent results; older finished jobs would only grow every poll.
@@ -352,9 +361,14 @@ class Application:
             "started": time.time(),
         }
 
+        def publish(state):
+            self.background[key]["progress"] = state
+
         def work():
             try:
-                self.background[key].update(status="completed", result=fn())
+                result = fn(publish) if progress else fn()
+                self.background[key].pop("progress", None)
+                self.background[key].update(status="completed", result=result)
             except Exception as e:
                 self.background[key].update(status="failed", error=str(e))
 
@@ -1051,18 +1065,31 @@ class Application:
             if self.foundations_status()["installing"]:
                 raise Blocked("Foundation installation is already running")
 
-            def install():
-                result = install_foundations(self.store.root, self.config_path)
+            def install(publish):
+                from hivemind_assembly.application.setup import SetupProgress
+                from .prerequisites import missing
+
+                progress = SetupProgress(publish)
+                # Plan the optional downloads too, so the percentage covers the whole step.
+                try:
+                    if os.name == "nt" and "gh" in missing(extra=("gh",)):
+                        progress.expect("Installing the GitHub CLI", 15)
+                except Blocked:
+                    pass
+                if not self.tunnel.status()["installed"]:
+                    progress.expect("Installing the MCP tunnel client", 15)
+                result = install_foundations(self.store.root, self.config_path, progress=progress)
                 # Load the new paths in place so specialists can use them
                 # without restarting HA.
                 saved = json.loads(Path(self.config_path).read_text())
                 self.config["foundations"].update(saved.get("foundations", {}))
                 # Optional downloads in the same step, so setup is one action.
                 # Their failures are reported without undoing the core tools.
-                result["optional"] = self.install_optional_tools()
+                result["optional"] = self.install_optional_tools(progress)
+                progress.finish()
                 return result
 
-            return self.background_job("Install pinned foundations", install)
+            return self.background_job("Install pinned foundations", install, progress=True)
         raise ContractError("Unknown action")
 
     def game_call(self, tool, data):
@@ -1127,24 +1154,31 @@ class Application:
             current["sha256"] if current else None,
         )
 
-    def install_optional_tools(self):
+    def install_optional_tools(self, progress=None):
         """GitHub CLI (Codespaces) and the MCP tunnel client; each reports its own result."""
         from .prerequisites import install_missing
 
         results = {}
         try:
-            install_missing(extra=("gh",))
+            if progress:
+                install_missing(extra=("gh",), progress=progress)
+            else:
+                install_missing(extra=("gh",))
             results["github_cli"] = "ready"
         except Blocked as e:
             results["github_cli"] = str(e)
         if self.tunnel.status()["installed"]:
             results["tunnel_client"] = "ready"
         else:
+            if progress:
+                progress.begin("Installing the MCP tunnel client", 15)
             try:
                 self.tunnel.install()
                 results["tunnel_client"] = "ready"
             except Exception as e:  # network, release or disk problems
-                results["tunnel_client"] = "Not installed (" + type(e).__name__ + "); retry later in Connections."
+                results["tunnel_client"] = (
+                    "Not installed (" + type(e).__name__ + "); select Install required tools in Settings to retry."
+                )
         return results
 
     def run_native_tests(self, task_id, expected_revision=None):
