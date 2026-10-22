@@ -20,6 +20,23 @@ if (-not (Test-Path $Python)) {
     if (Test-Path $RuntimeRoot) { throw 'An incomplete runtime already exists. Preserve it and inspect setup before replacing it.' }
     Move-Item -LiteralPath $Stage -Destination $RuntimeRoot
 }
+# Python 3.12.10's own SQLite (3.49.1) has the WAL-reset corruption bug. Replace it once
+# with the bundled, fixed release; existing runtimes are updated on their next start.
+$SqliteMarker = Join-Path $RuntimeRoot 'sqlite-3540100.installed'
+if (-not (Test-Path $SqliteMarker)) {
+    $SqliteArchive = Join-Path $AppRoot 'bootstrap\sqlite-dll-win-x64-3540100.zip'
+    if ((Get-FileHash -Algorithm SHA256 $SqliteArchive).Hash.ToLower() -ne 'f436f53ad8f965af43f3817b42c99c0689e6787f6b7ace208fe38dab7ffc4971') { throw 'Bundled SQLite archive failed its integrity check.' }
+    $SqliteStage = Join-Path $DataRoot ('sqlite-stage-' + [guid]::NewGuid().ToString('N'))
+    Expand-Archive -LiteralPath $SqliteArchive -DestinationPath $SqliteStage
+    try {
+        Copy-Item -LiteralPath (Join-Path $SqliteStage 'sqlite3.dll') -Destination (Join-Path $RuntimeRoot 'sqlite3.dll') -Force
+        Set-Content -Path $SqliteMarker -Value '3.54.1'
+    } catch {
+        Write-Host 'SQLite could not be updated because HA is already running. It will be updated on the next start.'
+    } finally {
+        Remove-Item -Recurse -Force $SqliteStage
+    }
+}
 $SitePackages = Join-Path $RuntimeRoot 'Lib\site-packages'
 New-Item -ItemType Directory -Force $SitePackages | Out-Null
 @('python312.zip', '.', 'Lib\site-packages', 'import site') | Set-Content -Encoding ASCII (Join-Path $RuntimeRoot 'python312._pth')
