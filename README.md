@@ -684,7 +684,7 @@ be started manually. The Windows analysis fixture is a native PE DLL because
 REA’s experimental Windows provider does not admit Linux ELF targets. This gate
 does not sign into model accounts or replace live autonomous acceptance.
 
-The full foundation check passed at checkpoint `2f8785b` in [hosted run 39476662077](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39476662077), using default Ghidra analyzers and upstream REA process/filesystem controls. The runner supplied prerequisite tools; this does not establish desktop WinGet setup.
+The full foundation check passed at checkpoint `0b1ef32` in hosted run 39476662077 (log removed when the repository was recreated), using default Ghidra analyzers and upstream REA process/filesystem controls. The runner supplied prerequisite tools; this does not establish desktop WinGet setup.
 
 HTTP MCP authorization also accepts a hosted client metadata URL. In Connections, generate the public document using a fixed callback port, serve it at your HTTPS URL, and connect. HA uses the official SDK to prefer this registration when the server advertises support, retaining the choice for reconnects and token refresh. The document contains no credentials. Editing the registration or endpoint invalidates in-flight authorization; an HTTPS host is required for the document.
 
@@ -1085,13 +1085,14 @@ Still required:
 - Play-test the Coin cavern example and a real game through a live native worker route (describe_game, play_game, test_game) with frame attachments, and retain the evidence.
 <!-- status:end -->
 
-Older validation history is kept below, in [ROADMAP](dev/ROADMAP.md) and in `historical_checks` of
-`_app/release_status.json`.
+Older validation history is kept below and in `historical_checks` of
+`_app/release_status.json`. Runs from before the repository was recreated on
+2026-10-22 no longer have logs on GitHub; commit IDs are the cleaned equivalents.
 
 ### Validation history
 
-Validation for implementation `73fd1d9`: all four jobs passed in
-[run 39615843168](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39615843168).
+Validation for implementation `8ca03ab`: all four jobs passed in
+run 39615843168 (log removed).
 Linux passed 778 tests with 18 platform skips; Windows passed 760 with 36 skips.
 Fifteen separate native Windows checks, ten Chromium checks and packaged Windows
 installation/update/backup restoration passed. Replay diagnostics cover real
@@ -1101,10 +1102,9 @@ remain protected. The initial full local regression passed 776 tests with 18 ski
 the final syscall-boundary correction passed all 37 targeted diagnostics/program
 checks before the full hosted suites.
 
-Fresh [Ghidra/REA/Hermes installation and adapter checks](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39615843195)
+Fresh Ghidra/REA/Hermes installation and adapter checks (run 39615843195, log removed)
 also passed at the same implementation, including four linked ABIs with a native
 oracle, ARM64 programs, both Qiling architectures, Ghidra context and reopened
 annotations, REA analysis and Hermes lifecycle. Model inference was not invoked;
-desktop prerequisites were preinstalled. The
-[tested v0.24.0 Windows/source packages](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39615843168/artifacts/12352452923)
-are retained for fourteen days.
+desktop prerequisites were preinstalled. The tested v0.24.0 Windows/source packages
+were retained for fourteen days.
