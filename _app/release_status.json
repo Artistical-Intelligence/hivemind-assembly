@@ -8,7 +8,7 @@
     "static": "Pyflakes on changed implementation/tests and git diff --check passed. The Windows package job built and hash-manifest checked source and runtime archives, including the diagnostic helper and all pinned memory sources and notices. Actual Chromium checks provide current browser coverage.",
     "goals": "Fixture native responses exercised root goal continuation through real local capture execution and a second fresh independent acceptance run. This is not signed-in native model acceptance.",
     "historical_evidence": "Checks under historical_checks were recorded in earlier development runs and are not newly claimed from this release verification.",
-    "github_ci": "Implementation 73fd1d9 passed all four jobs in run 39615843168: Linux 778 passed/18 skipped (626.685s); Windows 760 passed/36 skipped (992.269s); fifteen separate native Windows execution checks (80.399s); ten actual Chromium checks (109.953s); and Windows package install/update/restore. Both full suites collected 796 cases. Initial diagnostics local regression passed 776/18 (707.60s); the exact completed-syscall boundary correction passed 37 targeted diagnostics/static-program checks (22.38s) before hosted validation. Fresh Ghidra/REA/Hermes installation and actual adapters passed at the same implementation in run 39615843195. These are source-known/scripted checks, not signed-in model acceptance.",
+    "github_ci": "Implementation 4b1efb3 passed all four jobs in run 39771716493: Linux 915 passed/20 skipped (749.06s), including the native SDL2 and Godot 4.7.1 play tests; Windows 887 passed/48 skipped (1429.01s); fifteen separate native Windows execution checks; the Chromium checks; and Windows package install/update/restore. The passing run published the v0.26.0 release.",
     "windows_runtime": "The 0.24.0 Windows package job passed at 73fd1d9 in run 39615843168: embedded Python and hash-locked dependencies; register/native/frame/dynamic-buffer/emulated-renderer checks and protected capture inspection; re-extraction and backup restoration preserving and rerunning project data; paths containing spaces. Desktop prerequisite installation and signed-in model sessions remain unverified.",
     "project_workspace": "Real Chromium and the HTTP controller completed starter creation, uploads, editing, draft preservation, positive/negative checks, byte-exact download, reload persistence, native observations and fresh guided exact-output setup. A separate local jsdom/controller run compiled and checked a C utility through the guided form with automatic compiler discovery. Authenticated streaming, version-checked snapshots, stale edits, immutable references, invalid paths and local-check independence from optional publication passed backend tests.",
     "mcp_codespaces": "Official MCP SDK in-process and real stdio bridge exchanges; outbound stdio discovery/tool/project grants; standalone Linux runner execution, deadline and credential removal; parallel spaces, queued cancellation, interrupted startup, GPU requirement rejection and output import conflict checks. Real HTTP controller with jsdom validated connection settings. No live Codespace or web tunnel acceptance.",
@@ -184,29 +184,40 @@
     "linked_memory_checkpoint": "Preceding release evidence (0.23.1): Implementation 2512728 passed all four jobs in run 39608363476: Linux 745 passed/18 skipped (565.805s); Windows 727 passed/36 skipped (859.134s); fifteen separate native Windows execution checks (61.578s); ten actual Chromium checks (122.384s); and Windows package install/update/restore. Local linked-memory regression passed 745/18 (678.83s); corrected corpus batching passed eight focused checks separately (27.16s). The earlier hosted O0 ARM corpus wall-bound failure is resolved without changing product limits or removing vectors. Fresh Ghidra/REA/Hermes installation and adapters passed at a2eadb2 in run 39606521680. These are source-known/scripted checks, not signed-in model acceptance."
   },
   "verified_package": {
-    "implementation_commit": "62e53a7be8cc5833a61b8a9890a25e0714883ce1",
-    "workflow_run": 39688769075,
-    "artifact_id": 12387273177,
-    "url": "https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39688769075/artifacts/12387273177",
+    "implementation_commit": "4b1efb374db78062e45fe56fa59a3f0f26030603",
+    "workflow_run": 39771716493,
+    "artifact_id": 12422427945,
+    "url": "https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39771716493/artifacts/12422427945",
     "retention_days": 14
   },
   "automated_tests": {
-    "passed": 842,
-    "skipped": 18,
+    "passed": 915,
+    "skipped": 20,
     "failed": 0,
-    "elapsed_seconds": 646.67,
+    "elapsed_seconds": 749.06,
     "host": "GitHub Linux Python 3.12",
-    "scope": "Full regression at implementation 62e53a7, run 39688769075. Windows: 819 passed/41 skipped in 1799.28s. No live native-model acceptance inferred."
+    "scope": "Full regression at implementation 4b1efb3, run 39771716493. Windows: 887 passed/48 skipped in 1429.01s. No live native-model acceptance inferred."
   },
   "evidence": [
     {
+      "id": "hosted-ci-game-play-testing",
+      "date": "2026-10-22",
+      "commit": "4b1efb374db78062e45fe56fa59a3f0f26030603",
+      "runs": [
+        39771716493
+      ],
+      "host": "GitHub Linux and Windows",
+      "live_model_inference": false,
+      "summary": "All contract jobs passed at 4b1efb3: Linux 915 passed/20 skipped (749.06s), including the native SDL2 and Godot 4.7.1 play tests; Windows 887 passed/48 skipped (1429.01s); native Windows checks; Chromium checks; Windows package install, update and restore."
+    },
+    {
       "id": "real-games-native",
       "date": "2026-10-22",
-      "commit": "735df9503eb1f3b7ba1f4cea894add0cbc219b19",
+      "commit": "4b1efb374db78062e45fe56fa59a3f0f26030603",
       "runs": [],
       "host": "Linux x86-64 local (Ubuntu 24.04, Xvfb, Mesa llvmpipe, Godot 4.7.1)",
       "live_model_inference": false,
-      "summary": "dev/check_real_games.py at 735df95. Dodge the Creeps (Godot demo, GDScript): replays identical; exploration 30 steps/1920 ticks pass. GDScript vs godot-rust port: replays identical with seeded OS randomness; exploration 30 steps/1370 ticks found divergence state:mobs at tick 295, shrunk 300->286 ticks and confirmed (the port uses Rust's generator for mob paths). Chromium B.S.U. 0.9.16.1-3 Ubuntu binary vs rebuild: replays identical; exploration 30 steps/1296 ticks pass. Rebuild vs planted bound defect: exploration 30 steps/1376 ticks found divergence state:y at tick 156, shrunk 160->22 ticks and confirmed; single build 30 steps/1376 ticks found invariant hero_inside_y at tick 156. sokoban-rs vs planted push defect: scripted up,right,right found divergence frame at tick 4; exploration 30 steps/292 ticks found divergence frame at tick 32, shrunk 34->17 ticks and confirmed; upstream alone 30 steps/336 ticks pass. Scripted, seeded play by HA's harness; no model inference."
+      "summary": "dev/check_real_games.py at 4b1efb3. Dodge the Creeps (Godot demo, GDScript): replays identical; exploration 30 steps/1920 ticks pass. GDScript vs godot-rust port: replays identical with seeded OS randomness; exploration 30 steps/1370 ticks found divergence state:mobs at tick 295, shrunk 300->286 ticks and confirmed (the port uses Rust's generator for mob paths). Chromium B.S.U. 0.9.16.1-3 Ubuntu binary vs rebuild: replays identical; exploration 30 steps/1296 ticks pass. Rebuild vs planted bound defect: exploration 30 steps/1376 ticks found divergence state:y at tick 156, shrunk 160->22 ticks and confirmed; single build 30 steps/1376 ticks found invariant hero_inside_y at tick 156. sokoban-rs vs planted push defect: scripted up,right,right found divergence frame at tick 4; exploration 30 steps/292 ticks found divergence frame at tick 32, shrunk 34->17 ticks and confirmed; upstream alone 30 steps/336 ticks pass. Scripted, seeded play by HA's harness; no model inference."
     },
     {
       "id": "game-play-testing-local",
