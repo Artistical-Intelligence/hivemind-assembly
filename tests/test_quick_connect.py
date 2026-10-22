@@ -166,3 +166,37 @@ def test_local_apps_are_detected_and_configured_without_losing_settings(store, t
     assert codex["model"] == "x" and set(codex["mcp_servers"]) == {"other", "hivemind-assembly"}
     claude = next(p for n, p in connections.local_clients(home) if n == "Claude Desktop")
     assert "hivemind-assembly" in json.loads(claude.read_text())["mcpServers"]
+
+
+def test_connection_lifecycle_with_a_stand_in_tunnel_program(tmp_path):
+    """No real tunnel: a stand-in prints the address cloudflared would print."""
+    import sys
+    import time as clock
+
+    fake = tmp_path / "fake_cloudflared.py"
+    fake.write_text(
+        "import sys, time\n"
+        "print('INF |  https://quiet-river-1.trycloudflare.com  |', flush=True)\n"
+        "time.sleep(60)\n"
+    )
+    launcher = tmp_path / "cloudflared"
+    launcher.write_text(f"#!/bin/sh\nexec {sys.executable} {fake}\n")
+    launcher.chmod(0o700)
+
+    def installer(folder, progress=None, stop=None):
+        if progress:
+            progress(5, 10)
+        return launcher
+
+    quick = QuickConnection(tmp_path, lambda t, a: {"projects": []}, "1.0", installer=installer)
+    quick.start()
+    deadline = clock.time() + 20
+    while quick.status()["state"] != "ready" and clock.time() < deadline:
+        clock.sleep(0.1)
+    status = quick.status()
+    assert status["state"] == "ready", status
+    assert status["endpoint"] == ORIGIN + "/mcp"
+    assert set(status["services"]) == {"ChatGPT", "Claude"}
+    assert len(quick.pairing()["code"]) >= 10
+    quick.stop()
+    assert quick.status()["state"] == "off" and quick.status()["endpoint"] == ""
