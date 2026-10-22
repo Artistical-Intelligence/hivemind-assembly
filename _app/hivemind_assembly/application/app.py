@@ -1428,6 +1428,7 @@ def make_server(app, port=0):
                 "/native_captures.js": ("native_captures.js", "text/javascript"),
                 "/knowledge.js": ("knowledge.js", "text/javascript"),
                 "/connections.js": ("connections.js", "text/javascript"),
+                "/quick_connect.js": ("quick_connect.js", "text/javascript"),
                 "/help.js": ("help.js", "text/javascript"),
                 "/workspace.js": ("workspace.js", "text/javascript"),
                 "/game_testing.js": ("game_testing.js", "text/javascript"),
