@@ -116,10 +116,11 @@ for `action_ticks`; declared actions override, for example press-and-release mov
 for turn-based games), the output layout and the state fields, so every player,
 oracle and package works unchanged.
 
-Tick protocol 1: HA listens on a localhost port; the adapter connects and proves a
-per-launch token; HA then sends one input record (`I`) or end of input (`E`), the game
-runs exactly one frame with it, and the adapter answers with that frame's record
-(`T`, tick, length, payload). Godot steps one physics frame per record at a fixed
+Tick protocol 1: HA listens on a localhost port; when the game reaches its first
+frame (so loading counts against the startup limit, not a frame's) the adapter
+connects and proves a per-launch token; HA then sends one input record (`I`) or end of
+input (`E`), the game runs exactly one frame with it, and the adapter answers with
+that frame's record (`T`, tick, length, payload). Godot steps one physics frame per record at a fixed
 frame rate and reports node properties and a scaled viewport frame. The SDL2 preload
 treats each presented frame (renderer, OpenGL swap or window surface) as a tick
 boundary, and each wait without events as one tick for event-driven games; HA reads
@@ -247,21 +248,24 @@ All parts in the architecture table landed in version 0.26.0. What was run:
   pointer-path state, a planted speed change found at tick 4, a SIGSEGV crash, a
   frame-timeout freeze, exploration, shrinking to one control); an event-driven SDL2
   program (each press on its own tick, no window-system events; the previous adapter
-  fails this test); seeded randomness through `getrandom`, `syscall`, `getentropy`
-  and an `RTLD_DEEPBIND` library; and a headless Godot project (exact fixed-step
-  movement, seeded generator, repeatable `Crypto` bytes with the preload).
+  fails this test); a game that loads for longer than a frame may (the previous
+  adapter reported a freeze); seeded randomness through `getrandom`, `syscall`,
+  `getentropy` and an `RTLD_DEEPBIND` library, with core dumps disabled; and a
+  headless Godot project (exact fixed-step movement, seeded generator, repeatable
+  `Crypto` bytes with the preload). Hosted Linux CI first ran these tests in this
+  version and exposed the slow-loading case.
 
-Real free games, played by `dev/check_real_games.py` at `735df95` on Linux x86-64
+Real free games, played by `dev/check_real_games.py` at `4b1efb3` on Linux x86-64
 (Xvfb with Mesa llvmpipe, Godot 4.7.1) from pinned commits and checksums; the planted
 defects are one-line changes the script makes:
 
 | Game (built with) | Compared | Result |
 | --- | --- | --- |
-| Dodge the Creeps, Godot demo (GDScript) | the demo with itself | Probe: both sides replay identically. 30 exploration steps (1920 ticks, 51 cells, 136 s): pass. |
-| Dodge the Creeps, godot-rust port (Rust GDExtension) | GDScript original vs Rust port | Probe: both sides replay identically, with operating-system randomness seeded (an earlier run without the preload found the port differing from tick 161). 30 exploration steps (1370 ticks, 25 cells, 246 s): `divergence state:mobs` at tick 295; shrinking reduced it from 300 to 286 ticks (72 tests) and confirmed it on fresh launches. The port draws mob paths from Rust's generator, not Godot's, so mob counts are expected to differ. |
-| Chromium B.S.U. 0.9.16.1-3 (C++, SDL2, OpenGL) | Ubuntu's binary vs a rebuild, by frames | Probe: both sides replay identically. 30 exploration steps (1296 ticks, 81 cells, 93 s): pass. |
-| Chromium B.S.U., planted defect | rebuild vs a copy whose upper bound uses the horizontal limit, by memory state | 30 exploration steps (1376 ticks, 41 cells, 91 s): `divergence state:y` at tick 156; shrinking reduced it from 160 to 22 ticks (176 tests) and confirmed it on fresh launches. Defect alone: 30 exploration steps (1376 ticks, 41 cells, 46 s): `invariant hero_inside_y` at tick 156. |
-| sokoban-rs 1.2.2 (Rust, SDL2, event-driven) | upstream vs a copy that lets a box be pushed into another box, by frames | Scripted `up, right, right`: `divergence frame` at tick 4. 30 exploration steps (292 ticks, 12 cells, 33 s): `divergence frame` at tick 32; shrinking reduced it from 34 to 17 ticks (52 tests) and confirmed it on fresh launches. Upstream alone: 30 exploration steps (336 ticks, 14 cells, 19 s): pass. |
+| Dodge the Creeps, Godot demo (GDScript) | the demo with itself | Probe: both sides replay identically. 30 exploration steps (1920 ticks, 51 cells, 127 s): pass. |
+| Dodge the Creeps, godot-rust port (Rust GDExtension) | GDScript original vs Rust port | Probe: both sides replay identically, with operating-system randomness seeded (an earlier run without the preload found the port differing from tick 161). 30 exploration steps (1370 ticks, 25 cells, 235 s): `divergence state:mobs` at tick 295; shrinking reduced it from 300 to 286 ticks (71 tests) and confirmed it on fresh launches. The port draws mob paths from Rust's generator, not Godot's, so mob counts are expected to differ. |
+| Chromium B.S.U. 0.9.16.1-3 (C++, SDL2, OpenGL) | Ubuntu's binary vs a rebuild, by frames | Probe: both sides replay identically. 30 exploration steps (1296 ticks, 81 cells, 92 s): pass. |
+| Chromium B.S.U., planted defect | rebuild vs a copy whose upper bound uses the horizontal limit, by memory state | 30 exploration steps (1376 ticks, 41 cells, 88 s): `divergence state:y` at tick 156; shrinking reduced it from 160 to 22 ticks (176 tests) and confirmed it on fresh launches. Defect alone: 30 exploration steps (1376 ticks, 41 cells, 43 s): `invariant hero_inside_y` at tick 156. |
+| sokoban-rs 1.2.2 (Rust, SDL2, event-driven) | upstream vs a copy that lets a box be pushed into another box, by frames | Scripted `up, right, right`: `divergence frame` at tick 4. 30 exploration steps (292 ticks, 12 cells, 34 s): `divergence frame` at tick 32; shrinking reduced it from 34 to 17 ticks (52 tests) and confirmed it on fresh launches. Upstream alone: 30 exploration steps (336 ticks, 14 cells, 18 s): pass. |
 
 The port's divergence shrinks to pressing start and waiting, so it does not depend on
 the player's input; the Chromium B.S.U. defect shrinks to leaving the menu and holding
