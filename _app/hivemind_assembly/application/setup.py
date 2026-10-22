@@ -45,7 +45,6 @@ class SetupProgress:
         self.fraction = 0.0
         self.download_state = None
         self.started = time.monotonic()
-        self.last_emit = 0.0
         self.lock = threading.Lock()
 
     def expect(self, label, weight):
@@ -95,10 +94,8 @@ class SetupProgress:
             }
 
     def emit(self, force=False):
-        now = time.monotonic()
-        if not force and now - self.last_emit < 0.5:
-            return
-        self.last_emit = now
+        # Publishing only stores a small dict for the next status poll, so every
+        # update is published; the dashboard polls every few seconds.
         self.publish(self.snapshot())
 
 
