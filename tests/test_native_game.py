@@ -4,7 +4,8 @@ The SDL2 tests build a small SDL2 program twice (a planted speed change in the
 candidate) and play it through the LD_PRELOAD adapter on a virtual X display; they
 need Linux, SDL2 development files, a C compiler and Xvfb. The Godot test needs a
 Godot 4 executable in HA_TEST_GODOT and runs headless. These exercise real native
-processes, not a signed-in model.
+processes, not a signed-in model. The seeded-randomness test needs Linux and a C
+compiler only.
 """
 
 import json
@@ -190,6 +191,65 @@ def test_sdl2_games_play_compare_and_stop_deterministically(tmp_path):
     assert len(leftover) <= 4
 
 
+ENTROPY_PROGRAM = r"""#define _GNU_SOURCE
+#include <dlfcn.h>
+#include <stdio.h>
+#include <sys/random.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+int main(int argc, char **argv) {
+    unsigned char a[8], b[8], c[8];
+    if (argc < 2 || getrandom(a, sizeof a, 0) != 8 || syscall(SYS_getrandom, b, sizeof b, 0) != 8 || getentropy(c, sizeof c)) return 2;
+    void *library = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL | RTLD_DEEPBIND);
+    unsigned long long (*draw)(void) = library ? (unsigned long long (*)(void))dlsym(library, "draw") : 0;
+    if (!draw) return 3;
+    printf("%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %llx\n", a[0], a[1], a[2], a[3], b[0], b[1], b[2], b[3], c[0], c[1], c[2], c[3], draw());
+    return 0;
+}
+"""
+ENTROPY_EXTENSION = r"""#include <sys/random.h>
+unsigned long long draw(void) {
+    unsigned long long value = 0;
+    getrandom(&value, sizeof value, 0);
+    return value;
+}
+"""
+
+
+def test_seeded_randomness_reaches_deep_bound_libraries(tmp_path):
+    if not sys.platform.startswith("linux"):
+        pytest.skip("The randomness preload runs on Linux")
+    compiler = os.environ.get("HA_TEST_CLANG") or shutil.which("clang") or shutil.which("gcc")
+    if not compiler:
+        pytest.skip("Seeded randomness needs a C compiler")
+    (tmp_path / "program.c").write_text(ENTROPY_PROGRAM)
+    (tmp_path / "extension.c").write_text(ENTROPY_EXTENSION)
+    subprocess.run([compiler, "-O2", "-o", str(tmp_path / "program"), str(tmp_path / "program.c"), "-ldl"], check=True, timeout=120)
+    subprocess.run(
+        [compiler, "-O2", "-shared", "-fPIC", "-o", str(tmp_path / "extension.so"), str(tmp_path / "extension.c")], check=True, timeout=120
+    )
+    library = native_game._library("ha_entropy", compiler, tuple(native_game._stamp(compiler)))
+
+    def draw(**extra):
+        environment = {"PATH": os.environ.get("PATH", ""), "LD_PRELOAD": library, **extra}
+        completed = subprocess.run(
+            [str(tmp_path / "program"), str(tmp_path / "extension.so")], env=environment, capture_output=True, text=True, timeout=60
+        )
+        assert completed.returncode == 0, completed.stderr
+        return completed.stdout.split()
+
+    seeded = draw(HA_TICK_PORT="1", HA_TICK_SEED="3")
+    # getrandom, syscall(SYS_getrandom), getentropy and a library Godot-style opened with
+    # RTLD_DEEPBIND all repeat for a seed, and change with it.
+    assert draw(HA_TICK_PORT="1", HA_TICK_SEED="3") == seeded
+    changed = draw(HA_TICK_PORT="1", HA_TICK_SEED="4")
+    assert all(a != b for a, b in zip(seeded, changed))
+    # The program's own requests and the library's come from separate streams.
+    assert len(set(seeded)) == 4
+    # Outside an HA run the preload forwards to the operating system.
+    assert draw() != draw()
+
+
 GODOT_PROJECT = """config_version=5
 
 [application]
@@ -216,10 +276,12 @@ GODOT_SCRIPT = """extends Node2D
 
 var x := 0.0
 var luck := 0
+var token := 0
 
 
 func _ready() -> void:
 	luck = randi() % 1000
+	token = Crypto.new().generate_random_bytes(4).decode_u32(0)
 
 
 func _physics_process(delta: float) -> void:
@@ -249,6 +311,7 @@ def test_godot_projects_step_one_physics_frame_per_input(tmp_path):
             "state": [
                 {"name": "x", "type": "f64", "node": "Main", "property": "x"},
                 {"name": "luck", "type": "i32", "node": "Main", "property": "luck"},
+                {"name": "token", "type": "u32", "node": "Main", "property": "token"},
             ],
             "display": "headless",
             "seed": 3,
@@ -260,11 +323,16 @@ def test_godot_projects_step_one_physics_frame_per_input(tmp_path):
     games = GamePlay()
     context = _context(root, godot=engine)
     described = games.describe(context, {})
-    assert described["sides"]["candidate"]["determinism"]["identical"] is True
+    # The adapter seeds Godot's own generator; Crypto draws operating-system randomness,
+    # which the Linux preload seeds when a C compiler is available.
+    seeded = described["sides"]["candidate"]["capabilities"]["os_randomness"] == "seeded"
+    assert seeded == (sys.platform.startswith("linux") and bool(shutil.which("clang") or shutil.which("gcc") or shutil.which("cc")))
+    assert described["sides"]["candidate"]["determinism"]["identical"] is seeded
     played = games.play(context, {"side": "both", "actions": ["move_right", "wait"]})
     state = played["candidate"]["state"]
     # Fixed 60 fps: thirty pressed frames move exactly thirty units.
-    assert played["outcome"] == "pass" and abs(state["x"] - 30.0) < 1e-6
+    assert played["outcome"] == ("pass" if seeded else "divergence")
+    assert abs(state["x"] - 30.0) < 1e-6
     again = games.play(_context(root, godot=engine), {"actions": ["move_right"]})
     assert again["observation"]["state"]["luck"] == state["luck"]
     games.sessions.clear()
