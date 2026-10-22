@@ -620,3 +620,28 @@ DLLs retain both loaded and original source identities. These are bounded guest
 diagnostics, not a second debugger or an equivalence criterion. Real compiled
 faults, calling-convention mutations and engine timeouts exercise the evidence;
 protected preflight tests check that original details are not exposed to workers.
+
+## Game play-testing (0.26)
+
+The owner's proposal retained four examples. [Beyond The Rainbow](https://arxiv.org/html/2411.03820v2)
+(a Python-driven Dolphin interface with screen capture, input control, savestate
+resets and RAM-derived rewards) and the Brawl demonstration built on it show strong
+reinforcement learning on a desktop PC, but each trained policy costs hours and is
+tied to one game version. MariQ's compact course view and three steering choices
+show that a small controller suffices for one skill. [Game-Bot](https://github.com/ardamavi/Game-Bot/blob/master/ai.py)
+pairs full-desktop screenshots with imitation and OS-level keyboard/mouse input,
+which cannot be replayed exactly. None of these decides whether a reconstruction
+is correct; a controller that plays well is not a comparator.
+
+HA therefore borrows interfaces rather than training algorithms. Its emulated lanes
+already provide frame-exact input through the program's own input stream, exact
+state, savestates and determinism, so the emulator is the test hook. Exploration
+follows [Go-Explore](https://www.nature.com/articles/s41586-020-03157-9): an
+archive of coarse cells, returning to a cell by restoring its state, then trying new
+actions, which needs no training and suits deterministic emulation. Minimization
+follows Zeller and Hildebrandt's [delta debugging](https://www.st.cs.uni-saarland.de/papers/tse2002/)
+over input records, with the failure signature as the test predicate. Coverage
+novelty from function entries follows the feedback idea of coverage-guided fuzzers
+without instrumenting the target. Learned policies remain an option for a single
+navigation skill that scripts and exploration cannot handle; they are not part of
+this release. OS-level input injection is not used.
