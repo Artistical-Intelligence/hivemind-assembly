@@ -8,6 +8,8 @@ a passing exploration is sampled evidence, not proof that no defect remains.
 import json
 import os
 import shutil
+import threading
+import time
 
 import pytest
 
@@ -17,7 +19,7 @@ from hivemind_assembly.core import game_testing as gt
 from hivemind_assembly.core.common import ContractError
 from hivemind_assembly.core.jobs import Jobs
 from hivemind_assembly.domains.reverse_engineering import program
-from hivemind_assembly.domains.reverse_engineering.game_machine import elf_symbols, game_functions, open_engine
+from hivemind_assembly.domains.reverse_engineering.game_machine import GameMachine, elf_symbols, game_functions, open_engine
 
 SPEC = gs.validate(json.loads(ge.files()["game.json"]))
 
@@ -230,3 +232,125 @@ def test_windows_pe_game_uses_the_replay_engine(tmp_path):
     assert runner.latest["values"]["x"] == 2
     assert [p["signature"] for p in runner.problems] == [["invariant", "x_small"]]
     assert runner.engine.exit_code == 2
+
+
+def test_cancelled_and_bounded_runs_are_inconclusive(images):
+    cancel = threading.Event()
+    cancel.set()
+    stopped = gt.Session(SPEC, open_engine(images["original"], SPEC, cancel=cancel), "original")
+    stopped.feed(route("coin_route"))
+    assert (gt.session_report(stopped)["passed"], gt.session_report(stopped)["outcome"]) == (False, "cancelled")
+    # A cancelled side is not a status divergence; the comparison is inconclusive.
+    both = gt.Pair(SPEC, gt.Session(SPEC, open_engine(images["original"], SPEC, cancel=cancel), "original"), session(images["buggy"]))
+    both.feed(route("platform_edge"))
+    report = both.report()
+    assert report["divergence"] is None and (report["passed"], report["outcome"]) == (False, "cancelled")
+    # A harness bound (here a tiny output bound) is a limit, never a pass.
+    tight = gt.Session(SPEC, GameMachine(images["original"], output_limit=2000), "original")
+    tight.feed(route("coin_route"))
+    assert tight.status == "output_limit" and gt.session_report(tight)["outcome"] == "limit"
+    limited = gt.run_regressions(
+        SPEC,
+        None,
+        lambda: gt.Session(SPEC, GameMachine(images["original"], output_limit=2000), "candidate"),
+        [{"id": "long", "inputs_hex": route("coin_route").hex(), "expect": "no_problems", "end": True}],
+    )
+    assert not limited["passed"] and limited["results"][0]["outcome"] == "limit"
+
+
+def test_end_of_input_findings_shrink_and_package(images):
+    # Two coins at end of input exit with code 2, which this variant forbids.
+    spec = gs.validate(dict(SPEC, allowed_exit_codes=[0, 1, 3, 4]))
+
+    def make():
+        return gt.Session(spec, open_engine(images["fixed"], spec), "candidate")
+
+    inputs = route("coin_route")
+    runner = make()
+    runner.feed(inputs)
+    runner.end()
+    problem = next(p for p in gt.session_findings(runner) if p["kind"] == "bad_exit")
+    assert problem["after_end"] and problem["signature"] == ["bad_exit", 2]
+    assert not gt.shrink(spec, make, inputs, problem["signature"])["reproduced"]
+    shrunk = gt.shrink(spec, make, inputs, problem["signature"], end=True)
+    assert shrunk["reproduced"] and shrunk["confirmed"] and shrunk["minimized_ticks"] < len(inputs)
+    packaged = gt.package(spec, make, inputs, problem["signature"], end=True)
+    assert packaged["reproduced"] and packaged["problem"]["after_end"]
+
+
+def test_exploration_archive_is_bounded_and_progress_is_exact(images):
+    capped = gt.explore(SPEC, pair(images, "fixed"), steps=60, seed=1, max_cells=6)
+    assert capped["cells"] <= 6 and capped["cells_evicted"] > 0
+    assert capped["steps_run"] == 60 and capped["passed"] and capped["outcome"] == "pass"
+    assert "ha_main" in capped["coverage"]["candidate"]
+    late = gt.explore(SPEC, pair(images, "fixed"), steps=10, seed=1, deadline=time.monotonic() - 1)
+    assert (late["steps_run"], late["stopped"], late["outcome"], late["passed"]) == (0, "deadline", "limit", False)
+
+
+class SharedRuleSession:
+    """Input 01 shows a quirk both builds share; input 02 breaks the same rule only
+    in the candidate. A finding's signature alone cannot tell them apart."""
+
+    live = True
+
+    def __init__(self, side, candidate):
+        self.side, self.candidate = side, candidate
+        self.inputs, self.problems, self.ended = bytearray(), [], False
+
+    stopped = False
+
+    def feed(self, records):
+        self.inputs += records
+        if not self.problems and (1 in self.inputs or (self.candidate and 2 in self.inputs)):
+            self.problems.append(
+                {"kind": "invariant", "signature": ["invariant", "y_range"], "tick": len(self.inputs) - 1,
+                 "input_ticks": len(self.inputs), "side": self.side, "after_end": False, "detail": {}}
+            )
+
+    def end(self):
+        self.ended = True
+
+    def cell(self):
+        return str(len(self.inputs) % 5)
+
+    def covered(self):
+        return []
+
+    def snapshot(self, light=False):
+        return {"inputs": bytes(self.inputs), "problems": list(self.problems)}
+
+    def restore(self, snapshot):
+        self.inputs, self.problems = bytearray(snapshot["inputs"]), list(snapshot["problems"])
+
+    def snapshot_bytes(self, snapshot):
+        return len(snapshot["inputs"])
+
+
+def test_single_build_findings_are_checked_per_occurrence():
+    spec = gs.validate(
+        {
+            "version": 1,
+            "input": {"record_bytes": 1, "controls": {"idle": "00", "quirk": "01", "bug": "02"}},
+            "output": {"stdout": [{"name": "s", "bytes": 1}]},
+        }
+    )
+
+    def explore(occurrences, original_has_bug=False):
+        return gt.explore(
+            spec,
+            lambda: SharedRuleSession("candidate", True),
+            steps=40,
+            # With this seed the first occurrence is the shared quirk.
+            seed=1,
+            reference=lambda: SharedRuleSession("original", original_has_bug),
+            occurrences=occurrences,
+        )
+
+    found = explore(4)
+    assert [f["signature"] for f in found["findings"]] == [["invariant", "y_range"]]
+    inputs = gs.decode_token(found["findings"][0]["trajectory"], spec)
+    assert 2 in inputs and 1 not in inputs
+    # Checking only the first occurrence (the shared quirk) hid the candidate's defect.
+    assert explore(1)["findings"] == []
+    shared = explore(4, original_has_bug=True)
+    assert shared["findings"] == [] and shared["original_behavior"][0]["original_behavior"]
