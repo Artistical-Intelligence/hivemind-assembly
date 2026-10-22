@@ -14,6 +14,7 @@ the same protocol by replaying the whole input log with end of input. It has no 
 pause or memory reads; its snapshots are input logs. Capabilities say which applies.
 """
 
+import functools
 import io
 import struct
 import zlib
@@ -94,8 +95,12 @@ class Stream:
         return tuple(self.chunks), self.size
 
 
+@functools.lru_cache(maxsize=16)
 def elf_symbols(data):
-    """Defined ELF symbols: {name: {address, size, kind}} (empty when stripped)."""
+    """Defined ELF symbols: {name: {address, size, kind}} (empty when stripped).
+
+    Cached per image; callers must treat the returned mapping as read-only.
+    """
     from elftools.elf.elffile import ELFFile
     from elftools.common.exceptions import ELFError
 
