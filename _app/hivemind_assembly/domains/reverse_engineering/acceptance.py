@@ -173,8 +173,12 @@ class AcceptanceSuite:
             return RegionAcceptance()
         if scope == "x86_64_c_functions":
             return ReconstructionAcceptance()
+        if scope == "game_play":
+            from .game_acceptance import GameAcceptance
+
+            return GameAcceptance()
         raise ContractError(
-            "Supported acceptance scopes: x86_64_register_regions, x86_64_c_functions, linked_calls, linux_program, linux_project, windows_program, windows_project (legacy linked-call/program scopes also supported)"
+            "Supported acceptance scopes: x86_64_register_regions, x86_64_c_functions, linked_calls, linux_program, linux_project, windows_program, windows_project, game_play (legacy linked-call/program scopes also supported)"
         )
 
     def prepare(self, root, spec, artifacts, project, context):
@@ -187,6 +191,7 @@ class AcceptanceSuite:
             if isinstance(
                 verifier, (ReconstructionAcceptance, ProgramAcceptance, CallAcceptance)
             )
+            or getattr(verifier, "uses_context", False)
             else verifier.prepare(*args)
         )
 
