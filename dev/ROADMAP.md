@@ -265,12 +265,20 @@ Still required:
   Godot and SDL2 games with in-process adapters.
 - Full local suite at `6de5494` (Python 3.12, Clang 18, Godot 4.7.1, real Chromium):
   925 passed, 9 skipped (971.07 seconds).
-- `dev/check_real_games.py` at `735df95` played Godot's Dodge the Creeps demo and its
-  godot-rust port, Ubuntu's Chromium B.S.U. (C++) against a rebuild and a planted
-  defect, and sokoban-rs (Rust) against a planted defect: every side replayed
-  identically; the planted defects were found by exploration and shrunk to 22 and 17
-  ticks; the Rust port's mob-count divergence (a different random generator) shrank to
-  starting the game and waiting. Scripted, seeded play; no model inference.
+- `dev/check_real_games.py` at `735df95`, and again at `4b1efb3`, played Godot's Dodge
+  the Creeps demo and its godot-rust port, Ubuntu's Chromium B.S.U. (C++) against a
+  rebuild and a planted defect, and sokoban-rs (Rust) against a planted defect: every
+  side replayed identically; the planted defects were found by exploration and shrunk
+  to 22 and 17 ticks; the Rust port's mob-count divergence (a different random
+  generator) shrank to starting the game and waiting. Scripted, seeded play; no model
+  inference.
+- Hosted CI first ran the native tests and showed a game that loads for longer than a
+  frame reported as a freeze; adapters now connect at the first frame. Implementation
+  `4b1efb3` then passed all four jobs in
+  [run 39771716493](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/39771716493):
+  Linux 915 passed/20 skipped; Windows 887 passed/48 skipped; fifteen native Windows
+  checks; Chromium checks; Windows package installation, update and restoration. The
+  run published the [v0.26.0 release](https://github.com/Artistical-Intelligence/hivemind-assembly/releases/tag/v0.26.0).
 - Still not established: play by a signed-in native model, live route acceptance
   (0 of 5) and trained policies.
 
