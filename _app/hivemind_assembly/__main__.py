@@ -21,6 +21,7 @@ def main():
             "doctor",
             "verify-foundations",
             "restore",
+            "game-test",
         ],
     )
     p.add_argument("--data-dir", default=str(data_home()))
@@ -51,7 +52,55 @@ def main():
         action="store_true",
         help="Authorize the recipes to execute with this host's access (not a sandbox)",
     )
+    p.add_argument("--game", default="game.json", help="Game contract for game-test")
+    p.add_argument(
+        "--mode",
+        choices=["describe", "compare", "run", "explore", "shrink", "package", "regressions"],
+        default="describe",
+        help="game-test operation",
+    )
+    p.add_argument("--side", choices=["original", "candidate", "both"], help="game-test side")
+    p.add_argument("--trajectory", help="game-test trajectory token or named start")
+    p.add_argument("--signature", help="Finding signature for shrink/package, comma separated")
+    p.add_argument("--steps", type=int, default=200, help="game-test exploration steps")
+    p.add_argument("--seed", type=int, default=0, help="game-test exploration seed")
+    p.add_argument("--seconds", type=int, default=120, help="game-test time budget")
     args = p.parse_args()
+    if args.command == "game-test":
+        import threading
+        from pathlib import Path
+        from hivemind_assembly.core.domain import ToolContext
+        from hivemind_assembly.core.jobs import Jobs
+        from hivemind_assembly.domains.reverse_engineering.game_play import GamePlay, strip_images
+
+        if not args.workspace:
+            p.error("game-test requires --workspace (the folder holding the game contract)")
+        context = ToolContext(
+            Path(args.workspace).resolve(),
+            {"foundations": {"c_compiler": args.compiler}},
+            Jobs(),
+            threading.Event(),
+        )
+        games = GamePlay()
+        if args.mode == "describe":
+            result = games.describe(context, {"game_path": args.game})
+            print(json.dumps(result, indent=2))
+            raise SystemExit(0)
+        request = {"game_path": args.game, "mode": args.mode, "seconds": args.seconds}
+        if args.mode == "explore":
+            request.update(steps=args.steps, seed=args.seed)
+        if args.side:
+            request["side"] = args.side
+        if args.trajectory:
+            key = "trajectory" if args.trajectory.startswith("g1.") else "start"
+            request[key] = args.trajectory
+        if args.signature:
+            request["signature"] = [
+                int(x) if x.lstrip("-").isdigit() else x for x in args.signature.split(",")
+            ]
+        result = strip_images(games.test(context, request))
+        print(json.dumps(result, indent=2))
+        raise SystemExit(0 if result.get("passed", result.get("reproduced")) else 1)
     if args.command == "mcp":
         from hivemind_assembly.integrations.mcp import serve_bridge
         serve_bridge(args.data_dir)
