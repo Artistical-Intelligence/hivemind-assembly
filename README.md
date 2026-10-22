@@ -760,6 +760,74 @@ These are bounded emulated program observations, not a GPU/window-system or
 arbitrary game runtime. Frame rate and sample rate describe the declared data;
 native hardware timing and repeated native execution are not measured here.
 
+## Game play-testing
+
+AI workers, local bots and you can play the games HA rebuilds to test, troubleshoot
+and improve them. Choose **Project files → Create game testing example**, then use
+**Play and test the game**: load the game, press its action buttons, play the
+original, the reconstruction or both compared tick by tick, explore, shrink findings
+and run saved regressions. No model account, GPU or native execution permission is
+needed; the example needs a C compiler.
+
+A project's `game.json` is the play-testing contract: fixed-size input records and
+named controls, macro actions, the per-tick output layout on stdout/stderr (a raw
+state record, RGBA frames and PCM audio), decoded state fields, optional memory
+fields by symbol, declarative rules (bounds, other fields, equality, monotonic,
+maximum per-tick change, optional `when` conditions), exploration cells, tick and
+instruction limits, comparison tolerances for frames/audio, allowed exit codes and
+named starts with preconditions. Nothing in it is evaluated as code.
+
+Static x86-64 and AArch64 ELF games run in a stepping engine that pauses whenever
+the game waits for input, so every input is frame-exact and state can be read from
+memory between ticks. Snapshots, function coverage from symbols and a per-tick
+instruction budget (freeze detection) are built in. Reads block until the requested
+bytes or end of input arrive, so a stepped session produces exactly the streams,
+exit status and input consumption of the batch replay used elsewhere (tests check
+both architectures). Windows x64 console games use the existing batch replay; their
+observations always follow end of input and live memory is unavailable.
+
+Every session is its input log. Results carry trajectory tokens that replay
+exactly, which also makes every operation safe to recompute after an interruption.
+Detected outcomes are `divergence` (state, frame, audio, status, exit code or tick
+count differ beyond pinned tolerances), `crash`, `freeze`, `invariant`, `slowdown`,
+`bad_exit`, `protocol`, `unreached` (a start's preconditions were not met), `limit`
+and `cancelled`. A candidate problem that the original reproduces with the same
+trajectory is reported as original behavior, not as a reconstruction defect.
+
+- **Explore** runs seeded Go-Explore without training: it returns to situations it
+  has reached (snapshots of declared cell fields) and tries new sticky actions,
+  favouring rarely chosen cells and newly executed functions. With **Both**, the
+  original and the reconstruction run in lockstep and the first divergent tick is
+  recorded at once. Each finding keeps its trajectory.
+- **Shrink** truncates after the failing tick, removes chunks by delta debugging,
+  replaces the rest with the neutral input where possible, and confirms the result on
+  fresh engines twice. **Bug package** returns the inputs, a state window from both
+  sides and frames around the failing tick.
+- **Saved regressions** (`game-regressions.json`) rerun on every build;
+  `match_original` compares with the original and `no_problems` checks one build.
+
+Native workers use the same operations: `describe_game`, `play_game` (a few named
+actions per turn) and `test_game` (`compare`, `run`, `explore`, `shrink`, `package`,
+`regressions`). Rendered frames are attached to the worker's next turn as PNG files
+when its route supports uploads; small frames also get a character view with a
+colour legend. For independent completion, the `game_play` acceptance scope seals
+the original, the contract and the owner's trajectories; checks rebuild the
+candidate, replay every trajectory on fresh engines and report per-case outcomes
+while sealed inputs and observations stay protected.
+
+From the command line:
+
+```bash
+python _app/launch.py game-test --workspace GAME_FOLDER --mode explore --steps 300 --seed 0
+```
+
+Other modes are `describe`, `compare`, `run`, `shrink`, `package` and `regressions`
+(`--trajectory` takes a token or a named start). This verifies sampled, deterministic
+play under a declared contract. It is not a GPU, window-system or hardware-timing
+claim, and exploration that finds nothing does not prove a game correct. Native
+graphical builds, OS-level input and trained policies are not implemented; see
+[game play-testing design](dev/GAME_TESTING.md).
+
 ## Windows console reconstruction
 
 Choose **Project files → Create Windows console example** to build a real x64
