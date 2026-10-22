@@ -4,7 +4,9 @@
  * local socket. At each SDL_RenderPresent, SDL_GL_SwapWindow or
  * SDL_UpdateWindowSurface it captures the frame being presented (scaled to the
  * declared size), sends it as the previous tick's record, then blocks for the next
- * input record and presses or releases the mapped keys. The game's own calls to SDL
+ * input record and presses or releases the mapped keys. A game that waits for events
+ * (SDL_WaitEvent) instead of presenting every frame passes one tick, with the frame it
+ * last presented, each time it would block. The game's own calls to SDL
  * and C library clocks see virtual time that advances one fixed frame step per tick
  * (plus any SDL_Delay), and its randomness requests return seeded bytes, so a run is
  * a function of the input log. Without HA_TICK_PORT nothing changes.
@@ -60,6 +62,7 @@ static unsigned char ha_keys[KEYS];
 static uint64_t ha_now_ns, ha_frame_ns = 16666667, ha_frame_start;
 static uint64_t ha_random;
 static uint32_t ha_ticks;
+static uint32_t ha_window;
 static uint8_t *ha_frame, *ha_scratch;
 static size_t ha_scratch_size;
 static uintptr_t ha_ranges[8][2];
@@ -228,6 +231,7 @@ static void ha_apply(const unsigned char *record, uint32_t window) {
  * then wait for the next input. 'E' or a closed connection ends play. */
 static void ha_boundary(uint32_t window) {
     if (ha_socket < 0) return;
+    ha_window = window;
     if (ha_ticks > 0) {
         size_t payload = ha_frame ? (size_t)ha_width * ha_height * 4 : 0;
         unsigned char header[9] = {'T'};
@@ -324,6 +328,28 @@ int SDL_UpdateWindowSurface(SDL_Window *window) {
         ha_boundary(window_id(window));
     }
     return update(window);
+}
+
+int SDL_WaitEvent(SDL_Event *event) {
+    static int (*wait)(SDL_Event *);
+    static int (*poll)(SDL_Event *);
+    if (!wait) wait = real("SDL_WaitEvent");
+    if (ha_socket < 0) return wait(event);
+    if (!poll) poll = real("SDL_PollEvent");
+    /* Instead of blocking, each wait without events passes a tick. */
+    while (!poll(event)) ha_boundary(ha_window);
+    return 1;
+}
+
+int SDL_WaitEventTimeout(SDL_Event *event, int timeout) {
+    static int (*wait)(SDL_Event *, int);
+    static int (*poll)(SDL_Event *);
+    if (!wait) wait = real("SDL_WaitEventTimeout");
+    if (ha_socket < 0) return wait(event, timeout);
+    if (!poll) poll = real("SDL_PollEvent");
+    if (poll(event)) return 1;
+    ha_boundary(ha_window);
+    return poll(event);
 }
 
 const uint8_t *SDL_GetKeyboardState(int *count) {
