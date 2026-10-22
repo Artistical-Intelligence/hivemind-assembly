@@ -8,8 +8,10 @@ ends input, and compares every tick with the pinned tolerances. Static ELF games
 the stepping engine, whose streams, exit status and input consumption are tested to
 equal batch replay; it also bounds every tick, so a frozen candidate is reported as a
 freeze rather than a wall-clock limit. Windows PE games use batch replay. Candidate
-rule violations fail unless the original shows the same violation. Workers see
-per-case outcomes only; sealed inputs and observations stay in a protected artifact.
+rule violations fail unless the original shows the same violation. A case stopped by
+a harness bound or cancellation fails as inconclusive; preparation seals only
+trajectories the original played to their end. Workers see per-case outcomes only;
+sealed inputs and observations stay in a protected artifact.
 """
 
 import copy
@@ -99,10 +101,14 @@ class GameAcceptance:
             raise ContractError("rules must be boolean")
         cases = _cases(game, spec["trajectories"])
         for case in cases:
+            if context.cancel.is_set():
+                raise Blocked("Acceptance preparation cancelled before every trajectory was checked")
             session = _session(game, original, "original", context.cancel)
             session.feed(bytes.fromhex(case["inputs_hex"]))
             if case["end"]:
                 session.end()
+            if any(p["kind"] == "cancelled" for p in session.problems):
+                raise Blocked("Acceptance preparation cancelled before every trajectory was checked")
             blocking = [p for p in session.problems if p["kind"] in ("crash", "freeze", "limit", "protocol")]
             if blocking:
                 diagnostic = artifacts.add(
@@ -183,13 +189,16 @@ class GameAcceptance:
             findings = [
                 f for f in report["findings"] if contract["rules"] or f["kind"] != "invariant"
             ]
-            passed = not findings
+            if any(p["kind"] == "cancelled" for p in report["inconclusive"]):
+                raise Blocked("Acceptance cancelled")
+            # A harness bound leaves the case unverified: it fails as inconclusive.
+            passed = not findings and not report["inconclusive"]
             reports.append({"id": case["id"], "passed": passed, "report": report})
             rows.append(
                 {
                     "id": case["id"],
                     "passed": passed,
-                    "outcome": gt.outcome(findings),
+                    "outcome": gt.outcome(findings, report["inconclusive"]),
                     "first_divergence_tick": (report["divergence"] or {}).get("tick"),
                 }
             )
