@@ -36,12 +36,25 @@
     el('quick-ready').hidden = q.state !== 'ready';
     if (el('quick-address').value !== q.endpoint) el('quick-address').value = q.endpoint || '';
     if (auto) renderAuto(auto);
+    if (q.mode) renderMode(q);
     const services = q.services || {};
     el('quick-services').replaceChildren(...Object.keys(providers).map(name => {
       const li = document.createElement('li');
       li.textContent = serviceLine(name, services[name] || {});
       return li;
     }));
+  }
+
+  const temporaryIntro = el('quick-intro').textContent;
+  function renderMode(q) {
+    const permanent = q.mode === 'permanent';
+    el('quick-intro').textContent = permanent
+      ? 'ChatGPT and Claude reach HA at a permanent address (' + q.permanent.origin + '). Keep HA running while you chat. Approvals are kept through restarts.'
+      : temporaryIntro;
+    el('quick-auto').hidden = permanent;
+    el('quick-auto-progress').hidden = permanent;
+    el('permanent-setup').hidden = permanent;
+    el('permanent-off').hidden = !permanent;
   }
 
   let autoLoaded = false;
@@ -137,6 +150,28 @@
     try {
       renderAuto(await api('quick/reconnect', {}));
       notice('Reconnecting in HA\'s assistant windows. Progress shows below.');
+    } catch (x) {
+      notice(x.message, true);
+    }
+  };
+
+  el('permanent-setup').onsubmit = async e => {
+    e.preventDefault();
+    const f = e.target.elements;
+    try {
+      notice('Setting up the permanent address. This takes about a minute.');
+      render(await api('permanent/setup', {token: f.token.value, account_id: f.account_id.value, confirmed_free: f.confirmed_free.checked}));
+      f.token.value = '';
+      notice('Permanent address ready. Connect ChatGPT and Claude to it once.');
+    } catch (x) {
+      f.token.value = '';
+      notice(x.message, true);
+    }
+  };
+  el('permanent-off').onclick = async () => {
+    try {
+      render(await api('permanent/off', {}));
+      notice('Using the temporary address again. The Worker stays in your Cloudflare account.');
     } catch (x) {
       notice(x.message, true);
     }
