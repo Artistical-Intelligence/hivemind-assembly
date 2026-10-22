@@ -82,6 +82,15 @@ def _integer(value, name, low, high):
     return value
 
 
+def _number(value, name):
+    """Rule and condition constants: integers, or finite numbers for float fields."""
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise ContractError(f"{name} must be finite")
+        return value
+    return _integer(value, name, -(2**63), 2**64 - 1)
+
+
 def _name(value, what):
     if not isinstance(value, str) or not NAME.fullmatch(value):
         raise ContractError(
@@ -126,7 +135,7 @@ def _condition(item, fields, what):
     if ("value" in item) == ("other" in item):
         raise ContractError(f"{what} condition needs exactly one of value or other")
     if "value" in item:
-        _integer(item["value"], what + " value", -(2**63), 2**64 - 1)
+        _number(item["value"], what + " value")
     elif item["other"] not in fields:
         raise ContractError(f"{what} condition compares with an unknown field")
     return item
@@ -557,7 +566,7 @@ def validate(spec):
             raise ContractError("Rule " + rule_id + " declares no check")
         for key in ("min", "max", "equals", "not_equals"):
             if key in rule:
-                _integer(rule[key], "Rule " + key, -(2**63), 2**64 - 1)
+                _number(rule[key], "Rule " + key)
         for key in ("min_field", "max_field"):
             if key in rule and rule[key] not in fields:
                 raise ContractError("Rule " + rule_id + " compares with an unknown field")
