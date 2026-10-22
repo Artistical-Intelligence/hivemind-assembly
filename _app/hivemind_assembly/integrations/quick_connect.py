@@ -727,6 +727,7 @@ class QuickConnection:
         self.state, self.message, self.origin = "off", "", ""
         self.download = None
         self.address_changed = False
+        self.on_ready = None  # called with the new address, e.g. to reconnect providers
         try:
             prior = json.loads((self.folder / "session.json").read_text())
         except (OSError, ValueError):
@@ -838,6 +839,11 @@ class QuickConnection:
                                 atomic_write(self.folder / "session.json", canonical({"origin": origin}))
                                 self.update("ready", "Ready. Connect ChatGPT or Claude below.")
                                 found.set()
+                            if self.on_ready:
+                                try:
+                                    self.on_ready(origin)
+                                except Exception:
+                                    pass  # reconnecting is best effort; the address stays usable
 
                 reader_thread = threading.Thread(target=reader, daemon=True)
                 reader_thread.start()
