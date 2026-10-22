@@ -177,7 +177,9 @@ class Session:
         if status in CRASH:
             self._problem("crash", (status, where or "?"), self.ticks, diagnostics)
         elif status == "freeze":
-            self._problem("freeze", (where or "?",), self.ticks, diagnostics)
+            # Where a budget runs out inside a loop varies with the trajectory, so
+            # the location is evidence, not part of the signature.
+            self._problem("freeze", (), self.ticks, diagnostics | {"function": where})
         elif status in LIMITS:
             self._problem("limit", (status,), self.ticks, diagnostics)
         elif status == "completed":
@@ -567,13 +569,16 @@ def explore(
     max_branch=12,
     sticky=0.7,
     findings_limit=32,
+    reference=None,
 ):
     """Go-Explore without training: return to archived cells and try new actions.
 
     `make_runner()` returns a fresh Session or Pair. Cells come from the declared
     cell fields (the original's state in a Pair) or a coarse frame grid. Newly
     executed functions make a cell more attractive. A branch stops at its first
-    finding, which is recorded once per signature with its exact trajectory.
+    finding, which is recorded once per signature with its exact trajectory. When a
+    single build is explored, `reference()` (a fresh original Session) classifies
+    findings that the original reproduces as original behavior.
     """
     if type(steps) is not int or not 1 <= steps <= 20000:
         raise ContractError("Exploration steps must be 1–20000")
@@ -673,6 +678,10 @@ def explore(
                     "found": step,
                 }
     sides = (runner.original, runner.candidate) if differential else (runner,)
+    if reference is not None and not differential:
+        for key, finding in list(findings.items()):
+            if reproduces(reference, gs.decode_token(finding["trajectory"], spec), key) is not None:
+                quirks[key] = findings.pop(key) | {"original_behavior": True}
     return {
         "mode": "differential" if differential else "single",
         "seed": seed,
