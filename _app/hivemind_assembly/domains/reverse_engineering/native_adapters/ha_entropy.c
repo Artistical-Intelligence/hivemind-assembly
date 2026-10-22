@@ -11,6 +11,10 @@
  * as Godot opens GDExtensions written in Rust or C++, are opened without it so their
  * requests reach these functions instead of binding straight to the C library.
  * Hardware instructions (RDRAND) and reads of /dev/urandom are not seeded.
+ *
+ * Both native lanes load this file, so it also disables core dumps while HA drives
+ * the game: a crash then ends the process at once instead of after the system has
+ * written or piped a dump, which HA could otherwise mistake for a frozen frame.
  * Without HA_TICK_PORT every function forwards to the C library unchanged.
  */
 #define _GNU_SOURCE
@@ -21,6 +25,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -38,6 +43,15 @@ static long (*ha_real_syscall)(long, ...);
 
 static void *ha_next(const char *name) {
     return dlsym(RTLD_NEXT, name);
+}
+
+/* A core-size limit of 1 byte stops file dumps (smaller than a page) and makes the
+ * kernel abort piped dumps (apport, systemd-coredump) as well. */
+__attribute__((constructor)) static void ha_no_core_dumps(void) {
+    struct rlimit limit;
+    if (!getenv("HA_TICK_PORT") || getrlimit(RLIMIT_CORE, &limit) || limit.rlim_max < 1) return;
+    limit.rlim_cur = 1;
+    setrlimit(RLIMIT_CORE, &limit);
 }
 
 static int ha_entropy_on(void) {
