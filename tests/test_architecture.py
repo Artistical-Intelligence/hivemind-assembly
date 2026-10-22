@@ -125,6 +125,9 @@ def test_original_specialist_capabilities_and_proof_are_preserved(ready):
         "compare_windows_program",
         "compare_program",
         "compare_project",
+        "describe_game",
+        "play_game",
+        "test_game",
     }
     assert len(domain.skills()) == 20
     result = broker.execute(
