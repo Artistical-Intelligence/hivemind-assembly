@@ -16,6 +16,15 @@ PACKAGES = {
     "clang": "LLVM.LLVM",
 }
 
+# Names shown while installing, and rough sizes in MB for the setup progress bar.
+WEIGHTS = {
+    "git": ("Git", 60),
+    "gh": ("the GitHub CLI", 15),
+    "node": ("Node.js", 30),
+    "java": ("Java (JDK 21)", 190),
+    "clang": ("LLVM (Clang)", 400),
+}
+
 # Silent installers do not always add their tools to PATH (the LLVM installer
 # leaves PATH unchanged by default), so also look in their standard folders.
 STANDARD_FOLDERS = {
@@ -128,7 +137,8 @@ def available(name):
         return False
 
 
-def install_missing(extra=()):
+def missing(extra=()):
+    """Prerequisites that are not usable yet (after refreshing PATH on Windows)."""
     if set(extra) - {"gh"}:
         raise Blocked("Unknown optional prerequisite")
     required = ["git", "node", "java", *extra]
@@ -136,21 +146,28 @@ def install_missing(extra=()):
     # LLVM includes Clang and LLD; Unix hosts may use their existing native GCC.
     if not shutil.which("clang") and (os.name == "nt" or not shutil.which("gcc")):
         required.append("clang")
-    missing = [name for name in required if not available(name)]
-    if missing and os.name == "nt":
+    absent = [name for name in required if not available(name)]
+    if absent and os.name == "nt":
         refresh_windows_path()
-        missing = [name for name in required if not available(name)]
-    if not missing:
+        absent = [name for name in required if not available(name)]
+    return absent
+
+
+def install_missing(extra=(), progress=None):
+    missing_now = missing(extra)
+    if not missing_now:
         return {"installed": []}
     if os.name != "nt":
-        raise Blocked("Install the missing system prerequisites: " + ", ".join(missing))
+        raise Blocked("Install the missing system prerequisites: " + ", ".join(missing_now))
     manager = shutil.which("winget")
     if not manager:
         raise Blocked(
             "Windows App Installer (winget) is unavailable. Install or enable it, then restart setup; completed work is retained."
         )
     installed = []
-    for name in missing:
+    for name in missing_now:
+        if progress:
+            progress.begin(f"Installing {WEIGHTS[name][0]}", WEIGHTS[name][1])
         result = subprocess.run(
             [
                 manager,
