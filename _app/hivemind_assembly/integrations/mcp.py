@@ -613,6 +613,16 @@ class Gateway:
 
 def build_server(call):
     from mcp.server import MCPServer
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    unchecked = call
+
+    def call(tool, arguments):
+        # HA's own refusals are meant for the client; the SDK hides other errors.
+        try:
+            return unchecked(tool, arguments)
+        except (Blocked, ContractError, Conflict) as exc:
+            raise ToolError(str(exc)) from exc
 
     server = MCPServer(
         "Hivemind Assembly",
