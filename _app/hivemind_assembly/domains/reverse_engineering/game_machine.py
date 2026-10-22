@@ -162,7 +162,6 @@ class GameMachine:
         freeze_tick_instructions=2_000_000,
         functions=None,
         cancel=None,
-        step_seconds=10,
     ):
         import unicorn as u
         from unicorn import arm64_const as ac
@@ -229,6 +228,8 @@ class GameMachine:
         )
         writable = sorted(a for a, p in pages.items() if p & u.UC_PROT_WRITE)
         self.writable = [(a, 4096) for a in writable] + [(self.stack, self.stack_size)]
+        # Snapshots store pages that differ from this initial writable memory.
+        self.initial = b"".join(bytes(uc.mem_read(a, size)) for a, size in self.writable)
         # Without writable code pages, validated blocks cannot change.
         self.mutable_code = any(
             p & u.UC_PROT_WRITE and p & u.UC_PROT_EXEC for p in pages.values()
@@ -240,7 +241,6 @@ class GameMachine:
         self.max_instructions = max_instructions
         self.freeze_tick = freeze_tick_instructions
         self.cancel = cancel
-        self.step_seconds = step_seconds
         self.pc = entry
         self.inputs = bytearray()
         self.cursor = 0
@@ -461,7 +461,9 @@ class GameMachine:
             self.status = "running"
             self.counted = 0
             try:
-                self.uc.emu_start(self.pc, 0, timeout=self.step_seconds * 1_000_000, count=budget)
+                # The instruction budget bounds each tick; a per-call timer thread
+                # would cost more than the tick itself.
+                self.uc.emu_start(self.pc, 0, count=budget)
             except self.u.UcError as error:
                 if self.status == "running":
                     self.status = "unsupported_instruction_or_fault"
@@ -568,9 +570,16 @@ class GameMachine:
         if self.status == "running":
             raise ContractError("A running machine cannot be snapshotted")
         memory = b"".join(bytes(self.uc.mem_read(a, size)) for a, size in self.writable)
+        # Keep only pages that differ from the loaded image and the empty stack.
+        pages = [
+            offset
+            for offset in range(0, len(memory), 4096)
+            if memory[offset : offset + 4096] != self.initial[offset : offset + 4096]
+        ]
         return {
             "context": self.uc.context_save(),
-            "memory": zlib.compress(memory, 1),
+            "pages": pages,
+            "memory": zlib.compress(b"".join(memory[o : o + 4096] for o in pages), 1),
             "pc": self.pc,
             "inputs": bytes(self.inputs),
             "streams": (self.stdout.freeze(), self.stderr.freeze()),
@@ -598,10 +607,13 @@ class GameMachine:
 
     def restore(self, snapshot):
         self.uc.context_restore(snapshot["context"])
-        memory = zlib.decompress(snapshot["memory"])
+        memory = bytearray(self.initial)
+        dirty = zlib.decompress(snapshot["memory"])
+        for index, offset in enumerate(snapshot["pages"]):
+            memory[offset : offset + 4096] = dirty[index * 4096 : (index + 1) * 4096]
         offset = 0
         for address, size in self.writable:
-            self.uc.mem_write(address, memory[offset : offset + size])
+            self.uc.mem_write(address, bytes(memory[offset : offset + size]))
             offset += size
         self.pc = snapshot["pc"]
         self.inputs = bytearray(snapshot["inputs"])
