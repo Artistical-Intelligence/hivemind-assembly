@@ -8,7 +8,7 @@
     "static": "Pyflakes on changed implementation/tests and git diff --check passed. The Windows package job built and hash-manifest checked source and runtime archives, including the diagnostic helper and all pinned memory sources and notices. Actual Chromium checks provide current browser coverage.",
     "goals": "Fixture native responses exercised root goal continuation through real local capture execution and a second fresh independent acceptance run. This is not signed-in native model acceptance.",
     "historical_evidence": "Checks under historical_checks were recorded in earlier development runs and are not newly claimed from this release verification.",
-    "github_ci": "Commit 7c35caa (v0.26.0 code; only documentation changed after the v0.26.0 tag at 3e741b3) passed all four jobs in run 39808320013, the first run in the recreated repository: Linux 915 passed/20 skipped (620.13s), including the native SDL2 and Godot 4.7.1 play tests; Windows 887 passed/48 skipped (1241.11s); fifteen separate native Windows execution checks; twelve Chromium checks; and Windows package install/update/restore. The release workflow it triggered (run 39811968290) found v0.26.0 already published and built nothing.",
+    "github_ci": "Commit 7c35caa (v0.26.0 code; only documentation changed after the v0.26.0 tag at 3e741b3) passed all four jobs in run 39808320013: Linux 915 passed/20 skipped (620.13s), including the native SDL2 and Godot 4.7.1 play tests; Windows 887 passed/48 skipped (1241.11s); fifteen separate native Windows execution checks; twelve Chromium checks; and Windows package install/update/restore. The release workflow it triggered (run 39811968290) found v0.26.0 already published and built nothing.",
     "windows_runtime": "The 0.24.0 Windows package job passed at 8ca03ab in run 39615843168: embedded Python and hash-locked dependencies; register/native/frame/dynamic-buffer/emulated-renderer checks and protected capture inspection; re-extraction and backup restoration preserving and rerunning project data; paths containing spaces. Desktop prerequisite installation and signed-in model sessions remain unverified.",
     "project_workspace": "Real Chromium and the HTTP controller completed starter creation, uploads, editing, draft preservation, positive/negative checks, byte-exact download, reload persistence, native observations and fresh guided exact-output setup. A separate local jsdom/controller run compiled and checked a C utility through the guided form with automatic compiler discovery. Authenticated streaming, version-checked snapshots, stale edits, immutable references, invalid paths and local-check independence from optional publication passed backend tests.",
     "mcp_codespaces": "Official MCP SDK in-process and real stdio bridge exchanges; outbound stdio discovery/tool/project grants; standalone Linux runner execution, deadline and credential removal; parallel spaces, queued cancellation, interrupted startup, GPU requirement rejection and output import conflict checks. Real HTTP controller with jsdom validated connection settings. No live Codespace or web tunnel acceptance.",
@@ -196,11 +196,11 @@
     "failed": 0,
     "elapsed_seconds": 620.13,
     "host": "GitHub Linux Python 3.12",
-    "scope": "Full regression at commit 7c35caa, run 39808320013 (first run in the recreated repository). Windows: 887 passed/48 skipped in 1241.11s. No live native-model acceptance inferred."
+    "scope": "Full regression at commit 7c35caa, run 39808320013. Windows: 887 passed/48 skipped in 1241.11s. No live native-model acceptance inferred."
   },
   "evidence": [
     {
-      "id": "hosted-ci-recreated-repository",
+      "id": "hosted-ci-7c35caa",
       "date": "2026-10-22",
       "commit": "7c35caa3a1a140724b3cd3ee42a87b3dba00a54a",
       "runs": [
@@ -209,7 +209,7 @@
       ],
       "host": "GitHub Linux and Windows",
       "live_model_inference": false,
-      "summary": "First run in the recreated repository, at 7c35caa (only documentation changed since v0.26.0 at 3e741b3). All four contract jobs passed: Linux 915 passed/20 skipped (620.13s), including the native SDL2 and Godot 4.7.1 play tests; Windows 887 passed/48 skipped (1241.11s); fifteen native Windows checks; twelve Chromium checks; Windows package install, update and restore. The release workflow it started (run 39811968290) found v0.26.0 already published and built nothing; the published v0.26.0 installers are byte-identical to the originals (SHA-256 checked)."
+      "summary": "All four contract jobs passed at 7c35caa (only documentation changed since v0.26.0 at 3e741b3): Linux 915 passed/20 skipped (620.13s), including the native SDL2 and Godot 4.7.1 play tests; Windows 887 passed/48 skipped (1241.11s); fifteen native Windows checks; twelve Chromium checks; Windows package install, update and restore. The release workflow it started (run 39811968290) found v0.26.0 already published and built nothing."
     },
     {
       "id": "hosted-ci-game-play-testing",
@@ -361,9 +361,5 @@
       "summary": "Handoff baseline: all four jobs passed; local Linux full suite 795 passed/18 skipped."
     }
   ],
-  "run_logs_removed_before": {
-    "run": 39808320013,
-    "date": "2026-10-22",
-    "reason": "The repository was recreated that day with the same code and cleaned commit history; earlier workflow runs and their logs were not carried over. Commit IDs in older evidence are the cleaned equivalents (same files)."
-  }
+  "run_logs_removed_before": 39808320013
 }
