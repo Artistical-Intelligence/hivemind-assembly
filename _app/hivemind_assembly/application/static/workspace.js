@@ -81,7 +81,10 @@
   // only when the current task is not offered there (for example, it must be paused).
   const syncedPickers = ['target-task','acceptance-task','native-test-task','goal-task','repository-task','hosted-test-task','knowledge-task','cloud-task'];
   function syncTaskPickers() {
-    byId('task-picker').hidden = !(state && state.tasks.length);
+    const hasTasks = !!(state && state.tasks.length);
+    byId('task-picker').hidden = !hasTasks;
+    // Cards that act on a task appear once a project exists.
+    document.querySelectorAll('.needs-task').forEach(e => { e.hidden = !hasTasks; });
     for (const id of syncedPickers) {
       const select = byId(id); if (!select) continue;
       const offered = !!selected && [...select.options].some(o => o.value === selected);
