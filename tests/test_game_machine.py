@@ -205,3 +205,20 @@ def test_replay_engine_reports_end_of_input_observations(tmp_path):
     assert engine.output_tail("stdout", 0).hex() == expected[2]
     with pytest.raises(Exception, match="live memory"):
         engine.read_memory(0, 1)
+
+
+def test_snapshots_restore_in_any_order(tmp_path):
+    image = build(tmp_path, TICK)
+    machine = GameMachine(image)
+    machine.feed(b"\x01")
+    early = machine.snapshot()
+    machine.feed(b"\x02\x03")
+    late = machine.snapshot()
+    expected = (list(machine.costs), machine.output_tail("stdout", 0), machine.instructions)
+    machine.restore(early)
+    machine.feed(b"\x04")
+    machine.restore(late)
+    assert (list(machine.costs), machine.output_tail("stdout", 0), machine.instructions) == expected
+    machine.feed(b"\x05")
+    reference = stepped(image, b"\x01\x02\x03\x05")
+    assert machine.costs == reference.costs[: len(machine.costs)]
