@@ -1,8 +1,6 @@
 // Plain hover descriptions for every dashboard button, including buttons added later.
 (() => {
   const byId = {
-    'first-run-install': 'Download and install everything HA uses, in one step.',
-    'first-run-later': 'Hide this reminder for now.',
     'native-all': 'Open sign-in windows for each AI assistant HA works with.',
     'verify': 'Run a quick built-in self-test.',
     'native-test-run': 'Run the saved tests for this project now.',
@@ -24,7 +22,7 @@
     'knowledge-curate': 'Let HA sort the selected material into categories.',
     'optimize-workflow': 'Test whether a faster way of working is still correct.',
     'backup': 'Save a backup copy of all your HA data.',
-    'install': 'Download and install everything HA uses, in one step.',
+    'install': 'Download and install everything HA uses, in one step. Progress shows below.',
     'verify-foundations': 'Check that the helper tools are installed correctly.',
     'github-auto': 'Connect HA to your GitHub account step by step.',
     'github-cancel': 'Stop the GitHub sign-in that is in progress.',
@@ -35,7 +33,6 @@
     'trace-viewer': 'Send the next set of logs to the log viewer on this computer.',
     'trace-more': 'Show more log entries.',
     'mcp-config': 'Show the settings other apps need to connect to HA.',
-    'tunnel-install': 'Download the tool that makes the private connection.',
     'tunnel-doctor': 'Check that the connection settings are correct.',
     'tunnel-start': 'Turn the private connection on.',
     'tunnel-stop': 'Turn the private connection off.',
@@ -44,7 +41,6 @@
     'mcp-metadata-generate': 'Create the public info file this connection needs.',
     'mcp-oauth-forget': 'Remove the sign-in for this connection.',
     'mcp-forget': 'Delete the saved password or key for this connection.',
-    'cloud-setup': 'Install the tools needed to use cloud machines.',
     'cloud-connect': 'Give HA permission to use your GitHub cloud machines.',
     'cloud-list': 'Reload the list of your cloud machines.',
     'cloud-machines': 'Show which machine sizes you can choose.',
