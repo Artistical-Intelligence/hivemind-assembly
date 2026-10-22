@@ -73,6 +73,9 @@ def test_windows_refresh_prefers_new_registry_path_and_jdk(monkeypatch):
     )
     monkeypatch.setitem(sys.modules, 'winreg', registry)
     monkeypatch.setattr(prerequisites, 'os', SimpleNamespace(name='nt', environ=os.environ))
+    # Registry precedence only; a real LLVM installation on the host (as on
+    # GitHub's Windows runners) must not add its folder to this fixture.
+    monkeypatch.setattr(prerequisites, 'STANDARD_FOLDERS', {})
     monkeypatch.setenv('JAVA_HOME', r'C:\old-jre')
     monkeypatch.setenv('PATH', r'C:\old-node;C:\user-tools;C:\Windows')
     prerequisites.refresh_windows_path()
