@@ -305,6 +305,11 @@ class GamePlay:
         start, preconditions = self._start(spec, args)
         result = {"game": spec["name"], "mode": mode, "side": side, "build": images["build"]}
         if mode == "explore":
+            reference = None
+            if side == "candidate" and "original_path" in spec:
+                # Single-build findings that the original reproduces are original behavior.
+                images["original"] = self.images(context, spec, "original")["original"]
+                reference = self.factory(spec, images, "original", context.cancel)
             report = gt.explore(
                 spec,
                 make,
@@ -313,6 +318,7 @@ class GamePlay:
                 start=start,
                 deadline=deadline,
                 cancel=context.cancel,
+                reference=reference,
             )
             return result | report | {"passed": not report["findings"]}
         if mode in ("shrink", "package"):
