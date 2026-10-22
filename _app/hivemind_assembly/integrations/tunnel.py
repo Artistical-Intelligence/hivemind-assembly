@@ -76,7 +76,7 @@ class Tunnel:
             )
         return found[0]
 
-    def install(self):
+    def install(self, progress=None):
         with self.lock:
             if self.closed or (self.process and self.process.poll() is None):
                 raise Blocked("Stop the tunnel before installing its runtime")
@@ -102,10 +102,13 @@ class Tunnel:
                         "GET", asset["browser_download_url"]
                     ) as stream, archive.open("wb") as out:
                         stream.raise_for_status()
+                        total = asset.get("size") or None
                         for chunk in stream.iter_bytes():
                             size += len(chunk)
                             if size > 128 * 1024 * 1024:
                                 raise Blocked("Tunnel archive exceeds download limit")
+                            if progress:
+                                progress.download(size, total)
                             h.update(chunk)
                             out.write(chunk)
                     if "sha256:" + h.hexdigest() != asset["digest"]:
