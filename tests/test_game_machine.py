@@ -222,3 +222,68 @@ def test_snapshots_restore_in_any_order(tmp_path):
     machine.feed(b"\x05")
     reference = stepped(image, b"\x01\x02\x03\x05")
     assert machine.costs == reference.costs[: len(machine.costs)]
+
+
+def test_replay_engine_names_each_bound():
+    def fake(result):
+        return lambda image, inputs, tick_marks=False, **options: dict(result)
+
+    cases = [
+        ({"status": "budget_exhausted", "fault": "Wall-clock limit"}, "wall_clock_limit"),
+        ({"status": "budget_exhausted", "fault": "API call limit"}, "event_limit"),
+        ({"status": "budget_exhausted", "fault": "Output limit"}, "output_limit"),
+        ({"status": "budget_exhausted", "stop_context": {"stop_reason": "wall_clock_limit"}}, "wall_clock_limit"),
+        # Only a budget spent inside one tick is a freeze; otherwise it is a limit.
+        ({"status": "budget_exhausted", "instructions": 5_000_000, "read_instructions": [100, 200]}, "freeze"),
+        ({"status": "budget_exhausted", "instructions": 5_000_000, "read_instructions": [4_000_000]}, "instruction_limit"),
+        ({"status": "event_limit"}, "event_limit"),
+    ]
+    for result, expected in cases:
+        assert ReplayEngine(b"", fake(result), "fake", {}, freeze_tick=2_000_000).status == expected, result
+    timed = ReplayEngine(b"", fake({"status": "completed", "instructions": 350, "read_instructions": [100, 250]}), "fake", {})
+    assert timed.costs == [100, 150]
+
+
+def test_engine_bounds_come_from_the_game_contract(tmp_path):
+    from hivemind_assembly.core import game_spec as gs
+    from hivemind_assembly.core.common import ContractError
+    from hivemind_assembly.domains.reverse_engineering.game_machine import open_engine
+
+    image = build(tmp_path, TICK)
+    spec = gs.validate(
+        {
+            "version": 1,
+            "input": {"record_bytes": 1, "controls": {"key": "01"}},
+            "output": {"stdout": [{"name": "out", "bytes": 2}], "stderr": [{"name": "key", "bytes": 1}]},
+            "limits": {"max_ticks": 3000},
+        }
+    )
+    machine = open_engine(image, spec)
+    assert machine.output_limit == gs.output_bound(spec)
+    assert machine.event_limit == gs.event_bound(spec) > 4096
+    # 2,500 ticks make 7,500 input/output calls, beyond the fixed default bound.
+    machine.feed(b"\x01" * 2500)
+    assert machine.status == "awaiting_input" and machine.output_size("stdout") == 5000
+    with pytest.raises(ContractError, match="64 MiB"):
+        gs.validate(
+            {
+                "version": 1,
+                "input": {"record_bytes": 1, "controls": {"key": "01"}},
+                "output": {"stdout": [{"name": "frame", "format": "rgba8", "width": 256, "height": 256}]},
+                "limits": {"max_ticks": 4096},
+            }
+        )
+
+
+def test_reused_engines_observe_the_current_cancellation(tmp_path):
+    image = build(tmp_path, TICK)
+    first, second = threading.Event(), threading.Event()
+    machine = GameMachine(image, cancel=first)
+    machine.feed(b"\x01")
+    first.set()
+    machine.rebind(second)
+    machine.feed(b"\x02")
+    assert machine.status == "awaiting_input"
+    second.set()
+    machine.feed(b"\x03")
+    assert machine.status == "cancelled"
