@@ -194,7 +194,7 @@ export class HaBridge {
         const rpc=JSON.parse(result),provider=grant.provider;
         await this.event(provider,'last_request_at');
         if(!rpc.error && !rpc.result?.isError) {
-          const stage={'initialize':'initialized_at','tools/list':'tools_discovered_at','tools/call':'last_tool_at'}[message.method];
+          const stage={'initialize':'initialized_at','tools/list':'tools_listed_at','tools/call':'last_tool_at'}[message.method];
           if(stage)await this.event(provider,stage);
         }
         return new Response(result,{status:200,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
@@ -235,7 +235,7 @@ export class HaBridge {
     const id=token();await this.put('flow:'+id,{client_id:p.client_id,redirect_uri:p.redirect_uri,
       challenge:p.code_challenge,state:String(p.state||'').slice(0,2048),resource,scope,epoch:await this.epoch()},600);
     const provider=new URL(p.redirect_uri).hostname.startsWith('claude.')?'Claude':'ChatGPT';
-    await this.event(provider,'authorization_started_at');
+    await this.event(provider,'approval_requested_at');
     return html(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Approve Hivemind Assembly</title>
 <style>body{font:16px system-ui;max-width:520px;margin:6vh auto;padding:24px;line-height:1.5;color:#18241f}h1{font-size:24px}input,button{box-sizing:border-box;width:100%;font:inherit;padding:11px;margin:10px 0;border:1px solid #9fb0a8;border-radius:7px}button{background:#1f5e46;color:#fff;cursor:pointer}small{display:block;color:#56645d}</style>
 <h1>Connect Hivemind Assembly</h1><p>${provider} will be able to use the projects you shared in HA's Connections page. Nothing else on your computer is shared.</p>
