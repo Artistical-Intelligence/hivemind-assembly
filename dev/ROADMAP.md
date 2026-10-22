@@ -65,6 +65,17 @@ program, rollback of regressed regions, verified source snapshots for local and
 connected projects, a `linux_project` acceptance scope and the fixed three-target
 suite. A read-only MCP publication status completes the reconnect path.
 
+Version 0.26 adds deterministic game play-testing ([design](GAME_TESTING.md)): a
+validated game contract; a harness for scripted play, lockstep comparison with the
+original, Go-Explore exploration, shrinking, bug packages and saved regressions; a
+stepping engine for static ELF games and replay engines for the existing batch lanes;
+worker and owner operations with frame images; a `game_play` acceptance scope; and a
+native lane that plays real Godot 4 projects and Linux SDL2 programs through
+in-process adapters (fixed frame steps, virtual clocks, seeded randomness, HA-only
+input) once the owner enables trusted native execution. Real free games built with
+Godot, C++ and Rust were played through it (`dev/check_real_games.py`). This work is
+outside the eight-stop plan's weighting; the estimate below is unchanged.
+
 Inbound project-scoped MCP, outbound tool grants, standard HTTP OAuth onboarding,
 private-tunnel supervision and optional Codespaces snapshot jobs are implemented.
 Repository creation and Codespaces are optional. Local-only projects and existing
