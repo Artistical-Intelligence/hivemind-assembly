@@ -23,6 +23,9 @@ class NativeSetup:
         self.sessions, self.team = sessions, team
         self.pages = {}
         self.locks = {}
+        # Routes sharing a browser profile share one sign-in: only one of them
+        # opens a page until that profile is signed in.
+        self.signing_in = {}
 
     def status(self, route):
         rows = self.store.rows(
@@ -82,14 +85,29 @@ class NativeSetup:
             raise Blocked("Unknown native route")
         async with self.locks.setdefault(route, asyncio.Lock()):
             cfg = self.browser.config["routes"][route]
+            profile = cfg["profile"]
             page = self.pages.get(route)
             if page is None or page.is_closed():
+                owner = self.signing_in.get(profile)
+                owner_page = self.pages.get(owner)
+                if owner not in (None, route) and owner_page is not None and not owner_page.is_closed():
+                    return self.save(
+                        route,
+                        stage="authentication",
+                        instruction="Waiting for sign-in in the window already open for this account.",
+                    )
                 from .providers import CONTRACTS
 
                 url = (
                     cfg.get("conversation_url") or CONTRACTS[cfg["provider"]]["new_url"]
                 )
-                page = await self.browser.service_page(cfg["profile"], url, cfg["allowed_hosts"])
+                self.signing_in[profile] = route
+                try:
+                    page = await self.browser.service_page(profile, url, cfg["allowed_hosts"])
+                except BaseException:
+                    if self.signing_in.get(profile) == route:
+                        del self.signing_in[profile]
+                    raise
                 self.pages[route] = page
             if urlsplit(page.url).hostname not in cfg["allowed_hosts"]:
                 return self.save(
@@ -117,6 +135,9 @@ class NativeSetup:
                     stage="authentication",
                     instruction="Complete provider sign-in in the opened browser; setup continues automatically.",
                 )
+            if self.signing_in.get(profile) == route:
+                # Signed in: the account's other routes can open their chats now.
+                del self.signing_in[profile]
             discovered = await discover(page, cfg)
             if discovered["missing"]:
                 return self.save(
