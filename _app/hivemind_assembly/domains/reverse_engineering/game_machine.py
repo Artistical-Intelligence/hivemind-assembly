@@ -11,13 +11,19 @@ syscalls and budgets. Nothing reaches the host.
 
 `ReplayEngine` adapts a batch replay (static Linux ELF or Windows x64 console PE) to
 the same protocol by replaying the whole input log with end of input. It has no live
-pause or memory reads; its snapshots are input logs. Capabilities say which applies.
+pause or memory reads; its snapshots are input logs. Instruction counts recorded at
+each input read give it per-tick costs, so an instruction budget that runs out inside
+one tick is a freeze and otherwise an inconclusive limit. Capabilities say which
+applies. Output and event bounds derive from the game contract, so a session that
+stays within its declared ticks never meets them. Instruction budgets bound every
+call; wall-clock limits apply only inside the batch replays.
 """
 
 import functools
 import io
 import struct
 import zlib
+from array import array
 
 from hivemind_assembly.core.common import Blocked, ContractError
 
@@ -34,6 +40,7 @@ TERMINAL = (
     "event_limit",
     "cancelled",
 )
+# Defaults for direct use; open_engine derives both from the game contract.
 OUTPUT_LIMIT = 1_000_000
 EVENT_LIMIT = 4096
 # HA's freestanding runtime and bundled memory routines are not game code.
@@ -167,6 +174,8 @@ class GameMachine:
         freeze_tick_instructions=2_000_000,
         functions=None,
         cancel=None,
+        output_limit=OUTPUT_LIMIT,
+        event_limit=EVENT_LIMIT,
     ):
         import unicorn as u
         from unicorn import arm64_const as ac
@@ -182,8 +191,12 @@ class GameMachine:
             or not 1 <= max_instructions <= 10_000_000
             or type(freeze_tick_instructions) is not int
             or not 1 <= freeze_tick_instructions <= max_instructions
+            or type(output_limit) is not int
+            or not 1 <= output_limit <= 128 * 2**20
+            or type(event_limit) is not int
+            or not 1 <= event_limit <= 2_000_000
         ):
-            raise ContractError("Game clock or instruction bounds are invalid")
+            raise ContractError("Game clock, instruction, output or event bounds are invalid")
         argv, env = normalize(argv, env)
         self.u, self.image = u, image
         machine = image_machine(image)
@@ -245,6 +258,7 @@ class GameMachine:
         self.clock_ns = clock_ns
         self.max_instructions = max_instructions
         self.freeze_tick = freeze_tick_instructions
+        self.output_limit, self.event_limit = output_limit, event_limit
         self.cancel = cancel
         self.pc = entry
         self.inputs = bytearray()
@@ -364,8 +378,12 @@ class GameMachine:
         self.status = status
         self.uc.emu_stop()
 
+    def rebind(self, cancel):
+        """Observe a new request's cancellation (cached sessions outlive requests)."""
+        self.cancel = cancel
+
     def _writable(self, address, size, perm):
-        if size > OUTPUT_LIMIT or size < 0 or address + size > 2**64:
+        if size > self.output_limit or size < 0 or address + size > 2**64:
             return False
         if not size:
             return True
@@ -388,7 +406,7 @@ class GameMachine:
         operation = self.syscall_names.get(number)
         a, b, n = [engine.reg_read(r) for r in self.argument_registers]
         self.active_syscall = {"number": number, "name": operation or "unsupported", "arguments": [a, b, n]}
-        if self.events >= EVENT_LIMIT:
+        if self.events >= self.event_limit:
             self._stop("event_limit")
             return
         result = 0
@@ -402,7 +420,7 @@ class GameMachine:
         elif operation == "write" and a in (1, 2):
             if not self._writable(b, n, u.UC_PROT_READ):
                 result = -14
-            elif self.stdout.size + self.stderr.size + n > OUTPUT_LIMIT:
+            elif self.stdout.size + self.stderr.size + n > self.output_limit:
                 self._stop("output_limit")
                 return
             else:
@@ -466,8 +484,8 @@ class GameMachine:
             self.status = "running"
             self.counted = 0
             try:
-                # The instruction budget bounds each tick; a per-call timer thread
-                # would cost more than the tick itself.
+                # The instruction budget bounds each tick (and so its host time); a
+                # per-call timer thread would cost more than the tick itself.
                 self.uc.emu_start(self.pc, 0, count=budget)
             except self.u.UcError as error:
                 if self.status == "running":
@@ -477,10 +495,7 @@ class GameMachine:
             if self.status == "running":
                 # Neither a syscall nor a policy hook stopped the guest: a bound did.
                 self.counted = budget
-                if self.uc.query(self.u.UC_QUERY_TIMEOUT):
-                    self.status = "wall_clock_limit"
-                else:
-                    self.status = "instruction_limit" if total <= budget else "freeze"
+                self.status = "instruction_limit" if total <= budget else "freeze"
             self.instructions += self.counted
             self.tick_instructions += self.counted
             self.counted = 0
@@ -605,8 +620,9 @@ class GameMachine:
                     "active_syscall",
                 )
             },
-            # Snapshots can be restored in any order, so keep contents, not lengths.
-            "costs": tuple(self.costs),
+            # Snapshots can be restored in any order, so keep contents, not lengths;
+            # packed counts keep a large exploration archive small.
+            "costs": array("Q", self.costs).tobytes(),
             "effects": tuple(self.effects),
             "hits": dict(self.hits),
         }
@@ -627,17 +643,32 @@ class GameMachine:
         self.stdout, self.stderr = Stream(out_chunks, out_size), Stream(err_chunks, err_size)
         for key, value in snapshot["fields"].items():
             setattr(self, key, value)
-        self.costs = list(snapshot["costs"])
+        costs = array("Q")
+        costs.frombytes(snapshot["costs"])
+        self.costs = costs.tolist()
         self.effects = list(snapshot["effects"])
         self.hits = dict(snapshot["hits"])
         self.counted = 0
+
+    @staticmethod
+    def snapshot_bytes(snapshot):
+        # Stream chunks are shared between snapshots and not counted here.
+        return (
+            len(snapshot["memory"])
+            + len(snapshot["inputs"])
+            + len(snapshot["costs"])
+            + 64 * len(snapshot["effects"])
+            + 8 * len(snapshot["hits"])
+            + 4096
+        )
 
 
 class ReplayEngine:
     """Batch replay behind the harness protocol; observations follow end of input."""
 
-    def __init__(self, image, runner, runtime, options, functions=None, symbols=None):
+    def __init__(self, image, runner, runtime, options, functions=None, symbols=None, freeze_tick=None):
         self.image, self.runner, self.options = image, runner, dict(options)
+        self.freeze_tick = freeze_tick
         self.capabilities = {
             "runtime": runtime,
             "stepping": "replay",
@@ -660,7 +691,7 @@ class ReplayEngine:
         options = dict(self.options)
         if self.entries:
             options["coverage"] = self.entries
-        self.result = self.runner(self.image, bytes(self.inputs), **options)
+        self.result = self.runner(self.image, bytes(self.inputs), tick_marks=True, **options)
         self.streams = {
             "stdout": bytes.fromhex(self.result.get("stdout_hex", "")),
             "stderr": bytes.fromhex(self.result.get("stderr_hex", "")),
@@ -668,11 +699,42 @@ class ReplayEngine:
 
     @property
     def status(self):
-        status = self.result["status"]
+        result = self.result
+        status = result["status"]
         if status == "budget_exhausted":
-            reason = (self.result.get("stop_context") or {}).get("stop_reason")
-            return "wall_clock_limit" if reason == "wall_clock_limit" else "freeze"
+            # Linux replay names the bound in its stop context; Windows replay in
+            # its fault text. Only an instruction budget spent inside one tick is a
+            # freeze; every other bound is an inconclusive harness limit.
+            reason = (result.get("stop_context") or {}).get("stop_reason") or ""
+            fault = str(result.get("fault") or "")
+            if reason == "wall_clock_limit" or fault == "Wall-clock limit":
+                return "wall_clock_limit"
+            if fault == "API call limit":
+                return "event_limit"
+            if fault == "Output limit":
+                return "output_limit"
+            if self.freeze_tick is not None and self.open_tick_instructions >= self.freeze_tick:
+                return "freeze"
+            return "instruction_limit"
         return {"unsupported": "unsupported_syscall", "incomplete": "fault"}.get(status, status)
+
+    @property
+    def marks(self):
+        return self.result.get("read_instructions") or []
+
+    @property
+    def open_tick_instructions(self):
+        """Instructions since the last input read (the tick that was running)."""
+        marks = self.marks
+        return self.instructions - (marks[-1] if marks else 0)
+
+    @property
+    def costs(self):
+        marks = self.marks
+        return [b - a for a, b in zip([0] + marks[:-1], marks)]
+
+    def rebind(self, cancel):
+        self.options["cancel"] = cancel
 
     @property
     def exit_code(self):
@@ -685,8 +747,6 @@ class ReplayEngine:
     @property
     def instructions(self):
         return self.result.get("instructions", 0)
-
-    costs = ()
 
     def feed(self, data):
         if self.ended:
@@ -724,6 +784,10 @@ class ReplayEngine:
         self.ended = snapshot["ended"]
         self._replay()
 
+    @staticmethod
+    def snapshot_bytes(snapshot):
+        return len(snapshot["inputs"]) + 64
+
 
 def image_kind(image):
     if image[:4] == b"\x7fELF":
@@ -735,6 +799,8 @@ def image_kind(image):
 
 def open_engine(image, spec, *, live=True, cancel=None):
     """Choose the engine for an image under a validated game spec."""
+    from hivemind_assembly.core import game_spec as gs
+
     limits, process = spec["limits"], spec["process"]
     declared = dict(spec.get("functions") or {})
     kind = image_kind(image)
@@ -757,6 +823,8 @@ def open_engine(image, spec, *, live=True, cancel=None):
                 freeze_tick_instructions=limits["freeze_tick_instructions"],
                 functions=declared,
                 cancel=cancel,
+                output_limit=gs.output_bound(spec),
+                event_limit=gs.event_bound(spec),
             )
         symbols = elf_symbols(image)
         entries, _ = game_functions(symbols, declared, limit=256)
@@ -773,6 +841,7 @@ def open_engine(image, spec, *, live=True, cancel=None):
             },
             functions=entries,
             symbols=symbols,
+            freeze_tick=limits["freeze_tick_instructions"],
         )
     from .windows_program import replay as windows_replay
 
@@ -790,4 +859,5 @@ def open_engine(image, spec, *, live=True, cancel=None):
             "cancel": cancel,
         },
         functions=dict(sorted(entries.items())[:256]),
+        freeze_tick=limits["freeze_tick_instructions"],
     )
