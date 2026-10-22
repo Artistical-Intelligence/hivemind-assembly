@@ -9,10 +9,10 @@ weaken their checks or require slower network calls on critical paths.
 
 | Package under `_app/hivemind_assembly` | Owns |
 | --- | --- |
-| `core` | Durable store, controller, operation journal, artifacts, jobs, capability contracts and execution broker |
+| `core` | Durable store, controller, operation journal, artifacts, jobs, capability contracts, execution broker and the domain-independent game play-testing contract and harness |
 | `automation` | Native browser sessions, model/allowance policy, team flow, repeated-failure recovery and Hermes session adapter |
 | `learning` | Restricted source ingestion/reading obligations and evaluated knowledge, procedure and executable promotion/rollback |
-| `domains/reverse_engineering` | Ghidra/REA bridges, specialist tools, P-code execution, independent differential verification, scoped proofs, hybrid fixture, project region composition and 20 baseline methods |
+| `domains/reverse_engineering` | Ghidra/REA bridges, specialist tools, P-code execution, independent differential verification, scoped proofs, hybrid fixture, project region composition, game engines and 21 baseline methods |
 | `application` | Composition, dashboard, installation and setup |
 
 The core has no reverse engineering, browser or UI dependency. Automation
@@ -416,3 +416,42 @@ terminal result is interrupted and is never automatically rerun. The MCP summary
 excludes evaluator outputs; errors stay in protected artifacts. Shutdown cancels
 and joins these checks before closing the store. This does not pin acceptance
 on a model's behalf or let manual checks complete an autonomous goal.
+
+## Game play-testing
+
+Design record and evaluation of the owner's proposal: [GAME_TESTING](GAME_TESTING.md).
+`core.game_spec` validates the per-project `game.json` contract and owns trajectory
+tokens, rule evaluation, cells and PNG/character views. `core.game_testing` is
+domain-independent: a `Session` drives one engine through a spec, decodes per-tick
+records and records problems with signatures; a `Pair` feeds the original and the
+candidate identical inputs and records the first divergent tick; exploration,
+shrinking, confirmation, bug packages and saved regressions are built from them. It
+depends on an engine protocol, never on Unicorn or the domain package.
+
+`domains.reverse_engineering.game_machine` supplies the engines. `GameMachine` maps a
+static x86-64/AArch64 ELF exactly as program replay does, stops the guest at every
+read so a tick ends when the game asks for its next input, completes reads only when
+the requested bytes or end of input are available, and validates each translated
+block once against the same instruction policy (clock, random, port and system
+instructions stop execution). Block hooks count instructions and function entries;
+per-tick and total budgets distinguish a freeze from an inconclusive limit. Sparse
+page snapshots restore exactly. `ReplayEngine` wraps the existing Linux and Windows
+batch replays and declares that its observations follow end of input.
+
+`domains.reverse_engineering.game_play` exposes `describe_game`, `play_game` and
+`test_game` as discard-recovery capabilities: each result is a function of
+workspace files and the supplied trajectory, so an interrupted call is recomputed,
+never reconciled, and the calls are eligible for durable tool batches. Build and
+session caches only avoid repeated work. The `game_play` acceptance scope seals the
+original, the validated contract and trajectories as protected artifacts, rebuilds
+the candidate and replays every trajectory on fresh engines; workers see per-case
+outcomes and first divergent ticks only.
+
+The broker converts `_images` in a domain result into task artifacts and lists them
+as `image_artifacts`. `automation.team` attaches up to four PNG artifacts from the
+previous result to the next native turn when the route has upload and
+attachment-ready bindings; the JSON result and the character view remain otherwise.
+The dashboard calls the same domain operations as the owner and draws frames from raw
+RGBA on canvas, because its content policy blocks image URLs. Saving a regression is
+an ordinary guarded workspace edit.
+
