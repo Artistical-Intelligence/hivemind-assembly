@@ -27,7 +27,8 @@ playwright-report/
 
 # HA runtime data. A data directory inside the checkout (`--data-dir`) creates
 # these; they hold settings, projects, sealed evaluators, browser profiles,
-# credentials, artifacts, backups and logs.
+# credentials, artifacts, backups and logs. Release packaging also skips `state/`.
+state/
 *.sqlite3*
 settings.json
 # Shared Claude Code project settings (commit attribution) are not runtime data.
