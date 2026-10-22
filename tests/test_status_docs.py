@@ -45,15 +45,14 @@ def test_evidence_requires_exact_commits_and_inference_flag():
         docs.render(broken)
 
 
-def test_runs_from_before_the_recreated_repository_are_not_linked():
+def test_runs_without_logs_are_not_linked():
     docs = _module()
     status = json.loads((ROOT / "_app" / "release_status.json").read_text())
     status["evidence"][0]["runs"] = [100, 300]
-    status["run_logs_removed_before"] = {"run": 200, "date": "2026-10-22", "reason": "Logs are gone."}
+    status["run_logs_removed_before"] = 200
     block = docs.render(status)
     assert "100 (log removed)" in block and docs.RUN + "100" not in block
     assert f"[300]({docs.RUN}300)" in block
-    assert "Runs marked “log removed” ran before 2026-10-22. Logs are gone." in block
-    status["run_logs_removed_before"] = {"run": 200, "date": "22 Oct"}
+    status["run_logs_removed_before"] = "200"
     with pytest.raises(ValueError, match="run_logs_removed_before"):
         docs.render(status)
