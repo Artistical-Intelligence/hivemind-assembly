@@ -24,7 +24,11 @@ class ReverseEngineeringDomain:
     id = "reverse_engineering"
 
     def __init__(self):
+        from .game_play import GamePlay
+
         self.acceptance = AcceptanceSuite()
+        # Build and replay caches for deterministic game play-testing.
+        self.games = GamePlay()
 
     instructions = (
         "Reverse engineering is the primary task. Use original program behavior "
@@ -52,6 +56,10 @@ class ReverseEngineeringDomain:
         Capability("build_program", recovery="discard"),
         Capability("compare_program", recovery="discard"),
         Capability("compare_project", recovery="discard"),
+        # Deterministic play-testing: pure functions of workspace inputs and trajectories.
+        Capability("describe_game", recovery="discard"),
+        Capability("play_game", recovery="discard"),
+        Capability("test_game", recovery="discard"),
     )
 
     def skills(self):
@@ -252,6 +260,8 @@ class ReverseEngineeringDomain:
             if image is not None:
                 result["_artifact"] = {"data": image, "name": "reconstructed-program.elf"}
             return result
+        if tool in ("describe_game", "play_game", "test_game"):
+            return self.games.execute(context, request)
         if tool == "compare_states":
             return differential(args["case"])
         if tool == "validate_c_function":
