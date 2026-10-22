@@ -34,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || inputs.tag || github.ref }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - name: Decide whether this version needs a release
         id: plan
         shell: pwsh
@@ -49,6 +49,8 @@ jobs:
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "publish=$($publish.ToString().ToLower())" >> $env:GITHUB_OUTPUT
           Write-Host "Version $version, tag $tag, release exists: $exists, publish: $publish"
+          # gh exits 1 when the release does not exist yet; that is an answer, not a failure.
+          exit 0
       - uses: actions/setup-python@v5
         if: steps.plan.outputs.publish == 'true'
         with:
