@@ -24,7 +24,7 @@ def test_edit_upload_check_and_draft_retention(server, app):
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
-        page.get_by_role("button", name="Open files & examples").click()
+        page.locator('[data-tab="workspace"]').click()
         page.get_by_role("button", name="Create register example", exact=True).click()
         expect(page.locator("#file-editor")).to_have_value("8d0437\n")
         page.locator("#workspace-check").click()
@@ -358,7 +358,7 @@ def test_windows_console_starter_edit_and_protected_check(server, app):
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
-        page.get_by_role("button", name="Open files & examples").click()
+        page.locator('[data-tab="workspace"]').click()
         page.get_by_role(
             "button", name="Create Windows console example", exact=True
         ).click()
@@ -442,7 +442,7 @@ def test_every_button_has_a_hover_description(server, app):
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
-        page.get_by_role("button", name="Open files & examples").click()
+        page.locator('[data-tab="workspace"]').click()
         page.get_by_role("button", name="Create register example", exact=True).click()
         page.wait_for_selector("[data-file]")
         missing = page.evaluate(
