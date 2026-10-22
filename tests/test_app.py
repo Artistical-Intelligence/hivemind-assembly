@@ -69,7 +69,8 @@ def test_create_pause_resume_cancel(server, app):
 
 def test_dashboard_static(server):
     r = call(server, "/")
-    assert b"Build on evidence" in r.read()
+    body = r.read()
+    assert b"<title>Hivemind Assembly</title>" in body and b'id="getting-started"' in body
     assert "frame-ancestors" in r.headers["Content-Security-Policy"]
 
 
