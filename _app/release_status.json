@@ -1,5 +1,5 @@
 {
-  "version": "0.25.2",
+  "version": "0.26.0",
   "requested_product_complete": false,
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -43,7 +43,8 @@
     "unicorn_diagnostics": "Static Linux x64/AArch64 and all four linked ABIs retain guest stop locations, loaded image/file offsets and hashes, relocated DLL source identities, memory access/buffer bounds, active syscalls and ABI register violations. Engine timeout query distinguishes wall-clock and instruction bounds; pre-execution and periodic cancellation are honored. All 33 real-image/engine diagnostic cases passed in both full hosted suites at 73fd1d9. Two cases reproduce and fix completed-syscall metadata at the exact instruction bound. Diagnostic metadata does not participate in equivalence; failed original preflight remains protected from workers.",
     "project_reconstruction": "Source-known Stop 3 suite at 4f057ab: x86-64 utility with four recovered regions and original pack; AArch64 original reconstructed as complete x86-64 program with cross-ABI function checks; game state/frame/audio target with original rendering. Thirteen incorrect alternatives rejected, eight only by whole-program composition/replay. Composed utility ran natively on x86-64 Linux with identical output. Worker path restored a regressed source from its verified snapshot and passed protected linux_project acceptance. Local full suite 805 passed/18 skipped. No model inference.",
     "ghidra_project_plan": "Fresh pinned installations (Ghidra 12.1.4, REA 6.7.0, Hermes c0015464f0f4) passed all foundation checks including project_plan: actual Ghidra context_callgraph pages of the compiled utility (30 functions) planned and composed with pack and runtime functions on original code. Linux x86-64 local host and hosted Windows run 39650087898. No model inference.",
-    "github_ci_0_25": "Implementation 4f057ab passed all four jobs in run 39650550445 (Windows contracts after one rerun of a native compile timeout in test_native_compiled_reconstruction): Linux 807 passed/18 skipped (650.98s); Windows 788 passed/37 skipped (1233.12s); fifteen native Windows checks (29.27s); ten Chromium checks (106.54s); Windows package install/update/restore. Hosted Windows foundations run 39650087898 passed including project_plan."
+    "github_ci_0_25": "Implementation 4f057ab passed all four jobs in run 39650550445 (Windows contracts after one rerun of a native compile timeout in test_native_compiled_reconstruction): Linux 807 passed/18 skipped (650.98s); Windows 788 passed/37 skipped (1233.12s); fifteen native Windows checks (29.27s); ten Chromium checks (106.54s); Windows package install/update/restore. Hosted Windows foundations run 39650087898 passed including project_plan.",
+    "game_play_testing": "Version 0.26.0 adds deterministic game play-testing. Stepped play matched program.replay streams, exit status, input consumption and instruction counts on x86-64 and AArch64 builds with 1-, 2- and 64-byte feeds, and function-entry coverage on the existing game target; faults, clock reads, rdtsc, event limits, per-tick freezes, total budgets, cancellation and out-of-order snapshot restores were exercised. On the source-known Coin cavern example the scripted route and the floor-gap quirk passed as regressions (quirk classified as original behavior); seeded differential exploration found the platform-edge divergence, shrinking reduced it to at most ten inputs and confirmed it on fresh engines; after that fix exploration found the spike freeze; after both fixes a 200-step exploration found nothing and pinned game_play checks passed, having reported divergence and freeze before. Cancelled and bounded runs are inconclusive, never a pass. A native lane plays real Godot 4 projects and Linux SDL2 programs through in-process adapters with fixed frame steps, virtual clocks, seeded operating-system randomness (including Rust GDExtensions) and HA-only input, after the owner enables trusted native execution; determinism is probed by launching each side twice. dev/check_real_games.py played Godot's Dodge the Creeps demo and its godot-rust port, Ubuntu's Chromium B.S.U. (C++) against a rebuild and a planted defect, and sokoban-rs (Rust) against a planted defect; see the real-games evidence entry. Worker operations ran through Broker.execute with PNG task artifacts and fixture upload bindings; a real Chromium run exercised the dashboard panel. No signed-in model played a game; no hardware timing is claimed."
   },
   "native_live_acceptance": {
     "validated_routes": 0,
@@ -55,7 +56,8 @@
   "remaining_implementation": [
     "Extend bounded x86-64/AArch64 function and static/dynamic Linux application lanes to broader Windows/game/graphics effects and target-level equivalence.",
     "Resolve any provider-specific adapter gaps identified by signed-in account validation; current ambiguous controls remain blocked.",
-    "Extend MCP onboarding where provider-specific requires additional integration; standard HTTP OAuth setup is implemented, with live account consent and tunnel authorization still acceptance gates."
+    "Extend MCP onboarding where provider-specific requires additional integration; standard HTTP OAuth setup is implemented, with live account consent and tunnel authorization still acceptance gates.",
+    "Game play-testing beyond the current lanes: Windows and macOS native adapters, exported Godot binaries, other engines, pointer, touch and controller input, native audio capture, dynamic ELF stepping and measured learned navigation skills."
   ],
   "remaining_acceptance": [
     "Live GitHub browser registration/device authorization and all five exact native routes.",
@@ -64,7 +66,8 @@
     "Desktop prerequisite installation through WinGet; hosted Windows package install/update/restore and full foundation installation/basic native adapters have passed.",
     "Run the managed native workflow through HA using a live authorized account with a configured spending boundary; review representative Linux/Windows target recipes and retained artifacts.",
     "Run the Stop 3 suite through a live native team with Ghidra-produced plans; broader application targets beyond the fixed suite remain separate scope.",
-    "Measure native learning gains on the HumanEval-Decompile holdout once live routes exist."
+    "Measure native learning gains on the HumanEval-Decompile holdout once live routes exist.",
+    "Play-test the Coin cavern example and a real game through a live native worker route (describe_game, play_game, test_game) with frame attachments, and retain the evidence."
   ],
   "model_api_inference": false,
   "paid_overage": false,
@@ -196,6 +199,24 @@
     "scope": "Full regression at implementation 62e53a7, run 39688769075. Windows: 819 passed/41 skipped in 1799.28s. No live native-model acceptance inferred."
   },
   "evidence": [
+    {
+      "id": "real-games-native",
+      "date": "2026-10-22",
+      "commit": "735df9503eb1f3b7ba1f4cea894add0cbc219b19",
+      "runs": [],
+      "host": "Linux x86-64 local (Ubuntu 24.04, Xvfb, Mesa llvmpipe, Godot 4.7.1)",
+      "live_model_inference": false,
+      "summary": "dev/check_real_games.py at 735df95. Dodge the Creeps (Godot demo, GDScript): replays identical; exploration 30 steps/1920 ticks pass. GDScript vs godot-rust port: replays identical with seeded OS randomness; exploration 30 steps/1370 ticks found divergence state:mobs at tick 295, shrunk 300->286 ticks and confirmed (the port uses Rust's generator for mob paths). Chromium B.S.U. 0.9.16.1-3 Ubuntu binary vs rebuild: replays identical; exploration 30 steps/1296 ticks pass. Rebuild vs planted bound defect: exploration 30 steps/1376 ticks found divergence state:y at tick 156, shrunk 160->22 ticks and confirmed; single build 30 steps/1376 ticks found invariant hero_inside_y at tick 156. sokoban-rs vs planted push defect: scripted up,right,right found divergence frame at tick 4; exploration 30 steps/292 ticks found divergence frame at tick 32, shrunk 34->17 ticks and confirmed; upstream alone 30 steps/336 ticks pass. Scripted, seeded play by HA's harness; no model inference."
+    },
+    {
+      "id": "game-play-testing-local",
+      "date": "2026-10-22",
+      "commit": "6de5494be995ce5484b7a4f2f9e46425e99c05c2",
+      "runs": [],
+      "host": "Linux x86-64 local (Python 3.12, Clang 18, Godot 4.7.1)",
+      "live_model_inference": false,
+      "summary": "Full local suite at 6de5494: 925 passed/9 skipped (971.07s), with HA_TEST_GODOT set, including the game play-testing modules (contract, engine parity on x86-64 and AArch64, the Coin cavern fix loop, broker/team/dashboard/acceptance/CLI), the native lane tests (SDL2 and event-driven SDL2 programs, seeded randomness, headless Godot) and the real Chromium game panel test. Scripted and seeded checks only; no model inference."
+    },
     {
       "id": "hosted-ci-second-audit",
       "date": "2026-10-21",
