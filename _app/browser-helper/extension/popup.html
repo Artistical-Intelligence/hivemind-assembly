@@ -1,0 +1,9 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HA helper</title><link rel="stylesheet" href="popup.css"></head><body>
+<header><img src="icons/48.png" width="32" height="32" alt=""><h1>Hivemind Assembly</h1></header>
+<nav aria-label="Connector setup pages"><a id="open-chatgpt" href="https://chatgpt.com/plugins">ChatGPT setup</a><a id="open-claude" href="https://claude.ai/new#customize/connectors">Claude setup</a></nav>
+<div class="check"><input id="auto-pair" type="checkbox" checked><label for="auto-pair">Fill the approval code automatically</label></div>
+<div class="check"><input id="replace" type="checkbox"><label for="replace">Replace values already in the form</label></div>
+<button id="fill" class="primary">Fill this page</button><button id="check">Check connections</button>
+<div id="status" role="status" aria-live="polite">Opening setup…</div>
+<details><summary>Help</summary><p>Keep HA running and start the browser connection in HA (Connections).</p><p>Fill the form, submit it yourself, then approve on HA's page. The helper never submits or approves for you.</p><p>For the automatic code, allow the HA address when Chrome asks. No access to your chats is added.</p></details>
+<script src="popup.js"></script></body></html>
