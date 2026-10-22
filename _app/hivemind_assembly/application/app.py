@@ -137,6 +137,20 @@ class Application:
         self.github_setup_future = None
         from hivemind_assembly.automation.onboarding import NativeSetup
 
+        from hivemind_assembly.integrations import chrome_helper
+        from hivemind_assembly.integrations.auto_reconnect import AutoReconnect
+
+        self.auto_reconnect = AutoReconnect(
+            self.quick.folder,
+            self.browser,
+            lambda provider: chrome_helper.details(self.quick, provider),
+            lambda provider, url, flow: chrome_helper.pair(self.quick, provider, url, flow),
+            lambda: self.config["routes"],
+        )
+        # A new address: reconnect the chosen providers from HA's own windows.
+        self.quick.on_ready = lambda origin: (
+            self.submit(self.auto_reconnect.run_all()) if self.auto_reconnect.providers() else None
+        )
         self.native_setup = NativeSetup(
             self.browser, self.store, self.config_path, self.sessions, self.team
         )
@@ -217,7 +231,7 @@ class Application:
             "connections": self.connections.settings(),
             "mcp_authorizations": self.connections.oauth.status(),
             "tunnel": self.tunnel.status(),
-            "quick_connect": self.quick.status(),
+            "quick_connect": {**self.quick.status(), "auto": self.auto_reconnect.status()},
             "codespaces": {
                 "settings": self.codespaces.settings(),
                 "jobs": self.codespaces.jobs(),
@@ -450,6 +464,16 @@ class Application:
             return self.quick.pairing()
         if path == "/api/quick/revoke":
             return self.quick.revoke()
+        if path == "/api/quick/auto":
+            return self.auto_reconnect.save(data.get("providers"))
+        if path == "/api/quick/reconnect":
+            if self.quick.status()["state"] != "ready":
+                raise Blocked("Start the browser connection first.")
+            providers = self.auto_reconnect.providers()
+            if not providers:
+                raise Blocked("Choose ChatGPT and/or Claude to reconnect automatically first.")
+            self.submit(self.auto_reconnect.run_all())
+            return self.auto_reconnect.status()
         if path in ("/api/helper/status", "/api/helper/details", "/api/helper/pair"):
             from hivemind_assembly.integrations import chrome_helper
 
