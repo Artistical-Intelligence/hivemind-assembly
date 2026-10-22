@@ -3,11 +3,13 @@
 Preparation pins the original image, the validated game spec and the owner's
 trajectories as protected artifacts, after checking that the original plays every
 trajectory within the contract. Verification rebuilds the candidate from the
-workspace manifest, replays each sealed trajectory on both images with the batch
-replay engines (independent of the stepping engine used during development), and
-compares every tick with the pinned tolerances. Candidate rule violations fail
-unless the original shows the same violation. Workers see per-case outcomes only;
-sealed inputs and observations stay in a protected artifact.
+workspace manifest, replays each sealed trajectory on fresh engines for both images,
+ends input, and compares every tick with the pinned tolerances. Static ELF games use
+the stepping engine, whose streams, exit status and input consumption are tested to
+equal batch replay; it also bounds every tick, so a frozen candidate is reported as a
+freeze rather than a wall-clock limit. Windows PE games use batch replay. Candidate
+rule violations fail unless the original shows the same violation. Workers see
+per-case outcomes only; sealed inputs and observations stay in a protected artifact.
 """
 
 import copy
@@ -54,7 +56,7 @@ def _cases(spec, value):
 
 
 def _session(spec, image, side, cancel):
-    return gt.Session(spec, open_engine(image, spec, live=False, cancel=cancel), side)
+    return gt.Session(spec, open_engine(image, spec, cancel=cancel), side)
 
 
 def _build(root, manifest, platform, context):
@@ -210,7 +212,7 @@ class GameAcceptance:
             "protected_details": details["id"],
             "cases": rows,
             "reason": "" if passed else "Sealed game trajectories found divergences or candidate-only problems",
-            "claim": "Sealed trajectories replayed on the pinned original and the rebuilt candidate with batch replay; every tick compared under the pinned game contract and candidate rules checked against original behavior. Sampled play, not all-input equivalence, GPU or hardware timing.",
+            "claim": "Sealed trajectories replayed on the pinned original and the rebuilt candidate in fresh deterministic engines; every tick compared under the pinned game contract and candidate rules checked against original behavior. Sampled play, not all-input equivalence, GPU or hardware timing.",
         }
 
     def recheck(self, root, result):
