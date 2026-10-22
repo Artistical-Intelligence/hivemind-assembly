@@ -8,6 +8,12 @@ fields, raw RGBA frames and signed 16-bit PCM audio. Rules are declarative check
 decoded state; nothing in a spec is evaluated as code. Cells group similar
 situations for exploration. Everything is bounded and invalid contracts are rejected
 rather than guessed.
+
+A `native` section describes a real game run natively through an adapter (a Godot
+project or an SDL2 program): which keys or input actions the input bits press,
+which state values the adapter reports (Godot node properties, or memory by symbol
+and pointer path), the frame size and the frame rate. Its input records, output
+layout and state fields are derived from it, so the rest of the harness is unchanged.
 """
 
 import base64
@@ -31,6 +37,8 @@ FIELD_TYPES = {
     "i32": ("i", 4),
     "u64": ("Q", 8),
     "i64": ("q", 8),
+    "f32": ("f", 4),
+    "f64": ("d", 8),
 }
 OPERATORS = ("==", "!=", "<", "<=", ">", ">=")
 MAX_TICKS = 4096
@@ -62,7 +70,10 @@ FIELDS = {
     "starts",
     "allowed_exit_codes",
     "regressions_path",
+    "native",
 }
+NATIVE_ADAPTERS = ("godot", "sdl2")
+ENV_NAME = re.compile(r"[A-Z_][A-Z0-9_]{0,63}")
 
 
 def _integer(value, name, low, high):
@@ -177,6 +188,204 @@ def _segment(item, names):
     raise ContractError("Segment format must be raw, rgba8 or pcm_s16le")
 
 
+def _arguments(value, what):
+    if not isinstance(value, list) or len(value) > 32 or any(
+        not isinstance(item, str) or len(item) > 512 or "\0" in item for item in value
+    ):
+        raise ContractError(what + " are at most 32 strings")
+    return value
+
+
+def _launch(adapter, item, side):
+    """One side's native launch: a Godot project folder or an SDL2 executable."""
+    if not isinstance(item, dict):
+        raise ContractError(f"native.{side} must be an object")
+    if adapter == "godot":
+        if set(item) - {"project", "engine", "args"}:
+            raise ContractError(f"native.{side} takes project, engine and args")
+        relative(item.get("project"), f"native.{side}.project")
+        engine = item.setdefault("engine", "godot")
+        if engine != "godot":
+            relative(engine, f"native.{side}.engine")
+    else:
+        if set(item) - {"executable", "folder", "args", "env"}:
+            raise ContractError(f"native.{side} takes executable, folder, args and env")
+        relative(item.get("executable"), f"native.{side}.executable")
+        if "folder" in item:
+            relative(item["folder"], f"native.{side}.folder")
+            if not (item["executable"] + "/").startswith(item["folder"].rstrip("/") + "/"):
+                raise ContractError(f"native.{side}.executable must be inside its folder")
+        env = item.setdefault("env", {})
+        if not isinstance(env, dict) or len(env) > 16:
+            raise ContractError(f"native.{side}.env maps at most 16 names")
+        for name, text in env.items():
+            if (
+                not isinstance(name, str)
+                or not ENV_NAME.fullmatch(name)
+                or name.startswith(("LD_", "HA_TICK_"))
+                or not isinstance(text, str)
+                or len(text) > 512
+                or "\0" in text
+            ):
+                raise ContractError("Native environment entries need plain names and values (no LD_ or HA_TICK_)")
+    _arguments(item.setdefault("args", []), f"native.{side}.args")
+    return item
+
+
+def _control_name(text, taken):
+    name = re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")[:28] or "input"
+    if not name[0].isalpha():
+        name = "k_" + name
+    base, index = name[:28], 2
+    while name in taken:
+        name = f"{base}_{index}"
+        index += 1
+    taken.add(name)
+    return name
+
+
+def _native(value):
+    """Validate a native section and derive input, actions, output and state."""
+    native = value["native"]
+    if not isinstance(native, dict) or set(native) - {
+        "adapter",
+        "original",
+        "candidate",
+        "inputs",
+        "state",
+        "frame",
+        "fps",
+        "seed",
+        "display",
+        "tick_seconds",
+        "startup_seconds",
+        "action_ticks",
+        "frame_ns",
+    }:
+        raise ContractError("Unknown native game fields")
+    for key in ("original_path", "candidate_manifest", "candidate_path", "process", "functions"):
+        if key in value and value[key]:
+            raise ContractError(f"Native games name their launch in native; remove {key}")
+    # Output and state are derived; a normalized spec may carry them unchanged.
+    declared = {key: value.pop(key) for key in ("output", "state") if key in value}
+    adapter = native.get("adapter")
+    if adapter not in NATIVE_ADAPTERS:
+        raise ContractError("native.adapter is godot or sdl2")
+    if adapter == "sdl2" and value["platform"] != "linux":
+        raise ContractError("The SDL2 adapter runs on Linux")
+    sides = [side for side in ("original", "candidate") if side in native]
+    if not sides:
+        raise ContractError("Name a native original and/or candidate")
+    for side in sides:
+        _launch(adapter, native[side], side)
+    inputs = native.get("inputs")
+    if not isinstance(inputs, list) or not 1 <= len(inputs) <= 64:
+        raise ContractError("native.inputs lists 1–64 keys or actions")
+    for item in inputs:
+        if not isinstance(item, dict) or len(item) != 1 or not set(item) <= {"key", "action"}:
+            raise ContractError("Each native input is {key: name} or {action: name}")
+        text = next(iter(item.values()))
+        if not isinstance(text, str) or not 1 <= len(text) <= 64:
+            raise ContractError("Native key and action names have 1–64 characters")
+        if "action" in item and adapter != "godot":
+            raise ContractError("Input actions need the Godot adapter; SDL2 games press keys")
+    fps = _integer(native.setdefault("fps", 60), "native.fps", 1, 240)
+    _integer(native.setdefault("seed", 0), "native.seed", 0, 2**31 - 1)
+    _integer(native.setdefault("tick_seconds", 10), "native.tick_seconds", 1, 120)
+    _integer(native.setdefault("startup_seconds", 60), "native.startup_seconds", 1, 600)
+    hold = _integer(native.setdefault("action_ticks", 6), "native.action_ticks", 1, 120)
+    display = native.setdefault("display", "virtual")
+    if display not in ("virtual", "headless") or (display == "headless" and adapter != "godot"):
+        raise ContractError("native.display is virtual, or headless for Godot state-only play")
+    frame = native.get("frame")
+    if frame is not None:
+        if not isinstance(frame, dict) or set(frame) != {"width", "height"}:
+            raise ContractError("native.frame takes width and height")
+        _integer(frame["width"], "Frame width", 1, 512)
+        _integer(frame["height"], "Frame height", 1, 512)
+        if display == "headless":
+            raise ContractError("Headless Godot play renders no frames; remove native.frame or use virtual")
+    fields, offset = [], 0
+    names = set()
+    state = native.setdefault("state", [])
+    if not isinstance(state, list) or len(state) > 64:
+        raise ContractError("native.state lists at most 64 values")
+    for item in state:
+        if not isinstance(item, dict):
+            raise ContractError("native.state entries are objects")
+        name = _name(item.get("name"), "Native state")
+        if name in names:
+            raise ContractError("Native state names must be unique")
+        names.add(name)
+        if item.get("type") not in FIELD_TYPES:
+            raise ContractError("Native state type must be one of " + ", ".join(FIELD_TYPES))
+        if adapter == "godot":
+            if set(item) - {"name", "type", "node", "property", "group", "missing"} or ("node" in item) == ("group" in item):
+                raise ContractError("Godot state reads a node (optionally a property) or counts a group")
+            for key in ("node", "property", "group"):
+                if key in item and (not isinstance(item[key], str) or not 1 <= len(item[key]) <= 200):
+                    raise ContractError("Godot node paths, properties and groups have 1–200 characters")
+            if "property" in item and "node" not in item:
+                raise ContractError("A Godot property needs its node")
+            if "missing" in item and (type(item["missing"]) not in (int, float) or not math.isfinite(item["missing"])):
+                raise ContractError("missing is a number")
+        else:
+            if set(item) - {"name", "type", "symbol", "address", "offset", "pointers"} or ("symbol" in item) == ("address" in item):
+                raise ContractError("SDL2 state reads memory by symbol or address, with optional offset and pointers")
+            _memory_location(item)
+        fields.append({"name": name, "offset": offset, "type": item["type"], "endian": "little"})
+        offset += FIELD_TYPES[item["type"]][1]
+    output = []
+    if fields:
+        output.append({"name": "state", "bytes": offset})
+    if frame is not None:
+        output.append({"name": "frame", "format": "rgba8", "width": frame["width"], "height": frame["height"]})
+    if not output:
+        raise ContractError("A native game reports state values and/or a frame")
+    value["output"] = {"stdout": output, "stderr": []}
+    if fields:
+        value["state"] = {"segment": "state", "fields": fields}
+    if "output" in declared:
+        names = set()
+        derived = [_segment(dict(item), names) for item in output]
+        if declared["output"] != {"stdout": derived, "stderr": []}:
+            raise ContractError("Native games derive their output layout; remove output")
+    if "state" in declared and declared["state"] != value.get("state"):
+        raise ContractError("Native games derive their state fields; remove state")
+    record = (len(inputs) + 7) // 8
+    taken = {"none", "wait"}
+    controls = {"none": "00" * record}
+    for index, item in enumerate(inputs):
+        bits = bytearray(record)
+        bits[index >> 3] |= 1 << (index & 7)
+        controls[_control_name(next(iter(item.values())), taken)] = bits.hex()
+    if "input" not in value:
+        value["input"] = {"record_bytes": record, "neutral": "00" * record, "controls": controls}
+        value.setdefault(
+            "actions",
+            {name: [[name, hold]] for name in controls if name != "none"} | {"wait": [["none", hold]]},
+        )
+    elif not isinstance(value["input"], dict) or value["input"].get("record_bytes") != record:
+        raise ContractError(f"Native input records have {record} byte(s): one bit per native input")
+    native["frame_ns"] = 1_000_000_000 // fps
+
+
+def _memory_location(item):
+    if "symbol" in item and (
+        not isinstance(item["symbol"], str)
+        or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.$]{0,127}", item["symbol"])
+    ):
+        raise ContractError("Invalid memory symbol name")
+    if "address" in item:
+        _integer(item["address"], "Memory address", 0, 2**64 - 1)
+    _integer(item.setdefault("offset", 0), "Memory offset", 0, 1 << 20)
+    pointers = item.setdefault("pointers", [])
+    if not isinstance(pointers, list) or len(pointers) > 8:
+        raise ContractError("A memory pointer path follows at most 8 pointers")
+    for step in pointers:
+        _integer(step, "Pointer offset", 0, 1 << 20)
+
+
 def _tolerance(segment, rule):
     if not isinstance(rule, dict):
         raise ContractError("Comparison tolerances must be objects")
@@ -237,6 +446,11 @@ def validate(spec):
     )
     if not isinstance(process, dict) or set(process) - allowed_process:
         raise ContractError("Process inputs allow " + ", ".join(sorted(allowed_process)))
+    if "native" in value:
+        value.pop("process")
+        value.pop("functions", None)
+        _native(value)
+        value["process"] = {}
 
     inputs = value.get("input")
     if not isinstance(inputs, dict) or set(inputs) - {"record_bytes", "neutral", "controls"}:
@@ -313,21 +527,14 @@ def validate(spec):
     if not isinstance(memory, list) or len(memory) > 32:
         raise ContractError("Declare at most 32 memory state fields")
     for item in memory:
-        if not isinstance(item, dict) or set(item) - {"name", "symbol", "address", "offset", "type"}:
-            raise ContractError("Memory fields take name, symbol or address, offset and type")
+        if not isinstance(item, dict) or set(item) - {"name", "symbol", "address", "offset", "pointers", "type"}:
+            raise ContractError("Memory fields take name, symbol or address, offset, pointers and type")
         field = _name(item.get("name"), "Memory field")
         if field in fields:
             raise ContractError("Memory field names must be unique and differ from state fields")
         if ("symbol" in item) == ("address" in item):
             raise ContractError("Memory fields need exactly one of symbol or address")
-        if "symbol" in item and (
-            not isinstance(item["symbol"], str)
-            or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.$]{0,127}", item["symbol"])
-        ):
-            raise ContractError("Invalid memory symbol name")
-        if "address" in item:
-            _integer(item["address"], "Memory address", 0, 2**64 - 1)
-        _integer(item.setdefault("offset", 0), "Memory offset", 0, 1 << 20)
+        _memory_location(item)
         if item.get("type") not in FIELD_TYPES:
             raise ContractError("Memory field type must be one of " + ", ".join(FIELD_TYPES))
         fields[field] = "memory"
@@ -336,7 +543,7 @@ def validate(spec):
     if not isinstance(rules, list) or len(rules) > 64:
         raise ContractError("Declare at most 64 rules")
     ids = set()
-    checks = {"min", "max", "min_field", "max_field", "equals", "not_equals", "monotonic", "max_step"}
+    checks = {"min", "max", "min_field", "max_field", "equals", "not_equals", "monotonic", "max_step", "finite"}
     for rule in rules:
         if not isinstance(rule, dict) or set(rule) - checks - {"id", "field", "when"}:
             raise ContractError("Unknown rule fields")
@@ -358,6 +565,8 @@ def validate(spec):
             raise ContractError("monotonic is nondecreasing or nonincreasing")
         if "max_step" in rule:
             _integer(rule["max_step"], "max_step", 0, 2**63 - 1)
+        if "finite" in rule and rule["finite"] is not True:
+            raise ContractError("finite is true when present")
         if "when" in rule:
             rule["when"] = conditions(rule["when"], fields, "Rule when")
 
@@ -504,8 +713,12 @@ def tick_segments(spec, stdout, stderr, index):
 
 
 def decode_field(raw, offset, kind, endian="little"):
+    """One field value; a non-finite float decodes as None (no value)."""
     code, width = FIELD_TYPES[kind]
-    return struct.unpack_from(("<" if endian == "little" else ">") + code, raw, offset)[0]
+    value = struct.unpack_from(("<" if endian == "little" else ">") + code, raw, offset)[0]
+    if code in "fd" and not math.isfinite(value):
+        return None
+    return value
 
 
 def decode_state(spec, parts):
@@ -543,6 +756,11 @@ def check_rules(spec, values, previous):
             continue
         value = values.get(rule["field"])
         if value is None:
+            # A declared field without a value decoded a NaN or an infinity.
+            if rule.get("finite") and rule["field"] in values:
+                violations.append(
+                    {"rule": rule["id"], "field": rule["field"], "value": None, "previous": previous.get(rule["field"]), "failed": ["finite"]}
+                )
             continue
         failed = []
         for key, bound in (("min", rule.get("min")), ("max", rule.get("max"))):
@@ -708,6 +926,14 @@ def describe(spec):
         "limits": spec["limits"],
         "starts": sorted(spec["starts"]),
         "comparison": spec["compare"],
+        "native": spec.get("native")
+        and {
+            "adapter": spec["native"]["adapter"],
+            "inputs": spec["native"]["inputs"],
+            "fps": spec["native"]["fps"],
+            "display": spec["native"]["display"],
+            "sides": [s for s in ("original", "candidate") if s in spec["native"]],
+        },
     }
 
 
