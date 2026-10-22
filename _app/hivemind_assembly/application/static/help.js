@@ -68,7 +68,8 @@
     go: {
       projects: 'Go to Projects & tasks.',
       workspace: 'Go to Project files.',
-      routes: 'Go to Native team setup.',
+      routes: 'Go to AI assistants.',
+      settings: 'Go to Settings.',
     },
     goalAction: {
       start: 'Start working on this project.',
