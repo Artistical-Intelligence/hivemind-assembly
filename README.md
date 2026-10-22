@@ -851,10 +851,10 @@ Real games run natively through a small adapter instead of the emulator. Add a
   game's only input; window-system and device events (focus, mouse, controllers) are
   not delivered. A game that waits for events gets one press per tick, so turn-based
   moves can press and release: `"actions": {"right": [["right", 1], ["none", 1]]}`.
-  State values come from
-  the paused process's memory by symbol and pointer path, for example
-  `{"name": "score", "type": "f32", "symbol": "_ZN6Global4heroE", "pointers": [244]}`,
-  so the program needs its symbols; a stripped build can still be compared by frames.
+  State values come from the paused process's memory by symbol and pointer path, for
+  example `{"name": "score", "type": "f32", "symbol": "_ZN6Global4heroE", "pointers":
+  [244]}`, so the program needs its symbols; a stripped build can still be compared by
+  frames.
 - Frames render on a virtual X display (`Xvfb`) with software OpenGL; Godot can also run
   headless for state-only play.
 
@@ -863,13 +863,13 @@ section, so playing, comparing, exploring, shrinking, bug packages and saved
 regressions work as for emulated games. Native play runs the game's own code on this
 computer: enable **trusted native execution** for the project first (the permission
 used by native test recipes). It is not a sandbox; use a disposable machine for games
-you do not trust. `describe_game` plays a probe twice (past the title screen through a
-named start) and reports whether the game replays deterministically; a game that reads
-the clock or entropy in ways the adapters do not control (for example Godot's
-clock-seeded `RandomNumberGenerator` or `randomize()` after the first input, hardware
-random instructions or `/dev/urandom`) can differ between runs, and HA reports that
-rather than guessing. Per-frame and startup time
-limits turn a hang into a freeze and a signal into a crash. Snapshots replay the input
+you do not trust. `describe_game` launches each side twice, plays past the title screen
+through a named start and then seeded random actions, and reports whether the game
+replays deterministically; a game that reads the clock or entropy in ways the adapters
+do not control (for example Godot's clock-seeded `RandomNumberGenerator` or
+`randomize()` after the first input, hardware random instructions or `/dev/urandom`)
+can differ between runs, and HA reports that rather than guessing. Per-frame and
+startup time limits turn a hang into a freeze and a signal into a crash. Snapshots replay the input
 log from a fresh launch, so native exploration is slower than emulated exploration.
 `game_play` acceptance seals emulated games only; keep native regressions instead.
 Real-game results are in [game play-testing design](dev/GAME_TESTING.md).
