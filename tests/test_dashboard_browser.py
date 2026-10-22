@@ -471,6 +471,11 @@ def test_every_button_has_a_hover_description(server, app):
             '<button>Check status</button>',
             '<button>Cancel</button>',
             '<button>Show result</button>',
+            '<button data-game-action="jump">jump (4)</button>',
+            '<button data-game-replay="0">Replay</button>',
+            '<button data-game-shrink="0">Shrink</button>',
+            '<button data-game-package="0">Bug package</button>',
+            '<button data-game-save="0">Save as regression</button>',
         ]
         untitled = page.evaluate(
             """samples => samples.filter(html => {
@@ -480,5 +485,52 @@ def test_every_button_has_a_hover_description(server, app):
             samples,
         )
         assert untitled == []
+        assert errors == []
+        browser.close()
+
+
+def test_game_panel_plays_explores_shrinks_and_runs_regressions(server, app):
+    from playwright.sync_api import sync_playwright, expect
+    from test_game_play import _compiler
+
+    app.config["foundations"]["c_compiler"] = _compiler()
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=os.environ["WORKBENCH_TEST_CHROME"], headless=True, args=["--no-sandbox"])
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+        page.locator('[data-tab="workspace"]').click()
+        page.get_by_role("button", name="Create game testing example", exact=True).click()
+        expect(page.locator("#file-path")).to_have_value("README.txt", timeout=60000)
+        page.locator("#game-load").click()
+        frames = page.locator("#game-frames canvas")
+        expect(page.locator("#game-description")).to_contain_text("Coin cavern", timeout=30000)
+        # This game draws its first frame after its first input.
+        expect(page.locator("#game-frames")).to_contain_text("No frame yet")
+        page.locator('[data-game-action="step_right"]').click()
+        expect(frames).to_have_count(1, timeout=30000)
+        pixels = "els => els.map(c => Array.from(c.getContext('2d').getImageData(0,0,c.width,c.height).data))"
+        before = frames.evaluate_all(pixels)
+        page.locator('[data-game-action="run_right"]').click()
+        expect(page.locator("#game-status")).to_contain_text("5 ticks")
+        assert frames.evaluate_all(pixels) != before
+        page.locator('[data-game-action="jump"]').click()
+        expect(page.locator("#game-status")).to_contain_text("9 ticks")
+        page.locator("#game-undo").click()
+        expect(page.locator("#game-status")).to_contain_text("5 ticks")
+        page.locator("#game-side").select_option("both")
+        expect(frames).to_have_count(2, timeout=30000)
+        page.locator("#game-steps").fill("150")
+        page.locator("#game-explore").click()
+        findings = page.locator("#game-findings")
+        expect(findings).to_contain_text("divergence state:y", timeout=120000)
+        findings.locator("[data-game-shrink]").first.click()
+        expect(findings).to_contain_text("Shrunk from", timeout=120000)
+        findings.locator("[data-game-package]").first.click()
+        expect(page.locator("#game-status")).to_contain_text("Bug package: divergence", timeout=60000)
+        expect(frames).to_have_count(4)
+        page.locator("#game-regressions").click()
+        expect(page.locator("#game-status")).to_contain_text("2 of 2 passed", timeout=60000)
         assert errors == []
         browser.close()
