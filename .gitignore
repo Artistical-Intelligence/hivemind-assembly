@@ -1,20 +1,62 @@
+# Python and tooling caches
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+
+# Virtual environments and dependencies
 .venv/
+venv/
 node_modules/
+
+# Build, package and test outputs
 release/
+_app/package_manifest.json
+_app/bootstrap/*.zip
+_app/bootstrap/*.whl
+*.bundle
+*-results.xml
+test-results/
+playwright-report/
+
+# HA runtime data. A data directory inside the checkout (`--data-dir`) creates
+# these; they hold settings, projects, sealed evaluators, browser profiles,
+# credentials, artifacts, backups and logs.
 *.sqlite3*
+settings.json
+host.lock
 private/
 projects/
 restricted/
 protected/
 foundations/
-settings.json
-.env
-_app/bootstrap/*.zip
-_app/bootstrap/*.whl
+artifacts/
+backups/
+exports/
+logs/
+*.partial
+*.log
 
-.ruff_cache/
-_app/package_manifest.json
-*.bundle
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
