@@ -426,7 +426,13 @@ domain-independent: a `Session` drives one engine through a spec, decodes per-ti
 records and records problems with signatures; a `Pair` feeds the original and the
 candidate identical inputs and records the first divergent tick; exploration,
 shrinking, confirmation, bug packages and saved regressions are built from them. It
-depends on an engine protocol, never on Unicorn or the domain package.
+depends on an engine protocol, never on Unicorn or the domain package. Cancellation,
+harness bounds and adapter failures are inconclusive outcomes (`cancelled`, `limit`)
+and never pass; a cancelled or bounded side is not reported as a status divergence.
+Exploration keeps a bounded archive (cells and snapshot bytes), reports the union of
+covered functions and checks every recorded occurrence of a single-build finding
+against the original before calling it original behavior. Every runner the harness
+creates is closed, which stops native game processes.
 
 `domains.reverse_engineering.game_machine` supplies the engines. `GameMachine` maps a
 static x86-64/AArch64 ELF exactly as program replay does, stops the guest at every
@@ -434,24 +440,53 @@ read so a tick ends when the game asks for its next input, completes reads only 
 the requested bytes or end of input are available, and validates each translated
 block once against the same instruction policy (clock, random, port and system
 instructions stop execution). Block hooks count instructions and function entries;
-per-tick and total budgets distinguish a freeze from an inconclusive limit. Sparse
-page snapshots restore exactly. `ReplayEngine` wraps the existing Linux and Windows
-batch replays and declares that its observations follow end of input.
+per-tick and total budgets distinguish a freeze from an inconclusive limit; output
+and event bounds derive from the contract's declared ticks. Sparse page snapshots
+restore exactly. `ReplayEngine` wraps the existing Linux and Windows batch replays and
+declares that its observations follow end of input; instruction counts recorded at
+each input read give it per-tick costs, and each batch bound (time, output, API calls,
+instructions outside one tick) maps to an inconclusive limit rather than a freeze.
+
+`domains.reverse_engineering.native_game` adds a native lane for real games. A
+launch plan prepares a runtime copy of a Godot 4 project, with HA's `ha_tick.gd`
+autoload added through `override.cfg` and assets imported once, or of an SDL2
+program's folder, with `ha_sdl_tick.so` built from source by the configured C
+compiler and preloaded on Linux. `NativeEngine` starts the game with a credential-free
+environment and a fresh home, accepts the adapter's connection on a localhost port
+only with the per-launch token, and then exchanges one input record for one frame's
+record. The Godot adapter presses an action's first key binding (so shortcuts see it),
+seeds the global random generator, runs at a fixed frame rate and reports node
+properties, group counts and a scaled frame. The SDL2 adapter gives the game's own
+code virtual clocks and seeded entropy, injects key events and keyboard state, and
+captures the presented frame; the engine reads declared state from the paused
+process's memory by symbol and pointer path. Startup and per-frame wall-clock bounds
+separate a freeze from a crash (signal) or completion. Snapshots are input logs,
+restored by extending the running game or replaying from a fresh launch; a replay that
+yields different records marks the engine nondeterministic, and `describe_game` plays
+a probe twice to report determinism. A shared Xvfb display hosts native windows on
+Linux. The lane requires the project's trusted-native permission, which the broker
+passes in the tool context; it is not a sandbox.
 
 `domains.reverse_engineering.game_play` exposes `describe_game`, `play_game` and
 `test_game` as discard-recovery capabilities: each result is a function of
 workspace files and the supplied trajectory, so an interrupted call is recomputed,
 never reconciled, and the calls are eligible for durable tool batches. Build and
-session caches only avoid repeated work. The `game_play` acceptance scope seals the
+session caches only avoid repeated work; a reused session observes the current
+request's cancellation, and at most two native sessions (each a running game) stay
+cached. The `game_play` acceptance scope seals emulated games: the
 original, the validated contract and trajectories as protected artifacts, rebuilds
-the candidate and replays every trajectory on fresh engines; workers see per-case
-outcomes and first divergent ticks only.
+the candidate and replays every trajectory on fresh engines; a case stopped by a bound
+fails as inconclusive, and workers see per-case outcomes and first divergent ticks
+only.
 
 The broker converts `_images` in a domain result into task artifacts and lists them
 as `image_artifacts`. `automation.team` attaches up to four PNG artifacts from the
 previous result to the next native turn when the route has upload and
-attachment-ready bindings; the JSON result and the character view remain otherwise.
-The dashboard calls the same domain operations as the owner and draws frames from raw
-RGBA on canvas, because its content policy blocks image URLs. Saving a regression is
-an ordinary guarded workspace edit.
+attachment-ready bindings, each under a numbered file name so repeated frame names in
+a batch stay distinct; the JSON result and the character view remain otherwise. The
+dashboard calls the same domain operations as the owner, with its own cancellation
+(pausing a task does not cancel owner play) and outside the global action lock, and
+draws frames from raw RGBA on canvas, because its content policy blocks image URLs.
+Status polls omit frame payloads; a job-result route returns them. Saving a regression
+is an ordinary guarded workspace edit.
 
