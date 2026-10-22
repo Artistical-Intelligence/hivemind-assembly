@@ -94,6 +94,6 @@ jobs:
           if ($LASTEXITCODE -eq 0) {
             gh release upload $tag @($files.FullName) --clobber
           } else {
-            gh release create $tag @($files.FullName) --target '${{ github.event.workflow_run.head_sha || github.sha }}' --title "Hivemind Assembly $tag (engineering preview)" --notes-file release-notes.md --latest
+            gh release create $tag @($files.FullName) --target '${{ github.event.workflow_run.head_sha || github.sha }}' --title "Hivemind Assembly $tag" --notes-file release-notes.md --latest
           }
           if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
