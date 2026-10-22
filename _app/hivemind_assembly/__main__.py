@@ -65,6 +65,8 @@ def main():
     p.add_argument("--steps", type=int, default=200, help="game-test exploration steps")
     p.add_argument("--seed", type=int, default=0, help="game-test exploration seed")
     p.add_argument("--seconds", type=int, default=120, help="game-test time budget")
+    p.add_argument("--end", action="store_true", help="game-test: end input (findings detected after end of input)")
+    p.add_argument("--godot", default="", help="game-test: Godot 4 executable for native Godot games")
     args = p.parse_args()
     if args.command == "game-test":
         import threading
@@ -75,11 +77,13 @@ def main():
 
         if not args.workspace:
             p.error("game-test requires --workspace (the folder holding the game contract)")
+        # Native games (Godot projects, SDL2 programs) run only with --allow-native.
         context = ToolContext(
             Path(args.workspace).resolve(),
-            {"foundations": {"c_compiler": args.compiler}},
+            {"foundations": {"c_compiler": args.compiler, "godot": args.godot}},
             Jobs(),
             threading.Event(),
+            native=args.allow_native,
         )
         games = GamePlay()
         if args.mode == "describe":
@@ -91,6 +95,8 @@ def main():
             request.update(steps=args.steps, seed=args.seed)
         if args.side:
             request["side"] = args.side
+        if args.end:
+            request["end"] = True
         if args.trajectory:
             key = "trajectory" if args.trajectory.startswith("g1.") else "start"
             request[key] = args.trajectory
