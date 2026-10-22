@@ -1,7 +1,9 @@
 /* Hivemind Assembly SDL2 tick adapter (protocol 1), loaded with LD_PRELOAD.
  *
  * Steps an unmodified SDL2 game one presented frame per input record received over a
- * local socket. At each SDL_RenderPresent, SDL_GL_SwapWindow or
+ * local socket, which it opens when the game presents its first frame (so HA's
+ * startup limit covers the game's own initialization). At each SDL_RenderPresent,
+ * SDL_GL_SwapWindow or
  * SDL_UpdateWindowSurface it captures the frame being presented (scaled to the
  * declared size), sends it as the previous tick's record, then blocks for the next
  * input record and presses or releases the mapped keys. A game that waits for events
@@ -59,7 +61,9 @@ typedef struct {
 #define MAX_INPUTS 64
 #define BASE_EPOCH 946684800LL /* 2000-01-01, a fixed calendar start */
 
+static int ha_active; /* HA drives this process: virtual clocks and HA-only input */
 static int ha_socket = -1;
+static char ha_port[16], ha_token[129];
 static unsigned ha_record = 1, ha_inputs = 0, ha_width = 0, ha_height = 0;
 static int ha_scancode[MAX_INPUTS], ha_keycode[MAX_INPUTS];
 static unsigned char ha_held[MAX_INPUTS];
@@ -156,23 +160,30 @@ __attribute__((constructor)) static void ha_start(void) {
         }
     }
     if (ha_width && ha_height) ha_frame = calloc((size_t)ha_width * ha_height, 4);
+    snprintf(ha_port, sizeof ha_port, "%s", port);
+    snprintf(ha_token, sizeof ha_token, "%s", token);
+    ha_active = 1;
+}
+
+/* Connect to HA and prove the launch token; called at the first presented frame. */
+static void ha_connect(void) {
     int connection = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in address = {0};
     address.sin_family = AF_INET;
-    address.sin_port = htons((uint16_t)atoi(port));
+    address.sin_port = htons((uint16_t)atoi(ha_port));
     address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     if (connection < 0 || connect(connection, (struct sockaddr *)&address, sizeof address)) _exit(70);
     int on = 1;
     setsockopt(connection, IPPROTO_TCP, TCP_NODELAY, &on, sizeof on);
     ha_socket = connection;
     unsigned char hello[5 + 64];
-    size_t length = strlen(token) / 2;
+    size_t length = strlen(ha_token) / 2;
     if (length > 64) length = 64;
     memcpy(hello, "HATK", 4);
     hello[4] = 1;
     for (size_t i = 0; i < length; ++i) {
         unsigned byte;
-        sscanf(token + 2 * i, "%2x", &byte);
+        sscanf(ha_token + 2 * i, "%2x", &byte);
         hello[5 + i] = (unsigned char)byte;
     }
     if (ha_write_exact(hello, 5 + length)) _exit(70);
@@ -235,7 +246,8 @@ static void ha_apply(const unsigned char *record, uint32_t window) {
 /* One tick boundary: send the frame being presented as the previous tick's record,
  * then wait for the next input. 'E' or a closed connection ends play. */
 static void ha_boundary(uint32_t window) {
-    if (ha_socket < 0) return;
+    if (!ha_active) return;
+    if (ha_socket < 0) ha_connect();
     ha_window = window;
     if (ha_ticks > 0) {
         size_t payload = ha_frame ? (size_t)ha_width * ha_height * 4 : 0;
@@ -257,7 +269,7 @@ static void ha_boundary(uint32_t window) {
 void SDL_RenderPresent(SDL_Renderer *renderer) {
     static void (*present)(SDL_Renderer *);
     if (!present) present = real("SDL_RenderPresent");
-    if (ha_socket >= 0) {
+    if (ha_active) {
         if (ha_frame) {
             int (*size)(SDL_Renderer *, int *, int *) = real("SDL_GetRendererOutputSize");
             int (*read)(SDL_Renderer *, const void *, uint32_t, void *, int) = real("SDL_RenderReadPixels");
@@ -279,7 +291,7 @@ void SDL_RenderPresent(SDL_Renderer *renderer) {
 void SDL_GL_SwapWindow(SDL_Window *window) {
     static void (*swap)(SDL_Window *);
     if (!swap) swap = real("SDL_GL_SwapWindow");
-    if (ha_socket >= 0) {
+    if (ha_active) {
         if (ha_frame) {
             void *(*address)(const char *) = real("SDL_GL_GetProcAddress");
             void (*drawable)(SDL_Window *, int *, int *) = real("SDL_GL_GetDrawableSize");
@@ -317,7 +329,7 @@ void SDL_GL_SwapWindow(SDL_Window *window) {
 int SDL_UpdateWindowSurface(SDL_Window *window) {
     static int (*update)(SDL_Window *);
     if (!update) update = real("SDL_UpdateWindowSurface");
-    if (ha_socket >= 0) {
+    if (ha_active) {
         if (ha_frame) {
             SDL_Surface *(*surface_of)(SDL_Window *) = real("SDL_GetWindowSurface");
             SDL_Surface *(*convert)(SDL_Surface *, uint32_t, uint32_t) = real("SDL_ConvertSurfaceFormat");
@@ -368,14 +380,14 @@ static int ha_poll_waiting(SDL_Event *event) {
 int SDL_PollEvent(SDL_Event *event) {
     static int (*poll)(SDL_Event *);
     if (!poll) poll = real("SDL_PollEvent");
-    if (ha_socket < 0) return poll(event);
+    if (!ha_active) return poll(event);
     return ha_poll(event);
 }
 
 int SDL_WaitEvent(SDL_Event *event) {
     static int (*wait)(SDL_Event *);
     if (!wait) wait = real("SDL_WaitEvent");
-    if (ha_socket < 0) return wait(event);
+    if (!ha_active) return wait(event);
     /* Instead of blocking, each wait without events passes a tick. */
     while (!ha_poll_waiting(event)) ha_boundary(ha_window);
     return 1;
@@ -384,7 +396,7 @@ int SDL_WaitEvent(SDL_Event *event) {
 int SDL_WaitEventTimeout(SDL_Event *event, int timeout) {
     static int (*wait)(SDL_Event *, int);
     if (!wait) wait = real("SDL_WaitEventTimeout");
-    if (ha_socket < 0) return wait(event, timeout);
+    if (!ha_active) return wait(event, timeout);
     if (ha_poll_waiting(event)) return 1;
     ha_boundary(ha_window);
     return ha_poll_waiting(event);
@@ -393,7 +405,7 @@ int SDL_WaitEventTimeout(SDL_Event *event, int timeout) {
 const uint8_t *SDL_GetKeyboardState(int *count) {
     static const uint8_t *(*state)(int *);
     if (!state) state = real("SDL_GetKeyboardState");
-    if (ha_socket < 0) return state(count);
+    if (!ha_active) return state(count);
     if (count) *count = KEYS;
     return ha_keys;
 }
@@ -401,37 +413,37 @@ const uint8_t *SDL_GetKeyboardState(int *count) {
 int SDL_GetModState(void) {
     static int (*state)(void);
     if (!state) state = real("SDL_GetModState");
-    return ha_socket < 0 ? state() : 0;
+    return !ha_active ? state() : 0;
 }
 
 uint32_t SDL_GetTicks(void) {
     static uint32_t (*ticks)(void);
     if (!ticks) ticks = real("SDL_GetTicks");
-    return ha_socket < 0 ? ticks() : (uint32_t)(ha_now_ns / 1000000);
+    return !ha_active ? ticks() : (uint32_t)(ha_now_ns / 1000000);
 }
 
 uint64_t SDL_GetTicks64(void) {
     static uint64_t (*ticks)(void);
     if (!ticks) ticks = real("SDL_GetTicks64");
-    return ha_socket < 0 ? ticks() : ha_now_ns / 1000000;
+    return !ha_active ? ticks() : ha_now_ns / 1000000;
 }
 
 uint64_t SDL_GetPerformanceCounter(void) {
     static uint64_t (*counter)(void);
     if (!counter) counter = real("SDL_GetPerformanceCounter");
-    return ha_socket < 0 ? counter() : ha_now_ns;
+    return !ha_active ? counter() : ha_now_ns;
 }
 
 uint64_t SDL_GetPerformanceFrequency(void) {
     static uint64_t (*frequency)(void);
     if (!frequency) frequency = real("SDL_GetPerformanceFrequency");
-    return ha_socket < 0 ? frequency() : 1000000000ULL;
+    return !ha_active ? frequency() : 1000000000ULL;
 }
 
 void SDL_Delay(uint32_t ms) {
     static void (*delay)(uint32_t);
     if (!delay) delay = real("SDL_Delay");
-    if (ha_socket < 0) {
+    if (!ha_active) {
         delay(ms);
         return;
     }
@@ -443,7 +455,7 @@ void SDL_Delay(uint32_t ms) {
 time_t time(time_t *result) {
     static time_t (*clock_time)(time_t *);
     if (!clock_time) clock_time = real("time");
-    if (ha_socket < 0 || !ha_from_game(__builtin_return_address(0))) return clock_time(result);
+    if (!ha_active || !ha_from_game(__builtin_return_address(0))) return clock_time(result);
     time_t value = (time_t)(BASE_EPOCH + ha_now_ns / 1000000000ULL);
     if (result) *result = value;
     return value;
@@ -452,7 +464,7 @@ time_t time(time_t *result) {
 int gettimeofday(struct timeval *value, void *zone) {
     static int (*clock_time)(struct timeval *, void *);
     if (!clock_time) clock_time = real("gettimeofday");
-    if (ha_socket < 0 || !ha_from_game(__builtin_return_address(0))) return clock_time(value, zone);
+    if (!ha_active || !ha_from_game(__builtin_return_address(0))) return clock_time(value, zone);
     if (value) {
         value->tv_sec = (time_t)(BASE_EPOCH + ha_now_ns / 1000000000ULL);
         value->tv_usec = (suseconds_t)(ha_now_ns % 1000000000ULL / 1000);
@@ -463,7 +475,7 @@ int gettimeofday(struct timeval *value, void *zone) {
 int clock_gettime(clockid_t clock, struct timespec *value) {
     static int (*clock_time)(clockid_t, struct timespec *);
     if (!clock_time) clock_time = real("clock_gettime");
-    if (ha_socket < 0 || !ha_from_game(__builtin_return_address(0)) || !value) return clock_time(clock, value);
+    if (!ha_active || !ha_from_game(__builtin_return_address(0)) || !value) return clock_time(clock, value);
     uint64_t now = ha_now_ns + (clock == CLOCK_REALTIME || clock == CLOCK_REALTIME_COARSE ? (uint64_t)BASE_EPOCH * 1000000000ULL : 0);
     value->tv_sec = (time_t)(now / 1000000000ULL);
     value->tv_nsec = (long)(now % 1000000000ULL);
