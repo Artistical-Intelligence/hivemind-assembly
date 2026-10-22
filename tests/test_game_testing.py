@@ -17,7 +17,7 @@ from hivemind_assembly.core import game_testing as gt
 from hivemind_assembly.core.common import ContractError
 from hivemind_assembly.core.jobs import Jobs
 from hivemind_assembly.domains.reverse_engineering import program
-from hivemind_assembly.domains.reverse_engineering.game_machine import open_engine
+from hivemind_assembly.domains.reverse_engineering.game_machine import elf_symbols, game_functions, open_engine
 
 SPEC = gs.validate(json.loads(ge.files()["game.json"]))
 
@@ -70,7 +70,10 @@ def test_session_decodes_ticks_and_replays_exactly(images):
     observation = first.observation()
     assert observation["frame"]["view"]["rows"][10][13] != observation["frame"]["view"]["rows"][10][12]
     assert observation["audio"]["samples"] == 8
-    assert set(observation["coverage"]) >= {"step", "render"}
+    covered = set(observation["coverage"])
+    entries, _ = game_functions(elf_symbols(images["original"]))
+    # Which helpers a compiler inlines varies by version; the entry point never is.
+    assert "ha_main" in covered and covered <= set(entries.values())
     again = session(images["original"])
     for record in gs.decode_token(observation["trajectory"], SPEC):
         again.feed(bytes([record]))
