@@ -74,11 +74,22 @@
     byId('workspace-result-summary').textContent = 'No check result loaded. Run checks or view the last retained result.';
     byId('workspace-result').textContent = '';
     captureGeneration++; byId('workspace-capture-view').replaceChildren();
-    for (const id of ['target-task','acceptance-task','native-test-task','goal-task','repository-task','hosted-test-task']) {
-      if (byId(id)) byId(id).value = task;
-    }
+    syncTaskPickers();
     if (task) await listFiles(true);
   }
+  // One task picker in the header drives every form. A form's own task list is shown
+  // only when the current task is not offered there (for example, it must be paused).
+  const syncedPickers = ['target-task','acceptance-task','native-test-task','goal-task','repository-task','hosted-test-task','knowledge-task','cloud-task'];
+  function syncTaskPickers() {
+    byId('task-picker').hidden = !(state && state.tasks.length);
+    for (const id of syncedPickers) {
+      const select = byId(id); if (!select) continue;
+      const offered = !!selected && [...select.options].some(o => o.value === selected);
+      if (offered && select.value !== selected) { select.value = selected; select.dispatchEvent(new Event('change')); }
+      const label = select.closest('label'); if (label) label.hidden = offered;
+    }
+  }
+  window.syncTaskPickers = syncTaskPickers;
   function showResult(report) {
     captureGeneration++; byId('workspace-capture-view').replaceChildren();
     const result = report.result || report;
@@ -94,12 +105,14 @@
   });
   window.renderWorkspace = s => {
     state = s;
-    byId('app-version').textContent = 'Ghidra + REA · v' + s.version;
-    byId('native-readiness').textContent = `${s.routes.filter(r => r.status.ready).length} of ${s.routes.length} native routes observed ready. Autonomous work also requires sufficient allowance and installed foundations. You can edit files and run configured local checks now.`;
+    byId('app-version').textContent = 'Version ' + s.version;
+    byId('native-readiness').textContent = `${s.routes.filter(r => r.status.ready).length} of ${s.routes.length} AI assistants ready. You can edit files and run tests without them.`;
     const select = byId('workspace-task');
     const options = s.tasks.map(t => `<option value="${esc(t.id)}">${esc(s.projects.find(p => p.id === t.project_id)?.name || t.id)} · ${esc(t.objective.slice(0,65))} · ${esc(t.status)}</option>`).join('');
     if (select.innerHTML !== options) { select.innerHTML = options; select.value = selected; }
     if (!selected && s.tasks.length) guarded(() => selectTask(s.tasks[0].id))();
+    // Other forms refill their task lists later in the same refresh.
+    queueMicrotask(syncTaskPickers);
     const t = s.tasks.find(t => t.id === selected);
     const key = t ? [selected, s.projects.find(p => p.id === t.project_id)?.revision, t.status, t.owner, (s.configured_tasks || []).includes(selected)].join(':') : '';
     if (key && key !== signature) { signature = key; guarded(listFiles)(); }
@@ -192,7 +205,7 @@
     if (file.text === null) throw Error('suite.json must be a UTF-8 text file.');
     JSON.parse(file.text); byId('native-test-task').value = selected;
     document.querySelector('#native-test-form [name=suite]').value = file.text;
-    tab('projects'); byId('native-test-form').scrollIntoView({behavior:'smooth'});
+    byId('recipe-details').open = true; byId('native-test-form').scrollIntoView({behavior:'smooth'});
   });
   document.querySelectorAll('[data-starter]').forEach(b => b.onclick = guarded(async () => {
     requireClean(); const kind = b.dataset.starter;
@@ -205,7 +218,7 @@
       const task = await api('project/starter', {kind,request_id:request,allow_native:allow});
       sessionStorage.removeItem(key); await refresh(); await selectTask(task.id); tab('workspace');
       await openFile(kind === 'registers' ? 'candidate.hex' : ['linked_arm64','program_arm64','program_windows','program_frames','native_frames','autonomous_program'].includes(kind) ? 'candidate.c' : kind === 'project_game' ? 'logic.c' : kind === 'game_testing' ? 'README.txt' : 'candidate.py');
-      message(kind === 'autonomous_program' ? 'Reconstruction trial ready. The candidate is unfinished and independent checks are pinned. Start the objective in Projects & tasks when native sessions are ready.' : kind === 'game_testing' ? 'Game example ready. Use Play and test the game below: load it, play, explore and run saved regressions.' : 'Example ready. Run checks, edit the candidate, and check again.');
+      message(kind === 'autonomous_program' ? 'Reconstruction trial ready. The candidate is unfinished and its checks are pinned. Start it in Projects & tasks once the AI assistants are ready.' : kind === 'game_testing' ? 'Game example ready. Use Play and test the game below: load it, play, explore and run saved regressions.' : 'Example ready. Run checks, edit the candidate, and check again.');
     } finally { b.disabled = false; }
   }));
   function updateRecipeFiles(files) {
