@@ -191,6 +191,63 @@ def test_sdl2_games_play_compare_and_stop_deterministically(tmp_path):
     assert len(leftover) <= 4
 
 
+WAITING_GAME = r"""#include <SDL2/SDL.h>
+int x, presses;
+int main(void) {
+    SDL_Init(SDL_INIT_VIDEO);
+    SDL_Window *window = SDL_CreateWindow("ha", 0, 0, 64, 48, SDL_WINDOW_SHOWN);
+    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+    for (;;) {
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
+        SDL_Rect body = {x * 4, 20, 4, 4};
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_RenderFillRect(renderer, &body);
+        SDL_RenderPresent(renderer);
+        SDL_Event event;
+        if (!SDL_WaitEvent(&event)) return 1;
+        if (event.type == SDL_QUIT) return 0;
+        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_RIGHT) { x++; presses++; }
+        /* Window-system events arrive at times that differ between runs. */
+        if (event.type == SDL_WINDOWEVENT || event.type == SDL_MOUSEMOTION) x += 100;
+    }
+}
+"""
+
+
+def test_event_driven_sdl2_games_see_each_press_on_its_tick(tmp_path):
+    root, compiler = _sdl_game(tmp_path)
+    flags = subprocess.run(["sdl2-config", "--cflags", "--libs"], capture_output=True, text=True, check=True).stdout.split()
+    (root / "waiting.c").write_text(WAITING_GAME)
+    subprocess.run([compiler, "-O2", "-g", "-o", str(root / "waiting"), str(root / "waiting.c"), *flags], check=True, timeout=120)
+    spec = {
+        "version": 1,
+        "name": "Event-driven test game",
+        "native": {
+            "adapter": "sdl2",
+            "original": {"executable": "waiting"},
+            "candidate": {"executable": "waiting"},
+            "inputs": [{"key": "Right"}],
+            "state": [{"name": "x", "type": "i32", "symbol": "x"}, {"name": "presses", "type": "i32", "symbol": "presses"}],
+            "frame": {"width": 16, "height": 12},
+            "action_ticks": 1,
+        },
+        # A turn-based press: down for one tick, up for the next.
+        "actions": {"right": [["right", 1], ["none", 1]], "wait": [["none", 1]]},
+        "limits": {"max_ticks": 100},
+    }
+    (root / "waiting.json").write_text(json.dumps(spec))
+    games = GamePlay()
+    context = _context(root, compiler)
+    described = games.describe(context, {"game_path": "waiting.json"})
+    assert described["sides"]["original"]["determinism"]["identical"] is True
+    played = games.play(context, {"game_path": "waiting.json", "side": "both", "actions": ["right", "right", "wait", "right"]})
+    # Each press lands on its own tick and no window-system event reaches the game.
+    assert played["outcome"] == "pass" and played["original"]["state"] == {"x": 3, "presses": 3}
+    assert played["original"]["ticks"] == played["original"]["input_ticks"] == played["comparison"]["compared_ticks"] == 7
+    games.sessions.clear()
+
+
 ENTROPY_PROGRAM = r"""#define _GNU_SOURCE
 #include <dlfcn.h>
 #include <stdio.h>
