@@ -8,8 +8,9 @@
  * (SDL_WaitEvent) instead of presenting every frame passes one tick, with the frame it
  * last presented, each time it would block. The game's own calls to SDL
  * and C library clocks see virtual time that advances one fixed frame step per tick
- * (plus any SDL_Delay), and its randomness requests return seeded bytes, so a run is
- * a function of the input log. Without HA_TICK_PORT nothing changes.
+ * (plus any SDL_Delay), and its randomness requests return seeded bytes (ha_entropy.c,
+ * built into the same library), so a run is a function of the input log. Without
+ * HA_TICK_PORT nothing changes.
  */
 #define _GNU_SOURCE
 #include <arpa/inet.h>
@@ -60,7 +61,6 @@ static int ha_scancode[MAX_INPUTS], ha_keycode[MAX_INPUTS];
 static unsigned char ha_held[MAX_INPUTS];
 static unsigned char ha_keys[KEYS];
 static uint64_t ha_now_ns, ha_frame_ns = 16666667, ha_frame_start;
-static uint64_t ha_random;
 static uint32_t ha_ticks;
 static uint32_t ha_window;
 static uint8_t *ha_frame, *ha_scratch;
@@ -137,7 +137,6 @@ __attribute__((constructor)) static void ha_start(void) {
     const char *value;
     if ((value = getenv("HA_TICK_RECORD"))) ha_record = (unsigned)strtoul(value, NULL, 10);
     if ((value = getenv("HA_TICK_FRAME_NS"))) ha_frame_ns = strtoull(value, NULL, 10);
-    if ((value = getenv("HA_TICK_SEED"))) ha_random = strtoull(value, NULL, 10) * 2654435761u + 1;
     if ((value = getenv("HA_TICK_FRAME"))) sscanf(value, "%u,%u", &ha_width, &ha_height);
     if ((value = getenv("HA_TICK_KEYS"))) {
         const char *cursor = value;
@@ -430,18 +429,4 @@ int clock_gettime(clockid_t clock, struct timespec *value) {
     value->tv_sec = (time_t)(now / 1000000000ULL);
     value->tv_nsec = (long)(now % 1000000000ULL);
     return 0;
-}
-
-ssize_t getrandom(void *buffer, size_t size, unsigned int flags) {
-    static ssize_t (*random_bytes)(void *, size_t, unsigned int);
-    if (!random_bytes) random_bytes = real("getrandom");
-    if (ha_socket < 0 || !ha_from_game(__builtin_return_address(0))) return random_bytes(buffer, size, flags);
-    unsigned char *out = buffer;
-    for (size_t i = 0; i < size; ++i) {
-        ha_random ^= ha_random << 13;
-        ha_random ^= ha_random >> 7;
-        ha_random ^= ha_random << 17;
-        out[i] = (unsigned char)(ha_random >> 24);
-    }
-    return (ssize_t)size;
 }
