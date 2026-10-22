@@ -225,6 +225,67 @@ class Connections:
                 p.chmod(0o600)
         return {"installed": str(p), "backup": str(backup) if backup else None}
 
+    @staticmethod
+    def local_clients(home=None):
+        """Desktop apps on this computer whose MCP settings HA can add itself to."""
+        home = Path(home or Path.home())
+        if os.name == "nt":
+            claude = Path(os.environ.get("APPDATA", home / "AppData" / "Roaming"))
+        elif sys.platform == "darwin":
+            claude = home / "Library" / "Application Support"
+        else:
+            claude = home / ".config"
+        found = []
+        claude = claude / "Claude" / "claude_desktop_config.json"
+        if claude.exists() or claude.parent.is_dir():
+            found.append(("Claude Desktop", claude))
+        codex = home / ".codex" / "config.toml"
+        if codex.exists() or codex.parent.is_dir():
+            found.append(("Codex", codex))
+        return found
+
+    def install_local_apps(self, home=None):
+        """Add HA to every detected desktop app; other servers and settings are kept."""
+        results = []
+        for name, path in self.local_clients(home):
+            try:
+                if path.suffix == ".json":
+                    self.install_config(path)
+                else:
+                    self.install_codex(path)
+                results.append({"app": name, "result": "Added. Restart " + name + " to use HA."})
+            except (ContractError, OSError, ValueError) as exc:
+                results.append({"app": name, "result": "Not changed: " + str(exc)})
+        if not results:
+            results.append({"app": "", "result": "No supported desktop app was found. Use Show connection settings to add HA by hand."})
+        return {"apps": results}
+
+    def install_codex(self, path):
+        import tomllib
+
+        begin, end = "# BEGIN Hivemind Assembly", "# END Hivemind Assembly"
+        entry = self.client_config()["mcpServers"]["hivemind-assembly"]
+        with self.lock:
+            text = path.read_text("utf-8-sig") if path.exists() else ""
+            if begin in text:
+                if text.count(begin) != 1 or text.count(end) != 1:
+                    raise ContractError("Unrecognized HA section; the file was not changed")
+                text = re.sub(re.escape(begin) + r".*?" + re.escape(end) + r"\n?", "", text, flags=re.S)
+            if re.search(r"\[mcp_servers\.hivemind-assembly(?:\]|\.)", text) or re.search(
+                r'\[mcp_servers\."hivemind-assembly"', text
+            ):
+                raise ContractError("A server named hivemind-assembly was added by hand; it was kept")
+            block = (
+                begin + '\n[mcp_servers."hivemind-assembly"]\ncommand = ' + json.dumps(entry["command"])
+                + "\nargs = " + json.dumps(entry["args"]) + "\n" + end + "\n"
+            )
+            updated = (text.rstrip() + "\n\n" if text.strip() else "") + block
+            tomllib.loads(updated)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if path.exists():
+                atomic_write(path.with_name(path.name + "." + uid("backup") + ".bak"), path.read_text("utf-8-sig"))
+            atomic_write(path, updated)
+
     def credential(self, server, token=None, remember=False, forget=False):
         from .github import CredentialVault
 
