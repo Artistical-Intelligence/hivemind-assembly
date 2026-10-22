@@ -34,7 +34,8 @@ CRASH = (
     "unsupported_instruction_or_fault",
     "crash",
 )
-LIMITS = ("instruction_limit", "wall_clock_limit", "output_limit", "event_limit")
+# Harness bounds and adapter failures say nothing about the game: inconclusive.
+LIMITS = ("instruction_limit", "wall_clock_limit", "output_limit", "event_limit", "adapter_error")
 DEFECTS = ("crash", "freeze", "invariant", "slowdown", "bad_exit", "protocol", "divergence")
 INCONCLUSIVE = ("limit", "cancelled")
 REGRESSION_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}")
@@ -85,6 +86,12 @@ class Session:
         rebind = getattr(self.engine, "rebind", None)
         if rebind is not None:
             rebind(cancel)
+
+    def close(self):
+        """Release the engine (native engines stop their game process)."""
+        stop = getattr(self.engine, "close", None)
+        if stop is not None:
+            stop()
 
     def feed(self, records):
         if len(records) % self.record:
@@ -443,6 +450,10 @@ class Pair:
         self.original.rebind(cancel)
         self.candidate.rebind(cancel)
 
+    def close(self):
+        self.original.close()
+        self.candidate.close()
+
     def feed(self, records):
         record = self.spec["input"]["record_bytes"]
         if len(records) % record:
@@ -618,6 +629,13 @@ def session_findings(session):
     return [p for p in session.problems if p["kind"] not in INCONCLUSIVE]
 
 
+def close(runner):
+    """Release a Session or Pair; harmless for emulated engines."""
+    stop = getattr(runner, "close", None)
+    if stop is not None:
+        stop()
+
+
 def inconclusive(problems):
     return [p for p in problems if p["kind"] in INCONCLUSIVE]
 
@@ -689,6 +707,19 @@ def explore(
     actions = sorted(spec["actions"])
     records = {name: gs.expand(spec, [name]) for name in actions}
     runner = make_runner()
+    try:
+        return _explore(
+            spec, runner, rng, started, record, actions, records, steps, start, deadline, cancel,
+            max_branch, sticky, findings_limit, reference, max_cells, max_archive_bytes, occurrences, seed,
+        )
+    finally:
+        close(runner)
+
+
+def _explore(
+    spec, runner, rng, started, record, actions, records, steps, start, deadline, cancel,
+    max_branch, sticky, findings_limit, reference, max_cells, max_archive_bytes, occurrences, seed,
+):
     differential = isinstance(runner, Pair)
     sides = (runner.original, runner.candidate) if differential else (runner,)
     if start:
@@ -869,11 +900,14 @@ def explore(
 
 def reproduces(make_runner, inputs, signature, end=False):
     runner = make_runner()
-    runner.feed(inputs)
-    if end and not runner.stopped:
-        runner.end()
-    hits = [f for f in (runner.findings() if isinstance(runner, Pair) else session_findings(runner)) if tuple(f["signature"]) == tuple(signature)]
-    return hits[0] if hits else None
+    try:
+        runner.feed(inputs)
+        if end and not runner.stopped:
+            runner.end()
+        hits = [f for f in (runner.findings() if isinstance(runner, Pair) else session_findings(runner)) if tuple(f["signature"]) == tuple(signature)]
+        return hits[0] if hits else None
+    finally:
+        close(runner)
 
 
 def shrink(spec, make_runner, inputs, signature, *, end=False, deadline=None, cancel=None, max_tests=300):
@@ -958,6 +992,13 @@ def shrink(spec, make_runner, inputs, signature, *, end=False, deadline=None, ca
 def package(spec, make_runner, inputs, signature=None, window=8, images=2, end=False):
     """Bug package: inputs, state window, frames around the failing tick, coverage."""
     runner = make_runner()
+    try:
+        return _package(spec, runner, inputs, signature, window, images, end)
+    finally:
+        close(runner)
+
+
+def _package(spec, runner, inputs, signature, window, images, end):
     differential = isinstance(runner, Pair)
     sessions = (runner.original, runner.candidate) if differential else (runner,)
     for session in sessions:
@@ -1041,10 +1082,13 @@ def run_regressions(spec, make_pair, make_session, items, *, deadline=None, canc
         inputs = bytes.fromhex(item["inputs_hex"])
         if item["expect"] == "match_original":
             runner = make_pair()
-            runner.feed(inputs)
-            if item["end"]:
-                runner.end()
-            report = runner.report()
+            try:
+                runner.feed(inputs)
+                if item["end"]:
+                    runner.end()
+                report = runner.report()
+            finally:
+                close(runner)
             results.append(
                 {
                     "id": item["id"],
@@ -1060,17 +1104,21 @@ def run_regressions(spec, make_pair, make_session, items, *, deadline=None, canc
             )
         else:
             session = make_session()
-            session.feed(inputs)
-            if item["end"]:
-                session.end()
-            report = session_report(session)
+            try:
+                session.feed(inputs)
+                if item["end"]:
+                    session.end()
+                report = session_report(session)
+                trajectory = gs.encode_token(session.inputs)
+            finally:
+                close(session)
             results.append(
                 {
                     "id": item["id"],
                     "expect": item["expect"],
                     "end": item["end"],
                     **report,
-                    "trajectory": gs.encode_token(session.inputs),
+                    "trajectory": trajectory,
                 }
             )
     return {
