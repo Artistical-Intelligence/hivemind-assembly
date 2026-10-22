@@ -49,6 +49,13 @@
     'cloud-list': 'Reload the list of your cloud machines.',
     'cloud-machines': 'Show which machine sizes you can choose.',
     'cloud-recover-creation': 'Check on a cloud machine that was being created.',
+    'game-load': 'Load this project\'s game contract and show its first frame.',
+    'game-restart': 'Start the game again from the beginning.',
+    'game-undo': 'Go back to the moment before your last action.',
+    'game-save': 'Save the inputs you played as a regression test.',
+    'game-explore': 'Let HA try many action sequences to look for problems.',
+    'game-compare': 'Replay your inputs on the original and the rebuild and compare every tick.',
+    'game-regressions': 'Replay every saved regression on the current rebuild.',
   };
   const byData = {
     tab: {
@@ -94,6 +101,11 @@
     rollback: 'Undo this learned item.',
     share: 'Allow this item to be used in tests with the AI assistants.',
     unshare: 'Keep this item on this computer only.',
+    gameAction: 'Play this action in the game.',
+    gameReplay: 'Load this finding\'s exact inputs and replay them.',
+    gameShrink: 'Find the fewest inputs that still cause this problem.',
+    gamePackage: 'Show the frames and game state just before the problem.',
+    gameSave: 'Save these inputs as a regression test.',
   };
   const byText = {
     'Create project': 'Create a new project.',
