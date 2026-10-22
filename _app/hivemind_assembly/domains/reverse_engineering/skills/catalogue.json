@@ -13,7 +13,7 @@
     ],
     "acceptance": "Input hashes and supported platform recorded.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -33,7 +33,7 @@
     ],
     "acceptance": "A replayable case and exact reference tool version.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -53,7 +53,7 @@
     ],
     "acceptance": "Claims retain scope and actual evidence links.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -73,7 +73,7 @@
     ],
     "acceptance": "Every declared critical obligation resolved or blocked.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -93,7 +93,7 @@
     ],
     "acceptance": "Next action distinguishes competing explanations.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -113,7 +113,7 @@
     ],
     "acceptance": "Calling convention and effects tested on retained cases.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -133,7 +133,7 @@
     ],
     "acceptance": "Proposed layout includes uncertainty and conflicting accesses.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -153,7 +153,7 @@
     ],
     "acceptance": "Unknown edges remain visible and do not become dead code.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -173,7 +173,7 @@
     ],
     "acceptance": "At least one script input replays under the proposed model.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -193,7 +193,7 @@
     ],
     "acceptance": "Positive and seeded negative differential cases pass.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -213,7 +213,7 @@
     ],
     "acceptance": "Boundary tests and rollback preserve executable behavior.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -233,7 +233,7 @@
     ],
     "acceptance": "Actual cases and proof assumptions attached to candidate hashes.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -253,7 +253,7 @@
     ],
     "acceptance": "Project reopens and operation identity is reconciled.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -273,7 +273,7 @@
     ],
     "acceptance": "Hashes, journal and save state agree.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -293,7 +293,7 @@
     ],
     "acceptance": "Reproducible build and protected checks for exact candidate.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -313,7 +313,7 @@
     ],
     "acceptance": "Intent, brief, evidence and execution are linked.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -333,7 +333,7 @@
     ],
     "acceptance": "Old-writer rejection and restart recovery tests pass.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -353,7 +353,7 @@
     ],
     "acceptance": "Recovered request/result hashes and actual external state agree.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -373,7 +373,7 @@
     ],
     "acceptance": "Benefit and regression evidence linked to active version.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
@@ -393,7 +393,7 @@
     ],
     "acceptance": "Export manifest and scan precede publication.",
     "sources": [
-      "User design v3.0, sections 6–24 and Appendix C"
+      "User design v3.0, sections 6\u201324 and Appendix C"
     ],
     "readiness": "documented",
     "evidence_strength": "design-derived; executable tests listed separately",
