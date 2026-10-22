@@ -157,7 +157,8 @@ def test_sdl2_games_play_compare_and_stop_deterministically(tmp_path):
     for side in ("original", "candidate"):
         assert described["sides"][side]["capabilities"]["runtime"] == "native_sdl2"
         probe = described["sides"][side]["determinism"]
-        assert probe["identical"] is True, probe
+        if not probe["identical"]:
+            pytest.fail(json.dumps({key: probe.get(key) for key in ("first_difference_tick", "first_difference", "runs")}))
     played = games.play(context, {"side": "original", "actions": ["wait", "space", "right"], "images": 1})
     state = played["observation"]["state"]
     # Memory through a pointer path, the time-seeded bonus and virtual time all agree run to run.
