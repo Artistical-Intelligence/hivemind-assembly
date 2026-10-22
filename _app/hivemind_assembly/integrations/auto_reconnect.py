@@ -196,8 +196,10 @@ class AutoReconnect:
         # The same checks as the Chrome helper: HA's current address, a live request, the right provider.
         code = self.pair(provider, page.url, flow)
         await page.locator("form[action='/authorize'] input[name=pairing_code]").fill(code["pairing_code"])
-        async with page.expect_navigation(timeout=30000):
-            await page.locator("form[action='/authorize'] button").click()
-        if urlsplit(page.url).hostname not in ("chatgpt.com", "chat.openai.com", "claude.ai", "claude.com"):
-            raise Stuck("The approval didn't return to " + provider + ".")
+        await page.locator("form[action='/authorize'] button").click()
+        hosts = ("chatgpt.com", "chat.openai.com", "claude.ai", "claude.com")
+        try:
+            await page.wait_for_url(lambda url: urlsplit(url).hostname in hosts, timeout=30000)
+        except Exception:
+            raise Stuck("The approval didn't return to " + provider + ".") from None
         await page.wait_for_timeout(3000)  # let the provider finish exchanging the code
