@@ -216,7 +216,13 @@
     if (!spec.sides.candidate.available && spec.sides.original.available) byId('game-side').value = 'original';
     renderActions();
     const broken = spec.regressions_error ? ` Regressions file problem: ${spec.regressions_error}.` : '';
-    byId('game-description').textContent = `${spec.game.name}: ${spec.game.fields.length} state fields, ${spec.game.rules.length} rules, ${spec.regressions} saved regressions. Candidate ${spec.sides.candidate.available ? 'ready' : 'unavailable'}; original ${spec.sides.original.available ? 'ready' : 'unavailable'}.${broken}`;
+    // Native games replay exactly only as far as their adapter controls time, randomness and input.
+    const probed = ['candidate', 'original'].filter((name) => spec.sides[name].determinism);
+    const differing = probed.filter((name) => !spec.sides[name].determinism.identical);
+    const replays = !probed.length ? '' : differing.length
+      ? differing.map((name) => ` The ${name} did not replay identically (first difference at tick ${spec.sides[name].determinism.first_difference_tick ?? 'end'}), so its findings may not reproduce.`).join('')
+      : ' Replays of this native game repeat exactly.';
+    byId('game-description').textContent = `${spec.game.name}: ${spec.game.fields.length} state fields, ${spec.game.rules.length} rules, ${spec.regressions} saved regressions. Candidate ${spec.sides.candidate.available ? 'ready' : 'unavailable'}; original ${spec.sides.original.available ? 'ready' : 'unavailable'}.${replays}${broken}`;
     await play([]);
   });
   byId('game-side').onchange = guarded(() => spec && play([]));
