@@ -82,6 +82,8 @@ class Broker:
         self.mutations = {spec.name for spec in specs if spec.mutates_project}
 
     def context(self, task, tool=None):
+        from .test_acceptance import NativeTestAcceptance
+
         return ToolContext(
             self.workspace(task),
             self.config,
@@ -90,6 +92,9 @@ class Broker:
             self.verified_sources.last_composition(task)
             if tool == "compare_project"
             else None,
+            native=NativeTestAcceptance(self.store).allowed(
+                self.store.task(task)["project_id"]
+            ),
         )
 
     def workspace(self, task):
