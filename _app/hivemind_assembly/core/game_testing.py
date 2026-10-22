@@ -4,15 +4,17 @@ A domain supplies engines that run one program and expose `feed(bytes)`, `end()`
 `status`, `exit_code`, `input_consumed`, `instructions`, `costs`,
 `output_size(stream)`, `output_tail(stream, start)`, `coverage()`, `symbol(name)`,
 `read_memory(address, size)`, `diagnostics()`, `snapshot()`, `restore(snapshot)` and
-a `capabilities` dict. A Session drives one engine through a validated game spec,
-decodes ticks and detects problems. A Pair runs the original and the candidate in
-lockstep and records the first divergent tick. Exploration, shrinking, confirmation,
-bug packages and saved regressions are built from these.
+a `capabilities` dict, plus optional `rebind(cancel)` and `snapshot_bytes(snapshot)`.
+A Session drives one engine through a validated game spec, decodes ticks and detects
+problems. A Pair runs the original and the candidate in lockstep and records the
+first divergent tick. Exploration, shrinking, confirmation, bug packages and saved
+regressions are built from these.
 
 Every finding names its trajectory (the input log), so it replays exactly. Problems
 on the candidate that reproduce on the original with the same trajectory are
-original behavior, not reconstruction defects. Instruction counts are deterministic
-costs, not hardware timing.
+original behavior, not reconstruction defects. Harness bounds and cancellation are
+inconclusive outcomes (`limit`, `cancelled`), never a pass. Instruction counts are
+deterministic costs, not hardware timing.
 """
 
 import math
@@ -30,9 +32,11 @@ CRASH = (
     "unsupported_syscall",
     "unsupported_cpu_state",
     "unsupported_instruction_or_fault",
+    "crash",
 )
 LIMITS = ("instruction_limit", "wall_clock_limit", "output_limit", "event_limit")
 DEFECTS = ("crash", "freeze", "invariant", "slowdown", "bad_exit", "protocol", "divergence")
+INCONCLUSIVE = ("limit", "cancelled")
 REGRESSION_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}")
 
 
@@ -76,6 +80,12 @@ class Session:
         # A replay always ends its input; only a stop before consuming it is final.
         return terminal and self.engine.input_consumed < len(self.inputs)
 
+    def rebind(self, cancel):
+        """Observe this request's cancellation when a cached session is reused."""
+        rebind = getattr(self.engine, "rebind", None)
+        if rebind is not None:
+            rebind(cancel)
+
     def feed(self, records):
         if len(records) % self.record:
             raise ContractError("Inputs must be whole input records")
@@ -112,6 +122,8 @@ class Session:
                 "tick": tick,
                 "input_ticks": len(self.inputs) // self.record,
                 "side": self.side,
+                # Problems detected after end of input reproduce only with it.
+                "after_end": self.ended,
                 "detail": detail,
             }
         )
@@ -182,6 +194,8 @@ class Session:
             self._problem("freeze", (), self.ticks, diagnostics | {"function": where})
         elif status in LIMITS:
             self._problem("limit", (status,), self.ticks, diagnostics)
+        elif status == "cancelled":
+            self._problem("cancelled", (), self.ticks, {})
         elif status == "completed":
             allowed = spec.get("allowed_exit_codes")
             if allowed is not None and engine.exit_code not in allowed:
@@ -224,6 +238,13 @@ class Session:
         self.cost_index = snapshot["cost_index"]
         self.ended = snapshot["ended"]
         self.ignored_ticks = snapshot["ignored_ticks"]
+
+    def snapshot_bytes(self, snapshot):
+        """Approximate memory held by a snapshot (engine state, inputs, frames)."""
+        measure = getattr(self.engine, "snapshot_bytes", None)
+        held = measure(snapshot["engine"]) if measure else 0
+        recent = sum(len(v) for item in snapshot["recent"] for v in item["parts"].values())
+        return held + len(snapshot["inputs"]) + recent + 64 * len(snapshot["problems"])
 
     def cell(self):
         latest = self.latest
@@ -304,6 +325,17 @@ def frame_image(frame, raw, side, tick):
         "side": side,
         "tick": tick,
     }
+
+
+def recent_images(sessions, count):
+    """Newest ticks first, alternating sides, so a few attachments show both builds."""
+    per_side = [list(reversed(session.images(count))) for session in sessions]
+    ordered = []
+    for index in range(max((len(images) for images in per_side), default=0)):
+        for images in per_side:
+            if index < len(images):
+                ordered.append(images[index])
+    return ordered
 
 
 def _tolerance_rule(segment, tolerances):
@@ -397,8 +429,16 @@ class Pair:
         return self.fed
 
     @property
+    def ended(self):
+        return self.original.ended and self.candidate.ended
+
+    @property
     def problems(self):
         return self.candidate_problems() + ([self.divergence] if self.divergence else [])
+
+    def rebind(self, cancel):
+        self.original.rebind(cancel)
+        self.candidate.rebind(cancel)
 
     def feed(self, records):
         record = self.spec["input"]["record_bytes"]
@@ -409,6 +449,9 @@ class Pair:
         step = record if self.live else len(records)
         for offset in range(0, len(records), max(step, 1)):
             if self.original.stopped and self.candidate.stopped:
+                remaining = (len(records) - offset) // record
+                self.original.ignored_ticks += remaining
+                self.candidate.ignored_ticks += remaining
                 break
             chunk = bytes(records[offset : offset + step])
             self.fed += chunk
@@ -432,6 +475,7 @@ class Pair:
             "tick": tick,
             "input_ticks": len(self.fed) // self.spec["input"]["record_bytes"],
             "side": "pair",
+            "after_end": self.ended,
             "detail": {"channels": channels, "state_differences": differences, **(extra or {})},
         }
         if len(self.examples) < self.detail_limit:
@@ -452,9 +496,11 @@ class Pair:
                     self._diverge(self.compared + offset, channels, differences, _primary(channels, differences, self.spec))
             self.compared = common
         status = (a.status, b.status)
-        if self.divergence is not None or "cancelled" in status or any(
-            s in ("running", "ready") for s in status
-        ):
+        if self.divergence is not None or any(s in ("running", "ready") for s in status):
+            return
+        if any(s in LIMITS or s == "cancelled" for s in status):
+            # A harness bound or cancellation says nothing about either program;
+            # the ticks compared so far still count, the rest is inconclusive.
             return
         if a.status != b.status:
             self._diverge(common, {}, {}, "status", {"original_status": a.status, "candidate_status": b.status})
@@ -480,7 +526,12 @@ class Pair:
         return [
             p | {"original_behavior": tuple(p["signature"]) in original}
             for p in self.candidate.problems
+            if p["kind"] not in INCONCLUSIVE
         ]
+
+    def inconclusive(self):
+        """Harness bounds and cancellation on either side."""
+        return inconclusive(self.original.problems) + inconclusive(self.candidate.problems)
 
     def findings(self):
         """Reconstruction defects, most specific first.
@@ -489,7 +540,7 @@ class Pair:
         otherwise the first divergence comes before candidate-only rule violations,
         which are usually its consequences.
         """
-        defects = [p for p in self.candidate_problems() if not p["original_behavior"] and p["kind"] != "limit"]
+        defects = [p for p in self.candidate_problems() if not p["original_behavior"]]
         severe = [p for p in defects if p["kind"] in ("crash", "freeze")]
         rest = [p for p in defects if p["kind"] not in ("crash", "freeze")]
         return severe + ([self.divergence] if self.divergence else []) + rest
@@ -514,39 +565,69 @@ class Pair:
         self.divergent_ticks = snapshot["divergent_ticks"]
         self.examples = list(snapshot["examples"])
 
+    def snapshot_bytes(self, snapshot):
+        return self.original.snapshot_bytes(snapshot["original"]) + self.candidate.snapshot_bytes(snapshot["candidate"])
+
     def cell(self):
         return self.original.cell()
 
     def report(self):
         findings = self.findings()
+        stopped = self.inconclusive()
         return {
-            "passed": not findings,
-            "outcome": outcome(findings),
+            "passed": not findings and not stopped,
+            "outcome": outcome(findings, stopped),
             "compared_ticks": self.compared,
             "divergence": self.divergence,
             "divergent_ticks": self.divergent_ticks,
             "divergence_examples": self.examples,
             "findings": findings,
+            "inconclusive": stopped,
             "original_behavior": [p for p in self.candidate_problems() if p["original_behavior"]],
             "original": self.original.summary(),
             "candidate": self.candidate.summary(),
             "trajectory": gs.encode_token(self.fed),
+            "ended": self.ended,
         }
 
 
-def outcome(findings):
-    """Outcome vocabulary for a finished experiment."""
-    if not findings:
-        return "pass"
-    kinds = {f["kind"] for f in findings}
-    for kind in ("crash", "freeze", "divergence", "invariant", "bad_exit", "protocol", "slowdown"):
-        if kind in kinds:
-            return kind
-    return "inconclusive"
+def outcome(findings, stopped=()):
+    """Outcome vocabulary for a finished experiment.
+
+    Findings decide first. Without findings, cancellation and harness bounds are
+    inconclusive outcomes; only an experiment that ran to its end can pass.
+    """
+    if findings:
+        kinds = {f["kind"] for f in findings}
+        for kind in ("crash", "freeze", "divergence", "invariant", "bad_exit", "protocol", "slowdown"):
+            if kind in kinds:
+                return kind
+        return "inconclusive"
+    kinds = {p["kind"] for p in stopped}
+    if "cancelled" in kinds:
+        return "cancelled"
+    if "limit" in kinds:
+        return "limit"
+    return "pass"
 
 
 def session_findings(session):
-    return [p for p in session.problems if p["kind"] != "limit"]
+    return [p for p in session.problems if p["kind"] not in INCONCLUSIVE]
+
+
+def inconclusive(problems):
+    return [p for p in problems if p["kind"] in INCONCLUSIVE]
+
+
+def session_report(session):
+    found = session_findings(session)
+    stopped = inconclusive(session.problems)
+    return {
+        "passed": not found and not stopped,
+        "outcome": outcome(found, stopped),
+        "findings": found,
+        "inconclusive": stopped,
+    }
 
 
 def check_expectations(spec, values, expect):
@@ -580,6 +661,9 @@ def explore(
     sticky=0.7,
     findings_limit=32,
     reference=None,
+    max_cells=1024,
+    max_archive_bytes=256 * 2**20,
+    occurrences=4,
 ):
     """Go-Explore without training: return to archived cells and try new actions.
 
@@ -588,7 +672,11 @@ def explore(
     executed functions make a cell more attractive. A branch stops at its first
     finding, which is recorded once per signature with its exact trajectory. When a
     single build is explored, `reference()` (a fresh original Session) classifies
-    findings that the original reproduces as original behavior.
+    findings: a signature is original behavior only if the original reproduces
+    every recorded occurrence; otherwise an occurrence it does not reproduce is the
+    finding. The archive keeps at most `max_cells` cells and `max_archive_bytes` of
+    snapshots, evicting the least promising cells. A time limit, cancellation or a
+    harness bound on a branch makes the outcome inconclusive rather than a pass.
     """
     if type(steps) is not int or not 1 <= steps <= 20000:
         raise ContractError("Exploration steps must be 1–20000")
@@ -599,23 +687,33 @@ def explore(
     records = {name: gs.expand(spec, [name]) for name in actions}
     runner = make_runner()
     differential = isinstance(runner, Pair)
+    sides = (runner.original, runner.candidate) if differential else (runner,)
     if start:
         runner.feed(start)
-    findings, quirks = {}, {}
+    findings, quirks, seen = {}, {}, {}
+    stops = []
 
     def collect(step):
         problems = runner.findings() if differential else session_findings(runner)
+        bounded = runner.inconclusive() if differential else inconclusive(runner.problems)
         if problems:
             # One finding per detection: later entries are usually its consequences.
             primary = problems[0]
             key = tuple(primary["signature"])
+            occurrence = primary | {
+                "trajectory": gs.encode_token(runner.inputs),
+                "trajectory_ticks": len(runner.inputs) // record,
+                "step": step,
+                "consequences": [p["signature"] for p in problems[1:]],
+            }
             if key not in findings and len(findings) < findings_limit:
-                findings[key] = primary | {
-                    "trajectory": gs.encode_token(runner.inputs),
-                    "trajectory_ticks": len(runner.inputs) // record,
-                    "step": step,
-                    "consequences": [p["signature"] for p in problems[1:]],
-                }
+                findings[key] = occurrence
+            if key in findings and not differential and reference is not None:
+                found = seen.setdefault(key, [])
+                if len(found) < occurrences and all(o["trajectory"] != occurrence["trajectory"] for o in found):
+                    found.append(occurrence)
+        elif bounded:
+            stops.append(bounded[0] | {"trajectory": gs.encode_token(runner.inputs), "step": step})
         if differential:
             for problem in runner.candidate_problems():
                 if problem["original_behavior"]:
@@ -623,25 +721,59 @@ def explore(
                         tuple(problem["signature"]),
                         problem | {"trajectory": gs.encode_token(runner.inputs)},
                     )
-        return bool(problems)
+        return bool(problems) or bool(bounded)
+
+    union = {session.side: set() for session in sides}
 
     def coverage():
-        sides = (runner.original, runner.candidate) if differential else (runner,)
-        return {name for session in sides for name in session.covered()}
+        names = set()
+        for session in sides:
+            now = set(session.covered())
+            union[session.side] |= now
+            names |= now
+        return names
 
     covered = coverage()
-    archive = {
-        runner.cell(): {
-            "snapshot": runner.snapshot(light=True),
-            "ticks": len(runner.inputs) // record,
-            "chosen": 0,
-            "new_code": True,
-            "found": 0,
+    root = runner.cell()
+    archive, held, evicted = {}, 0, 0
+
+    def weight(cell, step):
+        entry = archive[cell]
+        return (
+            (2.0 if entry["new_code"] else 1.0)
+            * (1.5 if step - entry["found"] <= 25 else 1.0)
+            / math.sqrt(entry["chosen"] + 1)
+        )
+
+    def admit(cell, entry, step):
+        nonlocal held, evicted
+        old = archive.get(cell)
+        if old is not None:
+            held -= old["bytes"]
+        archive[cell] = entry
+        held += entry["bytes"]
+        while len(archive) > 1 and (len(archive) > max_cells or held > max_archive_bytes):
+            victims = [c for c in archive if c not in (root, cell)]
+            if not victims:
+                break
+            victim = min(victims, key=lambda c: (weight(c, step), -archive[c]["ticks"], c))
+            held -= archive.pop(victim)["bytes"]
+            evicted += 1
+
+    def entry_for(step, ticks, chosen, new_code):
+        snapshot = runner.snapshot(light=True)
+        return {
+            "snapshot": snapshot,
+            "bytes": runner.snapshot_bytes(snapshot),
+            "ticks": ticks,
+            "chosen": chosen,
+            "new_code": new_code,
+            "found": step,
         }
-    }
-    if collect(0):
-        archive = {}
-    ticks_executed, stopped, step = 0, "budget", 0
+
+    if not collect(0):
+        admit(root, entry_for(0, len(runner.inputs) // record, 0, True), 0)
+    ticks_executed, stopped, completed = 0, "budget", 0
     for step in range(1, steps + 1):
         if not archive:
             stopped = "no_live_cells"
@@ -653,13 +785,7 @@ def explore(
             stopped = "deadline"
             break
         cells = sorted(archive)
-        weights = [
-            (2.0 if archive[c]["new_code"] else 1.0)
-            * (1.5 if step - archive[c]["found"] <= 25 else 1.0)
-            / math.sqrt(archive[c]["chosen"] + 1)
-            for c in cells
-        ]
-        chosen = rng.choices(cells, weights)[0]
+        chosen = rng.choices(cells, [weight(c, step) for c in cells])[0]
         entry = archive[chosen]
         entry["chosen"] += 1
         runner.restore(entry["snapshot"])
@@ -680,32 +806,61 @@ def explore(
             ticks = len(runner.inputs) // record
             if cell not in archive or ticks < archive[cell]["ticks"]:
                 old = archive.get(cell)
-                archive[cell] = {
-                    "snapshot": runner.snapshot(light=True),
-                    "ticks": ticks,
-                    "chosen": old["chosen"] if old else 0,
-                    "new_code": new_code or (old["new_code"] if old else False),
-                    "found": step,
-                }
-    sides = (runner.original, runner.candidate) if differential else (runner,)
+                admit(
+                    cell,
+                    entry_for(
+                        step,
+                        ticks,
+                        old["chosen"] if old else 0,
+                        new_code or (old["new_code"] if old else False),
+                    ),
+                    step,
+                )
+        completed = step
+    classified = True
     if reference is not None and not differential:
-        for key, finding in list(findings.items()):
-            if reproduces(reference, gs.decode_token(finding["trajectory"], spec), key) is not None:
-                quirks[key] = findings.pop(key) | {"original_behavior": True}
+        for key in list(findings):
+            if cancel is not None and cancel.is_set():
+                classified, stopped = False, "cancelled"
+                break
+            defect = None
+            for occurrence in seen.get(key) or [findings[key]]:
+                if reproduces(reference, gs.decode_token(occurrence["trajectory"], spec), key) is None:
+                    defect = occurrence
+                    break
+            if defect is None:
+                quirks[key] = findings.pop(key) | {
+                    "original_behavior": True,
+                    "occurrences_checked": len(seen.get(key) or [1]),
+                }
+            else:
+                findings[key] = defect
+    found = list(findings.values())
+    bounded = list(stops)
+    if stopped == "cancelled":
+        bounded.append({"kind": "cancelled", "signature": ["cancelled"]})
+    elif stopped == "deadline":
+        bounded.append({"kind": "limit", "signature": ["limit", "time"]})
+    result_outcome = outcome(found, bounded)
     return {
         "mode": "differential" if differential else "single",
         "seed": seed,
-        "steps_run": step,
+        "steps_run": completed,
         "ticks_executed": ticks_executed,
         "cells": len(archive),
+        "cells_evicted": evicted,
         "deepest_cell_ticks": max((e["ticks"] for e in archive.values()), default=0),
-        "coverage": {s.side: s.covered() for s in sides},
-        "findings": list(findings.values()),
+        "coverage": {side: sorted(names) for side, names in union.items()},
+        "findings": found,
         "original_behavior": list(quirks.values()),
-        "outcome": outcome(list(findings.values())),
+        "classified_against_original": classified if reference is not None and not differential else None,
+        "limit_hits": len(stops),
+        "inconclusive": bounded[:8],
+        "passed": result_outcome == "pass",
+        "outcome": result_outcome,
         "stopped": stopped,
         "elapsed_seconds": round(time.monotonic() - started, 3),
-        "claim": "Seeded exploration over the declared actions; a finding is reproducible from its trajectory. Unfound defects are not excluded.",
+        "claim": "Seeded exploration over the declared actions; a finding is reproducible from its trajectory. A time limit can end it early, so how far it got depends on host speed. Unfound defects are not excluded.",
     }
 
 
@@ -718,8 +873,11 @@ def reproduces(make_runner, inputs, signature, end=False):
     return hits[0] if hits else None
 
 
-def shrink(spec, make_runner, inputs, signature, *, deadline=None, cancel=None, max_tests=300):
-    """Minimize a trajectory while the same problem signature still reproduces."""
+def shrink(spec, make_runner, inputs, signature, *, end=False, deadline=None, cancel=None, max_tests=300):
+    """Minimize a trajectory while the same problem signature still reproduces.
+
+    `end` replays every trial with end of input, for problems that only appear then.
+    """
     record = spec["input"]["record_bytes"]
     neutral = bytes.fromhex(spec["input"]["neutral"])
     started = time.monotonic()
@@ -738,12 +896,12 @@ def shrink(spec, make_runner, inputs, signature, *, deadline=None, cancel=None, 
             stopped = "deadline"
             return None
         tests += 1
-        return reproduces(make_runner, b"".join(chunks), signature)
+        return reproduces(make_runner, b"".join(chunks), signature, end)
 
     chunks = [inputs[i : i + record] for i in range(0, len(inputs), record)]
     first = test(chunks)
     if first is None:
-        return {"reproduced": False, "signature": list(signature), "tests": tests, "stopped": stopped}
+        return {"reproduced": False, "signature": list(signature), "end": end, "tests": tests, "stopped": stopped}
     original_ticks = len(chunks)
     # Later inputs cannot influence a problem detected earlier.
     chunks = chunks[: max(1, first["input_ticks"])]
@@ -776,11 +934,12 @@ def shrink(spec, make_runner, inputs, signature, *, deadline=None, cancel=None, 
         if test(trial) is not None:
             chunks = trial
     minimized = b"".join(chunks)
-    confirmations = [reproduces(make_runner, minimized, signature) for _ in range(2)]
+    confirmations = [reproduces(make_runner, minimized, signature, end) for _ in range(2)]
     confirmed = all(confirmations) and len({c["tick"] for c in confirmations}) == 1
     return {
         "reproduced": True,
         "signature": list(signature),
+        "end": end,
         "original_ticks": original_ticks,
         "minimized_ticks": len(chunks),
         "trajectory": gs.encode_token(minimized),
@@ -793,7 +952,7 @@ def shrink(spec, make_runner, inputs, signature, *, deadline=None, cancel=None, 
     }
 
 
-def package(spec, make_runner, inputs, signature=None, window=8, images=2):
+def package(spec, make_runner, inputs, signature=None, window=8, images=2, end=False):
     """Bug package: inputs, state window, frames around the failing tick, coverage."""
     runner = make_runner()
     differential = isinstance(runner, Pair)
@@ -801,13 +960,16 @@ def package(spec, make_runner, inputs, signature=None, window=8, images=2):
     for session in sessions:
         session.recent = deque(maxlen=max(window, images) + 1)
     runner.feed(inputs)
+    if end and not runner.stopped:
+        runner.end()
     problems = runner.findings() if differential else session_findings(runner)
     chosen = next(
         (p for p in problems if signature is None or tuple(p["signature"]) == tuple(signature)),
         None,
     )
     if chosen is None:
-        return {"reproduced": False, "signature": signature, "outcome": outcome(problems)}
+        stopped = runner.inconclusive() if differential else inconclusive(runner.problems)
+        return {"reproduced": False, "signature": signature, "end": end, "outcome": outcome(problems, stopped)}
     tick = chosen["tick"]
     first, last = max(0, tick - window), tick + 1
     states, pictures = {}, []
@@ -828,6 +990,7 @@ def package(spec, make_runner, inputs, signature=None, window=8, images=2):
         "problem": chosen,
         "outcome": outcome([chosen]),
         "trajectory": gs.encode_token(inputs),
+        "end": end,
         "input_controls": controls[-(window * 4) :],
         "input_ticks": len(controls),
         "state_window": states,
@@ -870,7 +1033,7 @@ def run_regressions(spec, make_pair, make_session, items, *, deadline=None, canc
             results.append({"id": item["id"], "passed": False, "outcome": "cancelled"})
             continue
         if deadline is not None and time.monotonic() >= deadline:
-            results.append({"id": item["id"], "passed": False, "outcome": "inconclusive", "reason": "deadline"})
+            results.append({"id": item["id"], "passed": False, "outcome": "limit", "reason": "time limit"})
             continue
         inputs = bytes.fromhex(item["inputs_hex"])
         if item["expect"] == "match_original":
@@ -883,10 +1046,12 @@ def run_regressions(spec, make_pair, make_session, items, *, deadline=None, canc
                 {
                     "id": item["id"],
                     "expect": item["expect"],
+                    "end": item["end"],
                     "passed": report["passed"],
                     "outcome": report["outcome"],
                     "divergence": report["divergence"],
                     "findings": report["findings"],
+                    "inconclusive": report["inconclusive"],
                     "trajectory": report["trajectory"],
                 }
             )
@@ -895,14 +1060,13 @@ def run_regressions(spec, make_pair, make_session, items, *, deadline=None, canc
             session.feed(inputs)
             if item["end"]:
                 session.end()
-            found = session_findings(session)
+            report = session_report(session)
             results.append(
                 {
                     "id": item["id"],
                     "expect": item["expect"],
-                    "passed": not found,
-                    "outcome": outcome(found),
-                    "findings": found,
+                    "end": item["end"],
+                    **report,
                     "trajectory": gs.encode_token(session.inputs),
                 }
             )
