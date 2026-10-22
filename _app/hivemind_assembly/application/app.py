@@ -1344,6 +1344,15 @@ def make_server(app, port=0):
 
 
 def serve(root=None, port=0, open_browser=True):
+    if os.name == "nt":
+        # Find tools installed since Windows started this process (or installed
+        # without a PATH entry) before anything looks for them.
+        from .prerequisites import refresh_windows_path
+
+        try:
+            refresh_windows_path()
+        except OSError:
+            pass
     app = Application(root or data_home())
     server = make_server(app, port)
     url = f"http://127.0.0.1:{server.server_port}/#" + app.token

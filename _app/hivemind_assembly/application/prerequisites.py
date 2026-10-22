@@ -16,6 +16,12 @@ PACKAGES = {
     "clang": "LLVM.LLVM",
 }
 
+# Silent installers do not always add their tools to PATH (the LLVM installer
+# leaves PATH unchanged by default), so also look in their standard folders.
+STANDARD_FOLDERS = {
+    "clang": (r"%ProgramFiles%\LLVM\bin", r"%LOCALAPPDATA%\Programs\LLVM\bin"),
+}
+
 
 def refresh_windows_path():
     if os.name != "nt":
@@ -59,6 +65,13 @@ def refresh_windows_path():
     if homes and not available("java"):
         os.environ["JAVA_HOME"] = ntpath.expandvars(homes[-1])
     paths = [*working, *paths, os.environ.get("PATH", "")]
+    for name, folders in STANDARD_FOLDERS.items():
+        if not shutil.which(name):
+            for folder in folders:
+                folder = ntpath.expandvars(folder)
+                if "%" not in folder and (Path(folder) / (name + ".exe")).is_file():
+                    paths.append(folder)
+                    break
     unique = {}
     for path in paths:
         for entry in ntpath.expandvars(path).split(";"):
@@ -157,11 +170,14 @@ def install_missing(extra=()):
             timeout=1800,
         )
         refresh_windows_path()
-        if result.returncode or not available(name):
+        # winget also reports an error for "already installed"; what matters is
+        # whether the tool can now be found.
+        if not available(name):
             raise Blocked(
                 "Windows could not finish installing "
                 + PACKAGES[name]
-                + ". A system authorization or application restart may be required. Completed installations are retained."
+                + ". If Windows asked for permission, choose Yes, then select Install required tools again."
+                + " Completed installations are retained."
             )
         installed.append(PACKAGES[name])
     return {"installed": installed}

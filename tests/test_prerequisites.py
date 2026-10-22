@@ -104,3 +104,53 @@ def test_java_home_selects_one_matching_full_jdk(monkeypatch, tmp_path, compiler
     assert observed == [str(java), str(javac)]
     javac.unlink()
     assert not prerequisites.available('java')
+
+
+@pytest.mark.parametrize("returncode,lands,ok", [(0, True, True), (1, True, True), (0, False, False)])
+def test_install_is_judged_by_whether_the_tool_is_found(monkeypatch, returncode, lands, ok):
+    # winget reports an error for an already-installed package; a zero exit
+    # without a usable tool is still a failure.
+    installed = {"git", "node", "java", "winget"}
+    monkeypatch.setattr(prerequisites, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(prerequisites.shutil, "which", lambda name: name if name in installed else None)
+    monkeypatch.setattr(prerequisites, "available", lambda name: name in installed)
+    monkeypatch.setattr(prerequisites, "refresh_windows_path", lambda: None)
+
+    def install(argv, **kwargs):
+        if lands:
+            installed.add("clang")
+        return SimpleNamespace(returncode=returncode)
+
+    monkeypatch.setattr(prerequisites.subprocess, "run", install)
+    if ok:
+        assert prerequisites.install_missing() == {"installed": ["LLVM.LLVM"]}
+    else:
+        with pytest.raises(prerequisites.Blocked, match="choose Yes"):
+            prerequisites.install_missing()
+
+
+def test_path_refresh_finds_llvm_in_its_standard_folder(monkeypatch, tmp_path):
+    import os
+    import sys
+
+    llvm = tmp_path / "Program Files" / "LLVM" / "bin"
+    llvm.mkdir(parents=True)
+    (llvm / "clang.exe").write_bytes(b"")
+
+    class Key:
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+
+    registry = SimpleNamespace(
+        HKEY_LOCAL_MACHINE="machine", HKEY_CURRENT_USER="user",
+        OpenKey=lambda hive, key: Key(),
+        QueryValueEx=lambda handle, name: (_ for _ in ()).throw(OSError()),
+    )
+    monkeypatch.setitem(sys.modules, "winreg", registry)
+    monkeypatch.setattr(prerequisites, "os", SimpleNamespace(name="nt", environ=os.environ))
+    monkeypatch.setattr(prerequisites, "available", lambda name: False)
+    monkeypatch.setattr(prerequisites.shutil, "which", lambda name: None)
+    monkeypatch.setattr(prerequisites.ntpath, "expandvars", lambda value: str(llvm) if value.startswith("%ProgramFiles%") else value)
+    monkeypatch.setenv("PATH", r"C:\Windows")
+    prerequisites.refresh_windows_path()
+    assert os.environ["PATH"].split(";") == [r"C:\Windows", str(llvm)]
