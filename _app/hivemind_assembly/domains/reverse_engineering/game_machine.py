@@ -605,8 +605,9 @@ class GameMachine:
                     "active_syscall",
                 )
             },
-            "costs": len(self.costs),
-            "effects": len(self.effects),
+            # Snapshots can be restored in any order, so keep contents, not lengths.
+            "costs": tuple(self.costs),
+            "effects": tuple(self.effects),
             "hits": dict(self.hits),
         }
 
@@ -626,8 +627,8 @@ class GameMachine:
         self.stdout, self.stderr = Stream(out_chunks, out_size), Stream(err_chunks, err_size)
         for key, value in snapshot["fields"].items():
             setattr(self, key, value)
-        del self.costs[snapshot["costs"] :]
-        del self.effects[snapshot["effects"] :]
+        self.costs = list(snapshot["costs"])
+        self.effects = list(snapshot["effects"])
         self.hits = dict(snapshot["hits"])
         self.counted = 0
 
