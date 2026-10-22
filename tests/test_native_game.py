@@ -156,7 +156,8 @@ def test_sdl2_games_play_compare_and_stop_deterministically(tmp_path):
     described = games.describe(context, {})
     for side in ("original", "candidate"):
         assert described["sides"][side]["capabilities"]["runtime"] == "native_sdl2"
-        assert described["sides"][side]["determinism"]["identical"] is True
+        probe = described["sides"][side]["determinism"]
+        assert probe["identical"] is True, probe
     played = games.play(context, {"side": "original", "actions": ["wait", "space", "right"], "images": 1})
     state = played["observation"]["state"]
     # Memory through a pointer path, the time-seeded bonus and virtual time all agree run to run.
@@ -252,6 +253,7 @@ ENTROPY_PROGRAM = r"""#define _GNU_SOURCE
 #include <dlfcn.h>
 #include <stdio.h>
 #include <sys/random.h>
+#include <sys/resource.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 int main(int argc, char **argv) {
@@ -260,7 +262,10 @@ int main(int argc, char **argv) {
     void *library = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL | RTLD_DEEPBIND);
     unsigned long long (*draw)(void) = library ? (unsigned long long (*)(void))dlsym(library, "draw") : 0;
     if (!draw) return 3;
-    printf("%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %llx\n", a[0], a[1], a[2], a[3], b[0], b[1], b[2], b[3], c[0], c[1], c[2], c[3], draw());
+    struct rlimit core;
+    getrlimit(RLIMIT_CORE, &core);
+    printf("%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %llx %llu\n", a[0], a[1], a[2], a[3], b[0], b[1], b[2], b[3], c[0], c[1], c[2], c[3], draw(),
+           (unsigned long long)core.rlim_cur);
     return 0;
 }
 """
@@ -287,13 +292,29 @@ def test_seeded_randomness_reaches_deep_bound_libraries(tmp_path):
     )
     library = native_game._library("ha_entropy", compiler, tuple(native_game._stamp(compiler)))
 
+    import resource
+
+    hard = resource.getrlimit(resource.RLIMIT_CORE)[1]
+
+    def allow_core_dumps():
+        resource.setrlimit(resource.RLIMIT_CORE, (hard, hard))
+
     def draw(**extra):
         environment = {"PATH": os.environ.get("PATH", ""), "LD_PRELOAD": library, **extra}
         completed = subprocess.run(
-            [str(tmp_path / "program"), str(tmp_path / "extension.so")], env=environment, capture_output=True, text=True, timeout=60
+            [str(tmp_path / "program"), str(tmp_path / "extension.so")],
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            preexec_fn=allow_core_dumps,
         )
         assert completed.returncode == 0, completed.stderr
-        return completed.stdout.split()
+        *values, core = completed.stdout.split()
+        # While HA drives a game, a crash must not wait for a core dump.
+        allowed = (1 << 64) - 1 if hard == resource.RLIM_INFINITY else hard
+        assert int(core) == (min(allowed, 1) if extra else allowed)
+        return values
 
     seeded = draw(HA_TICK_PORT="1", HA_TICK_SEED="3")
     # getrandom, syscall(SYS_getrandom), getentropy and a library Godot-style opened with
