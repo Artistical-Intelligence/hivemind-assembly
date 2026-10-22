@@ -453,10 +453,17 @@ def test_setup_installs_optional_tools_in_the_same_step(app, monkeypatch):
     monkeypatch.setattr(prerequisites, "install_missing", gh_fails)
     monkeypatch.setattr(app.tunnel, "status", lambda: {"installed": False})
     monkeypatch.setattr(app.tunnel, "install", tunnel_fails)
+    monkeypatch.setattr(app.quick, "installed", lambda: False)
+    monkeypatch.setattr(app.quick, "install", lambda progress=None: tunnel_fails())
+    retry = "Not installed (ConnectionError); select Install required tools in Settings to retry."
     assert app.install_optional_tools() == {
         "github_cli": "GitHub CLI could not be installed",
-        "tunnel_client": "Not installed (ConnectionError); select Install required tools in Settings to retry.",
+        "tunnel_client": retry,
+        "browser_tunnel": retry,
     }
     monkeypatch.setattr(prerequisites, "install_missing", lambda extra=(): {"installed": []})
     monkeypatch.setattr(app.tunnel, "status", lambda: {"installed": True})
-    assert app.install_optional_tools() == {"github_cli": "ready", "tunnel_client": "ready"}
+    monkeypatch.setattr(app.quick, "installed", lambda: True)
+    assert app.install_optional_tools() == {
+        "github_cli": "ready", "tunnel_client": "ready", "browser_tunnel": "ready"
+    }
