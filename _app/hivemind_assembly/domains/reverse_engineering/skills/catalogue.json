@@ -401,13 +401,13 @@
   },
   {
     "id": "play-test-game",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "purpose": "Play-test a rebuilt game against its original",
     "prerequisites": "game.json play-testing contract with an original image and candidate build manifest, or a native section (Godot project or SDL2 program) with trusted native execution enabled",
     "scope": [
       "general-reverse-engineering"
     ],
-    "procedure": "describe_game first. Reach the situation with a named start or short play_game steps (state numbers first, frames second). Compare with side both or test_game compare; never steer around a divergence during a comparison. Explore with a recorded seed when targets are unknown. Shrink each finding, read its bug package, fix the earliest divergence first, then rerun regressions and explore again. Save shrunk findings as regressions.",
+    "procedure": "describe_game first. Reach the situation with a named start or short play_game steps (state numbers first, frames second). Compare with side both or test_game compare; never steer around a divergence during a comparison. Explore with a recorded seed when targets are unknown. Shrink each finding, read its bug package, fix the earliest divergence first, then rerun regressions and explore again. Save shrunk findings as regressions. For a native game that waits for events (turn-based), declare press-and-release actions such as [[\"right\", 1], [\"none\", 1]] so each move is one key press.",
     "exceptions": [
       "A problem the original reproduces with the same trajectory is original behavior.",
       "An unreached start, a harness limit or a cancelled run is not a pass.",
