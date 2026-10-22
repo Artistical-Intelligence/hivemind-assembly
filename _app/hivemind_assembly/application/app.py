@@ -1397,6 +1397,7 @@ def make_server(app, port=0):
                 "/workspace.js": ("workspace.js", "text/javascript"),
                 "/game_testing.js": ("game_testing.js", "text/javascript"),
                 "/style.css": ("style.css", "text/css"),
+                "/favicon.svg": ("favicon.svg", "image/svg+xml"),
             }
             if path not in files:
                 self.send(404, {"error": "Not found"})
