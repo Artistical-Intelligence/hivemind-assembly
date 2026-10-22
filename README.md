@@ -1084,8 +1084,7 @@ Still required:
 <!-- status:end -->
 
 Older validation history is kept below and in `historical_checks` of
-`_app/release_status.json`. Runs from before the repository was recreated on
-2026-10-22 no longer have logs on GitHub; commit IDs are the cleaned equivalents.
+`_app/release_status.json`.
 
 ### Validation history
 
