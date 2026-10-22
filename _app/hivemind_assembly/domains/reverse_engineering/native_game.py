@@ -273,21 +273,26 @@ def _godot_plan(root, spec, item, config):
         override.write_text(existing + '\n[autoload]\n\nHATick="*res://ha_tick.gd"\n', encoding="utf-8")
         home = stage / "import-home"
         home.mkdir()
-        try:
-            completed = subprocess.run(
-                [str(engine), "--headless", "--path", str(game), "--import"],
-                cwd=str(game),
-                env=_environment(home, {}),
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                timeout=max(120, native["startup_seconds"] * 5),
-            )
-        except subprocess.TimeoutExpired as error:
-            raise Blocked("Godot asset import timed out") from error
-        if completed.returncode != 0 or not (game / ".godot").is_dir():
+        # A first import that loads a GDExtension can abort while the editor exits;
+        # Godot's own workflows import again, which then completes normally.
+        for attempt in range(2):
+            try:
+                completed = subprocess.run(
+                    [str(engine), "--headless", "--path", str(game), "--import"],
+                    cwd=str(game),
+                    env=_environment(home, {}),
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    timeout=max(120, native["startup_seconds"] * 5),
+                )
+            except subprocess.TimeoutExpired as error:
+                raise Blocked("Godot asset import timed out") from error
+            if completed.returncode == 0 and (game / ".godot").is_dir():
+                break
+        else:
             tail = completed.stdout[-600:].decode("utf-8", "replace").replace(str(stage), "<runtime>")
-            raise Blocked("Godot could not import the project: " + tail)
+            raise Blocked(f"Godot could not import the project (exit {completed.returncode}): " + tail)
 
     runtime = _prepared("godot-" + key, build)
     game = runtime / "game"
