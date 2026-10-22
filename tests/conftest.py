@@ -50,6 +50,8 @@ SLOW_MODULES = {
     "test_platform_runtime",
     "test_tool_testing",
     "test_linux_dependencies",
+    "test_game_testing",
+    "test_game_play",
 }
 
 
