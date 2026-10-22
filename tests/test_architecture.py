@@ -129,7 +129,7 @@ def test_original_specialist_capabilities_and_proof_are_preserved(ready):
         "play_game",
         "test_game",
     }
-    assert len(domain.skills()) == 20
+    assert len(domain.skills()) == 21
     result = broker.execute(
         request(
             t,
