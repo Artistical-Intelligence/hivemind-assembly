@@ -151,15 +151,29 @@ instruction counts stand in for frame time; they are not hardware timing.
 
 ## Implementation status
 
-Planned in this order; each file is committed as it lands. This list is updated as the
-work proceeds and states only what was run.
+All parts in the architecture table landed in version 0.26.0. What was run:
 
-1. `core/game_spec.py`: contract validation, decoding, rules, cells, tokens, PNG and
-   character views. Landed.
-2. `domains/reverse_engineering/game_machine.py`: stepping and replay engines.
-3. `core/game_testing.py`: sessions, pairs, exploration, shrinking, regressions.
-4. `domains/reverse_engineering/game_play.py` and domain registration.
-5. `domains/reverse_engineering/game_acceptance.py` and the `game_play` scope.
-6. Broker image artifacts and native-turn attachments; worker tool schemas.
-7. `application/game_example.py`, starter, dashboard panel, API and CLI.
-8. Tests, documentation and release evidence.
+- Engine parity: stepped play (one byte, two bytes and 64 bytes per feed) equals
+  `program.replay` streams, exit status, input consumption and instruction counts on
+  x86-64 and AArch64 builds and on the existing game project target, including
+  function-entry coverage. Faults, clock reads, `rdtsc`, event limits, per-tick
+  freezes, total budgets, cancellation and snapshot restoration are covered.
+- Coin cavern example (`application/game_example.py`): the scripted route and the
+  floor-gap quirk pass as regressions, and the quirk is classified as original
+  behavior. Differential exploration (seed 0, 150 steps) finds the platform-edge
+  divergence; shrinking reduces it to at most ten inputs and confirms it on fresh
+  engines. After that fix, exploration finds the spike freeze; after both fixes, a
+  200-step exploration finds nothing and the pinned `game_play` checks pass. Before
+  the fixes, those checks report divergence and freeze on the sealed routes.
+- Single-build exploration finds the freeze and moves the shared quirk to original
+  behavior. Replay engines agree with live sessions on the first divergent tick. A
+  Windows x64 console game runs through the replay engine.
+- Worker path: the three operations run through `Broker.execute`, are replay-safe,
+  store frames as PNG task artifacts, and the next native turn attaches them only
+  when the route has upload bindings (fixture browser bindings; no live provider).
+- Dashboard: a real Chromium run loads the example, plays and undoes actions,
+  compares both builds, explores, shrinks, opens a bug package and runs regressions.
+
+Not established: play by a signed-in native model, native graphical builds, OS-level
+input, trained policies, pointer-driven games, or hardware timing. Exploration that
+finds nothing is sampled evidence only.
