@@ -46,6 +46,12 @@
     const target = byId('game-frames');
     target.replaceChildren();
     for (const frame of frames || []) drawFrame(frame, target);
+    if (!target.children.length) {
+      const note = document.createElement('p');
+      note.className = 'muted';
+      note.textContent = 'No frame yet. Play an action to advance the game.';
+      target.append(note);
+    }
   }
   function summary(observation) {
     const problems = (observation.problems || []).map(p => p.signature.join(' ')).join(', ');
