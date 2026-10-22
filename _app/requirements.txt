@@ -16,5 +16,8 @@ qiling==1.4.6
 
 mcp==2.3.0
 
+# Hermes plugins (browser-use, Browserbase, Firecrawl, Krea, xAI) import requests from this runtime.
+requests==2.34.2
+
 # Windows PE loader/runtime with an explicit HA API boundary.
 speakeasy-emulator==2.0.0b9
