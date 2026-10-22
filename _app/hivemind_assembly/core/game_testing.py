@@ -282,18 +282,28 @@ class Session:
         return result
 
     def images(self, count=1, label=None):
-        """PNG views of the main frame for the most recent ticks."""
+        """PNG views (and raw RGBA) of the main frame for the most recent ticks."""
         frame = gs.frame_segment(self.spec)
         if frame is None or count < 1:
             return []
-        scale = gs.view_scale(frame["width"], frame["height"])
         return [
-            {
-                "name": f"{label or self.side}-tick-{item['tick']}.png",
-                "data": gs.png(item["parts"][frame["name"]], frame["width"], frame["height"], scale),
-            }
+            frame_image(frame, item["parts"][frame["name"]], label or self.side, item["tick"])
             for item in list(self.recent)[-count:]
         ]
+
+
+def frame_image(frame, raw, side, tick):
+    """One frame as an upscaled PNG for agents plus raw RGBA for local viewers."""
+    width, height = frame["width"], frame["height"]
+    return {
+        "name": f"{side}-tick-{tick}.png",
+        "data": gs.png(raw, width, height, gs.view_scale(width, height)),
+        "rgba": bytes(raw),
+        "width": width,
+        "height": height,
+        "side": side,
+        "tick": tick,
+    }
 
 
 def _tolerance_rule(segment, tolerances):
@@ -809,15 +819,9 @@ def package(spec, make_runner, inputs, signature=None, window=8, images=2):
         states[session.side] = [
             {"tick": start + i, "state": gs.decode_state(spec, p)} for i, p in enumerate(parts)
         ]
-        if frame:
-            scale = gs.view_scale(frame["width"], frame["height"])
+        if frame and images:
             for i, p in list(enumerate(parts))[-images:]:
-                pictures.append(
-                    {
-                        "name": f"{session.side}-tick-{start + i}.png",
-                        "data": gs.png(p[frame["name"]], frame["width"], frame["height"], scale),
-                    }
-                )
+                pictures.append(frame_image(frame, p[frame["name"]], session.side, start + i))
     controls = gs.control_names(spec, inputs)
     return {
         "reproduced": True,
