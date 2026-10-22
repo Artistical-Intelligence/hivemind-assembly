@@ -36,6 +36,8 @@ OPERATORS = ("==", "!=", "<", "<=", ">", ">=")
 MAX_TICKS = 4096
 MAX_RECORD = 64
 MAX_TICK_OUTPUT = 262144
+# A whole session's declared output, so engines can hold and bound it.
+MAX_SESSION_OUTPUT = 64 * 2**20
 MAX_INSTRUCTIONS = 10_000_000
 TOKEN_PREFIX = "g1."
 SYMBOLS = ".#@o*+x=%&$~^:;-"
@@ -397,6 +399,8 @@ def validate(spec):
     )
     if "slow_tick_instructions" in limits:
         _integer(limits["slow_tick_instructions"], "slow_tick_instructions", 1, freeze - 1)
+    if sum(s["size"] for s in segments.values()) * limits["max_ticks"] > MAX_SESSION_OUTPUT:
+        raise ContractError("max_ticks × per-tick output must stay within 64 MiB")
 
     compare = value.setdefault("compare", {})
     if not isinstance(compare, dict) or set(compare) - {"ignore_fields", "segments", "exit_code"}:
@@ -465,6 +469,16 @@ def field_names(spec):
 
 def record_sizes(spec):
     return {stream: sum(s["size"] for s in spec["output"][stream]) for stream in ("stdout", "stderr")}
+
+
+def output_bound(spec):
+    """Bytes an engine may hold for one session: every declared tick plus slack."""
+    return sum(record_sizes(spec).values()) * (spec["limits"]["max_ticks"] + 2) + 65536
+
+
+def event_bound(spec):
+    """Input/output calls an engine allows for one session."""
+    return min(2_000_000, max(4096, (spec["limits"]["max_ticks"] + 2) * 256))
 
 
 def complete_ticks(spec, stdout_size, stderr_size):
