@@ -99,6 +99,15 @@ class Application:
 
         self.tunnel = Tunnel(self.connections)
         self.mcp_gateway = Gateway(self)
+        from hivemind_assembly.integrations.quick_connect import QuickConnection
+
+        def shared():
+            cfg = self.connections.settings()
+            return bool(cfg["enabled"] and cfg["projects"])
+
+        self.quick = QuickConnection(
+            self.store.root, self.mcp_gateway.call, __version__, enabled=shared
+        )
         self.broker.mcp_connections = self.connections
         self.codespaces = Codespaces(self)
         self.broker.codespaces = self.codespaces
@@ -208,6 +217,7 @@ class Application:
             "connections": self.connections.settings(),
             "mcp_authorizations": self.connections.oauth.status(),
             "tunnel": self.tunnel.status(),
+            "quick_connect": self.quick.status(),
             "codespaces": {
                 "settings": self.codespaces.settings(),
                 "jobs": self.codespaces.jobs(),
@@ -432,6 +442,16 @@ class Application:
             return self.tunnel.stop()
         if path == "/api/tunnel/forget":
             return self.tunnel.forget()
+        if path == "/api/quick/start":
+            return self.quick.start()
+        if path == "/api/quick/stop":
+            return self.quick.stop()
+        if path == "/api/quick/pairing":
+            return self.quick.pairing()
+        if path == "/api/quick/revoke":
+            return self.quick.revoke()
+        if path == "/api/mcp/local-apps":
+            return self.connections.install_local_apps()
         if path == "/api/mcp/settings":
             return self.connections.save(data)
         if path == "/api/mcp/config":
@@ -1078,6 +1098,8 @@ class Application:
                     pass
                 if not self.tunnel.status()["installed"]:
                     progress.expect("Installing the MCP tunnel client", 15)
+                if not self.quick.installed():
+                    progress.expect("Installing the browser connection tunnel", 40)
                 result = install_foundations(self.store.root, self.config_path, progress=progress)
                 # Load the new paths in place so specialists can use them
                 # without restarting HA.
@@ -1155,7 +1177,7 @@ class Application:
         )
 
     def install_optional_tools(self, progress=None):
-        """GitHub CLI (Codespaces) and the MCP tunnel client; each reports its own result."""
+        """GitHub CLI (Codespaces) and both MCP tunnels; each reports its own result."""
         from .prerequisites import install_missing
 
         results = {}
@@ -1177,6 +1199,18 @@ class Application:
                 results["tunnel_client"] = "ready"
             except Exception as e:  # network, release or disk problems
                 results["tunnel_client"] = (
+                    "Not installed (" + type(e).__name__ + "); select Install required tools in Settings to retry."
+                )
+        if self.quick.installed():
+            results["browser_tunnel"] = "ready"
+        else:
+            if progress:
+                progress.begin("Installing the browser connection tunnel", 40)
+            try:
+                self.quick.install(progress)
+                results["browser_tunnel"] = "ready"
+            except Exception as e:  # network, release or disk problems
+                results["browser_tunnel"] = (
                     "Not installed (" + type(e).__name__ + "); select Install required tools in Settings to retry."
                 )
         return results
@@ -1295,6 +1329,7 @@ class Application:
         if self.closed:
             return
         self.tunnel.close()
+        self.quick.close()
         self.connections.oauth.close()
         self.connections.session_credentials.clear()
         self.codespaces.close()
