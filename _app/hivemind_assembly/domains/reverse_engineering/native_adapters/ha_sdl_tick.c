@@ -9,8 +9,10 @@
  * last presented, each time it would block. The game's own calls to SDL
  * and C library clocks see virtual time that advances one fixed frame step per tick
  * (plus any SDL_Delay), and its randomness requests return seeded bytes (ha_entropy.c,
- * built into the same library), so a run is a function of the input log. Without
- * HA_TICK_PORT nothing changes.
+ * built into the same library). HA's key presses are its only input: events from the
+ * window system and devices (window, mouse, touch, controllers, text) arrive at times
+ * that differ between runs and are not delivered, so a run is a function of the input
+ * log. Without HA_TICK_PORT nothing changes.
  */
 #define _GNU_SOURCE
 #include <arpa/inet.h>
@@ -50,6 +52,8 @@ typedef struct {
 
 #define SDL_KEYDOWN 0x300
 #define SDL_KEYUP 0x301
+#define HA_MARK0 'H' /* HA's key events carry this mark in their padding bytes */
+#define HA_MARK1 'A'
 #define SDL_PIXELFORMAT_ABGR8888 0x16762004u
 #define KEYS 512
 #define MAX_INPUTS 64
@@ -220,6 +224,8 @@ static void ha_apply(const unsigned char *record, uint32_t window) {
         key->timestamp = (uint32_t)(ha_now_ns / 1000000);
         key->windowID = window;
         key->state = want;
+        key->padding2 = HA_MARK0;
+        key->padding3 = HA_MARK1;
         key->scancode = ha_scancode[i];
         key->sym = ha_keycode[i];
         push(&event);
@@ -329,26 +335,59 @@ int SDL_UpdateWindowSurface(SDL_Window *window) {
     return update(window);
 }
 
+/* Whether an event reaches the game while HA drives it: HA's own key events, quit,
+ * render resets and the game's own events do; window-system and device events do not. */
+static int ha_deliver(const SDL_Event *event) {
+    uint32_t type = event->type;
+    if (type == SDL_KEYDOWN || type == SDL_KEYUP) {
+        const SDL_KeyboardEvent *key = (const SDL_KeyboardEvent *)event;
+        return key->padding2 == HA_MARK0 && key->padding3 == HA_MARK1;
+    }
+    return !((type >= 0x101 && type <= 0x1FF) ||  /* application lifecycle, locale, display */
+             (type >= 0x200 && type <= 0x2FF) ||  /* window and window-manager events */
+             (type >= 0x302 && type <= 0x3FF) ||  /* text input, keymap changes */
+             (type >= 0x400 && type <= 0x1FFF));  /* mouse, controllers, touch, gestures, clipboard, drops, audio devices, sensors */
+}
+
+/* The next deliverable event, or 0; a null event only asks whether any is pending. */
+static int ha_poll(SDL_Event *event) {
+    static int (*poll)(SDL_Event *);
+    if (!poll) poll = real("SDL_PollEvent");
+    if (!event) return poll(NULL);
+    while (poll(event))
+        if (ha_deliver(event)) return 1;
+    return 0;
+}
+
+/* For waits: SDL ends each poll batch at a marker it queues, and events queued after
+ * the marker (HA's presses among them) come with the next poll, so a wait polls twice. */
+static int ha_poll_waiting(SDL_Event *event) {
+    return ha_poll(event) || ha_poll(event);
+}
+
+int SDL_PollEvent(SDL_Event *event) {
+    static int (*poll)(SDL_Event *);
+    if (!poll) poll = real("SDL_PollEvent");
+    if (ha_socket < 0) return poll(event);
+    return ha_poll(event);
+}
+
 int SDL_WaitEvent(SDL_Event *event) {
     static int (*wait)(SDL_Event *);
-    static int (*poll)(SDL_Event *);
     if (!wait) wait = real("SDL_WaitEvent");
     if (ha_socket < 0) return wait(event);
-    if (!poll) poll = real("SDL_PollEvent");
     /* Instead of blocking, each wait without events passes a tick. */
-    while (!poll(event)) ha_boundary(ha_window);
+    while (!ha_poll_waiting(event)) ha_boundary(ha_window);
     return 1;
 }
 
 int SDL_WaitEventTimeout(SDL_Event *event, int timeout) {
     static int (*wait)(SDL_Event *, int);
-    static int (*poll)(SDL_Event *);
     if (!wait) wait = real("SDL_WaitEventTimeout");
     if (ha_socket < 0) return wait(event, timeout);
-    if (!poll) poll = real("SDL_PollEvent");
-    if (poll(event)) return 1;
+    if (ha_poll_waiting(event)) return 1;
     ha_boundary(ha_window);
-    return poll(event);
+    return ha_poll_waiting(event);
 }
 
 const uint8_t *SDL_GetKeyboardState(int *count) {
