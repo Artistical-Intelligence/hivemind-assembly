@@ -119,6 +119,9 @@ class Application:
         self.configure_learning()
         self.thread = threading.Thread(target=self._run, daemon=True)
         self.background = {}
+        # Owner play-testing has its own cancellation: pausing a task (required
+        # before owner edits) stops its workers, not the owner's own game calls.
+        self.game_cancel = threading.Event()
         from hivemind_assembly.integrations.github_setup import GitHubSetup
 
         self.github_setup = GitHubSetup(self.browser, self.github_auth, self.store.root)
@@ -282,7 +285,7 @@ class Application:
                     "SELECT payload FROM records WHERE kind='acceptance_result' ORDER BY rowid DESC LIMIT 30"
                 )
             ],
-            "jobs": self.background,
+            "jobs": self.jobs_view(),
             "foundations": self.foundations_status(),
             "routes": [
                 {
@@ -324,7 +327,24 @@ class Application:
             "restart_needed": installed_now and not all(present.values()),
         }
 
+    def jobs_view(self):
+        """Background jobs for the 4-second status poll, without frame payloads."""
+        view = {}
+        for key, job in list(self.background.items()):
+            item = dict(job)
+            result = item.get("result")
+            if isinstance(result, dict) and "frames" in result:
+                item["result"] = {k: v for k, v in result.items() if k != "frames"} | {
+                    "frame_count": len(result["frames"])
+                }
+            view[key] = item
+        return view
+
     def background_job(self, name, fn):
+        finished = [k for k, j in self.background.items() if j["status"] != "running"]
+        for old in finished[: max(0, len(finished) - 40)]:
+            # Keep recent results; older finished jobs would only grow every poll.
+            self.background.pop(old, None)
         key = uid("job")
         self.background[key] = {
             "name": name,
@@ -342,6 +362,10 @@ class Application:
         return {"job": key}
 
     def action(self, path, data):
+        if path in ("/api/game/describe", "/api/game/play", "/api/jobs/result"):
+            # Read-only: emulation can take seconds and must not hold the lock
+            # that pause, cancel and every other owner action wait for.
+            return self._action(path, data)
         with self.action_lock:
             return self._action(path, data)
 
@@ -696,6 +720,11 @@ class Application:
             )
         if path == "/api/game/save-regression":
             return self.save_game_regression(data)
+        if path == "/api/jobs/result":
+            job = self.background.get(data.get("job"))
+            if job is None:
+                raise ContractError("Unknown or expired background job")
+            return dict(job)
         if path == "/api/project":
             if not data.get("name") or not data.get("objective"):
                 raise ContractError("Name and objective are required")
@@ -1044,12 +1073,13 @@ class Application:
         """
         import base64
 
+        import dataclasses
+
         task = data.get("task")
         self.store.task(task)
         args = {k: v for k, v in data.items() if k != "task"}
-        result = self.broker.domain.games.execute(
-            self.broker.context(task), {"tool": tool, "args": args}
-        )
+        context = dataclasses.replace(self.broker.context(task), cancel=self.game_cancel)
+        result = self.broker.domain.games.execute(context, {"tool": tool, "args": args})
         images = result.pop("_images", None) or []
         result["frames"] = [
             {k: image[k] for k in ("name", "side", "tick", "width", "height")}
@@ -1080,6 +1110,8 @@ class Application:
             "id": data.get("id"),
             "inputs_hex": inputs.hex(),
             "expect": data.get("expect", "match_original"),
+            # Findings detected after end of input keep it; manual play ends input.
+            "end": data.get("end", True),
         }
         if data.get("note"):
             item["note"] = str(data["note"])[:500]
@@ -1234,6 +1266,7 @@ class Application:
         self.codespaces.close()
         self.hosted_tests.close()
         self.shutdown = True
+        self.game_cancel.set()
         for event in self.broker.cancel.values():
             event.set()
         self.mcp_gateway.checks.close()
