@@ -332,7 +332,10 @@ def replay(
     max_instructions=LIMIT,
     cancel=None,
     coverage=None,
+    tick_marks=False,
 ):
+    """`tick_marks` records the instruction count at each standard-input read, so a
+    game harness can bound every tick; it does not change the replay."""
     import time
     import speakeasy
     from capstone import Cs, CS_ARCH_X86, CS_MODE_64
@@ -365,6 +368,8 @@ def replay(
         "files": {},
         "stop_context": None,
     }
+    if tick_marks:
+        result["read_instructions"] = []
     streams = {0xFFFFFFF5: bytearray(), 0xFFFFFFF4: bytearray()}
     config = get_default_config_dict()
     config.update(
@@ -534,6 +539,8 @@ def replay(
             if function == "ReadFile":
                 if handle != 0xFFFFFFF6:
                     stop("unsupported", "ReadFile requires standard input")
+                if tick_marks:
+                    result["read_instructions"].append(result["instructions"])
                 offset = result["input_consumed"]
                 chunk = stdin[offset : offset + count]
                 if chunk:
