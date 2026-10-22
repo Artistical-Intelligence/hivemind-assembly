@@ -3,6 +3,13 @@ from hivemind_assembly.application.app import serve, data_home
 
 
 def main():
+    import sys
+
+    if sys.argv[1:2] == ["chrome-helper"]:
+        # Chrome starts this with its own arguments; stdout carries only the native protocol.
+        from hivemind_assembly.integrations.chrome_helper import native_main
+
+        raise SystemExit(native_main(sys.argv[2:]))
     p = argparse.ArgumentParser(
         description="Hivemind Assembly — reverse engineering and collaborative learning"
     )
