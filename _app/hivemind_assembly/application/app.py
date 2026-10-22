@@ -108,6 +108,18 @@ class Application:
         self.quick = QuickConnection(
             self.store.root, self.mcp_gateway.call, __version__, enabled=shared
         )
+        from hivemind_assembly.integrations.permanent import Permanent
+        from hivemind_assembly.integrations.quick_connect import Rpc
+
+        self.permanent = Permanent(
+            self.store.root, lambda: Rpc(self.mcp_gateway.call, __version__)
+        )
+        self.mcp_shared = shared
+        if self.permanent.enabled() and shared():
+            try:
+                self.permanent.start()  # a permanent address reconnects on its own
+            except Exception:
+                pass  # shown as stopped; Start retries
         self.broker.mcp_connections = self.connections
         self.codespaces = Codespaces(self)
         self.broker.codespaces = self.codespaces
@@ -218,6 +230,23 @@ class Application:
         self.runner = self.loop.create_task(self.team.run())
         self.loop.run_forever()
 
+    def connection(self):
+        """The browser connection in use: the permanent address once set up, else the temporary one."""
+        return self.permanent if self.permanent.enabled() else self.quick
+
+    def browser_connection_status(self):
+        from hivemind_assembly.integrations.quick_connect import PROVIDERS
+
+        permanent = self.permanent.enabled()
+        status = {"download": None, "address_changed": False, **self.connection().status()}
+        return {
+            **status,
+            "providers": PROVIDERS,
+            "mode": "permanent" if permanent else "temporary",
+            "permanent": {"origin": self.permanent.settings().get("origin", "")},
+            "auto": self.auto_reconnect.status(),
+        }
+
     def submit(self, coro):
         return asyncio.run_coroutine_threadsafe(coro, self.loop)
 
@@ -231,7 +260,7 @@ class Application:
             "connections": self.connections.settings(),
             "mcp_authorizations": self.connections.oauth.status(),
             "tunnel": self.tunnel.status(),
-            "quick_connect": {**self.quick.status(), "auto": self.auto_reconnect.status()},
+            "quick_connect": self.browser_connection_status(),
             "codespaces": {
                 "settings": self.codespaces.settings(),
                 "jobs": self.codespaces.jobs(),
@@ -457,13 +486,34 @@ class Application:
         if path == "/api/tunnel/forget":
             return self.tunnel.forget()
         if path == "/api/quick/start":
-            return self.quick.start()
+            if self.permanent.enabled():
+                if not self.mcp_shared():
+                    raise Blocked("Turn on HA MCP access and share a project first.")
+                self.permanent.start()
+            else:
+                self.quick.start()
+            return self.browser_connection_status()
         if path == "/api/quick/stop":
-            return self.quick.stop()
+            self.connection().stop()
+            return self.browser_connection_status()
         if path == "/api/quick/pairing":
-            return self.quick.pairing()
+            return self.connection().pairing()
         if path == "/api/quick/revoke":
-            return self.quick.revoke()
+            self.connection().revoke()
+            return self.browser_connection_status()
+        if path == "/api/permanent/setup":
+            if not self.mcp_shared():
+                raise Blocked("Turn on HA MCP access and share a project first.")
+            self.quick.stop()
+            self.permanent.deploy(
+                data.get("token", ""),
+                data.get("account_id", ""),
+                data.get("confirmed_free") is True,
+            )
+            return self.browser_connection_status()
+        if path == "/api/permanent/off":
+            self.permanent.forget()
+            return self.browser_connection_status()
         if path == "/api/quick/auto":
             return self.auto_reconnect.save(data.get("providers"))
         if path == "/api/quick/reconnect":
@@ -478,11 +528,11 @@ class Application:
             from hivemind_assembly.integrations import chrome_helper
 
             if path == "/api/helper/status":
-                status = self.quick.status()
+                status = self.connection().status()
                 return {"state": status["state"], "message": status["message"], "services": status["services"]}
             if path == "/api/helper/details":
-                return chrome_helper.details(self.quick, data.get("provider"))
-            return chrome_helper.pair(self.quick, data.get("provider"), data.get("page_url"), data.get("flow"))
+                return chrome_helper.details(self.connection(), data.get("provider"))
+            return chrome_helper.pair(self.connection(), data.get("provider"), data.get("page_url"), data.get("flow"))
         if path == "/api/helper/install":
             from hivemind_assembly.integrations import chrome_helper
 
@@ -1369,6 +1419,7 @@ class Application:
             return
         self.tunnel.close()
         self.quick.close()
+        self.permanent.close()
         self.connections.oauth.close()
         self.connections.session_credentials.clear()
         self.codespaces.close()
