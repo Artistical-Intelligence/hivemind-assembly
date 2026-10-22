@@ -6,7 +6,10 @@ the spec's manifest in deterministic engines, and return compact results with
 trajectory tokens and optional frame images. They never write project files: each
 result is a function of the workspace inputs and the supplied trajectory, so an
 interrupted call is recomputed rather than reconciled. Caches only avoid repeated
-builds and replays; they never change results.
+builds and replays; a reused session observes the current request's cancellation, so
+caches never change results. Exploration, shrinking and regressions also stop at a
+time limit, which makes how far they get depend on host speed; a run cut short is
+reported as an inconclusive `limit`, never as a pass.
 """
 
 import hashlib
@@ -62,10 +65,18 @@ class GamePlay:
     def _candidate(self, root, spec, context):
         from .program import sources
 
-        path = scoped(root, spec["candidate_manifest"])
+        name = spec["candidate_manifest"]
+        path = scoped(root, name)
+        if not path.is_file():
+            raise ContractError("Candidate build manifest not found: " + name)
         if path.stat().st_size > 128000:
             raise Blocked("Build manifest exceeds bounds")
-        manifest = json.loads(path.read_text("utf-8"))
+        try:
+            manifest = json.loads(path.read_text("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ContractError(f"Candidate build manifest {name} is not valid UTF-8 JSON: {error}") from error
+        if not isinstance(manifest, dict):
+            raise ContractError("Candidate build manifest must be a JSON object: " + name)
         units = sources(root, manifest)
         compiler = context.config.get("foundations", {}).get("c_compiler", "") or ""
         located = (
@@ -199,6 +210,10 @@ class GamePlay:
                 # One unusable side (for example a dynamic ELF) still leaves the other.
                 result["sides"][side] = {"available": False, "reason": str(error)}
                 continue
+            except (OSError, ValueError) as error:
+                # Never echo host paths; the class names the problem.
+                result["sides"][side] = {"available": False, "reason": "Unreadable project input (" + type(error).__name__ + ")"}
+                continue
             result["sides"][side] = {
                 "available": True,
                 "capabilities": session.engine.capabilities,
@@ -207,12 +222,19 @@ class GamePlay:
                 "unresolved_memory_fields": session.unresolved,
                 "startup": session.observation(recent=1, view=False),
             }
-        regressions = scoped(context.workspace, spec["regressions_path"])
-        result["regressions"] = (
-            len(gt.validate_regressions(spec, json.loads(regressions.read_text("utf-8"))))
-            if regressions.is_file() and regressions.stat().st_size <= 4_000_000
-            else 0
-        )
+        result["regressions"] = 0
+        try:
+            regressions = scoped(context.workspace, spec["regressions_path"])
+            if regressions.is_file():
+                if regressions.stat().st_size > 4_000_000:
+                    raise ContractError("Regressions file exceeds 4 MB")
+                result["regressions"] = len(
+                    gt.validate_regressions(spec, json.loads(regressions.read_text("utf-8")))
+                )
+        except (ContractError, Blocked, OSError, ValueError) as error:
+            # A broken regressions file must not hide a playable game.
+            detail = str(error) if isinstance(error, (ContractError, Blocked)) else type(error).__name__
+            result["regressions_error"] = spec["regressions_path"] + ": " + detail
         result["claim"] = "Deterministic emulated play under the declared contract; not GPU, window-system or hardware-timing evidence."
         return result
 
@@ -238,6 +260,8 @@ class GamePlay:
         if runner is None:
             runner = self.factory(spec, images, side, context.cancel)()
             runner.feed(start)
+        else:
+            runner.rebind(context.cancel)
         sessions = (runner.original, runner.candidate) if side == "both" else (runner,)
         reached = gt.check_expectations(spec, (sessions[0].latest or {}).get("values", {}), preconditions)
         if any(item["met"] is not True for item in reached):
@@ -263,7 +287,7 @@ class GamePlay:
         if side == "both":
             report = runner.report()
             result.update(
-                comparison={k: report[k] for k in ("passed", "outcome", "compared_ticks", "divergence", "divergent_ticks", "findings", "original_behavior")},
+                comparison={k: report[k] for k in ("passed", "outcome", "compared_ticks", "divergence", "divergent_ticks", "findings", "inconclusive", "original_behavior")},
                 original=runner.original.observation(view=args.get("view", True)),
                 candidate=runner.candidate.observation(view=args.get("view", True)),
                 outcome=report["outcome"],
@@ -271,12 +295,18 @@ class GamePlay:
             values = (runner.candidate.latest or {}).get("values", {})
         else:
             observation = runner.observation(view=args.get("view", True))
-            found = gt.session_findings(runner)
-            result.update(observation=observation, outcome=gt.outcome(found), findings=found)
+            report = gt.session_report(runner)
+            result.update(
+                observation=observation,
+                outcome=report["outcome"],
+                findings=report["findings"],
+                inconclusive=report["inconclusive"],
+            )
             values = observation["state"]
         if expect:
             result["expectations"] = gt.check_expectations(spec, values, expect)
-        result["_images"] = [image for session in sessions for image in session.images(count)]
+        # Newest ticks first, alternating sides, so the first attachments show both.
+        result["_images"] = gt.recent_images(sessions, count)
         if not runner.stopped and not args.get("end"):
             self._keep(self._key(spec, images, side, bytes(runner.inputs)), runner)
         return result
@@ -321,16 +351,20 @@ class GamePlay:
                 cancel=context.cancel,
                 reference=reference,
             )
-            return result | report | {"passed": not report["findings"]}
+            return result | report
+        if type(args.get("end", False)) is not bool:
+            raise ContractError("end is a boolean")
         if mode in ("shrink", "package"):
             signature = args.get("signature")
             if not isinstance(signature, list) or not 1 <= len(signature) <= 4:
                 raise ContractError("shrink and package need a finding signature from an earlier report")
             if not start:
                 raise ContractError("shrink and package need the finding's trajectory")
+            # Findings detected after end of input (after_end) reproduce only with it.
+            end = args.get("end", False)
             if mode == "shrink":
-                return result | gt.shrink(spec, make, start, signature, deadline=deadline, cancel=context.cancel)
-            report = gt.package(spec, make, start, signature, images=_bounded_int(args, "images", 2, 0, 4))
+                return result | gt.shrink(spec, make, start, signature, end=end, deadline=deadline, cancel=context.cancel)
+            report = gt.package(spec, make, start, signature, images=_bounded_int(args, "images", 2, 0, 4), end=end)
             return result | report
         if mode == "regressions":
             path = scoped(context.workspace, spec["regressions_path"])
@@ -353,9 +387,8 @@ class GamePlay:
         if side == "both":
             report = runner.report()
         else:
-            found = gt.session_findings(runner)
-            report = {"passed": not found, "outcome": gt.outcome(found), "findings": found, "summary": runner.summary(), "trajectory": gs.encode_token(runner.inputs)}
+            report = gt.session_report(runner) | {"summary": runner.summary(), "trajectory": gs.encode_token(runner.inputs)}
         if any(item["met"] is not True for item in reached):
             report = report | {"passed": False, "outcome": "unreached", "preconditions": reached}
         count = _bounded_int(args, "images", 1, 0, 4)
-        return result | report | {"_images": [image for s in sessions for image in s.images(count)]}
+        return result | report | {"_images": gt.recent_images(sessions, count)}
