@@ -400,6 +400,14 @@ STARTS = {
     "upper_platform": (["step_right", "step_right", "jump", "step_right"], [{"field": "y", "op": "==", "value": 6}]),
     "past_spikes": (ROUTES["coin_route"], [{"field": "x", "op": "==", "value": 13}]),
 }
+# Sealed acceptance routes reach the same situations along other paths, so passing
+# them is not a matter of replaying the routes and starts that workers can read.
+SEALED = {
+    "coins_detour": ["step_right", "step_right", "jump_left", "jump_right", "jump", "step_right", "jump_right", "step_right", "jump_left", "step_right"],
+    "gap_fall": ["jump_left", "jump_right", "step_left", "jump_right", "run_right", "jump_right", "wait"],
+    "edge_drop": ["run_left", "jump_right", "run_left", "jump_left", "run_right", "wait", "step_left"],
+    "spike_drop": ["run_right", "step_right", "step_right", {"control": "right_jump", "ticks": 1}, "wait", "wait"],
+}
 
 README = """Coin cavern: play-testing a rebuilt game
 
@@ -429,9 +437,10 @@ Try it in Project files -> Play and test the game:
    when no divergence or candidate-only problem remains.
 
 Native workers use the same operations: describe_game, play_game and test_game. The
-sealed trajectories and the original source are kept outside the workspace. This
-example verifies sampled deterministic play under a declared contract, not a GPU,
-window system, hardware timing or all possible inputs.
+sealed trajectories take different paths from the routes and starts in this folder,
+and they and the original source are kept outside the workspace. This example
+verifies sampled deterministic play under a declared contract, not a GPU, window
+system, hardware timing or all possible inputs.
 """
 
 
@@ -505,7 +514,7 @@ def contract():
         "scope": "game_play",
         "game_path": "game.json",
         "trajectories": [
-            {"id": name, "inputs_hex": records(steps).hex()} for name, steps in ROUTES.items()
+            {"id": name, "inputs_hex": records(steps).hex()} for name, steps in SEALED.items()
         ],
     }
 
