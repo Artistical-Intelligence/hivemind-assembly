@@ -86,6 +86,25 @@
     el('quick-code').querySelector('b').textContent = r.code;
   });
 
+  el('helper-install').onclick = async () => {
+    try {
+      const r = await api('helper/install', {open: true});
+      el('helper-folder').value = r.folder;
+      el('helper-steps').hidden = false;
+      notice(r.opened ? 'Chrome\'s Extensions page is open. Follow the steps below.' : 'Open chrome://extensions in Chrome, then follow the steps below.');
+    } catch (x) {
+      notice(x.message, true);
+    }
+  };
+  el('helper-copy').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(el('helper-folder').value);
+      notice('Folder copied.');
+    } catch {
+      el('helper-folder').select();
+    }
+  };
+
   el('local-apps').onclick = async () => {
     try {
       const r = await api('mcp/local-apps', {});
