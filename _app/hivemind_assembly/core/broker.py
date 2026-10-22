@@ -371,6 +371,9 @@ class Broker:
                 result = self.domain.execute(self.context(task, tool), request)
             else:
                 raise Blocked("Unknown capability")
+            # Domains may return small images (for example rendered game frames).
+            # They become task artifacts so the next native turn can attach them.
+            images = result.pop("_images", None) if isinstance(result, dict) else None
             if self.publications:
                 self.publications.record_checked_result(
                     task, request["id"], tool, args, result, root
@@ -383,6 +386,17 @@ class Broker:
                     emitted["name"],
                     self.store.task(task)["project_id"],
                 )["id"]
+            if images:
+                result["image_artifacts"] = [
+                    {
+                        "id": self.artifacts.add(
+                            item["data"], item["name"], self.store.task(task)["project_id"]
+                        )["id"],
+                        "name": item["name"],
+                    }
+                    for item in images[:8]
+                    if isinstance(item.get("data"), bytes) and len(item["data"]) <= 2_000_000
+                ]
             artifact = self.artifacts.add(
                 canonical(result),
                 request["id"] + ".json",
