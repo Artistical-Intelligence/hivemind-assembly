@@ -684,6 +684,18 @@ class Application:
             result["checked_revision"] = report["revision"]
             result["current_revision"] = self.store.project(task["project_id"])["revision"]
             return result
+        if path == "/api/game/describe":
+            return self.game_call("describe_game", data)
+        if path == "/api/game/play":
+            return self.game_call("play_game", data)
+        if path == "/api/game/test":
+            self.store.task(data.get("task"))
+            return self.background_job(
+                "Game " + str(data.get("mode", "compare")),
+                lambda: self.game_call("test_game", data),
+            )
+        if path == "/api/game/save-regression":
+            return self.save_game_regression(data)
         if path == "/api/project":
             if not data.get("name") or not data.get("objective"):
                 raise ContractError("Name and objective are required")
@@ -1024,6 +1036,65 @@ class Application:
             return self.background_job("Install pinned foundations", install)
         raise ContractError("Unknown action")
 
+    def game_call(self, tool, data):
+        """Owner play-testing through the same deterministic domain operations.
+
+        Read-only: results depend only on workspace files and the trajectory. Frames
+        return as raw RGBA for canvas display (the dashboard policy blocks data URLs).
+        """
+        import base64
+
+        task = data.get("task")
+        self.store.task(task)
+        args = {k: v for k, v in data.items() if k != "task"}
+        result = self.broker.domain.games.execute(
+            self.broker.context(task), {"tool": tool, "args": args}
+        )
+        images = result.pop("_images", None) or []
+        result["frames"] = [
+            {k: image[k] for k in ("name", "side", "tick", "width", "height")}
+            | {"rgba_base64": base64.b64encode(image["rgba"]).decode()}
+            for image in images
+            if "rgba" in image
+        ]
+        return result
+
+    def save_game_regression(self, data):
+        """Append or replace one saved regression; an ordinary guarded owner edit."""
+        from hivemind_assembly.core import game_spec, game_testing
+
+        task = data["task"]
+        games = self.broker.domain.games
+        spec = games.load(self.broker.workspace(task), data.get("game_path", "game.json"))
+        inputs = game_spec.decode_token(data.get("trajectory"), spec)
+        if not inputs:
+            raise ContractError("Play at least one input before saving a regression")
+        name = spec["regressions_path"]
+        path = self.workspace.path(task, name)
+        current = self.workspace.read(task, name) if path.is_file() else None
+        if current is not None and current["text"] is None:
+            raise ContractError("The regressions file is not UTF-8 text")
+        value = json.loads(current["text"]) if current else {"version": 1, "regressions": []}
+        items = game_testing.validate_regressions(spec, value)
+        item = {
+            "id": data.get("id"),
+            "inputs_hex": inputs.hex(),
+            "expect": data.get("expect", "match_original"),
+        }
+        if data.get("note"):
+            item["note"] = str(data["note"])[:500]
+        value = {
+            "version": 1,
+            "regressions": [r for r in items if r["id"] != item["id"]] + [item],
+        }
+        game_testing.validate_regressions(spec, value)
+        return self.workspace.write(
+            task,
+            name,
+            json.dumps(value, indent=2) + "\n",
+            current["sha256"] if current else None,
+        )
+
     def install_optional_tools(self):
         """GitHub CLI (Codespaces) and the MCP tunnel client; each reports its own result."""
         from .prerequisites import install_missing
@@ -1257,6 +1328,7 @@ def make_server(app, port=0):
                 "/connections.js": ("connections.js", "text/javascript"),
                 "/help.js": ("help.js", "text/javascript"),
                 "/workspace.js": ("workspace.js", "text/javascript"),
+                "/game_testing.js": ("game_testing.js", "text/javascript"),
                 "/style.css": ("style.css", "text/css"),
             }
             if path not in files:
