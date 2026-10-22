@@ -256,6 +256,22 @@ Still required:
 
 ### History
 
+### Session of 2026-10-22, version 0.26 (Linux cloud host)
+
+- Game play-testing implemented from the owner's proposal v0.1 and notes (design
+  record v0.2 in [GAME_TESTING](GAME_TESTING.md)), including a native lane for real
+  Godot and SDL2 games with in-process adapters.
+- Full local suite at `6de5494` (Python 3.12, Clang 18, Godot 4.7.1, real Chromium):
+  925 passed, 9 skipped (971.07 seconds).
+- `dev/check_real_games.py` at `735df95` played Godot's Dodge the Creeps demo and its
+  godot-rust port, Ubuntu's Chromium B.S.U. (C++) against a rebuild and a planted
+  defect, and sokoban-rs (Rust) against a planted defect: every side replayed
+  identically; the planted defects were found by exploration and shrunk to 22 and 17
+  ticks; the Rust port's mob-count divergence (a different random generator) shrank to
+  starting the game and waiting. Scripted, seeded play; no model inference.
+- Still not established: play by a signed-in native model, live route acceptance
+  (0 of 5) and trained policies.
+
 ### Session of 2026-10-21, version 0.25 (Linux cloud host)
 
 - Implementation `4f057ab` passed all four jobs in
