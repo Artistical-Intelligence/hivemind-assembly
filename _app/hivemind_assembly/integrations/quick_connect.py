@@ -246,12 +246,15 @@ class Auth:
             raise HTTPError("Too many requests. Retry later.", 429)
         values.append(now)
 
-    def pairing(self):
+    def pairing(self, flow=None):
+        """A one-time code: general (shown in HA) or bound to one approval page (Chrome helper)."""
         with self.lock:
             if not self.origin:
                 raise Blocked("Start the browser connection first.")
+            if flow is not None and not self.get("flow:" + flow):
+                raise Blocked("This approval page expired. Start the connection again from ChatGPT or Claude.")
             code = secrets.token_urlsafe(9)
-            self.put("pair", digest(code), 600)
+            self.put("pair_for:" + flow if flow is not None else "pair", digest(code), 600)
             return {"code": code, "expires_in": 600}
 
     def revoke(self):
@@ -347,10 +350,16 @@ class Auth:
             flow = self.get("flow:" + p.get("flow", ""))
             if not flow or flow["origin"] != self.origin:
                 raise HTTPError("This connection request expired. Start it again from ChatGPT or Claude.")
-            expected = self.get("pair")
-            if not expected or not secrets.compare_digest(expected, digest(p.get("pairing_code", "").strip())):
+            supplied = digest(p.get("pairing_code", "").strip())
+            key = "pair_for:" + p.get("flow", "")
+            expected = self.get(key)
+            if not expected or not secrets.compare_digest(expected, supplied):
+                key = "pair"
+                expected = self.get(key)
+            if not expected or not secrets.compare_digest(expected, supplied):
                 raise HTTPError("Wrong or expired approval code. Get a new one in HA.", 403)
-            self.records.pop("pair", None)
+            self.records.pop(key, None)
+            self.records.pop("pair_for:" + p["flow"], None)
             self.records.pop("flow:" + p["flow"], None)
             self.record_event(provider_for_redirect(flow["redirect_uri"]), "approved_at")
             code = secrets.token_urlsafe(32)
@@ -503,7 +512,7 @@ class Rpc:
 APPROVAL_PAGE = """<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Approve Hivemind Assembly</title>
 <style>body{font:16px system-ui;max-width:520px;margin:6vh auto;padding:24px;line-height:1.5;color:#18241f}h1{font-size:24px}input,button{box-sizing:border-box;width:100%;font:inherit;padding:11px;margin:10px 0;border:1px solid #9fb0a8;border-radius:7px}button{background:#1f5e46;color:#fff;cursor:pointer}small{display:block;color:#56645d}</style>
 <h1>Connect Hivemind Assembly</h1><p>CLIENT will be able to use the projects you shared in HA's Connections page. Nothing else on this computer is shared.</p>
-<form method="post" action="/authorize"><input type="hidden" name="flow" value="FLOW"><label>Approval code<input name="pairing_code" autocomplete="off" maxlength="64" required autofocus></label><small>Select Show approval code in HA (Connections) and enter it here.</small><button>Approve</button></form>
+<form method="post" action="/authorize"><input type="hidden" name="flow" value="FLOW"><label>Approval code<input name="pairing_code" autocomplete="off" maxlength="64" required autofocus></label><small id="ha-pair-status">The HA Chrome helper fills this in. Otherwise, select Show approval code in HA (Connections) and enter it here.</small><button>Approve</button></form>
 <small>Only approve a connection you started. You can disconnect it in HA at any time.</small></html>"""
 
 
