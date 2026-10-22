@@ -382,6 +382,9 @@ class GameMachine:
         """Observe a new request's cancellation (cached sessions outlive requests)."""
         self.cancel = cancel
 
+    def close(self):
+        """Nothing to release; native engines stop their process here."""
+
     def _writable(self, address, size, perm):
         if size > self.output_limit or size < 0 or address + size > 2**64:
             return False
@@ -736,6 +739,9 @@ class ReplayEngine:
     def rebind(self, cancel):
         self.options["cancel"] = cancel
 
+    def close(self):
+        pass
+
     @property
     def exit_code(self):
         return self.result.get("exit_code")
@@ -798,9 +804,13 @@ def image_kind(image):
 
 
 def open_engine(image, spec, *, live=True, cancel=None):
-    """Choose the engine for an image under a validated game spec."""
+    """Choose the engine for an image (or a native launch plan) under a game spec."""
     from hivemind_assembly.core import game_spec as gs
 
+    if isinstance(image, dict):
+        from .native_game import NativeEngine
+
+        return NativeEngine(image, spec, cancel=cancel)
     limits, process = spec["limits"], spec["process"]
     declared = dict(spec.get("functions") or {})
     kind = image_kind(image)
