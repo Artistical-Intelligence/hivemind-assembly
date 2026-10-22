@@ -25,7 +25,7 @@ def test_version_is_consistent():
 
     status = json.loads((ROOT / "_app" / "release_status.json").read_text())
     assert hivemind_assembly.__version__ == status["version"]
-    assert f"Version {status['version']} is an engineering preview" in (ROOT / "README.md").read_text()
+    assert f"Current version: {status['version']}." in (ROOT / "README.md").read_text()
 
 
 def test_evidence_requires_exact_commits_and_inference_flag():
