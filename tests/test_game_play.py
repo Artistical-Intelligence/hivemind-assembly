@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -21,8 +22,10 @@ from hivemind_assembly.application.project_checks import run_checks, starter
 from hivemind_assembly.core.acceptance import Acceptance
 from hivemind_assembly.core.broker import Broker
 from hivemind_assembly.core.common import file_hash
+from hivemind_assembly.core.domain import ToolContext
 from hivemind_assembly.core.jobs import Jobs
 from hivemind_assembly.domains.reverse_engineering.domain import ReverseEngineeringDomain
+from hivemind_assembly.domains.reverse_engineering.game_play import GamePlay
 
 app = test_app.app
 ROOT = Path(__file__).resolve().parents[1]
@@ -113,9 +116,21 @@ def test_native_turn_attaches_png_artifacts_only_with_upload_bindings(ready, tmp
     }
     bound = {"selectors": {"upload": "input[type=file]", "attachment_ready": "[data-testid=attachment]"}}
     attached = team.result_images(controller.store.task(task["id"]), "msg_fixture", bound, last)
-    assert len(attached) == 1 and Path(attached[0]["path"]).name == "candidate-tick-3.png"
+    assert len(attached) == 1 and Path(attached[0]["path"]).name == "1-candidate-tick-3.png"
     assert file_hash(attached[0]["path"]) == attached[0]["sha256"] == first["sha256"]
     assert team.result_images(controller.store.task(task["id"]), "msg_fixture", {"selectors": {}}, last) == []
+    # Two plays in one batch can return the same frame name; each file stays distinct
+    # (a shared path would fail the attachment hash check on every retry).
+    second = broker.artifacts.add(gs.png(bytes([9, 9, 9, 255] * 4), 2, 2, 2), "candidate-tick-3.png", project)
+    repeated = {
+        "batch_results": [
+            {"image_artifacts": [{"id": first["id"], "name": "candidate-tick-3.png"}]},
+            {"image_artifacts": [{"id": second["id"], "name": "candidate-tick-3.png"}, {"id": first["id"], "name": "candidate-tick-3.png"}]},
+        ]
+    }
+    attached = team.result_images(controller.store.task(task["id"]), "msg_repeat", bound, repeated)
+    assert [Path(a["path"]).name for a in attached] == ["1-candidate-tick-3.png", "2-candidate-tick-3.png"]
+    assert [file_hash(a["path"]) for a in attached] == [a["sha256"] for a in attached] == [first["sha256"], second["sha256"]]
 
 
 def test_game_starter_dashboard_play_regressions_and_protected_acceptance(app):
@@ -130,11 +145,16 @@ def test_game_starter_dashboard_play_regressions_and_protected_acceptance(app):
     assert first["passed"] is False
     outcomes = {case["id"]: case["outcome"] for case in first["cases"]}
     assert outcomes == {
-        "coin_route": "pass",
-        "hole_quirk": "pass",
-        "platform_edge": "divergence",
-        "spike_landing": "freeze",
+        "coins_detour": "pass",
+        "gap_fall": "pass",
+        "edge_drop": "divergence",
+        "spike_drop": "freeze",
     }
+    # The sealed routes are not the routes or starts that workers can read.
+    workspace = json.loads((root / "game-regressions.json").read_text())["regressions"]
+    visible = {r["inputs_hex"] for r in workspace} | {s["inputs_hex"] for s in json.loads((root / "game.json").read_text())["starts"].values()}
+    sealed = {ge.records(steps).hex() for steps in ge.SEALED.values()}
+    assert not any(a.startswith(b) or b.startswith(a) for a in sealed for b in visible)
     assert "inputs_hex" not in json.dumps(first)
     details = app.store.one("SELECT * FROM artifacts WHERE id=?", (first["protected_details"],))
     assert details["classification"] == "protected"
@@ -170,3 +190,53 @@ def test_command_line_game_test(tmp_path):
     assert result.returncode == 0 and json.loads(result.stdout)["outcome"] == "pass"
     result = subprocess.run(command + ["--mode", "compare", "--trajectory", "upper_platform"], capture_output=True, text=True, timeout=300)
     assert result.returncode == 1 and json.loads(result.stdout)["outcome"] == "divergence"
+
+
+def _context(root, cancel):
+    return ToolContext(root, {"foundations": {"c_compiler": _compiler()}}, Jobs(), cancel)
+
+
+def test_cached_sessions_observe_each_request_cancellation(tmp_path):
+    root = _workspace(tmp_path / "game")
+    games, first, second = GamePlay(), threading.Event(), threading.Event()
+    played = games.play(_context(root, first), {"side": "both", "actions": ["run_right"]})
+    first.set()
+    # The cached session made by the first request now serves the second one.
+    resumed = games.play(_context(root, second), {"side": "both", "trajectory": played["trajectory"], "actions": ["step_right"]})
+    assert resumed["outcome"] == "pass" and resumed["comparison"]["inconclusive"] == []
+    assert resumed["candidate"]["ticks"] == 5 and resumed["candidate"]["status"] == "awaiting_input"
+    second.set()
+    stopped = games.play(_context(root, second), {"side": "both", "trajectory": resumed["trajectory"], "actions": ["wait"]})
+    assert (stopped["outcome"], stopped["comparison"]["passed"]) == ("cancelled", False)
+
+
+def test_describe_reports_unusable_inputs_without_failing(tmp_path):
+    root = _workspace(tmp_path / "game")
+    (root / "build.json").unlink()
+    (root / "game-regressions.json").write_text("{not json")
+    described = GamePlay().describe(_context(root, threading.Event()), {})
+    assert described["sides"]["original"]["available"]
+    assert described["sides"]["candidate"] == {"available": False, "reason": "Candidate build manifest not found: build.json"}
+    assert described["regressions"] == 0
+    assert described["regressions_error"] == "game-regressions.json: JSONDecodeError"
+    assert str(tmp_path) not in json.dumps(described)
+
+
+def test_owner_play_is_not_cancelled_by_pausing_the_task(app):
+    app.config["foundations"]["c_compiler"] = _compiler()
+    task = starter(app, "game_testing", "game_testing_pause_01")
+    # Pausing a task (required before owner edits) sets its workers' cancel event.
+    app.broker.cancel.setdefault(task["id"], threading.Event()).set()
+    shown = app.action("/api/game/play", {"task": task["id"], "side": "both", "actions": ["run_right"]})
+    assert shown["outcome"] == "pass" and shown["original"]["ticks"] == shown["candidate"]["ticks"] == 4
+    job = app.action("/api/game/test", {"task": task["id"], "mode": "compare", "trajectory": shown["trajectory"]})["job"]
+    for _ in range(600):
+        if app.background[job]["status"] != "running":
+            break
+        threading.Event().wait(0.1)
+    assert app.background[job]["status"] == "completed" and app.background[job]["result"]["passed"]
+    # Status polls carry a frame count; the job-result route carries the frames.
+    polled = app.status()["jobs"][job]["result"]
+    assert "frames" not in polled and polled["frame_count"] == 2
+    full = app.action("/api/jobs/result", {"job": job})
+    assert [f["side"] for f in full["result"]["frames"]] == ["original", "candidate"]
