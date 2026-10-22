@@ -401,9 +401,9 @@
   },
   {
     "id": "play-test-game",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "purpose": "Play-test a rebuilt game against its original",
-    "prerequisites": "game.json play-testing contract, original image and candidate build manifest",
+    "prerequisites": "game.json play-testing contract with an original image and candidate build manifest, or a native section (Godot project or SDL2 program) with trusted native execution enabled",
     "scope": [
       "general-reverse-engineering"
     ],
@@ -411,9 +411,10 @@
     "exceptions": [
       "A problem the original reproduces with the same trajectory is original behavior.",
       "An unreached start, a harness limit or a cancelled run is not a pass.",
-      "Exploration that finds nothing is sampled evidence, not proof of correctness."
+      "Exploration that finds nothing is sampled evidence, not proof of correctness.",
+      "A native game that does not replay deterministically (see describe_game) gives unconfirmed findings until shrinking confirms them."
     ],
-    "acceptance": "Trajectory tokens for every finding and fix; pinned game_play checks pass on the rebuilt candidate.",
+    "acceptance": "Trajectory tokens for every finding and fix; pinned game_play checks (emulated games) or saved regressions (native games) pass on the rebuilt candidate.",
     "sources": [
       "Visual Game Testing Proposal v0.1 and dev/GAME_TESTING.md (v0.2)"
     ],
