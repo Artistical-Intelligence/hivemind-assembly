@@ -204,8 +204,8 @@
     try {
       const task = await api('project/starter', {kind,request_id:request,allow_native:allow});
       sessionStorage.removeItem(key); await refresh(); await selectTask(task.id); tab('workspace');
-      await openFile(kind === 'registers' ? 'candidate.hex' : ['linked_arm64','program_arm64','program_windows','program_frames','native_frames','autonomous_program'].includes(kind) ? 'candidate.c' : kind === 'project_game' ? 'logic.c' : 'candidate.py');
-      message(kind === 'autonomous_program' ? 'Reconstruction trial ready. The candidate is unfinished and independent checks are pinned. Start the objective in Projects & tasks when native sessions are ready.' : 'Example ready. Run checks, edit the candidate, and check again.');
+      await openFile(kind === 'registers' ? 'candidate.hex' : ['linked_arm64','program_arm64','program_windows','program_frames','native_frames','autonomous_program'].includes(kind) ? 'candidate.c' : kind === 'project_game' ? 'logic.c' : kind === 'game_testing' ? 'README.txt' : 'candidate.py');
+      message(kind === 'autonomous_program' ? 'Reconstruction trial ready. The candidate is unfinished and independent checks are pinned. Start the objective in Projects & tasks when native sessions are ready.' : kind === 'game_testing' ? 'Game example ready. Use Play and test the game below: load it, play, explore and run saved regressions.' : 'Example ready. Run checks, edit the candidate, and check again.');
     } finally { b.disabled = false; }
   }));
   function updateRecipeFiles(files) {
