@@ -12,7 +12,7 @@ A local reverse-engineering workspace for collaborative agents, independent veri
 
 To update, run the newer installer (or extract the newer ZIP over the old folder). Uninstalling removes only application files. The application uses dedicated Edge, Chrome or Playwright profiles. It does not copy your everyday browser credentials. User data remains in `%LOCALAPPDATA%\UnifiedWorkbench`, outside the application folder. The host must remain running for autonomous work.
 
-Every CI run also retains the installer and ZIPs as a 14-day workflow artifact; releases are published by pushing a version tag (`v<version>`), which rebuilds, installs, upgrades, uninstalls and verifies them first.
+Every CI run also retains the installer and ZIPs as a 14-day workflow artifact. When the full CI passes on `main` with a version that has no release yet, the release workflow rebuilds, installs, upgrades, uninstalls and verifies the packages, then publishes them as release `v<version>`. A version tag or a manual run also publishes.
 
 ## First autonomous reconstruction trial
 
