@@ -423,8 +423,6 @@ class GameMachine:
             self.uc.mem_write(address, bytes(self.inputs[self.cursor : self.cursor + length]))
             self.cursor += length
             result = length
-        self.costs.append(self.tick_instructions)
-        self.tick_instructions = 0
         return result
 
     def _resume(self):
@@ -466,6 +464,10 @@ class GameMachine:
             self.tick_instructions += self.counted
             self.counted = 0
             if self.status == "reading":
+                # A tick interval ends when the game asks for its next input; the
+                # cost of the interval is known before the game has to wait.
+                self.costs.append(self.tick_instructions)
+                self.tick_instructions = 0
                 self.status = "ready"
         if self.status not in ("completed", "awaiting_input") and self.stop_context is None:
             reported = {
