@@ -467,7 +467,9 @@ state, delivers only those, quit, render resets and the game's own events (windo
 device events arrive at run-dependent times), passes one tick per empty wait for
 event-driven games, and captures the presented frame; the engine reads declared state
 from the paused process's memory by symbol and pointer path. Startup and per-frame wall-clock bounds
-separate a freeze from a crash (signal) or completion. Snapshots are input logs,
+separate a freeze from a crash (signal) or completion; core dumps are disabled while
+HA drives a game, and a game whose threads are still exiting or dumping when a frame
+times out is classified as a crash. Snapshots are input logs,
 restored by extending the running game or replaying from a fresh launch; a replay that
 yields different records marks the engine nondeterministic, and `describe_game` plays
 a probe twice to report determinism. A shared Xvfb display hosts native windows on
