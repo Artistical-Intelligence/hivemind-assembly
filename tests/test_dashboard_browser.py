@@ -427,3 +427,58 @@ def test_emulated_frames_protected_capture_scrubbing(server, app, tmp_path):
         assert output.read_bytes()[-256:] == bytes(candidate)
         assert errors == []
         browser.close()
+
+
+def test_every_button_has_a_hover_description(server, app):
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ["WORKBENCH_TEST_CHROME"],
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+        page.get_by_role("button", name="Open project files & examples").click()
+        page.get_by_role("button", name="Create register example", exact=True).click()
+        page.wait_for_selector("[data-file]")
+        missing = page.evaluate(
+            "[...document.querySelectorAll('button')].filter(b=>!b.title)"
+            ".map(b=>b.id||b.textContent.trim())"
+        )
+        assert missing == []
+        # Buttons the dashboard builds later from saved state.
+        samples = [
+            '<button data-task="t" data-action="pause">Pause</button>',
+            '<button data-native-setup="r">Set up / open session</button>',
+            '<button data-probe="r">Observe route</button>',
+            '<button data-native-renew="r">Renew conversation</button>',
+            '<button data-share="l">Allow native evaluation</button>',
+            '<button data-unshare="l">Keep local</button>',
+            '<button data-rollback="l">Roll back</button>',
+            '<button data-evaluation-resume="v">Retry remaining trials</button>',
+            '<button data-reconcile="o">Reconcile saved operation</button>',
+            '<button data-note="1">Save note</button>',
+            '<button data-hosted-refresh="r">Check / reconcile</button>',
+            '<button data-hosted-cancel="r">Cancel</button>',
+            '<button data-remove-case>Remove case</button>',
+            '<button>First failing frame</button>',
+            '<button>Download output capture</button>',
+            '<button>Recover / inspect</button>',
+            '<button>reconcile</button>',
+            '<button>cancel</button>',
+            '<button>result</button>',
+        ]
+        untitled = page.evaluate(
+            """samples => samples.filter(html => {
+                const d = document.createElement('div'); d.innerHTML = html;
+                return !window.haDescribeButton(d.firstChild);
+            })""",
+            samples,
+        )
+        assert untitled == []
+        assert errors == []
+        browser.close()
