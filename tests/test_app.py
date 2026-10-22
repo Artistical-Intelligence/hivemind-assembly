@@ -380,8 +380,12 @@ def test_first_run_reports_foundations_and_loads_them_after_install(app, monkeyp
     status = app.status()["foundations"]
     assert status["ready"] is False and not status["installing"]
     homes = {name: tmp_path / name for name in ("ghidra_home", "rea_home", "hermes_home")}
+    seen = []
 
-    def fake_install(root, config_path):
+    def fake_install(root, config_path, progress=None):
+        progress.begin("Downloading Ghidra", 480)
+        progress.download(50, 100)
+        seen.append(app.status()["foundations"]["progress"])
         for path in homes.values():
             path.mkdir()
         config = json.loads(Path(config_path).read_text())
@@ -390,7 +394,7 @@ def test_first_run_reports_foundations_and_loads_them_after_install(app, monkeyp
         return {"verification": {"passed": True}}
 
     monkeypatch.setattr(setup, "install_foundations", fake_install)
-    monkeypatch.setattr(app, "install_optional_tools", lambda: {"github_cli": "ready"})
+    monkeypatch.setattr(app, "install_optional_tools", lambda progress=None: {"github_cli": "ready"})
     app.action("/api/setup", {})
     for _ in range(100):
         if app.status()["foundations"]["ready"]:
@@ -401,7 +405,37 @@ def test_first_run_reports_foundations_and_loads_them_after_install(app, monkeyp
         "present": {name: True for name in homes},
         "installing": False,
         "restart_needed": False,
+        "progress": None,
     }
+    # While installing, the dashboard sees the current step and its download.
+    assert seen[0]["label"] == "Downloading Ghidra"
+    assert seen[0]["download"] == {"done_bytes": 50, "total_bytes": 100}
+    assert 0 < seen[0]["percent"] < 100
+
+
+def test_setup_progress_weights_steps_and_estimates_time_left(monkeypatch):
+    from hivemind_assembly.application import setup
+
+    clock = [0.0]
+    monkeypatch.setattr(setup.time, "monotonic", lambda: clock[0])
+    states = []
+    progress = setup.SetupProgress(states.append)
+    progress.expect("Installing Java (JDK 21)", 190)
+    progress.expect("Downloading Ghidra", 480)
+    progress.expect("Checking the installed tools", 30)
+    progress.begin("Installing Java (JDK 21)")
+    assert states[-1]["step"] == 1 and states[-1]["steps"] == 3 and states[-1]["percent"] == 0
+    assert states[-1]["seconds_left"] is None
+    clock[0] = 60.0
+    progress.begin("Downloading Ghidra")
+    clock[0] = 120.0
+    progress.download(240, 480)
+    # Java (190) plus half of Ghidra (240) of 700 in total.
+    assert states[-1]["percent"] == round(430 / 700 * 100, 1)
+    assert states[-1]["seconds_left"] == round(120 * (1 - 430 / 700) / (430 / 700))
+    assert states[-1]["download"] == {"done_bytes": 240, "total_bytes": 480}
+    progress.finish()
+    assert states[-1]["label"] is None
 
 
 def test_setup_installs_optional_tools_in_the_same_step(app, monkeypatch):
@@ -420,7 +454,7 @@ def test_setup_installs_optional_tools_in_the_same_step(app, monkeypatch):
     monkeypatch.setattr(app.tunnel, "install", tunnel_fails)
     assert app.install_optional_tools() == {
         "github_cli": "GitHub CLI could not be installed",
-        "tunnel_client": "Not installed (ConnectionError); retry later in Connections.",
+        "tunnel_client": "Not installed (ConnectionError); select Install required tools in Settings to retry.",
     }
     monkeypatch.setattr(prerequisites, "install_missing", lambda extra=(): {"installed": []})
     monkeypatch.setattr(app.tunnel, "status", lambda: {"installed": True})
