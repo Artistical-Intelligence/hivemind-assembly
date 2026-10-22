@@ -6,8 +6,9 @@ extends Node
 # declared state values (and a scaled frame) over a local socket, then waits for the
 # next input record and presses or releases the mapped keys and actions before the
 # frame's physics and processing run. The global random generator is seeded before
-# the main scene loads and again when play starts. Nothing happens unless HA set
-# HA_TICK_CONFIG.
+# the main scene loads and again when play starts. The adapter connects at the first
+# physics frame, so HA's startup limit covers loading the main scene. Nothing happens
+# unless HA set HA_TICK_CONFIG.
 
 const MAGIC := "HATK"
 
@@ -18,6 +19,7 @@ var _held := []
 var _events := []
 var _ticks := 0
 var _live := false
+var _connected := false
 
 
 func _enter_tree() -> void:
@@ -31,9 +33,6 @@ func _enter_tree() -> void:
 	_held.resize(_inputs.size())
 	_held.fill(false)
 	_events.resize(_inputs.size())
-	if not _connect():
-		get_tree().quit(70)
-		return
 	_live = true
 	get_tree().physics_frame.connect(_on_physics_frame)
 
@@ -68,6 +67,12 @@ func _read(count: int) -> PackedByteArray:
 func _on_physics_frame() -> void:
 	if not _live:
 		return
+	if not _connected:
+		if not _connect():
+			_live = false
+			get_tree().quit(70)
+			return
+		_connected = true
 	if _ticks > 0:
 		_send_record()
 	var kind := _read(1)
