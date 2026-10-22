@@ -10,6 +10,11 @@ builds and replays; a reused session observes the current request's cancellation
 caches never change results. Exploration, shrinking and regressions also stop at a
 time limit, which makes how far they get depend on host speed; a run cut short is
 reported as an inconclusive `limit`, never as a pass.
+
+A spec with a `native` section plays a real game (a Godot project or an SDL2 program)
+natively through its adapter instead of an emulated image; this needs the owner's
+trusted native execution permission for the project. At most two native sessions
+stay cached, each holding its game process.
 """
 
 import hashlib
@@ -25,6 +30,7 @@ from hivemind_assembly.core import game_testing as gt
 from hivemind_assembly.core.common import Blocked, ContractError, digest, scoped
 
 from .game_machine import open_engine
+from . import native_game
 
 SIDES = ("original", "candidate", "both")
 MODES = ("compare", "run", "explore", "shrink", "package", "regressions")
@@ -42,11 +48,17 @@ def strip_images(result):
     return {k: v for k, v in result.items() if k != "_images"}
 
 
+def _native(runner):
+    sessions = (runner.original, runner.candidate) if isinstance(runner, gt.Pair) else (runner,)
+    return any(isinstance(s.engine, native_game.NativeEngine) for s in sessions)
+
+
 class GamePlay:
-    def __init__(self, builds=4, sessions=8):
+    def __init__(self, builds=4, sessions=8, native_sessions=2):
         self.lock = threading.Lock()
         self.builds, self.build_limit = OrderedDict(), builds
         self.sessions, self.session_limit = OrderedDict(), sessions
+        self.native_limit = native_sessions
 
     # Inputs.
     def load(self, root, path="game.json"):
@@ -120,6 +132,12 @@ class GamePlay:
     def images(self, context, spec, side):
         root = context.workspace
         result = {"original": None, "candidate": None, "build": None}
+        if "native" in spec:
+            # Native games are launch plans: a prepared runtime copy and its adapter.
+            for name in ("original", "candidate"):
+                if side in (name, "both"):
+                    result[name] = native_game.plan(root, spec, name, context)
+            return result
         if side in ("original", "both"):
             if "original_path" not in spec:
                 raise Blocked("This game spec names no original_path")
@@ -155,14 +173,16 @@ class GamePlay:
         return lambda: self._session(spec, images[side], side, cancel)
 
     def _key(self, spec, images, side, inputs):
+        def identity(image):
+            if isinstance(image, dict):
+                return image["digest"]
+            return hashlib.sha256(image).hexdigest() if image else None
+
         return digest(
             {
                 "spec": gs.spec_hash(spec),
                 "side": side,
-                "images": [
-                    hashlib.sha256(images[s]).hexdigest() if images.get(s) else None
-                    for s in ("original", "candidate")
-                ],
+                "images": [identity(images.get(s)) for s in ("original", "candidate")],
                 "inputs": inputs.hex(),
             }
         )
@@ -172,10 +192,16 @@ class GamePlay:
             return self.sessions.pop(key, None)
 
     def _keep(self, key, runner):
+        evicted = []
         with self.lock:
             self.sessions[key] = runner
             while len(self.sessions) > self.session_limit:
-                self.sessions.popitem(last=False)
+                evicted.append(self.sessions.popitem(last=False)[1])
+            native = [k for k, r in self.sessions.items() if _native(r)]
+            for old in native[: max(0, len(native) - self.native_limit)]:
+                evicted.append(self.sessions.pop(old))
+        for old in evicted:
+            gt.close(old)
 
     @staticmethod
     def _start(spec, args):
@@ -214,14 +240,23 @@ class GamePlay:
                 # Never echo host paths; the class names the problem.
                 result["sides"][side] = {"available": False, "reason": "Unreadable project input (" + type(error).__name__ + ")"}
                 continue
-            result["sides"][side] = {
-                "available": True,
-                "capabilities": session.engine.capabilities,
-                "build": images["build"],
-                "functions": sorted(session.engine.coverage()),
-                "unresolved_memory_fields": session.unresolved,
-                "startup": session.observation(recent=1, view=False),
-            }
+            try:
+                result["sides"][side] = {
+                    "available": True,
+                    "capabilities": session.engine.capabilities,
+                    "build": images["build"],
+                    "functions": sorted(session.engine.coverage()),
+                    "unresolved_memory_fields": session.unresolved,
+                    "startup": session.observation(recent=1, view=False),
+                }
+            finally:
+                session.close()
+            if "native" in spec:
+                # Native games are deterministic only as far as their adapter controls
+                # time and randomness; check by playing the same inputs twice.
+                result["sides"][side]["determinism"] = native_game.determinism(
+                    lambda image=images[side], name=side: self._session(spec, image, name, context.cancel), spec
+                )
         result["regressions"] = 0
         try:
             regressions = scoped(context.workspace, spec["regressions_path"])
@@ -235,7 +270,11 @@ class GamePlay:
             # A broken regressions file must not hide a playable game.
             detail = str(error) if isinstance(error, (ContractError, Blocked)) else type(error).__name__
             result["regressions_error"] = spec["regressions_path"] + ": " + detail
-        result["claim"] = "Deterministic emulated play under the declared contract; not GPU, window-system or hardware-timing evidence."
+        result["claim"] = (
+            "Native play through the game's adapter with a fixed frame step and seeded randomness; determinism is checked, not assumed. Not GPU, window-system or hardware-timing evidence."
+            if "native" in spec
+            else "Deterministic emulated play under the declared contract; not GPU, window-system or hardware-timing evidence."
+        )
         return result
 
     def play(self, context, args):
@@ -265,6 +304,7 @@ class GamePlay:
         sessions = (runner.original, runner.candidate) if side == "both" else (runner,)
         reached = gt.check_expectations(spec, (sessions[0].latest or {}).get("values", {}), preconditions)
         if any(item["met"] is not True for item in reached):
+            gt.close(runner)
             return {
                 "passed": False,
                 "outcome": "unreached",
@@ -309,6 +349,8 @@ class GamePlay:
         result["_images"] = gt.recent_images(sessions, count)
         if not runner.stopped and not args.get("end"):
             self._keep(self._key(spec, images, side, bytes(runner.inputs)), runner)
+        else:
+            gt.close(runner)
         return result
 
     def test(self, context, args):
@@ -378,17 +420,20 @@ class GamePlay:
                 raise Blocked("match_original regressions need the original image")
             single = self.factory(spec, images, "candidate", context.cancel)
             return result | gt.run_regressions(spec, pair, single, items, deadline=deadline, cancel=context.cancel)
-        runner = make()
-        runner.feed(start)
-        sessions = (runner.original, runner.candidate) if side == "both" else (runner,)
-        reached = gt.check_expectations(spec, (sessions[0].latest or {}).get("values", {}), preconditions)
-        if args.get("end", False) is True:
-            runner.end()
-        if side == "both":
-            report = runner.report()
-        else:
-            report = gt.session_report(runner) | {"summary": runner.summary(), "trajectory": gs.encode_token(runner.inputs)}
-        if any(item["met"] is not True for item in reached):
-            report = report | {"passed": False, "outcome": "unreached", "preconditions": reached}
         count = _bounded_int(args, "images", 1, 0, 4)
-        return result | report | {"_images": gt.recent_images(sessions, count)}
+        runner = make()
+        try:
+            runner.feed(start)
+            sessions = (runner.original, runner.candidate) if side == "both" else (runner,)
+            reached = gt.check_expectations(spec, (sessions[0].latest or {}).get("values", {}), preconditions)
+            if args.get("end", False) is True:
+                runner.end()
+            if side == "both":
+                report = runner.report()
+            else:
+                report = gt.session_report(runner) | {"summary": runner.summary(), "trajectory": gs.encode_token(runner.inputs)}
+            if any(item["met"] is not True for item in reached):
+                report = report | {"passed": False, "outcome": "unreached", "preconditions": reached}
+            return result | report | {"_images": gt.recent_images(sessions, count)}
+        finally:
+            gt.close(runner)
