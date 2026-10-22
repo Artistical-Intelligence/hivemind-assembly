@@ -40,11 +40,8 @@ def validate(status):
         if type(item["live_model_inference"]) is not bool:
             raise ValueError("live_model_inference must be boolean: " + item["id"])
     removed = status.get("run_logs_removed_before")
-    if removed is not None:
-        if set(removed) != {"run", "date", "reason"} or type(removed["run"]) is not int or removed["run"] <= 0:
-            raise ValueError("run_logs_removed_before needs a positive run, a date and a reason")
-        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", removed["date"]):
-            raise ValueError("run_logs_removed_before date must be YYYY-MM-DD")
+    if removed is not None and (type(removed) is not int or removed <= 0):
+        raise ValueError("run_logs_removed_before must be a positive workflow run ID")
     live = status["native_live_acceptance"]
     if not 0 <= live["validated_routes"] <= live["required_routes"]:
         raise ValueError("Validated routes outside the required range")
@@ -71,8 +68,8 @@ def render(status):
     removed = status.get("run_logs_removed_before")
 
     def run_cell(run):
-        # Runs from before the repository was recreated no longer exist on GitHub; no dead links.
-        if removed and run < removed["run"]:
+        # Runs older than this ID no longer have logs on GitHub; avoid dead links.
+        if removed and run < removed:
             return f"{run} (log removed)"
         return f"[{run}]({RUN}{run})"
 
@@ -82,8 +79,6 @@ def render(status):
             f"| {item['id']} ({item['date']}) | `{item['commit'][:7]}` | {runs} | "
             f"{item['host']} | {'yes' if item['live_model_inference'] else 'no'} |"
         )
-    if removed:
-        lines += ["", f"Runs marked “log removed” ran before {removed['date']}. {removed['reason']}"]
     lines.append("")
     for item in evidence:
         lines.append(f"- **{item['id']}** (`{item['commit'][:7]}`): {item['summary']}")
