@@ -295,7 +295,10 @@ def replay(
     observations=(),
     cancel=None,
     coverage=None,
+    tick_marks=False,
 ):
+    """`tick_marks` records the instruction count at each standard-input read, so a
+    game harness can bound every tick; it does not change the replay."""
     import unicorn as u
     from unicorn import x86_const as x
     from unicorn import arm64_const as ac
@@ -361,6 +364,7 @@ def replay(
     )
     events, output, stderr = [], bytearray(), bytearray()
     cursor, count, status, exit_code = 0, 0, "budget_exhausted", None
+    marks = [] if tick_marks else None
     fault = None
     last_instruction, active_syscall, access_detail = None, None, None
 
@@ -407,6 +411,8 @@ def replay(
             stop("event_limit")
             return
         if operation == "read" and a == 0:
+            if marks is not None:
+                marks.append(count)
             length = min(n, len(input_bytes) - cursor)
             if not region(b, length, u.UC_PROT_WRITE):
                 result = -14
@@ -544,6 +550,8 @@ def replay(
         if "program_counter" in context:
             context["image_sha256"] = hashlib.sha256(data).hexdigest()
     observed = {"coverage": hits} if coverage is not None else {}
+    if marks is not None:
+        observed["read_instructions"] = marks
     return {
         **observed,
         "status": status,
