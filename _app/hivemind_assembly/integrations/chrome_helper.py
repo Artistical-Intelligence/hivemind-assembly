@@ -33,13 +33,17 @@ def endpoint_origin(endpoint):
     if (
         u.scheme != "https" or u.username or u.password or u.port is not None
         or u.path != "/mcp" or u.query or u.fragment
-        or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*\.trycloudflare\.com", u.hostname or "")
+        or not (
+            re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*\.trycloudflare\.com", u.hostname or "")
+            or re.fullmatch(r"ha-connection-[0-9a-f]{12}\.[a-z0-9][a-z0-9-]{0,62}\.workers\.dev", u.hostname or "")
+        )
     ):
         raise Blocked("Start the browser connection in HA (Connections) first.")
     return "https://" + u.hostname
 
 
 def details(quick, provider):
+    """quick is the active connection: the temporary or the permanent address."""
     from .quick_connect import PROVIDERS
 
     if provider not in PROVIDERS:
@@ -81,6 +85,10 @@ def pair(quick, provider, page_url, flow):
     callback = values.get("redirect_uri", "")
     if not safe_redirect(callback) or provider_for_redirect(callback) != provider:
         raise Blocked("The approval page belongs to a different assistant.")
+    if not hasattr(quick, "gateway"):
+        # The permanent address: its Worker checks the request is live and matches.
+        code = quick.pairing(flow=flow, client_id=values.get("client_id"), redirect_uri=callback)
+        return {**current, "pairing_code": code["code"], "expires_in": code["expires_in"], "flow": flow}
     gateway = quick.gateway
     if gateway is None:
         raise Blocked("The browser connection stopped. Start it again in HA.")
