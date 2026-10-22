@@ -1,4 +1,5 @@
 import json, threading, urllib.request, urllib.error
+from pathlib import Path
 import pytest
 from workbench.app import Application, make_server
 
@@ -370,3 +371,33 @@ def test_errors_do_not_echo_host_paths_or_internals(server, app, monkeypatch, tm
     with pytest.raises(urllib.error.HTTPError) as e:
         call(server, "/api/status", app.token + "x")
     assert e.value.code == 403
+
+
+def test_first_run_reports_foundations_and_loads_them_after_install(app, monkeypatch, tmp_path):
+    import time
+    from hivemind_assembly.application import setup
+
+    status = app.status()["foundations"]
+    assert status["ready"] is False and not status["installing"]
+    homes = {name: tmp_path / name for name in ("ghidra_home", "rea_home", "hermes_home")}
+
+    def fake_install(root, config_path):
+        for path in homes.values():
+            path.mkdir()
+        config = json.loads(Path(config_path).read_text())
+        config["foundations"].update({k: str(v) for k, v in homes.items()})
+        Path(config_path).write_text(json.dumps(config))
+        return {"verification": {"passed": True}}
+
+    monkeypatch.setattr(setup, "install_foundations", fake_install)
+    app.action("/api/setup", {})
+    for _ in range(100):
+        if app.status()["foundations"]["ready"]:
+            break
+        time.sleep(0.05)
+    assert app.status()["foundations"] == {
+        "ready": True,
+        "present": {name: True for name in homes},
+        "installing": False,
+        "restart_needed": False,
+    }

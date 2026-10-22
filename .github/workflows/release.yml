@@ -1,0 +1,66 @@
+name: Publish release
+# A version tag (v0.25.1) builds, installs and verifies the Windows packages and
+# publishes them as a GitHub Release with a permanent download link.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to publish (for example v0.25.1)
+        required: true
+permissions:
+  contents: write
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  windows-release:
+    timeout-minutes: 30
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check the tag matches the release version
+        shell: pwsh
+        run: |
+          $tag = '${{ inputs.tag || github.ref_name }}'
+          $version = (Get-Content _app/release_status.json -Raw | ConvertFrom-Json).version
+          if ($tag -ne "v$version") { throw "Tag $tag does not match release_status.json version $version" }
+      - name: Build, install and verify packages
+        shell: pwsh
+        run: ./dev/package_windows.ps1 -Output "${{ runner.temp }}/ha-release"
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = '${{ inputs.tag || github.ref_name }}'
+          $files = Get-ChildItem "${{ runner.temp }}/ha-release" | Where-Object { $_.Name -match '(_Windows\.zip|_Source\.zip|_Setup\.exe)$' }
+          $sums = $files | ForEach-Object { "{0}  {1}" -f (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower(), $_.Name }
+          $notes = @(
+            "Download **$($files | Where-Object Name -like '*_Setup.exe' | Select-Object -ExpandProperty Name)** and run it. It installs for your Windows user without administrator rights and adds a Start menu shortcut.",
+            "",
+            "The installer is not code-signed, so Windows SmartScreen may warn: choose **More info -> Run anyway**.",
+            "Updating: run the newer installer; projects and settings in your local application data folder are kept. Uninstalling also keeps them.",
+            "The Windows ZIP is the same application for manual installation; the Source ZIP is for development.",
+            "",
+            "Evidence and remaining live acceptance are listed in README (Current evidence) for this exact commit.",
+            "",
+            "SHA-256:",
+            '```',
+            ($sums -join "`n"),
+            '```'
+          ) -join "`n"
+          Set-Content -Path release-notes.md -Value $notes -Encoding utf8
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag @($files.FullName) --clobber
+          } else {
+            gh release create $tag @($files.FullName) --title "Hivemind Assembly $tag (engineering preview)" --notes-file release-notes.md --latest
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }

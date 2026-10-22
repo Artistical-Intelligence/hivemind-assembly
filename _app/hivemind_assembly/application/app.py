@@ -283,6 +283,7 @@ class Application:
                 )
             ],
             "jobs": self.background,
+            "foundations": self.foundations_status(),
             "routes": [
                 {
                     **{
@@ -299,6 +300,28 @@ class Application:
                 }
                 for k, v in self.config["routes"].items()
             ],
+        }
+
+    def foundations_status(self):
+        """Whether the pinned foundations are configured on disk, for first-run setup."""
+        configured = self.config.get("foundations", {})
+        present = {
+            name: bool(configured.get(name)) and Path(configured[name]).exists()
+            for name in ("ghidra_home", "rea_home", "hermes_home")
+        }
+        installing = any(
+            job["name"] == "Install pinned foundations" and job["status"] == "running"
+            for job in self.background.values()
+        )
+        installed_now = any(
+            job["name"] == "Install pinned foundations" and job["status"] == "completed"
+            for job in self.background.values()
+        )
+        return {
+            "ready": all(present.values()),
+            "present": present,
+            "installing": installing,
+            "restart_needed": installed_now and not all(present.values()),
         }
 
     def background_job(self, name, fn):
@@ -984,10 +1007,18 @@ class Application:
         if path == "/api/setup":
             from hivemind_assembly.application.setup import install_foundations
 
-            return self.background_job(
-                "Install pinned foundations",
-                lambda: install_foundations(self.store.root, self.config_path),
-            )
+            if self.foundations_status()["installing"]:
+                raise Blocked("Foundation installation is already running")
+
+            def install():
+                result = install_foundations(self.store.root, self.config_path)
+                # Load the new paths in place so specialists can use them
+                # without restarting HA.
+                saved = json.loads(Path(self.config_path).read_text())
+                self.config["foundations"].update(saved.get("foundations", {}))
+                return result
+
+            return self.background_job("Install pinned foundations", install)
         raise ContractError("Unknown action")
 
     def run_native_tests(self, task_id, expected_revision=None):

@@ -71,15 +71,16 @@ jobs:
           path: browser-results.xml
           retention-days: 3
   windows-package:
-    timeout-minutes: 20
+    timeout-minutes: 30
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Build and verify release archives
-        run: python dev/build_release.py "${{ runner.temp }}/ha-packages"
+      - name: Build and verify release archives and installer
+        shell: pwsh
+        run: ./dev/package_windows.ps1 -Output "${{ runner.temp }}/ha-packages"
       - name: Install and exercise the packaged runtime
         shell: pwsh
         run: |
@@ -102,6 +103,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Hivemind-Assembly-packages-${{ github.sha }}
-          path: ${{ runner.temp }}/ha-packages/*.zip
+          path: |
+            ${{ runner.temp }}/ha-packages/*.zip
+            ${{ runner.temp }}/ha-packages/*_Setup.exe
           retention-days: 14
           if-no-files-found: error
