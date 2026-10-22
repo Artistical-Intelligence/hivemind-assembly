@@ -144,3 +144,25 @@ def test_start_requires_mcp_access(tmp_path):
     with pytest.raises(Exception, match="MCP access"):
         quick.start()
     assert quick.status()["state"] == "off"
+
+
+def test_local_apps_are_detected_and_configured_without_losing_settings(store, tmp_path, monkeypatch):
+    import tomllib
+    from hivemind_assembly.integrations.mcp import Connections
+
+    home = tmp_path / "home"
+    monkeypatch.setenv("APPDATA", str(home / "AppData" / "Roaming"))
+    (home / ".config" / "Claude").mkdir(parents=True)
+    (home / "AppData" / "Roaming" / "Claude").mkdir(parents=True)
+    (home / ".codex").mkdir()
+    (home / ".codex" / "config.toml").write_text('model = "x"\n[mcp_servers.other]\ncommand = "y"\n')
+    connections = Connections(store)
+    first = connections.install_local_apps(home)["apps"]
+    assert {a["app"] for a in first} == {"Claude Desktop", "Codex"}
+    assert all(a["result"].startswith("Added") for a in first)
+    again = connections.install_local_apps(home)["apps"]
+    assert all(a["result"].startswith("Added") for a in again)
+    codex = tomllib.loads((home / ".codex" / "config.toml").read_text())
+    assert codex["model"] == "x" and set(codex["mcp_servers"]) == {"other", "hivemind-assembly"}
+    claude = next(p for n, p in connections.local_clients(home) if n == "Claude Desktop")
+    assert "hivemind-assembly" in json.loads(claude.read_text())["mcpServers"]
