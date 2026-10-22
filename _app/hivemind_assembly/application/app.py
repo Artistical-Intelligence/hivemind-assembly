@@ -450,6 +450,21 @@ class Application:
             return self.quick.pairing()
         if path == "/api/quick/revoke":
             return self.quick.revoke()
+        if path in ("/api/helper/status", "/api/helper/details", "/api/helper/pair"):
+            from hivemind_assembly.integrations import chrome_helper
+
+            if path == "/api/helper/status":
+                status = self.quick.status()
+                return {"state": status["state"], "message": status["message"], "services": status["services"]}
+            if path == "/api/helper/details":
+                return chrome_helper.details(self.quick, data.get("provider"))
+            return chrome_helper.pair(self.quick, data.get("provider"), data.get("page_url"), data.get("flow"))
+        if path == "/api/helper/install":
+            from hivemind_assembly.integrations import chrome_helper
+
+            result = chrome_helper.register_native_host(self.store.root)
+            result["opened"] = chrome_helper.open_extensions_page() if data.get("open") else False
+            return result
         if path == "/api/mcp/local-apps":
             return self.connections.install_local_apps()
         if path == "/api/mcp/settings":
