@@ -30,6 +30,8 @@ playwright-report/
 # credentials, artifacts, backups and logs.
 *.sqlite3*
 settings.json
+# Shared Claude Code project settings (commit attribution) are not runtime data.
+!.claude/settings.json
 host.lock
 private/
 projects/
