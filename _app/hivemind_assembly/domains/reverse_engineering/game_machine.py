@@ -258,6 +258,7 @@ class GameMachine:
         self.stop_context = None
         self.blocks = {}
         self.counted = 0
+        self.seen = 0
         self.last_block = None
         self.access = None
         self.active_syscall = None
@@ -297,26 +298,35 @@ class GameMachine:
         return (count if consumed == size and count else None), code
 
     def _block(self, engine, address, size, _):
+        # Hot path: a block validated before runs with counting and coverage only.
         cached = self.blocks.get(address)
-        if cached is None or cached[0] != size or (
-            self.mutable_code and bytes(engine.mem_read(address, size)) != cached[2]
-        ):
+        if cached is not None and cached[0] == size and not self.mutable_code:
+            self.counted += cached[1]
+            if cached[3] is not None:
+                self.hits[cached[3]] += 1
+            self.seen += 1
+            if not self.seen & 1023 and self.cancel is not None and self.cancel.is_set():
+                self._stop("cancelled")
+            return
+        self._first_block(engine, address, size, cached)
+
+    def _first_block(self, engine, address, size, cached):
+        if cached is None or cached[0] != size or bytes(engine.mem_read(address, size)) != cached[2]:
             count, code = self._validate(address, size)
             if count is None:
                 self.last_block = (address, code[:15])
                 self._stop("unsupported_cpu_state")
                 return
-            cached = self.blocks[address] = (size, count, code)
+            cached = self.blocks[address] = (size, count, code, self.entries.get(address))
         self.last_block = (address, cached[2][: 4 if self.arm else 15])
+        # AArch64 requires an aligned stack pointer; checked when a block is
+        # first translated and at every system call.
         if self.arm and engine.reg_read(self.stack_register) % 16:
             self._stop("unsupported_cpu_state")
             return
-        name = self.entries.get(address)
-        if name is not None:
-            self.hits[name] += 1
         self.counted += cached[1]
-        if self.cancel is not None and self.counted & 1023 < cached[1] and self.cancel.is_set():
-            self._stop("cancelled")
+        if cached[3] is not None:
+            self.hits[cached[3]] += 1
 
     def _invalid(self, engine, access, address, size, value, _):
         from .unicorn_diagnostics import memory_access
@@ -329,7 +339,11 @@ class GameMachine:
     def _interrupt(self, engine, number, _):
         pc = engine.reg_read(self.pc_register)
         # SVC #0 is the only admitted exception; PC already points past it.
-        if number != 2 or bytes(engine.mem_read(pc - 4, 4)) != b"\x01\x00\x00\xd4":
+        if (
+            number != 2
+            or bytes(engine.mem_read(pc - 4, 4)) != b"\x01\x00\x00\xd4"
+            or engine.reg_read(self.stack_register) % 16
+        ):
             self._stop("unsupported_cpu_state")
             return
         self._syscall(engine)
