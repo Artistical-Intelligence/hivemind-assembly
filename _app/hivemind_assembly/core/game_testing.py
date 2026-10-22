@@ -133,6 +133,9 @@ class Session:
         for item, address in self.memory:
             width = gs.FIELD_TYPES[item["type"]][1]
             try:
+                # A pointer path reads a 64-bit pointer, then adds the next offset.
+                for step in item.get("pointers", ()):
+                    address = int.from_bytes(self.engine.read_memory(address, 8), "little") + step
                 raw = self.engine.read_memory(address, width)
             except ContractError:
                 continue
