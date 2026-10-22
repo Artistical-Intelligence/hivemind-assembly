@@ -684,7 +684,7 @@ be started manually. The Windows analysis fixture is a native PE DLL because
 REA’s experimental Windows provider does not admit Linux ELF targets. This gate
 does not sign into model accounts or replace live autonomous acceptance.
 
-The full foundation check passed at checkpoint `0b1ef32` in hosted run 39476662077 (log removed when the repository was recreated), using default Ghidra analyzers and upstream REA process/filesystem controls. The runner supplied prerequisite tools; this does not establish desktop WinGet setup.
+The full foundation check passed at checkpoint `0b1ef32` in hosted run 39476662077 (log removed), using default Ghidra analyzers and upstream REA process/filesystem controls. The runner supplied prerequisite tools; this does not establish desktop WinGet setup.
 
 HTTP MCP authorization also accepts a hosted client metadata URL. In Connections, generate the public document using a fixed callback port, serve it at your HTTPS URL, and connect. HA uses the official SDK to prefer this registration when the server advertises support, retaining the choice for reconnects and token refresh. The document contains no credentials. Editing the registration or endpoint invalidates in-flight authorization; an HTTPS host is required for the document.
 
