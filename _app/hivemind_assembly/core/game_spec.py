@@ -128,6 +128,14 @@ def conditions(value, fields, what):
 def _segment(item, names):
     if not isinstance(item, dict):
         raise ContractError("Output segments must be objects")
+    if "size" in item:
+        # Normalized specs carry the derived size; it must still agree.
+        item = dict(item)
+        declared = item.pop("size")
+        result = _segment(item, names)
+        if declared != result["size"]:
+            raise ContractError("Segment size does not match its declared format")
+        return result
     name = _name(item.get("name"), "Output segment")
     if name in names:
         raise ContractError("Output segment names must be unique")
