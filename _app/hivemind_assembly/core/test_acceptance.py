@@ -18,12 +18,16 @@ class NativeTestAcceptance:
             "native_test_permission:" + project, uid("permission"), {"allowed": allowed}
         )
 
-    def require_permission(self, project):
+    def allowed(self, project):
+        """Whether the owner currently allows trusted native execution here."""
         rows = self.store.rows(
             "SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1",
             ("native_test_permission:" + project,),
         )
-        if not rows or json.loads(rows[0]["payload"])["allowed"] is not True:
+        return bool(rows) and json.loads(rows[0]["payload"])["allowed"] is True
+
+    def require_permission(self, project):
+        if not self.allowed(project):
             raise Blocked(
                 "Owner has not enabled trusted native test execution for this project"
             )
