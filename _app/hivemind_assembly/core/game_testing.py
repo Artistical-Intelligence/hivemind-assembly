@@ -342,6 +342,9 @@ def compare_tick(spec, original, candidate):
                 }
             else:
                 channels[name] = {"format": "raw", "passed": a == b, "exact": a == b}
+        elif a == b:
+            # Identical captures pass under every tolerance; skip per-sample metrics.
+            channels[name] = {"format": segment["format"], "passed": True, "exact": True, "reason": "compared"}
         else:
             metric = compare_capture(b, a, _tolerance_rule(segment, spec["compare"]["segments"]))
             metric.pop("frames", None)
