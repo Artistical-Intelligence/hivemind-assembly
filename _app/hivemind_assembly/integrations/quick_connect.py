@@ -44,9 +44,9 @@ PROVIDERS = {
         "steps": [
             "Open Add custom MCP server.",
             "Name: Hivemind Assembly.",
-            "Connection: Server URL (not Tunnel). Paste the address below.",
+            "Connection: Server URL (not Tunnel). Paste the address above.",
             "Authentication: OAuth. Confirm, then create it.",
-            "On HA's approval page, enter the approval code below.",
+            "On HA's approval page, select Show approval code and enter it there.",
         ],
     },
     "Claude": {
@@ -54,9 +54,9 @@ PROVIDERS = {
         "steps": [
             "Open Add custom connector.",
             "Name: Hivemind Assembly.",
-            "MCP server URL: paste the address below, then Continue.",
+            "MCP server URL: paste the address above, then Continue.",
             "If asked about authentication, choose Sign in now and Register automatically.",
-            "On HA's approval page, enter the approval code below.",
+            "On HA's approval page, select Show approval code and enter it there.",
         ],
     },
 }
