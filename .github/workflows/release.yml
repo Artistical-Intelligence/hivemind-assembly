@@ -21,7 +21,14 @@ concurrency:
   cancel-in-progress: false
 jobs:
   windows-release:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    # A workflow_run release must come from a passing push to this repository's
+    # main branch, never from a pull request (a fork can name its branch main).
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     timeout-minutes: 30
     runs-on: windows-latest
     steps:
