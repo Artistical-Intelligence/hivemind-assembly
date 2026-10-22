@@ -25,6 +25,8 @@ AppPublisherURL=https://github.com/Artistical-Intelligence/hivemind-assembly
 DefaultDirName={localappdata}\Programs\Hivemind Assembly
 DefaultGroupName=Hivemind Assembly
 DisableProgramGroupPage=yes
+; Always offer the installation folder, also when updating (it defaults to the previous one).
+DisableDirPage=no
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesAllowed=x64compatible

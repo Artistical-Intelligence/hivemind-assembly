@@ -73,14 +73,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = '${{ steps.plan.outputs.tag }}'
-          $files = Get-ChildItem "${{ runner.temp }}/ha-release" | Where-Object { $_.Name -match '(_Windows\.zip|_Source\.zip|_Setup\.exe)$' }
+          $files = Get-ChildItem "${{ runner.temp }}/ha-release" | Where-Object { $_.Name -match '_Setup\.exe$' }
           $sums = $files | ForEach-Object { "{0}  {1}" -f (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower(), $_.Name }
           $notes = @(
             "Download **$($files | Where-Object Name -like '*_Setup.exe' | Select-Object -ExpandProperty Name)** and run it. It installs for your Windows user without administrator rights and adds a Start menu shortcut.",
             "",
             "The installer is not code-signed, so Windows SmartScreen may warn: choose **More info -> Run anyway**.",
             "Updating: run the newer installer; projects and settings in your local application data folder are kept. Uninstalling also keeps them.",
-            "The Windows ZIP is the same application for manual installation; the Source ZIP is for development.",
+            "The installer lets you choose the installation folder. The source code is in the repository and in GitHub's automatic source downloads below.",
             "",
             "Evidence and remaining live acceptance are listed in README (Current evidence) for this exact commit.",
             "",
