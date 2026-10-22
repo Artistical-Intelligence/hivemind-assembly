@@ -83,7 +83,7 @@ def starter(app, kind, request_id, allow_native=False):
         "[A-Za-z0-9_-]{16,80}", request_id
     ):
         raise ValueError("A stable starter request ID is required")
-    if kind not in ("registers", "native_python", "native_frames", "linked_arm64", "program_arm64", "program_windows", "program_frames", "autonomous_program", "project_game"):
+    if kind not in ("registers", "native_python", "native_frames", "linked_arm64", "program_arm64", "program_windows", "program_frames", "autonomous_program", "project_game", "game_testing"):
         raise ValueError("Unknown starter project")
     if kind in ("native_python", "native_frames") and allow_native is not True:
         raise Blocked(
@@ -116,6 +116,7 @@ def starter(app, kind, request_id, allow_native=False):
                 "program_frames": "Emulated frame reconstruction",
                 "autonomous_program": "Autonomous reconstruction trial",
                 "project_game": "Game project reconstruction",
+                "game_testing": "Game play-testing example",
             }[kind],
             objective,
             paused=True,
@@ -133,6 +134,10 @@ def starter(app, kind, request_id, allow_native=False):
         files, contract, image = example(app)
     elif kind == "project_game":
         files, contract, image = project_game_example(app)
+    elif kind == "game_testing":
+        from .game_example import example
+
+        files, contract, image = example(app)
     elif kind == "linked_arm64":
         files, contract, image = arm64_example(app)
     elif kind == "program_arm64":
