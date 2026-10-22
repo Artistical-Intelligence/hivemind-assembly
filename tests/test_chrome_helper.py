@@ -116,7 +116,7 @@ def test_extension_files_match_the_helper():
     folder = chrome_helper.EXTENSION_DIR
     manifest = json.loads((folder / "manifest.json").read_text())
     assert chrome_helper.extension_id() == chrome_helper.EXTENSION_ID
-    assert manifest["optional_host_permissions"] == ["https://*.trycloudflare.com/*"]
+    assert manifest["optional_host_permissions"] == ["https://*.trycloudflare.com/*", "https://*.workers.dev/*"]
     for name in ("background.js", "popup.js"):
         assert chrome_helper.HOST_NAME in (folder / name).read_text()
     for name in ("background.js", "form.js", "navigation.js", "pairing.js", "popup.js", "popup.html", "popup.css",
