@@ -1,7 +1,7 @@
 // Plain hover descriptions for every dashboard button, including buttons added later.
 (() => {
   const byId = {
-    'native-all': 'Open sign-in windows for each AI assistant HA works with.',
+    'native-all': 'Open one sign-in window per account (ChatGPT, Claude), then set up each assistant.',
     'verify': 'Run a quick built-in self-test.',
     'native-test-run': 'Run the saved tests for this project now.',
     'native-test-results': 'Show the results of the most recent test run.',
