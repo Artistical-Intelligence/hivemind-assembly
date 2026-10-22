@@ -25,10 +25,11 @@
 - State what was actually verified. Keep historical evidence separate from
   current-run results; never count fixtures as live provider acceptance.
 
-- Publish coherent, tested implementation checkpoints to the connected private
-  GitHub repository during long runs. Do not defer all publication until the
-  final release. Preserve remote changes; never force-push. Exclude credentials,
-  private runtime data and source material without sharing permission.
+- Commit and push to `main` immediately after every individual file edit, even
+  several times within a single reply. Never batch changes or wait for
+  checkpoints or the end of a reply. Preserve remote changes; never force-push.
+  Exclude credentials, private runtime data and source material without sharing
+  permission.
 
 - Record verified evidence in `_app/release_status.json` (`evidence`, with full
   commit SHAs and run IDs), then run `python dev/status_docs.py --write`; the README
