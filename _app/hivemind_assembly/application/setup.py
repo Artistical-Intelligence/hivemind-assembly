@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, os, shutil, subprocess, urllib.request, zipfile
+import json, os, shutil, subprocess, threading, time, urllib.request, zipfile
 from pathlib import Path
 from hivemind_assembly.core.common import (
     atomic_write,
@@ -29,6 +29,79 @@ PINS = {
 }
 
 
+class SetupProgress:
+    """Progress of the one-step tool installation, as the dashboard shows it.
+
+    Steps are planned with rough weights (about their download size in MB) so the
+    overall percentage moves at a sensible rate; downloads HA makes itself also
+    report bytes. Time left is a linear estimate from the elapsed time.
+    """
+
+    def __init__(self, publish=None):
+        self.publish = publish or (lambda state: None)
+        self.plan = {}
+        self.done = set()
+        self.current = None
+        self.fraction = 0.0
+        self.download_state = None
+        self.started = time.monotonic()
+        self.last_emit = 0.0
+        self.lock = threading.Lock()
+
+    def expect(self, label, weight):
+        with self.lock:
+            self.plan.setdefault(label, max(1, weight))
+
+    def begin(self, label, weight=10):
+        with self.lock:
+            if self.current:
+                self.done.add(self.current)
+            self.plan.setdefault(label, weight)
+            self.current, self.fraction, self.download_state = label, 0.0, None
+        self.emit(force=True)
+
+    def download(self, done, total):
+        with self.lock:
+            if total and total > 0:
+                self.fraction = min(1.0, done / total)
+            self.download_state = {"done_bytes": done, "total_bytes": total if total and total > 0 else None}
+        self.emit()
+
+    def finish(self):
+        with self.lock:
+            if self.current:
+                self.done.add(self.current)
+            self.current, self.fraction, self.download_state = None, 0.0, None
+        self.emit(force=True)
+
+    def snapshot(self):
+        with self.lock:
+            total = sum(self.plan.values()) or 1
+            finished = sum(w for label, w in self.plan.items() if label in self.done)
+            current = self.plan.get(self.current, 0) * self.fraction if self.current else 0
+            fraction = min(1.0, (finished + current) / total)
+            elapsed = time.monotonic() - self.started
+            remaining = None
+            if fraction >= 0.03 and elapsed >= 10:
+                remaining = round(elapsed * (1 - fraction) / fraction)
+            labels = list(self.plan)
+            return {
+                "label": self.current,
+                "step": labels.index(self.current) + 1 if self.current in labels else len(self.done),
+                "steps": len(labels),
+                "percent": round(fraction * 100, 1),
+                "seconds_left": remaining,
+                "download": dict(self.download_state) if self.download_state else None,
+            }
+
+    def emit(self, force=False):
+        now = time.monotonic()
+        if not force and now - self.last_emit < 0.5:
+            return
+        self.last_emit = now
+        self.publish(self.snapshot())
+
+
 def checked(argv, cwd=None):
     p = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, timeout=900)
     if p.returncode:
@@ -36,13 +109,30 @@ def checked(argv, cwd=None):
     return p.stdout.strip()
 
 
-def install_foundations(root, config_path):
+def install_foundations(root, config_path, progress=None):
     root = Path(root)
     destination = root / "foundations"
     destination.mkdir(exist_ok=True)
-    from .prerequisites import install_missing
+    from .prerequisites import install_missing, missing, WEIGHTS
 
-    prerequisites = install_missing()
+    progress = progress or SetupProgress()
+    # Plan every step first so the overall percentage is meaningful from the start.
+    if os.name == "nt":
+        for name in missing():
+            progress.expect(f"Installing {WEIGHTS[name][0]}", WEIGHTS[name][1])
+    ghidra = PINS["ghidra"]
+    archive = destination / "ghidra-pinned.zip"
+    installed = destination / ghidra["folder"]
+    for name, label, weight in (("hermes", "Downloading Hermes", 60), ("rea", "Downloading REA", 20)):
+        if not (destination / (name + "-" + PINS[name]["commit"][:12])).exists():
+            progress.expect(label, weight)
+    if not installed.exists():
+        if not archive.exists():
+            progress.expect("Downloading Ghidra", 480)
+        progress.expect("Unpacking Ghidra", 60)
+    progress.expect("Installing the REA package", 30)
+    progress.expect("Checking the installed tools", 15)
+    prerequisites = install_missing(progress=progress)
     if not shutil.which("git"):
         raise Blocked("Install Git for Windows, then retry foundation setup")
     if not shutil.which("node") or not shutil.which("npm"):
@@ -52,6 +142,7 @@ def install_foundations(root, config_path):
         pin = PINS[name]
         path = destination / (name + "-" + pin["commit"][:12])
         if not path.exists():
+            progress.begin("Downloading Hermes" if name == "hermes" else "Downloading REA")
             checked(["git", "clone", pin["url"], str(path)])
         head = checked(["git", "-C", str(path), "rev-parse", "HEAD"])
         if head != pin["commit"]:
@@ -61,17 +152,20 @@ def install_foundations(root, config_path):
             checked(["git", "-C", str(path), "checkout", "--detach", pin["commit"]])
         if checked(["git", "-C", str(path), "rev-parse", "HEAD"]) != pin["commit"]:
             raise ContractError("Foundation revision mismatch")
-    ghidra = PINS["ghidra"]
-    archive = destination / "ghidra-pinned.zip"
-    installed = destination / ghidra["folder"]
     if not installed.exists():
         if not archive.exists() or file_hash(archive) != ghidra["sha256"]:
             temporary = archive.with_suffix(".download")
-            urllib.request.urlretrieve(ghidra["url"], temporary)
+            progress.begin("Downloading Ghidra", 480)
+            urllib.request.urlretrieve(
+                ghidra["url"],
+                temporary,
+                reporthook=lambda blocks, size, total: progress.download(blocks * size, total),
+            )
             if file_hash(temporary) != ghidra["sha256"]:
                 temporary.unlink()
                 raise ContractError("Ghidra archive hash mismatch")
             os.replace(temporary, archive)
+        progress.begin("Unpacking Ghidra", 60)
         stage = destination / "ghidra-staging"
         stage.mkdir(exist_ok=True)
         with zipfile.ZipFile(archive) as z:
@@ -104,6 +198,7 @@ def install_foundations(root, config_path):
         "--omit=optional",
         "rea-agents@" + PINS["rea"]["npm_version"],
     ]
+    progress.begin("Installing the REA package", 30)
     checked(argv)
     cfg = json.loads(Path(config_path).read_text())
     cfg["foundations"].update(
@@ -115,6 +210,7 @@ def install_foundations(root, config_path):
     atomic_write(destination / "pins.json", canonical(PINS))
     from .verification import verify_foundations
 
+    progress.begin("Checking the installed tools", 15)
     verification = verify_foundations(
         root / "private" / "verification", cfg["foundations"]
     )
