@@ -471,9 +471,16 @@ class Pair:
         ]
 
     def findings(self):
-        """Reconstruction defects: the divergence and candidate-only problems."""
+        """Reconstruction defects, most specific first.
+
+        A candidate-only crash or freeze explains the status divergence it causes;
+        otherwise the first divergence comes before candidate-only rule violations,
+        which are usually its consequences.
+        """
         defects = [p for p in self.candidate_problems() if not p["original_behavior"] and p["kind"] != "limit"]
-        return ([self.divergence] if self.divergence else []) + defects
+        severe = [p for p in defects if p["kind"] in ("crash", "freeze")]
+        rest = [p for p in defects if p["kind"] not in ("crash", "freeze")]
+        return severe + ([self.divergence] if self.divergence else []) + rest
 
     def snapshot(self, light=False):
         return {
@@ -582,17 +589,18 @@ def explore(
     findings, quirks = {}, {}
 
     def collect(step):
-        found = False
         problems = runner.findings() if differential else session_findings(runner)
-        for problem in problems:
-            key = tuple(problem["signature"])
+        if problems:
+            # One finding per detection: later entries are usually its consequences.
+            primary = problems[0]
+            key = tuple(primary["signature"])
             if key not in findings and len(findings) < findings_limit:
-                findings[key] = problem | {
+                findings[key] = primary | {
                     "trajectory": gs.encode_token(runner.inputs),
                     "trajectory_ticks": len(runner.inputs) // record,
                     "step": step,
+                    "consequences": [p["signature"] for p in problems[1:]],
                 }
-            found = True
         if differential:
             for problem in runner.candidate_problems():
                 if problem["original_behavior"]:
@@ -600,7 +608,7 @@ def explore(
                         tuple(problem["signature"]),
                         problem | {"trajectory": gs.encode_token(runner.inputs)},
                     )
-        return found
+        return bool(problems)
 
     def coverage():
         sides = (runner.original, runner.candidate) if differential else (runner,)
