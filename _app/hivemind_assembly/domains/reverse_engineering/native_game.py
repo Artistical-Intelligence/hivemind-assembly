@@ -825,14 +825,23 @@ def _close_all():
             pass
 
 
-def determinism(make_runner, spec, ticks=30):
-    """Play the neutral input twice from fresh launches and compare every frame."""
-    neutral = bytes.fromhex(spec["input"]["neutral"]) * min(ticks, spec["limits"]["max_ticks"])
+def determinism(make_runner, spec, ticks=60):
+    """Play the same inputs twice from fresh launches and compare every record.
+
+    The probe plays the start named `probe` (or the first named start, so a game
+    that waits on a title screen gets past it) and then `ticks` neutral inputs.
+    """
+    starts = spec.get("starts") or {}
+    chosen = "probe" if "probe" in starts else next(iter(sorted(starts)), None)
+    record = spec["input"]["record_bytes"]
+    prefix = bytes.fromhex(starts[chosen]["inputs_hex"]) if chosen else b""
+    room = max(0, spec["limits"]["max_ticks"] - len(prefix) // record)
+    inputs = prefix + bytes.fromhex(spec["input"]["neutral"]) * min(ticks, room)
     observed = []
     for _ in range(2):
         runner = make_runner()
         try:
-            runner.feed(neutral)
+            runner.feed(inputs)
             observed.append((runner.engine.stdout.tail(0), runner.engine.stderr.tail(0), runner.status))
         finally:
             runner.engine.close()
@@ -845,4 +854,9 @@ def determinism(make_runner, spec, ticks=30):
             if first[0][index : index + size] != second[0][index : index + size]:
                 difference = index // size
                 break
-    return {"ticks": len(neutral) // spec["input"]["record_bytes"], "identical": identical, "first_difference_tick": difference}
+    return {
+        "ticks": len(inputs) // record,
+        "start": chosen,
+        "identical": identical,
+        "first_difference_tick": difference,
+    }
