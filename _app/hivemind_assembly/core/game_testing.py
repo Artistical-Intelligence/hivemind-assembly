@@ -889,6 +889,8 @@ def _explore(
         "original_behavior": list(quirks.values()),
         "classified_against_original": classified if reference is not None and not differential else None,
         "limit_hits": len(stops),
+        # Native games restore by replaying; a replay that differed means findings may not reproduce.
+        "replay_mismatches": sum(getattr(s.engine, "replay_mismatches", 0) for s in sides),
         "inconclusive": bounded[:8],
         "passed": result_outcome == "pass",
         "outcome": result_outcome,
