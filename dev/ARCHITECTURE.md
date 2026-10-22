@@ -456,10 +456,17 @@ environment and a fresh home, accepts the adapter's connection on a localhost po
 only with the per-launch token, and then exchanges one input record for one frame's
 record. The Godot adapter presses an action's first key binding (so shortcuts see it),
 seeds the global random generator, runs at a fixed frame rate and reports node
-properties, group counts and a scaled frame. The SDL2 adapter gives the game's own
-code virtual clocks and seeded entropy, injects key events and keyboard state, and
-captures the presented frame; the engine reads declared state from the paused
-process's memory by symbol and pointer path. Startup and per-frame wall-clock bounds
+properties, group counts and a scaled frame. On Linux `ha_entropy.c` answers
+`getrandom`, `getentropy`, `syscall(SYS_getrandom)` and `arc4random` from seeded
+streams, one per calling library and thread class (main or other), so draws by
+drivers or worker threads do not shift the game's; for Godot it is preloaded alone
+(when a C compiler is available) and reopens `RTLD_DEEPBIND` libraries such as
+GDExtensions without that flag so their requests reach it. The SDL2 adapter includes
+it, gives the game's own code virtual clocks, injects marked key events and keyboard
+state, delivers only those, quit, render resets and the game's own events (window and
+device events arrive at run-dependent times), passes one tick per empty wait for
+event-driven games, and captures the presented frame; the engine reads declared state
+from the paused process's memory by symbol and pointer path. Startup and per-frame wall-clock bounds
 separate a freeze from a crash (signal) or completion. Snapshots are input logs,
 restored by extending the running game or replaying from a fresh launch; a replay that
 yields different records marks the engine nondeterministic, and `describe_game` plays
