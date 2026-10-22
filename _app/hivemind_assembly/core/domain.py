@@ -23,6 +23,9 @@ class ToolContext:
     cancel: Event
     # Last host-verified project composition for rollback decisions, if any.
     verified: dict | None = None
+    # The owner enabled trusted native execution for this project (native games
+    # and recipes run the project's own programs on this computer).
+    native: bool = False
 
 
 class Domain(Protocol):
