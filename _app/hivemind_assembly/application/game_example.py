@@ -412,22 +412,24 @@ reconstruction built from build.json. Everything runs in HA's deterministic emul
 no native execution permission, GPU or model account is needed.
 
 Try it in Project files -> Play and test the game:
-1. Press the action buttons to play the candidate, the original or both side by side.
-   Every input is recorded; the trajectory replays exactly.
+1. Load game, then press the action buttons to play the candidate, the original or
+   both compared tick by tick. Every input is recorded; the trajectory replays exactly.
 2. Run saved regressions: the scripted coin route and the floor-gap quirk both pass.
    Falling through the gap reports y=12 for one tick in the original as well, so it is
-   reported as original behavior, not as a reconstruction defect.
-3. Explore with the original. Exploration returns to archived situations and tries new
-   actions. It finds two candidate defects the scripted route never reaches: a state
-   divergence near platform edges and a freeze (the candidate stops responding).
-4. Shrink each finding to a few inputs, then open its bug package to compare frames
-   and state just before the failing tick.
-5. Fix physics.c and effects.c, save, rerun regressions and exploration, save the
-   shrunk cases as regressions, and run tests. The pinned game_play checks replay
-   sealed trajectories on both builds and pass only when no divergence or
-   candidate-only problem remains.
+   original behavior, not a reconstruction defect.
+3. Choose Both and Explore. Exploration returns to situations it has reached and tries
+   new actions, comparing every tick. It soon finds a state divergence that the
+   scripted route never reaches. Shrink it to a few inputs and open its bug package to
+   compare frames and state at the failing tick. The cause is in physics.c.
+4. Fix it, save, and explore again: the next finding is a freeze (the candidate stops
+   responding). Exploring the candidate alone also finds it; problems the original
+   shares are listed separately. The cause is in effects.c.
+5. Save shrunk findings as regressions, rerun them after every change, and run tests.
+   The pinned game_play checks replay sealed trajectories on both builds and pass only
+   when no divergence or candidate-only problem remains.
 
-The sealed trajectories and original source are kept outside the workspace. This
+Native workers use the same operations: describe_game, play_game and test_game. The
+sealed trajectories and the original source are kept outside the workspace. This
 example verifies sampled deterministic play under a declared contract, not a GPU,
 window system, hardware timing or all possible inputs.
 """
