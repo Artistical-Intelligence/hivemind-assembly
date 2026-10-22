@@ -194,8 +194,12 @@ def test_sdl2_games_play_compare_and_stop_deterministically(tmp_path):
 
 
 WAITING_GAME = r"""#include <SDL2/SDL.h>
+#include <unistd.h>
 int x, presses;
 int main(void) {
+#ifdef SLOW_START
+    sleep(SLOW_START); /* a long load before the first frame */
+#endif
     SDL_Init(SDL_INIT_VIDEO);
     SDL_Window *window = SDL_CreateWindow("ha", 0, 0, 64, 48, SDL_WINDOW_SHOWN);
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
@@ -247,6 +251,35 @@ def test_event_driven_sdl2_games_see_each_press_on_its_tick(tmp_path):
     # Each press lands on its own tick and no window-system event reaches the game.
     assert played["outcome"] == "pass" and played["original"]["state"] == {"x": 3, "presses": 3}
     assert played["original"]["ticks"] == played["original"]["input_ticks"] == played["comparison"]["compared_ticks"] == 7
+    games.sessions.clear()
+
+
+def test_sdl2_startup_limit_covers_loading_before_the_first_frame(tmp_path):
+    root, compiler = _sdl_game(tmp_path)
+    flags = subprocess.run(["sdl2-config", "--cflags", "--libs"], capture_output=True, text=True, check=True).stdout.split()
+    (root / "slow.c").write_text(WAITING_GAME)
+    subprocess.run([compiler, "-O2", "-g", "-DSLOW_START=3", "-o", str(root / "slow"), str(root / "slow.c"), *flags], check=True, timeout=120)
+    spec = {
+        "version": 1,
+        "name": "Slow-loading test game",
+        "native": {
+            "adapter": "sdl2",
+            "original": {"executable": "slow"},
+            "candidate": {"executable": "slow"},
+            "inputs": [{"key": "Right"}],
+            "state": [{"name": "x", "type": "i32", "symbol": "x"}],
+            "tick_seconds": 1,
+            "startup_seconds": 30,
+            "action_ticks": 1,
+        },
+        "actions": {"right": [["right", 1], ["none", 1]], "wait": [["none", 1]]},
+        "limits": {"max_ticks": 20},
+    }
+    (root / "slow.json").write_text(json.dumps(spec))
+    games = GamePlay()
+    # Loading takes longer than a frame may; it counts against the startup limit.
+    played = games.play(_context(root, compiler), {"game_path": "slow.json", "side": "original", "actions": ["right"]})
+    assert played["outcome"] == "pass" and played["observation"]["state"] == {"x": 1}
     games.sessions.clear()
 
 
