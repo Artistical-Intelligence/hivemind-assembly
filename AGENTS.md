@@ -25,7 +25,7 @@
 - State what was actually verified. Keep historical evidence separate from
   current-run results; never count fixtures as live provider acceptance.
 
-- Commit and push to `main` immediately after every individual file edit, even
+- Commit and push to `main` immediately after any file is planned and after every individual file edit, even
   several times within a single reply. Never batch changes or wait for
   checkpoints or the end of a reply. Preserve remote changes; never force-push.
   Exclude credentials, private runtime data and source material without sharing
