@@ -34,6 +34,7 @@ class NativeBrowser:
         self.start_lock = asyncio.Lock()
         self.profile_locks = {}
         self.sign_in_waiting = set()
+        self.service_pages = set()
 
     async def start(self):
         from playwright.async_api import async_playwright
@@ -84,7 +85,13 @@ class NativeBrowser:
                         **opts,
                     )
                 )
-            page = await self.contexts[profile].new_page()
+            context = self.contexts[profile]
+            # Reuse the empty tab the browser opens at launch instead of adding one.
+            self.service_pages = {p for p in self.service_pages if not p.is_closed()}
+            claimed = set(self.pages.values()) | self.service_pages
+            blank = [p for p in context.pages if p.url == "about:blank" and p not in claimed]
+            page = blank[0] if blank else await context.new_page()
+            self.service_pages.add(page)
             await page.goto(url, wait_until="domcontentloaded")
             return page
 
@@ -122,8 +129,10 @@ class NativeBrowser:
                 raise Blocked(f"{route}: native conversation is not bound")
             self.validate_url(route, url)
             context = self.contexts[profile]
+            claimed = set(self.pages.values())
             page = (
-                next((p for p in context.pages if p.url == url), None)
+                next((p for p in context.pages if p.url == url and p not in claimed), None)
+                or next((p for p in context.pages if p.url == "about:blank" and p not in claimed), None)
                 or await context.new_page()
             )
             if page.url != url:
