@@ -275,12 +275,15 @@ def test_tag_scope_and_optional_learning_controls(server, app, tmp_path):
         page.locator('#source-form [name="tags"]').fill("integer-arithmetic")
         page.locator("#source-form button").click()
         expect(page.locator("#source-list")).to_contain_text("learning.txt")
-        page.locator("#knowledge-task").select_option(task["id"])
+        # The header task picker selects the task for every form, including this one.
+        page.locator("#workspace-task").select_option(task["id"])
+        expect(page.locator("#knowledge-task")).to_have_value(task["id"])
         page.locator('#knowledge-scope-form [name="tags"]').fill("integer-arithmetic")
         page.locator("#knowledge-scope-form button").click()
         expect(page.locator("#knowledge-scope-list")).to_contain_text(
             "Integer arithmetic: integer-arithmetic"
         )
+        page.get_by_text("Experimental learning (optional)").click()
         expect(
             page.locator('#experimental-settings [name="enabled"]')
         ).not_to_be_checked()
@@ -297,6 +300,7 @@ def test_tag_scope_and_optional_learning_controls(server, app, tmp_path):
         assert app.team.experimental.settings()["max_turns_per_evaluation"] is None
         page.reload()
         page.locator('[data-tab="knowledge"]').click()
+        page.get_by_text("Experimental learning (optional)").click()
         expect(page.locator('#experimental-settings [name="enabled"]')).to_be_checked()
         assert errors == []
         browser.close()
