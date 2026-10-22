@@ -227,7 +227,8 @@ def register_native_host(data_dir, home=None):
     ident = extension_id()
     data_dir = Path(data_dir).resolve()
     directory = data_dir / "private" / "chrome-helper"
-    executable = Path(sys.executable).resolve()
+    # Not resolve(): a virtual environment's python is a symlink to a base interpreter without HA's packages.
+    executable = Path(sys.executable).absolute()
     launch_py = (APP_ROOT / "launch.py").resolve()
     if os.name == "nt":
         def quoted(p):
