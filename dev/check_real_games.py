@@ -4,11 +4,15 @@ Reproduces the real-game checks recorded in dev/GAME_TESTING.md on Linux:
 
 * Godot: the official "Dodge the Creeps" demo (GDScript) at a pinned commit, played
   through the Godot adapter, and the same game rebuilt in Rust with godot-rust,
-  compared tick by tick against the GDScript original.
+  compared tick by tick against the GDScript original. The Rust port draws on
+  operating-system randomness, which the Linux preload seeds.
 * C++: Chromium B.S.U. 0.9.16.1. Ubuntu's packaged binary is compared by frames with
   a rebuild of the same source, and the rebuild is compared by memory state with a
   variant that has a planted copy-paste defect (the hero's upper bound uses the
   horizontal limit).
+* Rust: sokoban-rs (SDL2, event-driven) at a pinned commit with a small level file
+  written here, compared by frames with a variant that has a planted defect (a box
+  can be pushed into another box).
 
 Everything is pinned by commit or checksum. Nothing is installed system-wide: when a
 prerequisite is missing the script prints the Ubuntu packages to install and stops.
@@ -47,7 +51,11 @@ RUST_DEMOS = ("https://github.com/godot-rust/demo-projects", "3b295b36c051cff323
 GDEXT_REV = "395476db593eb1cd859336fbb43eb113e5ae6cfb"
 CBSU_URL = "http://archive.ubuntu.com/ubuntu/pool/universe/c/chromium-bsu/chromium-bsu_0.9.16.1.orig.tar.gz"
 CBSU_SHA256 = "a1c141a34d19a59607ae81166a19864eb8c84cf86b155462fed31a6d56e1624a"
-PACKAGES = "xvfb libsdl2-dev clang git cargo chromium-bsu libalut-dev libglc-dev libglu1-mesa-dev libopenal-dev libsdl2-image-dev"
+SOKOBAN = ("https://github.com/swatteau/sokoban-rs", "6daeee9dcc24f000a19442ed96a328143798b10b")
+PACKAGES = (
+    "xvfb libsdl2-dev clang git cargo chromium-bsu libalut-dev libglc-dev libglu1-mesa-dev libopenal-dev "
+    "libsdl2-image-dev libsdl2-ttf-dev pkg-config"
+)
 
 DODGE_INPUTS = [{"action": a} for a in ("move_left", "move_right", "move_up", "move_down", "start_game")]
 DODGE_STATE = [
@@ -72,6 +80,28 @@ CBSU_STATE = [
     {"name": "x", "type": "f32", "symbol": "_ZN6Global4heroE", "pointers": [8]},
     {"name": "y", "type": "f32", "symbol": "_ZN6Global4heroE", "pointers": [12]},
 ]
+SOKOBAN_ARGS = ["levels.slc", "--width", "320", "--height", "240"]
+SOKOBAN_MOVES = ("left", "right", "up", "down", "r", "n")
+# sokoban-rs ships without levels; these two are written for this check.
+SOKOBAN_LEVELS = """<?xml version="1.0" encoding="UTF-8"?>
+<SokobanLevels>
+  <Title>HA play-testing levels</Title>
+  <LevelCollection>
+    <Level Id="Two boxes" Width="9" Height="5">
+      <L>#########</L>
+      <L>#   .   #</L>
+      <L>#  $ $  #</L>
+      <L># @  .  #</L>
+      <L>#########</L>
+    </Level>
+    <Level Id="One push" Width="5" Height="3">
+      <L>#####</L>
+      <L>#@$.#</L>
+      <L>#####</L>
+    </Level>
+  </LevelCollection>
+</SokobanLevels>
+"""
 CBSU_RULES = [
     {"id": "hero_inside_y", "field": "y", "min": -7.5, "max": 7.5, "when": [{"field": "mode", "op": "==", "value": 0}]},
     {"id": "hero_inside_x", "field": "x", "min": -10, "max": 10, "when": [{"field": "mode", "op": "==", "value": 0}]},
@@ -112,6 +142,12 @@ def checkout(url, commit, folder, sparse=()):
     return folder
 
 
+def _pkg_config(*names):
+    if not shutil.which("pkg-config"):
+        return False
+    return subprocess.run(["pkg-config", "--exists", *names], check=False).returncode == 0
+
+
 def prerequisites():
     missing = [
         name
@@ -123,6 +159,7 @@ def prerequisites():
             ("git", shutil.which("git")),
             ("cargo", shutil.which("cargo")),
             ("the chromium-bsu package", Path("/usr/games/chromium-bsu").is_file()),
+            ("SDL2_image and SDL2_ttf development files", _pkg_config("SDL2_image", "SDL2_ttf")),
         )
         if not present
     ]
@@ -257,6 +294,49 @@ def chromium(work):
     }
 
 
+def sokoban(work):
+    source = checkout(*SOKOBAN, work / "sokoban-rs")
+    run(["cargo", "build", "--release"], cwd=source)
+    variant = work / "sokoban-rs-variant"
+    if not (variant / "target" / "release" / "sokoban-rs").is_file():
+        shutil.rmtree(variant, ignore_errors=True)
+        run(["cp", "-a", str(source), str(variant)])
+        game = variant / "src" / "game.rs"
+        text = game.read_text()
+        defect = text.replace(
+            "let next_to_box = next_to_player.neighbor(dir);\n            if self.is_free(&next_to_box) {",
+            "let next_to_box = next_to_player.neighbor(dir);\n            if !self.is_wall(&next_to_box) {",
+        )
+        if defect == text:
+            raise SystemExit("The planted defect no longer applies to src/game.rs")
+        game.write_text(defect)
+        run(["cargo", "build", "--release"], cwd=variant)
+    workspace = work / "ws-sokoban"
+    shutil.rmtree(workspace, ignore_errors=True)
+    for folder, tree in (("upstream", source), ("defect", variant)):
+        shutil.copytree(tree / "assets", workspace / folder / "assets", ignore=shutil.ignore_patterns("Makefile", "screenshot.png"))
+        shutil.copy2(tree / "target" / "release" / "sokoban-rs", workspace / folder / "sokoban-rs")
+        (workspace / folder / "levels.slc").write_text(SOKOBAN_LEVELS)
+    spec = {
+        "version": 1,
+        "name": "sokoban-rs (Rust, SDL2): upstream vs planted push defect",
+        "native": {
+            "adapter": "sdl2",
+            "original": {"executable": "upstream/sokoban-rs", "folder": "upstream", "args": SOKOBAN_ARGS},
+            "candidate": {"executable": "defect/sokoban-rs", "folder": "defect", "args": SOKOBAN_ARGS},
+            "inputs": [{"key": k} for k in ("Left", "Right", "Up", "Down", "R", "N")],
+            "frame": {"width": 128, "height": 96},
+            "seed": 1,
+            "action_ticks": 1,
+        },
+        # Turn-based moves: a key goes down for one tick and up for the next.
+        "actions": {m: [[m, 1], ["none", 1]] for m in SOKOBAN_MOVES} | {"wait": [["none", 1]]},
+        "limits": {"max_ticks": 600},
+    }
+    (workspace / "sokoban.json").write_text(json.dumps(spec, indent=2))
+    return workspace, {"binaries": {f: sha(workspace / f / "sokoban-rs") for f in ("upstream", "defect")}}
+
+
 def summary(result, keys):
     return {key: result.get(key) for key in keys}
 
@@ -265,11 +345,23 @@ def finding(item):
     return {"signature": item["signature"], "tick": item["tick"], "trajectory_ticks": item.get("trajectory_ticks")}
 
 
-def evaluate(games, context, game, report, name, modes, start="playing"):
-    """Describe, then explore (both builds and/or the candidate alone), shrinking the first finding."""
+def evaluate(games, context, game, report, name, modes, start="playing", script=None):
+    """Describe, optionally play a script, then explore (both builds and/or one alone),
+    shrinking the first finding."""
     base = {"game_path": game}
     described = games.describe(context, base)
-    report[name] = {"determinism": {s: described["sides"][s].get("determinism") for s in described["sides"]}}
+    report[name] = {
+        "determinism": {s: described["sides"][s].get("determinism") for s in described["sides"]},
+        "os_randomness": {s: (described["sides"][s].get("capabilities") or {}).get("os_randomness") for s in described["sides"]},
+    }
+    if script:
+        played = games.play(context, base | {"side": "both", "actions": script})
+        divergence = played["comparison"]["divergence"]
+        report[name]["scripted"] = {
+            "actions": script,
+            "outcome": played["outcome"],
+            "divergence": divergence and {"signature": divergence["signature"], "tick": divergence["tick"]},
+        }
     for side in modes:
         started = time.monotonic()
         request = base | {"mode": "explore", "side": side, "steps": 30, "seed": 3, "seconds": 600}
@@ -320,6 +412,12 @@ def main():
     context = ToolContext(chromium_workspace, {"foundations": {"c_compiler": compiler}}, Jobs(), threading.Event(), native=True)
     evaluate(games, context, "frames.json", report, "cpp_ubuntu_vs_rebuild", ["both"], start=None)
     evaluate(games, context, "state.json", report, "cpp_rebuild_vs_defect", ["both", "candidate"])
+    games.sessions.clear()
+
+    sokoban_workspace, built = sokoban(work)
+    report["sokoban_rs"] = built
+    context = ToolContext(sokoban_workspace, {"foundations": {"c_compiler": compiler}}, Jobs(), threading.Event(), native=True)
+    evaluate(games, context, "sokoban.json", report, "rust_upstream_vs_defect", ["both", "original"], start=None, script=["up", "right", "right"])
     games.sessions.clear()
     report["finished"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     text = json.dumps(report, indent=2, default=str)
