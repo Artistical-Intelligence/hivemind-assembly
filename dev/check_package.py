@@ -8,6 +8,12 @@ import sys
 from pathlib import Path
 
 release, data, phase = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
+
+import sqlite3
+
+# The launcher must replace Python 3.12.10's SQLite 3.49.1 (WAL-reset corruption bug).
+version = tuple(int(part) for part in sqlite3.sqlite_version.split("."))
+assert version >= (3, 51, 3), "Bundled runtime still uses SQLite " + sqlite3.sqlite_version
 sys.path.insert(0, str(release / "_app"))
 from hivemind_assembly.application.app import Application, make_server
 from hivemind_assembly.application.project_checks import starter, run_checks
