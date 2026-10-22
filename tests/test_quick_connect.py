@@ -168,6 +168,7 @@ def test_local_apps_are_detected_and_configured_without_losing_settings(store, t
     assert "hivemind-assembly" in json.loads(claude.read_text())["mcpServers"]
 
 
+@pytest.mark.skipif(__import__("os").name == "nt", reason="stand-in uses a shell launcher")
 def test_connection_lifecycle_with_a_stand_in_tunnel_program(tmp_path):
     """No real tunnel: a stand-in prints the address cloudflared would print."""
     import sys
