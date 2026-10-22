@@ -1173,7 +1173,7 @@ class Application:
             if progress:
                 progress.begin("Installing the MCP tunnel client", 15)
             try:
-                self.tunnel.install()
+                self.tunnel.install(progress) if progress else self.tunnel.install()
                 results["tunnel_client"] = "ready"
             except Exception as e:  # network, release or disk problems
                 results["tunnel_client"] = (
