@@ -26,8 +26,8 @@ They are delivery milestones, not a promise that every milestone fits one chat t
 
 Progress is estimated against this fixed remaining-work plan, not lines of code or
 test counts. Current estimate: **about 5% of the plan**, with **Stop 1 about 25%**
-and **0/8 stops closed**. Existing implemented capabilities are described above;
-this is not a claim that only 5% of the repository has been built. Any change to
+and **0/8 stops closed**. Existing implemented capabilities are described in README
+and ARCHITECTURE; this is not a claim that only 5% of the repository has been built. Any change to
 scope or weighting must be stated rather than silently changing the denominator.
 
 ### Still open in Stops 1, 3 and 5
