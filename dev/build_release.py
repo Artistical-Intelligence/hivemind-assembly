@@ -14,6 +14,12 @@ BOOTSTRAP = {
         "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip",
         "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3",
     ),
+    # Python 3.12.10's own SQLite (3.49.1) has the WAL-reset corruption bug; the launcher
+    # replaces it with this release (SHA3-256 c2d09c8b... as published by sqlite.org).
+    "sqlite-dll-win-x64-3540100.zip": (
+        "https://www.sqlite.org/2026/sqlite-dll-win-x64-3540100.zip",
+        "f436f53ad8f965af43f3817b42c99c0689e6787f6b7ace208fe38dab7ffc4971",
+    ),
     "pip-25.0.1-py3-none-any.whl": (
         None,
         "c46efd13b6aa8279f33f2864459c8ce587ea6a1a59ee20de055868d8f7688f7f",
