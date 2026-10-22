@@ -599,16 +599,25 @@ class NativeEngine:
             data += chunk
         return bytes(data)
 
+    def _wait_exit(self, seconds):
+        """The exit code once the process ends within `seconds`, else None; cancellation ends the wait."""
+        deadline = time.monotonic() + seconds
+        while True:
+            code = self.process.poll()
+            if code is not None or time.monotonic() >= deadline or (self.cancel is not None and self.cancel.is_set()):
+                return code
+            time.sleep(0.02)
+
     def _stopped(self, stop, phase="play"):
         """Record why play ended and leave no process behind."""
         status = stop.status
+        if status == "freeze" and self.process is not None and _dying(self.process.pid):
+            # A crash that is still writing a core dump or unwinding is a crash, not a hang.
+            status = "exited"
         if status == "exited":
-            try:
-                code = self.process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                code = None
+            code = self._wait_exit(30)
             if code is None:
-                status = "freeze"
+                status = "cancelled" if self.cancel is not None and self.cancel.is_set() else "freeze"
             elif code == 70 and phase == "startup":
                 status, self.fault = "adapter_error", {"reason": "The adapter could not reach HA"}
             elif code < 0 or (os.name == "nt" and code >= 0xC0000000):
@@ -846,6 +855,18 @@ class NativeEngine:
         return len(snapshot["inputs"]) + 128
 
 
+def _dying(pid):
+    """Whether any thread of a process is exiting or writing a core dump (Linux)."""
+    try:
+        for task in Path(f"/proc/{pid}/task").iterdir():
+            fields = (task / "stat").read_text().rsplit(")", 1)[1].split()
+            if int(fields[6]) & 0x204:  # PF_EXITING | PF_DUMPCORE
+                return True
+    except (OSError, ValueError, IndexError):
+        return False
+    return False
+
+
 @functools.lru_cache(maxsize=32)
 def _position_independent(executable):
     with open(executable, "rb") as stream:
@@ -903,10 +924,14 @@ def determinism(make_runner, spec, ticks=60):
             if first[0][index : index + size] != second[0][index : index + size]:
                 difference = index // size
                 break
-    return {
+    result = {
         "ticks": len(inputs) // record,
         "start": chosen,
         "actions": actions,
         "identical": identical,
         "first_difference_tick": difference,
     }
+    if not identical:
+        size = gs.record_sizes(spec)["stdout"] or 1
+        result["runs"] = [{"status": run[2], "records": len(run[0]) // size} for run in observed]
+    return result
