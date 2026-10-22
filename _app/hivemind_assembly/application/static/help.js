@@ -41,6 +41,8 @@
     'quick-code-show': 'Show a one-time code for HA\'s approval page.',
     'quick-revoke': 'Remove access for every connected ChatGPT and Claude chat.',
     'local-apps': 'Add HA to Claude Desktop and Codex on this computer.',
+    'helper-install': 'Let Chrome talk to HA and open Chrome\'s Extensions page to add the helper.',
+    'helper-copy': 'Copy the helper folder to choose it in Load unpacked.',
     'tunnel-doctor': 'Check that the connection settings are correct.',
     'tunnel-start': 'Turn the private connection on.',
     'tunnel-stop': 'Turn the private connection off.',
