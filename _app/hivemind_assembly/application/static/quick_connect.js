@@ -26,7 +26,7 @@
     let text = q.message || 'Not started.';
     if (q.address_changed) text += ' The address changed, so connect ChatGPT and Claude again.';
     el('quick-status').textContent = text;
-    el('quick-status').classList.toggle('error', q.state === 'error');
+    el('quick-status').classList.toggle('warn-text', q.state === 'error');
     const d = q.download;
     el('quick-download').hidden = !d;
     if (d && d.total_bytes) el('quick-download-bar').value = Math.round(100 * d.done_bytes / d.total_bytes);
