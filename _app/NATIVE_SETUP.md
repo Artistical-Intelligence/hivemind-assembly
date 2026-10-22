@@ -1,6 +1,6 @@
 # Native session setup
 
-Use **Set up all native sessions** on Overview. HA opens dedicated persistent
+Use **Set up AI assistants** on Overview. HA opens dedicated persistent
 browser profiles, discovers rendered account/model/mode/effort controls, and
 selects exact matching options when available. Sign-in, passkeys and 2FA stay in
 the provider browser; HA does not copy credentials from your ordinary profile.

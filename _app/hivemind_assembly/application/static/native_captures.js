@@ -61,7 +61,7 @@ window.renderNativeCaptures = function(result, target) {
       position = element('p', undefined, pane);
       const failed = metric?.first_failed_frame;
       if (Number.isInteger(failed) && failed >= 0 && failed < frameCount) {
-        const jump = element('button', 'First failing frame', pane);
+        const jump = element('button', 'Jump to first difference', pane);
         jump.type = 'button'; jump.onclick = () => { slider.value = String(failed); drawFrame(); };
       }
       element('p', 'Frames are compared at the same index. Times come from the declared frame rate; wall-clock timing is not measured.', pane);

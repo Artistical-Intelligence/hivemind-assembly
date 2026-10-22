@@ -153,7 +153,7 @@ def starter(app, kind, request_id, allow_native=False):
         files = {
             "original.hex": "89f801f0\n",
             "candidate.hex": "8d0437\n",
-            "README.txt": "The original computes a 32-bit sum. The candidate uses LEA. Run checks, change candidate.hex to 89f829f0 (subtraction), and rerun to see the counterexample. Originals are pinned separately. This proves only the configured register region, not an entire application.\n",
+            "README.txt": "The original computes a 32-bit sum. The candidate uses LEA. Run tests, change candidate.hex to 89f829f0 (subtraction), and rerun to see the counterexample. Originals are pinned separately. This proves only the configured register region, not an entire application.\n",
         }
         contract = {
             "scope": "x86_64_register_regions",
@@ -172,7 +172,7 @@ def starter(app, kind, request_id, allow_native=False):
         files = {
             "original.py": "import sys\nsys.stdout.buffer.write(bytes((x ^ 0x55) for x in sys.stdin.buffer.read()))\n",
             "candidate.py": "import sys\ndata = sys.stdin.buffer.read()\ntable = bytes(i ^ 85 for i in range(256))\nsys.stdout.buffer.write(data.translate(table))\n",
-            "README.txt": "The original transforms bytes with XOR 0x55. The candidate uses a lookup table. Run checks, edit candidate.py, and rerun. Native execution uses this computer. Independent cases and the original are pinned outside the editable workspace.\n",
+            "README.txt": "The original transforms bytes with XOR 0x55. The candidate uses a lookup table. Run tests, edit candidate.py, and rerun. Native execution uses this computer. Independent cases and the original are pinned outside the editable workspace.\n",
         }
         suite = {
             "version": 1,
@@ -228,7 +228,7 @@ def project_game_example(app):
         "A small game loop (original.elf) updates persistent state, renders one 8x6 RGBA "
         "frame per tick to stdout and mixes 16 PCM samples per tick to stderr. The candidate "
         "recovers input, physics, audio and the main loop in C; render_frame is not "
-        "recovered and keeps running the original machine code. Run checks: physics passes "
+        "recovered and keeps running the original machine code. Run tests: physics passes "
         "its function cases but the composed program diverges at the right wall, so the check "
         "rejects that region and runs the original physics instead. In logic.c, change "
         "'g->x < 0 ? 0 : 6' to 'g->x < 0 ? 0 : 7' and rerun. Protected function and program "
@@ -319,7 +319,7 @@ U recovered(unsigned *p, U count, U salt) {
             {"sources": ["candidate.c"], "optimization": "O2"}, indent=2
         )
         + "\n",
-        "README.txt": "This source-known AArch64 original transforms a buffer and returns its sum. The candidate is compiled for x86-64. Run checks, replace (x << 5) + x with (x << 4) + x in candidate.c, save, and rerun to see a mismatch. Original bytes and cases are pinned separately. Clang and LLD are required; target code executes only in Unicorn. The check covers declared integer/pointer calls, not a complete application or all possible inputs.\n",
+        "README.txt": "This source-known AArch64 original transforms a buffer and returns its sum. The candidate is compiled for x86-64. Run tests, replace (x << 5) + x with (x << 4) + x in candidate.c, save, and rerun to see a mismatch. Original bytes and cases are pinned separately. Clang and LLD are required; target code executes only in Unicorn. The check covers declared integer/pointer calls, not a complete application or all possible inputs.\n",
     }
     contract = {
         "scope": "linked_calls",
@@ -363,7 +363,7 @@ int ha_main(void) {
         "original.c": original,
         "candidate.c": candidate,
         "manifest.json": json.dumps({"sources": ["candidate.c"], "architecture": "x86_64", "optimization": "O2"}, indent=2) + "\n",
-        "README.txt": "The original is a complete static AArch64 Linux program. The editable reconstruction targets x86-64 and processes the same input stream across multiple reads. Run checks, change state + state + state to state + state, save and rerun to see a mismatch. Set architecture to aarch64 in manifest.json to rebuild for ARM. Original bytes and cases remain protected. Target execution is emulated: streams, exit, explicit argv/env and clock only; no ARM filesystem, dynamic loader or OS services.\n",
+        "README.txt": "The original is a complete static AArch64 Linux program. The editable reconstruction targets x86-64 and processes the same input stream across multiple reads. Run tests, change state + state + state to state + state, save and rerun to see a mismatch. Set architecture to aarch64 in manifest.json to rebuild for ARM. Original bytes and cases remain protected. Target execution is emulated: streams, exit, explicit argv/env and clock only; no ARM filesystem, dynamic loader or OS services.\n",
     }
     contract = {
         "scope": "linux_program", "original_path": "original.elf", "manifest_path": "manifest.json",
@@ -411,7 +411,7 @@ def windows_program_example(app):
     files = {
         "candidate.c": candidate,
         "build.json": json.dumps(manifest, indent=2) + "\n",
-        "README.txt": "The original is a real x64 Windows console executable, compiled with Clang/LLD. It sizes input.bin, allocates a private buffer, transforms bytes, protects the buffer read-only, replaces output.bin, prints the result and releases the buffer. Cases include data crossing a page boundary. Each sealed case supplies its own in-memory files; no host files are read or written by replay. Run checks, change +17 to +18, and rerun. Protected originals and inputs survive workspace edits. No Windows DLLs or native target execution are required. CRT, GUI, threads and arbitrary Windows compatibility are outside this contract.\n",
+        "README.txt": "The original is a real x64 Windows console executable, compiled with Clang/LLD. It sizes input.bin, allocates a private buffer, transforms bytes, protects the buffer read-only, replaces output.bin, prints the result and releases the buffer. Cases include data crossing a page boundary. Each sealed case supplies its own in-memory files; no host files are read or written by replay. Run tests, change +17 to +18, and rerun. Protected originals and inputs survive workspace edits. No Windows DLLs or native target execution are required. CRT, GUI, threads and arbitrary Windows compatibility are outside this contract.\n",
     }
     cases = [
         {"id": "empty", "files": {"input.bin": "", "output.bin": "ffff"}},

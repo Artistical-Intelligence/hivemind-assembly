@@ -71,7 +71,7 @@ def example(app):
         "README.txt": (
             "This source-known Windows PE renderer executes only in the bounded emulator. "
             "It emits eight 8x8 RGBA frames to stdout and final position to stderr. "
-            "Clang and LLD are required; native target execution is not. Run checks, then "
+            "Clang and LLD are required; native target execution is not. Run tests, then "
             "Inspect captures to scrub the reference and candidate together. Change "
             "if (input[frame]) to if (frame > 0 && input[frame - 1]) and rerun: "
             "the movement is one frame late although the final position is unchanged. "

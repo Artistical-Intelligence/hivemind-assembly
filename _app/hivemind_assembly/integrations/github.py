@@ -266,7 +266,7 @@ class GitHubAuth:
             saved = self.vault.read()
             if not saved:
                 raise Blocked(
-                    "Connect GitHub in Setup & settings before creating repositories."
+                    "Connect GitHub in Settings before creating repositories."
                 )
             if saved.get("expires_at") and self.clock() >= saved["expires_at"] - 60:
                 if not saved.get("refresh_token"):

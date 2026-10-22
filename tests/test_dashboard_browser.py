@@ -24,7 +24,7 @@ def test_edit_upload_check_and_draft_retention(server, app):
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
-        page.get_by_role("button", name="Open project files & examples").click()
+        page.get_by_role("button", name="Open files & examples").click()
         page.get_by_role("button", name="Create register example", exact=True).click()
         expect(page.locator("#file-editor")).to_have_value("8d0437\n")
         page.locator("#workspace-check").click()
@@ -141,7 +141,7 @@ def test_frame_replay_starter_and_synchronized_capture_inspection(server, app, t
         expect(view).to_contain_text("Frame 16 / 16 · index 15")
         reference, candidate = view.locator("canvas").evaluate_all(pixels)
         assert reference == candidate
-        view.get_by_role("button", name="First failing frame").click()
+        view.get_by_role("button", name="Jump to first difference").click()
         expect(slider).to_have_value("0")
         reference, candidate = view.locator("canvas").evaluate_all(pixels)
         assert reference != candidate
@@ -193,7 +193,7 @@ def test_oauth_dashboard_requests_session_default_and_disconnect(
         page.locator('[data-tab="connections"]').click()
         page.locator('#mcp-oauth [name="server"]').fill("fixture")
         expect(page.locator('#mcp-oauth [name="remember"]')).not_to_be_checked()
-        page.get_by_role("button", name="Connect with browser", exact=True).click()
+        page.get_by_role("button", name="Sign in", exact=True).click()
         expect(page.locator("#mcp-oauth-status")).to_contain_text("authorization")
         assert calls == [("fixture", False, None, 0, "")]
         page.locator('#mcp-oauth summary').click()
@@ -202,7 +202,7 @@ def test_oauth_dashboard_requests_session_default_and_disconnect(
         page.locator('#mcp-metadata-generate').click()
         expect(page.locator('#mcp-metadata-document')).to_contain_text('http://127.0.0.1:40001/oauth/callback')
         with page.expect_response(lambda response: response.url.endswith('/api/mcp/authorize')):
-            page.get_by_role("button", name="Connect with browser", exact=True).click()
+            page.get_by_role("button", name="Sign in", exact=True).click()
         assert calls[-1] == ('fixture', False, None, 40001, 'https://ha.example/client.json')
         page.locator("#mcp-oauth-forget").click()
         expect(page.locator("#notice")).to_contain_text("removed from HA")
@@ -358,7 +358,7 @@ def test_windows_console_starter_edit_and_protected_check(server, app):
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
-        page.get_by_role("button", name="Open project files & examples").click()
+        page.get_by_role("button", name="Open files & examples").click()
         page.get_by_role(
             "button", name="Create Windows console example", exact=True
         ).click()
@@ -411,7 +411,7 @@ def test_emulated_frames_protected_capture_scrubbing(server, app, tmp_path):
         expect(view.locator("select")).to_be_visible()
         view.locator("select").select_option("1")
         expect(view).to_contain_text("Native timing and repeatability are not measured")
-        view.get_by_role("button", name="First failing frame").click()
+        view.get_by_role("button", name="Jump to first difference").click()
         expect(view.locator('input[type="range"]')).to_have_value("1")
         pixels = "els => els.map(c => Array.from(c.getContext('2d').getImageData(0,0,c.width,c.height).data))"
         reference, candidate = view.locator("canvas").evaluate_all(pixels)
@@ -442,7 +442,7 @@ def test_every_button_has_a_hover_description(server, app):
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
-        page.get_by_role("button", name="Open project files & examples").click()
+        page.get_by_role("button", name="Open files & examples").click()
         page.get_by_role("button", name="Create register example", exact=True).click()
         page.wait_for_selector("[data-file]")
         missing = page.evaluate(
@@ -453,24 +453,24 @@ def test_every_button_has_a_hover_description(server, app):
         # Buttons the dashboard builds later from saved state.
         samples = [
             '<button data-task="t" data-action="pause">Pause</button>',
-            '<button data-native-setup="r">Set up / open session</button>',
-            '<button data-probe="r">Observe route</button>',
-            '<button data-native-renew="r">Renew conversation</button>',
-            '<button data-share="l">Allow native evaluation</button>',
+            '<button data-native-setup="r">Open sign-in</button>',
+            '<button data-probe="r">Test assistant</button>',
+            '<button data-native-renew="r">New conversation</button>',
+            '<button data-share="l">Allow testing</button>',
             '<button data-unshare="l">Keep local</button>',
-            '<button data-rollback="l">Roll back</button>',
-            '<button data-evaluation-resume="v">Retry remaining trials</button>',
-            '<button data-reconcile="o">Reconcile saved operation</button>',
+            '<button data-rollback="l">Undo</button>',
+            '<button data-evaluation-resume="v">Retry unfinished</button>',
+            '<button data-reconcile="o">Check status</button>',
             '<button data-note="1">Save note</button>',
-            '<button data-hosted-refresh="r">Check / reconcile</button>',
+            '<button data-hosted-refresh="r">Check status</button>',
             '<button data-hosted-cancel="r">Cancel</button>',
             '<button data-remove-case>Remove case</button>',
-            '<button>First failing frame</button>',
+            '<button>Jump to first difference</button>',
             '<button>Download output capture</button>',
-            '<button>Recover / inspect</button>',
-            '<button>reconcile</button>',
-            '<button>cancel</button>',
-            '<button>result</button>',
+            '<button>Check request</button>',
+            '<button>Check status</button>',
+            '<button>Cancel</button>',
+            '<button>Show result</button>',
         ]
         untitled = page.evaluate(
             """samples => samples.filter(html => {

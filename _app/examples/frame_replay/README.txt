@@ -6,7 +6,7 @@ Frames are tightly packed RGBA8, top row first, at a declared 60 frames/second.
 The frame rate labels sampling positions; this example does not measure real time.
 
 In HA, authorize the supplied native examples, then create the frame replay
-example. Run checks, change "tick == frame" to "tick == frame - 1" in candidate.c,
+example. Run tests, change "tick == frame" to "tick == frame - 1" in candidate.c,
 save, and run again. For the supplied movements, final.bin still matches but
 intermediate frames fail. Click Inspect captures, choose frames.rgba and scrub
 both captures together or jump to the first failing frame. Download either raw

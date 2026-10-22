@@ -6,9 +6,9 @@ A local reverse-engineering workspace for collaborative agents, independent veri
 
 1. Download **Hivemind_Assembly_<version>_Setup.exe** from the [latest release](https://github.com/Artistical-Intelligence/hivemind-assembly/releases/latest) and run it. It installs for your Windows user without administrator rights and adds a Start menu shortcut. The installer is not code-signed, so SmartScreen may warn: choose **More info → Run anyway**. The release also has the same application as a plain Windows ZIP; extract it and open `Start_Hivemind_Assembly.cmd` if you prefer.
 2. The first start installs the bundled Python runtime and the hash-locked Windows dependency set into your user data directory, then opens the dashboard. The first dependency installation needs internet access.
-3. The dashboard offers **Install foundations now** until Ghidra, REA and Hermes are installed. Setup uses WinGet to install missing Git, Node.js 24.11+ (24.x) or 26+, Java 21+ and a C compiler, then installs and checks the pinned foundations on a source-known fixture. Windows may require system authorization or a restart. HA loads the new paths without restarting; existing installations can be configured in **Setup & settings**.
-4. Open **Project files** and choose **Create register example**. Run checks, edit `candidate.hex`, save, and check again. The native Python example also works without a compiler after you authorize its supplied recipes. **Semantic self-check** exercises the verifier separately.
-5. Use **Set up all native sessions** on Overview. Setup reuses dedicated sign-ins, discovers exact controls, creates separate conversations and verifies two-way attachment transfers. Unrecognized controls or allowance mappings remain unverified; `_app/NATIVE_SETUP.md` describes the recovery path. Each role retains its designated provider, surface, model and effort. Inference APIs, paid overage and manual relay are not fallbacks.
+3. The dashboard offers **Install required tools** until Ghidra, REA and Hermes are installed. Setup uses WinGet to install missing Git, Node.js 24.11+ (24.x) or 26+, Java 21+ and a C compiler, then installs and checks the pinned foundations on a source-known fixture. Windows may require system authorization or a restart. HA loads the new paths without restarting; existing installations can be configured in **Settings**.
+4. Open **Project files** and choose **Create register example**. Run tests, edit `candidate.hex`, save, and check again. The native Python example also works without a compiler after you authorize its supplied recipes. **Semantic self-check** exercises the verifier separately.
+5. Use **Set up AI assistants** on Overview. Setup reuses dedicated sign-ins, discovers exact controls, creates separate conversations and verifies two-way attachment transfers. Unrecognized controls or allowance mappings remain unverified; `_app/NATIVE_SETUP.md` describes the recovery path. Each role retains its designated provider, surface, model and effort. Inference APIs, paid overage and manual relay are not fallbacks.
 
 To update, run the newer installer (or extract the newer ZIP over the old folder). Uninstalling removes only application files. The application uses dedicated Edge, Chrome or Playwright profiles. It does not copy your everyday browser credentials. User data remains in `%LOCALAPPDATA%\UnifiedWorkbench`, outside the application folder. The host must remain running for autonomous work.
 
@@ -32,7 +32,7 @@ real signed-in model operation.
 
 ## Working with a project
 
-Create a project in its prepared state. In **Project files**, upload targets, browse files, and edit UTF-8 candidates. Save preserves the previous bytes and refuses stale overwrites; polling never replaces an unsaved draft. Uploads accept files up to 256 MiB each, and the text editor supports 512 KiB. Larger targets can use local-path import. For Python scripts, single C sources and executables, use **Configure a native comparison** in **Project files**: select a candidate and optional original, enter input cases and expected text, and authorize execution. The advanced recipe and other acceptance types remain in **Projects & tasks**. Run the pinned checks directly from **Project files** before resuming agents. **Download saved file** retrieves the exact version you opened. Manual checks leave the task paused and do not declare autonomous completion. Workers declare bounded steps, receive an adviser briefing, request broker operations, and use the retained results to continue. Separate reviewer sessions support recovery.
+Create a project in its prepared state. In **Project files**, upload targets, browse files, and edit UTF-8 candidates. Save preserves the previous bytes and refuses stale overwrites; polling never replaces an unsaved draft. Uploads accept files up to 256 MiB each, and the text editor supports 512 KiB. Larger targets can use local-path import. For Python scripts, single C sources and executables, use **Configure a native comparison** in **Project files**: select a candidate and optional original, enter input cases and expected text, and authorize execution. The advanced recipe and other acceptance types remain in **Projects & tasks**. Run the pinned checks directly from **Project files** before resuming agents. **Download file** retrieves the exact version you opened. Manual checks leave the task paused and do not declare autonomous completion. Workers declare bounded steps, receive an adviser briefing, request broker operations, and use the retained results to continue. Separate reviewer sessions support recovery.
 
 For a bounded x86-64 integer register region, **Independent acceptance → Register equivalence proof** pins the original bytes and names the candidate file, input registers and observed outputs. Completion independently reads the candidate and reruns the proof. Missing files, counterexamples, unsupported semantics, stale ownership and concurrent changes prevent acceptance. Failed supported checks return their evidence for up to three correction attempts. New continuing objectives remain `waiting_setup` until their independent checks are pinned; no native worker is assigned and no model request is spent during preparation. Pinning checks starts unpaused work automatically. Explicitly paused projects stay paused. Older tasks that already proposed completion without a contract remain `awaiting_acceptance`.
 
@@ -129,7 +129,7 @@ Local scripted team and browser fixtures do not constitute live-provider accepta
 
 ## GitHub project repositories
 
-Use **Set up GitHub automatically / Continue** for browser-assisted registration
+Use **Connect with Client ID** for browser-assisted registration
 and connection. Alternatively, expand **Connect with an existing Client ID**,
 enter an OAuth app's public Client ID and approve its device code. Device Flow
 must be enabled; an existing app's callback URL can stay unchanged.
@@ -137,7 +137,7 @@ No client secret is required for this local sign-in. HA requests `repo` access
 and refreshable authorization. Tokens are stored in Windows Credential Manager,
 macOS Keychain or Linux Secret Service, outside projects, settings and backups.
 An unlocked supported OS credential store is required; there is no plaintext
-fallback. **Check saved connection** verifies an authorization after restart.
+fallback. **Test GitHub connection** verifies an authorization after restart.
 
 Repository creation is optional. Choose **Connect existing private repository**
 to use an existing repository, or leave the project local without GitHub.
@@ -159,7 +159,7 @@ evaluation data. Remote conflicts stop publication for reconciliation. A name co
 is reported without modifying the existing repository. GitHub may reject an
 organization request because of its policy or the account's permissions.
 
-If a request is interrupted, use **Evidence & recovery → Reconcile saved
+If a request is interrupted, use **Results & backups → Reconcile saved
 operation**. HA checks the recorded repository identity, privacy and write access
 before accepting it; it does not blindly repeat an uncertain creation request.
 If the repository remains inaccessible, the request stays unresolved rather
@@ -170,7 +170,7 @@ access in GitHub's application settings to revoke authorization on GitHub too.
 
 ## Automatic GitHub setup
 
-In **Setup & settings**, choose **Set up GitHub automatically / Continue**.
+In **Settings**, choose **Connect with Client ID**.
 The visible browser creates or reuses a distinct local OAuth application,
 configures its required fields and Device Flow, reads the public Client ID,
 and starts authorization. Sign-in, passkeys, 2FA or provider challenges remain
@@ -184,7 +184,7 @@ selectors still require live-account validation.
 
 ## Model and tool review
 
-**Model & tool logs** searches requests, partial and complete model responses,
+**Activity logs** searches requests, partial and complete model responses,
 validation errors, tool calls and results by task, role and text. Responses are
 captured before parsing and correlated by observed browser turn order. Review
 notes are append-only. JSONL exports stay local. An optional explicit export
@@ -364,7 +364,7 @@ are retained under `_app/hivemind_assembly/vendor`.
 
 ## Backup and restore
 
-**Back up workspace** saves controller metadata, model logs, learning state,
+**Back up now** saves controller metadata, model logs, learning state,
 originals, workspace/native project files, artifacts, sources, settings and
 Hermes databases in a verified ZIP. Pause active work first. Browser profiles
 and OS credentials are excluded and require reconnecting. Restore offline to an
@@ -372,7 +372,7 @@ empty directory with `python -m hivemind_assembly restore --backup FILE.zip
 --data-dir EMPTY_DIRECTORY`. The application folder can be replaced without
 moving or clearing its external user data directory.
 
-Installation and **Check installed foundations** now run source-known process/file
+Installation and **Check installed tools** now run source-known process/file
 replay and ELF/PE pointer probes. A native shared library supplies an independent
 result on the installed host (including a generated DLL on Windows). Each probe
 retains its own result, so a missing runtime does not hide the other failures.
@@ -480,7 +480,7 @@ Bundled examples:
   Silence, a pulse and level changes are checked without an audio device.
 - `_app/examples/frame_replay`: independent Python and C software renderers replay
   frame-indexed movement into sixteen RGBA frames. **Create frame replay example**
-  in Project files prepares the project and protected checks. Run checks, change
+  in Project files prepares the project and protected checks. Run tests, change
   `tick == frame` to `tick == frame - 1` in `candidate.c`, save and rerun. The delayed
   input fails intermediate frames despite matching final state. This example needs
   a C compiler; it does not require a GPU or model account.
@@ -517,8 +517,8 @@ Sample rate describes the capture contract; raw PCM cannot prove hardware timing
 Tolerances are pinned with the owner's recipe and cannot be changed by workers.
 Each program must still produce identical observations across repetitions,
 even when differences between the original and reconstruction are tolerated.
-Exit status and stdout/stderr remain exact. **Inspect captures** beside workspace
-checks, or **View latest observations** in test setup, shows frame and per-channel
+Exit status and stdout/stderr remain exact. **View recorded output** beside workspace
+checks, or **View latest results** in test setup, shows frame and per-channel
 waveform previews with quantitative comparison results. Sequences have a shared
 reference/candidate slider and a jump to the first failing frame.
 Each preview also offers a raw download of its complete stored capture, preserving
@@ -558,7 +558,7 @@ distribution. The installed workflow template is also available under
 
 HA creates a unique `ha-native-…` tag at the reviewed commit, dispatches once and
 checks retained requests every 30 seconds while the application is open. Requests
-survive restarts. **Check / reconcile** looks up a lost response; it never repeats
+survive restarts. **Check status** looks up a lost response; it never repeats
 an uncertain dispatch. The same request ID keeps retries idempotent. Use **New
 request ID** for an intentional later run after the existing request has settled.
 Cancellation is retained and checked; it cannot be confirmed until GitHub reports
@@ -752,7 +752,7 @@ Strict file traces may reject differing writes despite an allowed final-capture
 tolerance; choose observable effects explicitly when internal writes may differ.
 Workers cannot edit protected original images, cases or tolerances. Fresh
 acceptance rebuilds the candidate and retains detailed metrics and raw captures
-in protected evidence. **Inspect captures** loads that evidence for the owner,
+in protected evidence. **View recorded output** loads that evidence for the owner,
 shows the checked revision, scrubs frames, plots audio and downloads original raw
 bytes. Editing the visible example `acceptance.json` does not change pinned rules.
 

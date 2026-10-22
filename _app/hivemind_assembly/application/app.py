@@ -1092,7 +1092,7 @@ class Application:
                 (task_id,),
             ).fetchone():
                 raise Blocked(
-                    "Reconcile the previous operation in Evidence & recovery first."
+                    "Reconcile the previous operation in Results & backups first."
                 )
             # Reserve ownership atomically so the team cannot acquire this task.
             epoch = task["epoch"] + 1
