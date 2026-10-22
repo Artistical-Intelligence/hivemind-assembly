@@ -1,5 +1,5 @@
 {
-  "version": "0.26.0",
+  "version": "0.27.0",
   "requested_product_complete": false,
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
