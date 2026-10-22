@@ -462,14 +462,18 @@ class NativeTeam:
         results = [last] + [
             r for r in last.get("batch_results", []) if isinstance(r, dict)
         ]
-        items = [
-            item
-            for r in results
-            for item in r.get("image_artifacts", [])
-            if isinstance(item, dict) and isinstance(item.get("id"), str)
-        ][:4]
+        items, seen = [], set()
+        for r in results:
+            for item in r.get("image_artifacts", []):
+                if (
+                    isinstance(item, dict)
+                    and isinstance(item.get("id"), str)
+                    and item["id"] not in seen
+                ):
+                    seen.add(item["id"])
+                    items.append(item)
         attached = []
-        for item in items:
+        for item in items[:4]:
             row = self.store.one("SELECT * FROM artifacts WHERE id=?", (item["id"],))
             name = Path(str(item.get("name") or "frame.png")).name
             if (
@@ -480,7 +484,12 @@ class NativeTeam:
             data = self.broker.artifacts.read(
                 item["id"], "worker", task["project_id"], task=task["id"]
             )
-            path = self.store.root / "private" / "transfers" / key / name
+            # Batch results can repeat a name (the same tick from two plays); a
+            # numbered prefix keeps each file, and so its checked hash, distinct.
+            path = (
+                self.store.root / "private" / "transfers" / key
+                / f"{len(attached) + 1}-{name}"
+            )
             atomic_write(path, data)
             attached.append({"path": str(path), "sha256": row["sha256"]})
         return attached
