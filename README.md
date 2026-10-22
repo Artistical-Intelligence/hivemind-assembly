@@ -791,8 +791,9 @@ exactly, which also makes every operation safe to recompute after an interruptio
 Detected outcomes are `divergence` (state, frame, audio, status, exit code or tick
 count differ beyond pinned tolerances), `crash`, `freeze`, `invariant`, `slowdown`,
 `bad_exit`, `protocol`, `unreached` (a start's preconditions were not met), `limit`
-and `cancelled`. A candidate problem that the original reproduces with the same
-trajectory is reported as original behavior, not as a reconstruction defect.
+and `cancelled`; the last two are inconclusive and never count as a pass. A candidate
+problem that the original reproduces with the same trajectory is reported as original
+behavior, not as a reconstruction defect.
 
 - **Explore** runs seeded Go-Explore without training: it returns to situations it
   has reached (snapshots of declared cell fields) and tries new sticky actions,
@@ -815,17 +816,68 @@ the original, the contract and the owner's trajectories; checks rebuild the
 candidate, replay every trajectory on fresh engines and report per-case outcomes
 while sealed inputs and observations stay protected.
 
+### Real games: Godot projects and SDL2 programs
+
+Real games run natively through a small adapter instead of the emulator. Add a
+`native` section to `game.json`:
+
+```json
+{
+  "version": 1,
+  "name": "Dodge the Creeps",
+  "native": {
+    "adapter": "godot",
+    "original": {"project": "gdscript"},
+    "candidate": {"project": "rust"},
+    "inputs": [{"action": "move_left"}, {"action": "move_right"}, {"action": "start_game"}],
+    "state": [{"name": "x", "type": "f32", "node": "Main/Player", "property": "position:x"}],
+    "frame": {"width": 48, "height": 72}
+  }
+}
+```
+
+- **Godot 4 projects** (GDScript, C#, or GDExtension code in Rust or C++): HA copies the
+  project, adds its `ha_tick.gd` autoload through `override.cfg`, imports assets once and
+  runs the game at a fixed frame rate. Each input bit presses a key or an input action
+  (an action is pressed with its first key binding, so button shortcuts see it too).
+  State values are node properties or group counts. Set `foundations.godot` (or the
+  `HA_GODOT` environment variable) to the Godot executable.
+- **SDL2 programs** (C, C++, Rust or anything that calls SDL2) on Linux: HA preloads its
+  adapter library, which gives the game's own code virtual clocks and seeded
+  randomness, presses keys and captures each presented frame. State values come from
+  the paused process's memory by symbol and pointer path, for example
+  `{"name": "score", "type": "f32", "symbol": "_ZN6Global4heroE", "pointers": [244]}`,
+  so the program needs its symbols; a stripped build can still be compared by frames.
+- Frames render on a virtual X display (`Xvfb`) with software OpenGL; Godot can also run
+  headless for state-only play.
+
+Controls, actions, the output layout and state fields are derived from the native
+section, so playing, comparing, exploring, shrinking, bug packages and saved
+regressions work as for emulated games. Native play runs the game's own code on this
+computer: enable **trusted native execution** for the project first (the permission
+used by native test recipes). It is not a sandbox; use a disposable machine for games
+you do not trust. `describe_game` plays a probe twice (past the title screen through a
+named start) and reports whether the game replays deterministically; a game that reads
+the clock or operating-system entropy in ways the adapter does not control can differ
+between runs, and HA reports that rather than guessing. Per-frame and startup time
+limits turn a hang into a freeze and a signal into a crash. Snapshots replay the input
+log from a fresh launch, so native exploration is slower than emulated exploration.
+`game_play` acceptance seals emulated games only; keep native regressions instead.
+Real-game results are in [game play-testing design](dev/GAME_TESTING.md).
+
 From the command line:
 
 ```bash
 python _app/launch.py game-test --workspace GAME_FOLDER --mode explore --steps 300 --seed 0
+python _app/launch.py game-test --workspace GAME_FOLDER --mode describe --allow-native --godot /path/to/godot
 ```
 
 Other modes are `describe`, `compare`, `run`, `shrink`, `package` and `regressions`
-(`--trajectory` takes a token or a named start). This verifies sampled, deterministic
-play under a declared contract. It is not a GPU, window-system or hardware-timing
-claim, and exploration that finds nothing does not prove a game correct. Native
-graphical builds, OS-level input and trained policies are not implemented; see
+(`--trajectory` takes a token or a named start; `--end` ends input). Native games need
+`--allow-native`. This verifies sampled play under a declared contract. It is not a
+GPU, window-system or hardware-timing claim, and exploration that finds nothing does
+not prove a game correct. Windows SDL2 programs, exported Godot binaries, mouse input,
+native audio capture and trained policies are not implemented; see
 [game play-testing design](dev/GAME_TESTING.md).
 
 ## Windows console reconstruction
