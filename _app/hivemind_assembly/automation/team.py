@@ -311,6 +311,13 @@ class NativeTeam:
                 if attachments
                 else "Use read_artifact for bounded excerpts of the full result"
             )
+        images = self.result_images(task, key, cfg, last)
+        if images:
+            attachments += images
+            if isinstance(payload.get("last_result"), dict):
+                payload["last_result"]["image_note"] = (
+                    "Attached frame images: " + ", ".join(Path(a["path"]).name for a in images)
+                )
         request = {
             "protocol": PROTOCOL,
             "experimental_learning": self.experimental.settings(),
@@ -439,6 +446,44 @@ class NativeTeam:
                 "Knowledge scope changed during the native turn; a fresh briefing is required"
             )
         return response
+
+    def result_images(self, task, key, cfg, last):
+        """PNG images from the previous tool result(s), when the route has uploads.
+
+        Domains such as game play-testing return rendered frames as artifacts. Chat
+        models see them only as attachments; without an upload binding the JSON
+        result still names them and text views remain available.
+        """
+        selectors = cfg.get("selectors", {})
+        if not isinstance(last, dict) or not (
+            selectors.get("upload") and selectors.get("attachment_ready")
+        ):
+            return []
+        results = [last] + [
+            r for r in last.get("batch_results", []) if isinstance(r, dict)
+        ]
+        items = [
+            item
+            for r in results
+            for item in r.get("image_artifacts", [])
+            if isinstance(item, dict) and isinstance(item.get("id"), str)
+        ][:4]
+        attached = []
+        for item in items:
+            row = self.store.one("SELECT * FROM artifacts WHERE id=?", (item["id"],))
+            name = Path(str(item.get("name") or "frame.png")).name
+            if (
+                row is None
+                or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,80}\.png", name)
+            ):
+                continue
+            data = self.broker.artifacts.read(
+                item["id"], "worker", task["project_id"], task=task["id"]
+            )
+            path = self.store.root / "private" / "transfers" / key / name
+            atomic_write(path, data)
+            attached.append({"path": str(path), "sha256": row["sha256"]})
+        return attached
 
     async def tick(self, task_id):
         async with self.task_locks.setdefault(task_id, asyncio.Lock()):
