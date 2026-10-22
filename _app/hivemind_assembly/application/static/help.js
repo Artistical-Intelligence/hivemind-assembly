@@ -1,7 +1,7 @@
 // Plain hover descriptions for every dashboard button, including buttons added later.
 (() => {
   const byId = {
-    'first-run-install': 'Download and set up the helper tools HA needs.',
+    'first-run-install': 'Download and install everything HA uses, in one step.',
     'first-run-later': 'Hide this reminder for now.',
     'native-all': 'Open sign-in windows for each AI assistant HA works with.',
     'verify': 'Run a quick built-in self-test.',
@@ -24,7 +24,7 @@
     'knowledge-curate': 'Let HA sort the selected material into categories.',
     'optimize-workflow': 'Test whether a faster way of working is still correct.',
     'backup': 'Save a backup copy of all your HA data.',
-    'install': 'Download and set up the helper tools HA needs.',
+    'install': 'Download and install everything HA uses, in one step.',
     'verify-foundations': 'Check that the helper tools are installed correctly.',
     'github-auto': 'Connect HA to your GitHub account step by step.',
     'github-cancel': 'Stop the GitHub sign-in that is in progress.',

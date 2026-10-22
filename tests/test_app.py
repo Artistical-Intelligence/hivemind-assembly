@@ -390,6 +390,7 @@ def test_first_run_reports_foundations_and_loads_them_after_install(app, monkeyp
         return {"verification": {"passed": True}}
 
     monkeypatch.setattr(setup, "install_foundations", fake_install)
+    monkeypatch.setattr(app, "install_optional_tools", lambda: {"github_cli": "ready"})
     app.action("/api/setup", {})
     for _ in range(100):
         if app.status()["foundations"]["ready"]:
@@ -401,3 +402,26 @@ def test_first_run_reports_foundations_and_loads_them_after_install(app, monkeyp
         "installing": False,
         "restart_needed": False,
     }
+
+
+def test_setup_installs_optional_tools_in_the_same_step(app, monkeypatch):
+    from hivemind_assembly.application import prerequisites
+    from hivemind_assembly.core.common import Blocked
+
+    def gh_fails(extra=()):
+        assert extra == ("gh",)
+        raise Blocked("GitHub CLI could not be installed")
+
+    def tunnel_fails():
+        raise ConnectionError("offline")
+
+    monkeypatch.setattr(prerequisites, "install_missing", gh_fails)
+    monkeypatch.setattr(app.tunnel, "status", lambda: {"installed": False})
+    monkeypatch.setattr(app.tunnel, "install", tunnel_fails)
+    assert app.install_optional_tools() == {
+        "github_cli": "GitHub CLI could not be installed",
+        "tunnel_client": "Not installed (ConnectionError); retry later in Connections.",
+    }
+    monkeypatch.setattr(prerequisites, "install_missing", lambda extra=(): {"installed": []})
+    monkeypatch.setattr(app.tunnel, "status", lambda: {"installed": True})
+    assert app.install_optional_tools() == {"github_cli": "ready", "tunnel_client": "ready"}

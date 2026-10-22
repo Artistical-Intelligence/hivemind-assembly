@@ -1016,10 +1016,33 @@ class Application:
                 # without restarting HA.
                 saved = json.loads(Path(self.config_path).read_text())
                 self.config["foundations"].update(saved.get("foundations", {}))
+                # Optional downloads in the same step, so setup is one action.
+                # Their failures are reported without undoing the core tools.
+                result["optional"] = self.install_optional_tools()
                 return result
 
             return self.background_job("Install pinned foundations", install)
         raise ContractError("Unknown action")
+
+    def install_optional_tools(self):
+        """GitHub CLI (Codespaces) and the MCP tunnel client; each reports its own result."""
+        from .prerequisites import install_missing
+
+        results = {}
+        try:
+            install_missing(extra=("gh",))
+            results["github_cli"] = "ready"
+        except Blocked as e:
+            results["github_cli"] = str(e)
+        if self.tunnel.status()["installed"]:
+            results["tunnel_client"] = "ready"
+        else:
+            try:
+                self.tunnel.install()
+                results["tunnel_client"] = "ready"
+            except Exception as e:  # network, release or disk problems
+                results["tunnel_client"] = "Not installed (" + type(e).__name__ + "); retry later in Connections."
+        return results
 
     def run_native_tests(self, task_id, expected_revision=None):
         with self.store.lock:
