@@ -453,8 +453,9 @@ autoload added through `override.cfg` and assets imported once, or of an SDL2
 program's folder, with `ha_sdl_tick.so` built from source by the configured C
 compiler and preloaded on Linux. `NativeEngine` starts the game with a credential-free
 environment and a fresh home, accepts the adapter's connection on a localhost port
-only with the per-launch token, and then exchanges one input record for one frame's
-record. The Godot adapter presses an action's first key binding (so shortcuts see it),
+only with the per-launch token (the adapter connects at the game's first frame, so
+loading counts against the startup limit), and then exchanges one input record for one
+frame's record. The Godot adapter presses an action's first key binding (so shortcuts see it),
 seeds the global random generator, runs at a fixed frame rate and reports node
 properties, group counts and a scaled frame. On Linux `ha_entropy.c` answers
 `getrandom`, `getentropy`, `syscall(SYS_getrandom)` and `arc4random` from seeded
