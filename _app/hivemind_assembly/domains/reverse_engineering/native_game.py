@@ -31,6 +31,7 @@ import functools
 import hashlib
 import json
 import os
+import random
 import secrets
 import select
 import shutil
@@ -868,14 +869,23 @@ def determinism(make_runner, spec, ticks=60):
     """Play the same inputs twice from fresh launches and compare every record.
 
     The probe plays the start named `probe` (or the first named start, so a game
-    that waits on a title screen gets past it) and then `ticks` neutral inputs.
+    that waits on a title screen gets past it) and then `ticks` of seeded random
+    actions from the game's menu, so input handling is checked as well as time and
+    randomness.
     """
     starts = spec.get("starts") or {}
     chosen = "probe" if "probe" in starts else next(iter(sorted(starts)), None)
     record = spec["input"]["record_bytes"]
     prefix = bytes.fromhex(starts[chosen]["inputs_hex"]) if chosen else b""
     room = max(0, spec["limits"]["max_ticks"] - len(prefix) // record)
-    inputs = prefix + bytes.fromhex(spec["input"]["neutral"]) * min(ticks, room)
+    wanted = min(ticks, room)
+    chooser = random.Random(0)
+    names = sorted(spec["actions"])
+    actions, played = [], bytearray()
+    while len(played) // record < wanted:
+        actions.append(chooser.choice(names))
+        played += gs.expand(spec, actions[-1:])
+    inputs = prefix + bytes(played[: wanted * record])
     observed = []
     for _ in range(2):
         runner = make_runner()
@@ -896,6 +906,7 @@ def determinism(make_runner, spec, ticks=60):
     return {
         "ticks": len(inputs) // record,
         "start": chosen,
+        "actions": actions,
         "identical": identical,
         "first_difference_tick": difference,
     }
