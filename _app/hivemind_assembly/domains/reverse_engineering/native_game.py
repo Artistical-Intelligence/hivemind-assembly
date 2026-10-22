@@ -11,9 +11,13 @@ symbol and pointer path. `NativeEngine` presents this as the harness's live step
 protocol, so play, comparison, exploration, shrinking and regressions are unchanged.
 
 Determinism comes from the adapters: Godot's fixed-fps mode, or virtual clocks for
-the game's own code (SDL2), and seeded randomness. Games that read wall-clock time or
-unseeded entropy some other way can still differ between runs; snapshots restore by
-replaying the input log from a fresh launch and record any replay that differs.
+the game's own code (SDL2), and seeded randomness. On Linux an LD_PRELOAD library
+(built when a C compiler is available; the SDL2 adapter includes it) answers requests
+for operating-system randomness from seeded per-library streams, including from Godot
+GDExtensions written in Rust or C++. Games that read wall-clock time or entropy some
+other way (hardware random instructions, /dev/urandom) can still differ between runs;
+the determinism probe reports that, and snapshots restore by replaying the input log
+from a fresh launch and record any replay that differs.
 Frames render on a virtual X display (Xvfb) with software OpenGL on Linux.
 
 Native execution runs the game's own code on this computer with a credential-free
@@ -319,6 +323,9 @@ def _godot_plan(root, spec, item, config):
         argv += ["--rendering-driver", "opengl3"]
         extra.update(LIBGL_ALWAYS_SOFTWARE="1", MESA_SHADER_CACHE_DISABLE="true")
     argv += item["args"]
+    preload = _entropy_preload(config)
+    if preload:
+        extra.update(LD_PRELOAD=preload, HA_TICK_SEED=str(native["seed"]))
     return {
         "adapter": "godot",
         "argv": argv,
@@ -327,28 +334,59 @@ def _godot_plan(root, spec, item, config):
         "display": native["display"] != "headless" and sys.platform.startswith("linux"),
         "payload": sum(gs.record_sizes(spec).values()),
         "runtime": str(runtime),
-        "digest": "godot:" + key + ":" + hashlib.sha256(json.dumps(argv[1:]).encode()).hexdigest()[:16],
+        "digest": "godot:" + key + ":" + hashlib.sha256(json.dumps([argv[1:], preload]).encode()).hexdigest()[:16],
     }
 
 
-@functools.lru_cache(maxsize=4)
-def _shim(compiler, stamp):
-    """Build the SDL2 adapter library once per compiler."""
-    source = (ADAPTERS / "ha_sdl_tick.c").read_bytes()
-    key = hashlib.sha256(source + json.dumps(stamp).encode()).hexdigest()[:32]
+# Adapter libraries: the SDL2 tick adapter (with seeded randomness), and the seeded
+# randomness alone for Godot, which also opens GDExtensions without RTLD_DEEPBIND.
+_LIBRARIES = {
+    "ha_sdl_tick": (("ha_sdl_tick.c", "ha_entropy.c"), ()),
+    "ha_entropy": (("ha_entropy.c",), ("-DHA_UNDEEPBIND",)),
+}
+
+
+def _compiler(config):
+    configured = (config.get("foundations") or {}).get("c_compiler", "") or ""
+    return shutil.which(configured) if configured else (shutil.which("clang") or shutil.which("gcc") or shutil.which("cc"))
+
+
+@functools.lru_cache(maxsize=8)
+def _library(name, compiler, stamp):
+    """Build an adapter library once per compiler."""
+    sources, flags = _LIBRARIES[name]
+    digest = hashlib.sha256(json.dumps([stamp, flags]).encode())
+    for source in sources:
+        digest.update((ADAPTERS / source).read_bytes())
+    key = digest.hexdigest()[:32]
 
     def build(stage):
         completed = subprocess.run(
-            [compiler, "-O2", "-shared", "-fPIC", "-o", str(stage / "ha_sdl_tick.so"), str(ADAPTERS / "ha_sdl_tick.c"), "-ldl"],
+            [compiler, "-O2", "-shared", "-fPIC", *flags, "-o", str(stage / (name + ".so"))]
+            + [str(ADAPTERS / source) for source in sources]
+            + ["-ldl"],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             timeout=120,
         )
         if completed.returncode != 0:
-            raise Blocked("Could not build the SDL2 adapter: " + completed.stdout[-600:].decode("utf-8", "replace"))
+            raise Blocked(f"Could not build the {name} adapter: " + completed.stdout[-600:].decode("utf-8", "replace"))
 
-    return str(_prepared("sdl2-adapter-" + key, build) / "ha_sdl_tick.so")
+    return str(_prepared(name + "-" + key, build) / (name + ".so"))
+
+
+def _entropy_preload(config):
+    """Seeded operating-system randomness for Godot on Linux, when a C compiler is available."""
+    if not sys.platform.startswith("linux"):
+        return None
+    compiler = _compiler(config)
+    if not compiler:
+        return None
+    try:
+        return _library("ha_entropy", compiler, tuple(_stamp(compiler)))
+    except Blocked:
+        return None
 
 
 def _sdl2_plan(root, spec, item, config):
@@ -363,11 +401,10 @@ def _sdl2_plan(root, spec, item, config):
         inside = Path(item["executable"]).relative_to(item["folder"].rstrip("/")).as_posix()
     else:
         folder, inside = None, executable.name
-    configured = (config.get("foundations") or {}).get("c_compiler", "") or ""
-    compiler = shutil.which(configured) if configured else (shutil.which("clang") or shutil.which("gcc") or shutil.which("cc"))
+    compiler = _compiler(config)
     if not compiler:
         raise Blocked("The SDL2 adapter needs a C compiler (Clang or GCC)")
-    shim = _shim(compiler, tuple(_stamp(compiler)))
+    shim = _library("ha_sdl_tick", compiler, tuple(_stamp(compiler)))
     listing = _files(folder) if folder else [(executable.name, executable.stat().st_size, executable.stat().st_mtime_ns)]
     key = hashlib.sha256(json.dumps({"files": listing, "protocol": PROTOCOL}, sort_keys=True).encode()).hexdigest()[:32]
 
@@ -448,6 +485,8 @@ class NativeEngine:
             "memory": launch["adapter"] == "sdl2" and sys.platform.startswith("linux"),
             "coverage": "none",
             "deterministic": "adapter_controlled",
+            # Operating-system randomness (getrandom and friends) comes from seeded streams.
+            "os_randomness": "seeded" if launch["env"].get("LD_PRELOAD") else "unseeded",
             "frame_exact_input": True,
             "observations": "per_frame",
         }
