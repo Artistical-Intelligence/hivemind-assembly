@@ -790,6 +790,7 @@ class QuickConnection:
             gateway = Gateway(Rpc(self.call, self.version))
             self.gateway = gateway
             threading.Thread(target=gateway.serve_forever, kwargs={"poll_interval": 0.2}, daemon=True).start()
+            self.folder.mkdir(parents=True, exist_ok=True)
             config = self.folder / "isolated.yml"
             config.write_text("{}\n", encoding="utf-8")
             environment = {k: v for k, v in os.environ.items() if not k.startswith(("TUNNEL_", "CLOUDFLARE_"))}
