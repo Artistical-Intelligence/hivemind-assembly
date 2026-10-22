@@ -255,7 +255,7 @@ All parts in the architecture table landed in version 0.26.0. What was run:
   `Crypto` bytes with the preload). Hosted Linux CI first ran these tests in this
   version and exposed the slow-loading case.
 
-Real free games, played by `dev/check_real_games.py` at `4b1efb3` on Linux x86-64
+Real free games, played by `dev/check_real_games.py` at `3e741b3` on Linux x86-64
 (Xvfb with Mesa llvmpipe, Godot 4.7.1) from pinned commits and checksums; the planted
 defects are one-line changes the script makes:
 
