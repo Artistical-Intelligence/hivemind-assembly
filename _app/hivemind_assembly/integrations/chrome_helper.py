@@ -350,3 +350,17 @@ def open_extensions_page():
         **({"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)} if os.name == "nt" else {}),
     )
     return True
+
+
+def open_folder(folder=EXTENSION_DIR):
+    """Show the extension folder in the file manager, ready for Chrome's Load unpacked."""
+    import subprocess
+
+    folder = str(Path(folder))
+    if os.name == "nt":
+        os.startfile(folder)  # noqa: S606 - opens Explorer at HA's own folder
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", folder])
+    else:
+        subprocess.Popen(["xdg-open", folder], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return True
