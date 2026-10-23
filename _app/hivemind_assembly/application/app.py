@@ -355,6 +355,7 @@ class Application:
                         **{a: v[a] for a in ("provider", "mode", "model", "effort")},
                     },
                     "bound": bool(v["conversation_url"]),
+                    "out_of_usage": self.team.exhausted(k),
                     "setup": self.native_setup.status(k),
                     "status": (
                         dict(self.team.observations[k].__dict__)
