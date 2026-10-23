@@ -87,3 +87,44 @@ def test_playwright_drives_tabs_in_the_owners_chrome_through_the_extension(tmp_p
     assert data == b"\x00\x01artifact-bytes"
     assert title == "Assistant"
     assert after == before + 2
+
+
+@pytest.mark.skipif(not os.environ.get("WORKBENCH_TEST_CHROME"), reason="needs Chromium")
+def test_native_browser_uses_one_window_of_the_owners_chrome_for_every_account(tmp_path):
+    from types import SimpleNamespace
+    from playwright.async_api import async_playwright
+    from hivemind_assembly.automation.native import NativeBrowser
+
+    async def scenario():
+        config = {"browser": {"mode": "your_chrome"}, "routes": {}}
+        native = NativeBrowser(config, tmp_path, SimpleNamespace())
+        native.relay = ChromeRelay()
+        await native.relay.start()
+        async with async_playwright() as pw:
+            owner = await pw.chromium.launch_persistent_context(
+                str(tmp_path / "owner-profile"), executable_path=os.environ["WORKBENCH_TEST_CHROME"], headless=True,
+                args=["--no-sandbox", f"--disable-extensions-except={EXTENSION_DIR}", f"--load-extension={EXTENSION_DIR}"])
+            worker = owner.service_workers[0] if owner.service_workers else await owner.wait_for_event("serviceworker")
+            await worker.evaluate("url => globalThis.__haConnectRelay(url)", native.relay.extension_url)
+            context = await native.owner_context()
+
+            async def provider(route):
+                await route.fulfill(status=200, content_type="text/html", body="<title>signed in</title>")
+
+            await context.route("https://chatgpt.com/**", provider)
+            await context.route("https://claude.ai/**", provider)
+            chatgpt = await native.service_page("openai", "https://chatgpt.com/", ["chatgpt.com"])
+            claude = await native.service_page("claude", "https://claude.ai/new", ["claude.ai"])
+            same = native.contexts["openai"] is native.contexts["claude"]
+            titles = [await chatgpt.title(), await claude.title()]
+            windows = await worker.evaluate("""async () => {
+                const tabs = await chrome.tabs.query({});
+                return [...new Set(tabs.filter(t => t.url.startsWith('https://')).map(t => t.windowId))].length;
+            }""")
+            await native.close()
+            await owner.close()
+        await native.relay.close()
+        return same, titles, windows
+
+    same, titles, windows = asyncio.run(scenario())
+    assert same and titles == ["signed in", "signed in"] and windows == 1
