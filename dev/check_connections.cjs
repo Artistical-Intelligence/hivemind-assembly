@@ -6,7 +6,7 @@ w.eval(['native_captures.js','app.js','knowledge.js','workspace.js','connections
 const $=s=>w.document.querySelector(s),click=s=>$(s).click(),submit=s=>$(s).dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
 const until=async fn=>{for(let n=0;n<100;n++){if(fn())return;await new Promise(r=>setTimeout(r,50));}throw Error('Timeout: '+fn+' '+$('#notice').textContent)};
 (async()=>{
- click('[data-tab="connections"]');await until(()=>$('#cloud-job').elements.request_id.value.startsWith('job-'));
+ click('[data-tab="settings"]');await until(()=>$('#cloud-job').elements.request_id.value.startsWith('job-'));
  await new Promise(r=>setTimeout(r,150));
  assert.equal($('#cloud-settings').elements.enabled.checked,false);
  $('#mcp-access').elements.enabled.checked=true;submit('#mcp-access');await until(()=>$('#notice').textContent.includes('MCP project access saved'));
@@ -16,7 +16,7 @@ const until=async fn=>{for(let n=0;n<100;n++){if(fn())return;await new Promise(r
  await until(()=>$('#notice').textContent.includes('Codespaces settings saved'));
  const response=await fetch(url+'/api/status',{headers:{'X-Workbench-Token':token}}),state=await response.json();
  assert.deepEqual(state.codespaces.settings.spaces,['runner-one','runner-two']);assert.equal(state.codespaces.settings.allow_execution,false);
- click('[data-tab="knowledge"]');
+ click('[data-tab="routes"]');
  $('#knowledge-tag-form').elements.id.value='arithmetic';$('#knowledge-tag-form').elements.label.value='Arithmetic';submit('#knowledge-tag-form');
  await until(()=>$('#knowledge-catalog').textContent.includes('arithmetic'));
  const lf=$('#experimental-settings').elements;assert.equal(lf.enabled.checked,false);assert.equal(lf.chat_only.checked,true);assert.equal(lf.max_turns_per_evaluation.value,'');
