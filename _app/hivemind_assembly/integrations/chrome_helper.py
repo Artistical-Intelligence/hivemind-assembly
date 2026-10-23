@@ -16,6 +16,7 @@ import re
 import shlex
 import struct
 import sys
+import time
 from urllib.parse import parse_qs, urlsplit
 
 from hivemind_assembly.core.common import Blocked, ContractError
@@ -186,6 +187,32 @@ def native_main(argv=None, stdin=None, stdout=None, requester=None):
     stdin = stdin or sys.stdin.buffer
     stdout = stdout or sys.stdout.buffer
     requester = requester or (lambda path, payload: dashboard_request(data_dir, path, payload))
+    import threading
+
+    lock = threading.Lock()
+
+    def write(value):
+        encoded = json.dumps(value, ensure_ascii=False, allow_nan=False).encode("utf-8")
+        with lock:
+            stdout.write(struct.pack("=I", len(encoded)) + encoded)
+            stdout.flush()
+
+    def watch(interval=3.0, rounds=None):
+        """Tell the extension whenever HA wants to run its assistants in this Chrome."""
+        last, count = object(), 0
+        while rounds is None or count < rounds:
+            count += 1
+            try:
+                url = requester("helper/relay", {}).get("url")
+            except Exception:
+                url = None  # HA closed: the extension disconnects
+            if url != last:
+                write({"op": "relay", "url": url})
+                last = url
+            if rounds is None or count < rounds:
+                time.sleep(interval)
+
+    watching = False
     while True:
         head = stdin.read(4)
         if not head:
@@ -199,16 +226,27 @@ def native_main(argv=None, stdin=None, stdout=None, requester=None):
         except EOFError:
             return 2
         try:
-            reply = {"ok": True, "value": native_dispatch(json.loads(raw.decode("utf-8")), requester)}
+            message = json.loads(raw.decode("utf-8"))
+        except ValueError:
+            return 2
+        if message == {"op": "watch"}:
+            if not watching:
+                watching = True
+                rounds = getattr(requester, "watch_rounds", None)  # tests stop after a few
+                thread = threading.Thread(target=watch, kwargs={"interval": 0 if rounds else 3.0, "rounds": rounds}, daemon=True)
+                thread.start()
+                if rounds:
+                    thread.join()
+            continue
+        try:
+            reply = {"ok": True, "value": native_dispatch(message, requester)}
         except (Blocked, ContractError, ValueError) as exc:
             reply = {"ok": False, "error": str(exc)[:1000] or "The request was refused."}
         except Exception:
             reply = {"ok": False, "error": "HA could not answer. Keep HA open and try again."}
-        encoded = json.dumps(reply, ensure_ascii=False, allow_nan=False).encode("utf-8")
-        if len(encoded) > 32 * 1024:
+        if len(json.dumps(reply).encode("utf-8")) > 32 * 1024:
             return 2
-        stdout.write(struct.pack("=I", len(encoded)) + encoded)
-        stdout.flush()
+        write(reply)
 
 
 def extension_id(folder=EXTENSION_DIR):
