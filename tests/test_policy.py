@@ -137,3 +137,13 @@ def test_current_worker_reserve_and_unknown_policy():
         )
         == "worker.opus"
     )
+
+
+def test_usage_is_rechecked_often_until_it_runs_out(store):
+    p = UsagePolicy(store)
+    assert p.claim_poll("acct", 100000, interval=p.ACTIVE_INTERVAL)
+    assert not p.claim_poll("acct", 100000 + 599, interval=p.ACTIVE_INTERVAL)
+    assert p.claim_poll("acct", 100000 + 600, interval=p.ACTIVE_INTERVAL)
+    # Out of usage: once a day.
+    assert not p.claim_poll("acct", 100600 + 3600, interval=p.EXHAUSTED_INTERVAL)
+    assert p.claim_poll("acct", 100600 + 86400, interval=p.EXHAUSTED_INTERVAL)
