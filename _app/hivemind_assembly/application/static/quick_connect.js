@@ -196,7 +196,7 @@
       render(s.quick_connect);
     } catch {}
   }
-  document.querySelector('[data-tab="connections"]').addEventListener('click', poll);
+  document.querySelector('[data-tab="settings"]').addEventListener('click', poll);
   setInterval(() => {
     if (el('connections').classList.contains('active')) poll();
   }, 3000);
