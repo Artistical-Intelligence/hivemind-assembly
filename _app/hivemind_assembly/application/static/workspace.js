@@ -43,7 +43,7 @@
     listing = data;
     updateRecipeFiles(data.files);
     byId('guided-test-form').hidden = !!data.acceptance;
-    byId('workspace-contract').textContent = data.acceptance ? 'Pinned checks: ' + data.acceptance.scope.replaceAll('_',' ') + '. The reference and recipe are immutable. Edit the candidate and rerun checks below.' : 'No checks are pinned yet. Configure a native comparison here, or choose another check type in Projects & tasks.';
+    byId('workspace-contract').textContent = data.acceptance ? 'Pinned checks: ' + data.acceptance.scope.replaceAll('_',' ') + '. The reference and recipe are immutable. Edit the candidate and rerun checks below.' : 'No checks are pinned yet. Configure a native comparison here, or choose another check type under Independent acceptance above.';
     byId('workspace-location').textContent = data.root;
     byId('workspace-readiness').textContent = data.reason || (data.preparing ? 'Preparing project. Upload files and pin checks; agents will then start automatically. Pause the task to keep preparing.' : 'Paused and ready to edit. Independent checks leave the task paused.');
     byId('workspace-files').innerHTML = data.files.map(f => `<button type="button" data-file="${esc(f.path)}" class="file-entry"><span>${esc(f.path)}</span><small>${f.size.toLocaleString()} B</small></button>`).join('') || '<p class="muted">No files yet.</p>';
@@ -185,7 +185,7 @@
         const r = await fetch('/api/workspace/upload', {method:'POST',headers:{'X-Workbench-Token':token||'','Content-Type':'application/octet-stream','X-HA-Task':task,'X-HA-Path':encodeURIComponent(file.name)},body:file});
         const result = await r.json(); if (!r.ok) throw Error(result.error || 'Upload failed');
       }
-      message('Files uploaded. Configure acceptance checks in Projects & tasks before starting agents.');
+      message('Files uploaded. Set up the checks under Independent acceptance above before starting agents.');
     } finally { e.target.value = ''; busy = false; await listFiles(); controls(); }
   });
   byId('workspace-check').onclick = guarded(async () => {
@@ -221,7 +221,7 @@
       const task = await api('project/starter', {kind,request_id:request,allow_native:allow});
       sessionStorage.removeItem(key); await refresh(); await selectTask(task.id); tab('workspace');
       await openFile(kind === 'registers' ? 'candidate.hex' : ['linked_arm64','program_arm64','program_windows','program_frames','native_frames','autonomous_program'].includes(kind) ? 'candidate.c' : kind === 'project_game' ? 'logic.c' : kind === 'game_testing' ? 'README.txt' : 'candidate.py');
-      message(kind === 'autonomous_program' ? 'Reconstruction trial ready. The candidate is unfinished and its checks are pinned. Start it in Projects & tasks once the AI assistants are ready.' : kind === 'game_testing' ? 'Game example ready. Use Play and test the game below: load it, play, explore and run saved regressions.' : 'Example ready. Run checks, edit the candidate, and check again.');
+      message(kind === 'autonomous_program' ? 'Reconstruction trial ready. The candidate is unfinished and its checks are pinned. Start it under Project objective above once the AI assistants are ready.' : kind === 'game_testing' ? 'Game example ready. Use Play and test the game below: load it, play, explore and run saved regressions.' : 'Example ready. Run checks, edit the candidate, and check again.');
     } finally { b.disabled = false; }
   }));
   function updateRecipeFiles(files) {
