@@ -36,6 +36,12 @@ class NativeBrowser:
         self.sign_in_waiting = set()
         self.service_pages = set()
 
+    def profile_dir(self, profile):
+        # Chrome gets its own folders: a profile Edge wrote may not open cleanly in Chrome.
+        if self.config.get("browser", {}).get("channel") == "chrome":
+            return self.root / "private" / "browser" / "chrome" / profile
+        return self.root / "private" / "browser" / profile
+
     async def start(self):
         from playwright.async_api import async_playwright
 
@@ -80,7 +86,7 @@ class NativeBrowser:
                 }
                 self.contexts[profile] = (
                     await self.playwright.chromium.launch_persistent_context(
-                        str(self.root / "private" / "browser" / profile),
+                        str(self.profile_dir(profile)),
                         headless=False,
                         **opts,
                     )
@@ -118,7 +124,7 @@ class NativeBrowser:
             allowed.setdefault("headless", False)
             self.contexts[profile] = (
                 await self.playwright.chromium.launch_persistent_context(
-                    str(self.root / "private" / "browser" / profile),
+                    str(self.profile_dir(profile)),
                     accept_downloads=True,
                     **allowed,
                 )
