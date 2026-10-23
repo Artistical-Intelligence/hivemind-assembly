@@ -35,12 +35,42 @@ class NativeBrowser:
         self.profile_locks = {}
         self.sign_in_waiting = set()
         self.service_pages = set()
+        # "Your Chrome" mode: tabs in the owner's own Chrome via the helper extension.
+        self.relay = None
+        self.owner_browser = None
+        self.owner_lock = asyncio.Lock()
 
     def profile_dir(self, profile):
         # Chrome gets its own folders: a profile Edge wrote may not open cleanly in Chrome.
         if self.config.get("browser", {}).get("channel") == "chrome":
             return self.root / "private" / "browser" / "chrome" / profile
         return self.root / "private" / "browser" / profile
+
+    def your_chrome(self):
+        return self.config.get("browser", {}).get("mode") == "your_chrome"
+
+    async def owner_context(self):
+        """The owner's Chrome, reached through the helper extension; one window of HA tabs."""
+        async with self.owner_lock:
+            if self.owner_browser is not None and self.owner_browser.is_connected():
+                return self.owner_browser.contexts[0]
+            if self.relay is None:
+                raise Blocked("Your-Chrome mode isn't available in this HA session.")
+            await self.start()
+            await self.relay.start()
+            await self.relay.wait_for_extension(60)
+            browser = await self.playwright.chromium.connect_over_cdp(self.relay.cdp_url)
+            browser.on("disconnected", lambda _: self.forget_owner(browser))
+            self.owner_browser = browser
+            return browser.contexts[0]
+
+    def forget_owner(self, browser):
+        """Chrome or the extension went away: reconnect (and reopen tabs) on next use."""
+        if self.owner_browser is browser:
+            self.owner_browser = None
+        gone = set(browser.contexts)
+        self.contexts = {k: v for k, v in self.contexts.items() if v not in gone}
+        self.pages = {k: v for k, v in self.pages.items() if not v.is_closed()}
 
     async def start(self):
         from playwright.async_api import async_playwright
@@ -50,8 +80,13 @@ class NativeBrowser:
                 self.playwright = await async_playwright().start()
 
     async def close(self):
+        owned = set(self.owner_browser.contexts) if self.owner_browser else set()
         for ctx in self.contexts.values():
-            await ctx.close()
+            if ctx not in owned:
+                await ctx.close()
+        if self.owner_browser is not None:
+            await self.owner_browser.close()  # disconnects; the owner's Chrome stays open
+            self.owner_browser = None
         if self.playwright:
             await self.playwright.stop()
         self.contexts = {}
@@ -77,6 +112,8 @@ class NativeBrowser:
             raise Blocked("Setup URL is outside the configured service")
         async with self.profile_locks.setdefault(profile, asyncio.Lock()):
             await self.start()
+            if profile not in self.contexts and self.your_chrome():
+                self.contexts[profile] = await self.owner_context()
             if profile not in self.contexts:
                 opts = {
                     k: v
@@ -104,6 +141,8 @@ class NativeBrowser:
     async def _page(self, route):
         cfg = self.config["routes"][route]
         profile = identifier(cfg["profile"])
+        if profile not in self.contexts and self.your_chrome():
+            self.contexts[profile] = await self.owner_context()
         if profile not in self.contexts:
             if not self.playwright:
                 await self.start()
