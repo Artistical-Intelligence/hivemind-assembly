@@ -137,6 +137,9 @@ class Application:
         self.token = secrets.token_urlsafe(32)
         self.loop = asyncio.new_event_loop()
         self.browser = NativeBrowser(self.config, root, self.controller)
+        from hivemind_assembly.automation.chrome_relay import ChromeRelay
+
+        self.browser.relay = ChromeRelay()
         self.connections.oauth.open_page = self.browser.service_page
         self.connections.oauth.submit = self.submit
         self.team = NativeTeam(self.controller, self.broker, self.browser, self.config)
@@ -348,6 +351,10 @@ class Application:
             ],
             "jobs": self.jobs_view(),
             "foundations": self.foundations_status(),
+            "assistant_browser": {
+                "mode": "your_chrome" if self.browser.your_chrome() else "own_windows",
+                "extension_connected": self.browser.relay.connected(),
+            },
             "routes": [
                 {
                     **{
@@ -542,6 +549,31 @@ class Application:
             if path == "/api/helper/details":
                 return chrome_helper.details(self.connection(), data.get("provider"))
             return chrome_helper.pair(self.connection(), data.get("provider"), data.get("page_url"), data.get("flow"))
+        if path == "/api/helper/relay":
+            # Asked every few seconds by the helper in the owner's Chrome.
+            if not self.browser.your_chrome():
+                return {"url": None}
+            self.submit(self.browser.relay.start()).result(10)
+            return {"url": self.browser.relay.extension_url}
+        if path == "/api/browser/mode":
+            mode = data.get("mode")
+            if mode not in ("your_chrome", "own_windows"):
+                raise ContractError("Choose your Chrome or HA's own windows.")
+            if any(not p.done() for p in [*self.team.active.values(), *self.team.learning_jobs.values()]):
+                raise Blocked("Pause active tasks before changing where the assistants run.")
+            browser = self.config.setdefault("browser", {})
+            if mode == "your_chrome":
+                browser["mode"] = "your_chrome"
+            else:
+                browser.pop("mode", None)
+            saved = json.loads(Path(self.config_path).read_text())
+            saved.setdefault("browser", {}).pop("mode", None)
+            if mode == "your_chrome":
+                saved["browser"]["mode"] = "your_chrome"
+            atomic_write(self.config_path, canonical(saved))
+            # Open windows or tabs from the other mode are closed; they reopen in the new place.
+            self.submit(self.browser.close()).result(30)
+            return {"mode": mode, "extension_connected": self.browser.relay.connected()}
         if path == "/api/helper/install":
             from hivemind_assembly.integrations import chrome_helper
 
@@ -1428,6 +1460,10 @@ class Application:
             return
         self.tunnel.close()
         self.quick.close()
+        try:
+            self.submit(self.browser.relay.close()).result(5)
+        except Exception:
+            pass
         self.permanent.close()
         self.connections.oauth.close()
         self.connections.session_credentials.clear()
