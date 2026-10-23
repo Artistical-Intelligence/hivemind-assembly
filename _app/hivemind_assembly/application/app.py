@@ -51,6 +51,13 @@ def data_home():
     return Path.home() / ".local" / "share" / "unified-workbench"
 
 
+def windows_chrome_installed():
+    roots = [os.environ.get(k) for k in ("ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA")]
+    return any(
+        (Path(r) / "Google/Chrome/Application/chrome.exe").exists() for r in roots if r
+    )
+
+
 class Application:
     def __init__(self, root):
         self.instance_lock = InstanceLock(root)
@@ -59,20 +66,21 @@ class Application:
         if not self.config_path.exists():
             default_config = json.loads(DEFAULT.read_text())
             if os.name == "nt":
-                edge = (
-                    Path(os.environ.get("ProgramFiles(x86)", "C:/Program Files (x86)"))
-                    / "Microsoft/Edge/Application/msedge.exe"
+                # Chrome when it's installed (the owner's browser); Edge otherwise.
+                default_config["browser"]["channel"] = (
+                    "chrome" if windows_chrome_installed() else "msedge"
                 )
-                chrome = (
-                    Path(os.environ.get("ProgramFiles", "C:/Program Files"))
-                    / "Google/Chrome/Application/chrome.exe"
-                )
-                if edge.exists():
-                    default_config["browser"]["channel"] = "msedge"
-                elif chrome.exists():
-                    default_config["browser"]["channel"] = "chrome"
             atomic_write(self.config_path, canonical(default_config))
-        self.config = validate_config(json.loads(self.config_path.read_text()))
+        saved_config = json.loads(self.config_path.read_text())
+        if (
+            os.name == "nt"
+            and saved_config.get("browser", {}).get("channel") == "msedge"
+            and windows_chrome_installed()
+        ):
+            # Earlier versions picked Edge first; use Chrome once it's installed.
+            saved_config["browser"]["channel"] = "chrome"
+            atomic_write(self.config_path, canonical(saved_config))
+        self.config = validate_config(saved_config)
         self.controller = Controller(self.store)
         self.controller.recover()
         with self.store.tx() as db:
