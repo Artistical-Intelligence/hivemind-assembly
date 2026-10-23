@@ -174,6 +174,9 @@ class Application:
         self.quick.on_ready = lambda origin: (
             self.submit(self.auto_reconnect.run_all()) if self.auto_reconnect.providers() else None
         )
+        # Like VSC: register the Chrome helper bridge automatically on every start.
+        if os.environ.get("HA_SKIP_HELPER_REGISTRATION") != "1":  # tests keep the real profile untouched
+            threading.Thread(target=self.register_helper, daemon=True).start()
         self.native_setup = NativeSetup(
             self.browser, self.store, self.config_path, self.sessions, self.team
         )
@@ -241,6 +244,29 @@ class Application:
         self.runner = self.loop.create_task(self.team.run())
         self.loop.run_forever()
 
+    def register_helper(self):
+        """Let Chrome start HA's helper bridge (current user only). Runs at every start."""
+        from hivemind_assembly.integrations import chrome_helper
+
+        try:
+            self.helper_registration = chrome_helper.register_native_host(self.store.root)
+        except Exception as exc:
+            self.helper_registration = {"error": str(exc) or type(exc).__name__}
+        return self.helper_registration
+
+    def helper_status(self):
+        from hivemind_assembly.integrations.chrome_helper import EXTENSION_DIR
+
+        seen = getattr(self, "helper_seen", None)
+        registration = getattr(self, "helper_registration", None) or {}
+        return {
+            "folder": str(EXTENSION_DIR),
+            "registered": bool(registration.get("registered")),
+            "error": registration.get("error"),
+            "last_seen": seen,
+            "connected": bool(seen and time.time() - seen < 15),
+        }
+
     def connection(self):
         """The browser connection in use: the permanent address once set up, else the temporary one."""
         return self.permanent if self.permanent.enabled() else self.quick
@@ -272,6 +298,7 @@ class Application:
             "mcp_authorizations": self.connections.oauth.status(),
             "tunnel": self.tunnel.status(),
             "quick_connect": self.browser_connection_status(),
+            "chrome_helper": self.helper_status(),
             "codespaces": {
                 "settings": self.codespaces.settings(),
                 "jobs": self.codespaces.jobs(),
@@ -540,6 +567,23 @@ class Application:
                 raise Blocked("Choose ChatGPT and/or Claude to reconnect automatically first.")
             self.submit(self.auto_reconnect.run_all())
             return self.auto_reconnect.status()
+        if path.startswith("/api/helper/") and path not in ("/api/helper/install", "/api/helper/open-extensions", "/api/helper/open-folder"):
+            self.helper_seen = time.time()  # the helper in Chrome is reaching HA
+        if path in ("/api/helper/open-extensions", "/api/helper/open-folder"):
+            from hivemind_assembly.integrations import chrome_helper
+
+            self.register_helper()
+            if path == "/api/helper/open-folder":
+                try:
+                    chrome_helper.open_folder()
+                    return {"opened": True}
+                except Exception:
+                    return {"opened": False}
+            try:
+                opened = chrome_helper.open_extensions_page()
+            except Exception:
+                opened = False
+            return {"opened": opened, "url": "chrome://extensions"}
         if path in ("/api/helper/status", "/api/helper/details", "/api/helper/pair"):
             from hivemind_assembly.integrations import chrome_helper
 
