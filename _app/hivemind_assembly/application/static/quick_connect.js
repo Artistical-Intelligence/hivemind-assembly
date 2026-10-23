@@ -117,64 +117,35 @@
     el('quick-code').querySelector('b').textContent = r.code;
   });
 
-  el('helper-install').onclick = async () => {
+  function renderHelper(h) {
+    if (!h) return;
+    if (el('helper-folder').value !== h.folder) el('helper-folder').value = h.folder;
+    el('helper-status').textContent = h.connected ? 'Installed and connected to HA.'
+      : h.last_seen ? 'Installed. Last reached HA ' + ago(h.last_seen) + '. Open Chrome to reconnect.'
+      : h.error ? 'Chrome can\'t reach HA yet: ' + h.error
+      : 'Not installed yet, or Chrome is closed.';
+    el('helper-card').classList.toggle('done', !!h.connected);
+  }
+  el('helper-open-extensions').onclick = async () => {
+    try { await navigator.clipboard.writeText('chrome://extensions'); } catch {}
     try {
-      const r = await api('helper/install', {open: true});
-      el('helper-folder').value = r.folder;
-      el('helper-steps').hidden = false;
-      notice(r.opened ? 'Chrome\'s Extensions page is open. Follow the steps below.' : 'Open chrome://extensions in Chrome, then follow the steps below.');
-    } catch (x) {
-      notice(x.message, true);
-    }
+      const r = await api('helper/open-extensions', {});
+      notice(r.opened ? 'Chrome\'s Extensions page is open. chrome://extensions is also copied.' : 'Couldn\'t open Chrome. chrome://extensions is copied: paste it into Chrome\'s address bar.');
+    } catch (x) { notice(x.message, true); }
+  };
+  el('helper-copy-url').onclick = async () => {
+    try { await navigator.clipboard.writeText('chrome://extensions'); notice('Copied. Paste it into Chrome\'s address bar.'); }
+    catch { notice('Type chrome://extensions into Chrome\'s address bar.'); }
   };
   el('helper-copy').onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(el('helper-folder').value);
-      notice('Folder copied.');
-    } catch {
-      el('helper-folder').select();
-    }
+    try { await navigator.clipboard.writeText(el('helper-folder').value); notice('Folder copied.'); }
+    catch { el('helper-folder').select(); }
   };
-
-  el('quick-auto').onsubmit = async e => {
-    e.preventDefault();
+  el('helper-open-folder').onclick = async () => {
     try {
-      const chosen = [...e.target.elements.provider].filter(b => b.checked).map(b => b.value);
-      renderAuto(await api('quick/auto', {providers: chosen}));
-      notice(chosen.length ? 'HA will reconnect ' + chosen.join(' and ') + ' itself when the address changes.' : 'Automatic reconnect is off.');
-    } catch (x) {
-      notice(x.message, true);
-    }
-  };
-  el('quick-reconnect').onclick = async () => {
-    try {
-      renderAuto(await api('quick/reconnect', {}));
-      notice('Reconnecting in HA\'s assistant windows. Progress shows below.');
-    } catch (x) {
-      notice(x.message, true);
-    }
-  };
-
-  el('permanent-setup').onsubmit = async e => {
-    e.preventDefault();
-    const f = e.target.elements;
-    try {
-      notice('Setting up the permanent address. This takes about a minute.');
-      render(await api('permanent/setup', {token: f.token.value, account_id: f.account_id.value, confirmed_free: f.confirmed_free.checked}));
-      f.token.value = '';
-      notice('Permanent address ready. Connect ChatGPT and Claude to it once.');
-    } catch (x) {
-      f.token.value = '';
-      notice(x.message, true);
-    }
-  };
-  el('permanent-off').onclick = async () => {
-    try {
-      render(await api('permanent/off', {}));
-      notice('Using the temporary address again. The Worker stays in your Cloudflare account.');
-    } catch (x) {
-      notice(x.message, true);
-    }
+      const r = await api('helper/open-folder', {});
+      notice(r.opened ? 'Folder opened.' : 'Couldn\'t open the folder. Copy the path instead.', !r.opened);
+    } catch (x) { notice(x.message, true); }
   };
 
   el('local-apps').onclick = async () => {
@@ -194,6 +165,7 @@
     try {
       const s = await api('status');
       render(s.quick_connect);
+      renderHelper(s.chrome_helper);
     } catch {}
   }
   document.querySelector('[data-tab="settings"]').addEventListener('click', poll);
