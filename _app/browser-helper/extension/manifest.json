@@ -1,14 +1,18 @@
 {
   "manifest_version": 3,
   "name": "Hivemind Assembly Connection Helper",
-  "version": "1.0.0",
-  "description": "Fills the ChatGPT and Claude connector forms for Hivemind Assembly, and the approval code on HA's approval page.",
+  "version": "1.1.0",
+  "description": "Fills ChatGPT and Claude connector forms for Hivemind Assembly, and lets HA run its AI assistants in tabs of your Chrome with your existing sign-ins.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArdorUW1mLAJMiRqecLEPE3luzeZ7A9bsXRsiZr27uoBUsinWpLKcqE/ZxEY3IANICZ94Ct3prqbWoooh+Sw0BSZoADgHxRibIKL4z0krl/kJv3pwJnyaegPM4s9dXGi9Pbb2qeH2C+ICCVPaNATV326UK0dk2Mw/PfWX5CUxUghXUgvqdzq+u2b2pvSAlpZW9RJW2eTOU35dpTjSGbBtg9i1JCyRIWmeK3PfejbyZvmT75aGB7Cjn6wpqFqXDgrwpPiTO2I+6UB8dDeG+07wJjtTmqRZIQF0fgFpdw0EtssmoFpyjRAbIxG2ckr4NMaBa6Ci3JrB9giAYfVofbnRVwIDAQAB",
   "permissions": [
     "activeTab",
     "scripting",
     "nativeMessaging",
-    "storage"
+    "storage",
+    "debugger",
+    "tabs",
+    "downloads",
+    "alarms"
   ],
   "action": {
     "default_title": "Connect ChatGPT or Claude to Hivemind Assembly",
