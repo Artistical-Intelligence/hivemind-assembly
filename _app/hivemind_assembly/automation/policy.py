@@ -64,14 +64,20 @@ class UsagePolicy:
     def __init__(self, store):
         self.store = store
 
-    def claim_poll(self, scope, now=None):
+    # While an account has usage left, HA re-reads its usage page this often during
+    # work, so it notices running out. Once an account is out, the 24-hour policy
+    # applies: one check a day until the provider refreshes it.
+    ACTIVE_INTERVAL = 600
+    EXHAUSTED_INTERVAL = 86400
+
+    def claim_poll(self, scope, now=None, interval=EXHAUSTED_INTERVAL):
         now = time.time() if now is None else now
         with self.store.tx() as c:
             r = c.execute(
                 "SELECT last_attempt FROM polls WHERE scope=?", (scope,)
             ).fetchone()
             # Backward wall-clock jumps hold the poll; never create a second fetch.
-            if r and now - r[0] < 86400:
+            if r and now - r[0] < interval:
                 return False
             c.execute(
                 "INSERT INTO polls VALUES(?,?) ON CONFLICT(scope) DO UPDATE SET last_attempt=excluded.last_attempt",
