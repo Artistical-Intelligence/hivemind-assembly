@@ -236,6 +236,9 @@ class ChromeRelay:
             reply["sessionId"] = session
         try:
             await ws.send(json.dumps(reply))
+            if method == "Browser.close" and not session:
+                # Disconnect Playwright only; the owner's Chrome stays open.
+                await ws.close()
         except Exception:
             pass
 
@@ -276,6 +279,7 @@ class ChromeRelay:
             tab_id = self.tab_for_target(params.get("targetId"))
             if tab_id is not None:
                 await self.call({"op": "closeTab", "tabId": tab_id})
+                await self.from_extension({"event": "detached", "tabId": tab_id})
             return {"success": tab_id is not None}
         if method == "Target.activateTarget":
             tab_id = self.tab_for_target(params.get("targetId"))
