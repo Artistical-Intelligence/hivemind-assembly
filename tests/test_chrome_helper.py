@@ -159,3 +159,16 @@ def test_form_helper_fills_the_code_on_has_approval_page_without_approving():
         assert "Click Approve" in page.locator("#ha-pair-status").inner_text()
         assert posted == []
         browser.close()
+
+
+def test_watch_tells_the_extension_when_ha_wants_chrome():
+    answers = iter([{"url": None}, {"url": "ws://127.0.0.1:5/extension?token=t"}, {"url": "ws://127.0.0.1:5/extension?token=t"}])
+
+    def requester(path, payload):
+        assert path == "helper/relay"
+        return next(answers)
+
+    requester.watch_rounds = 3
+    out = io.BytesIO()
+    assert chrome_helper.native_main(["--data-dir", "/tmp/x", ORIGIN_ARG], io.BytesIO(frames({"op": "watch"})), out, requester) == 0
+    assert replies(out.getvalue()) == [{"op": "relay", "url": None}, {"op": "relay", "url": "ws://127.0.0.1:5/extension?token=t"}]
