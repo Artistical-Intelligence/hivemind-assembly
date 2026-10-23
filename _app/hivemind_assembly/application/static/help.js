@@ -67,19 +67,14 @@
   };
   const byData = {
     tab: {
-      overview: 'Summary of HA and quick start.',
-      projects: 'Create and manage projects.',
-      workspace: 'View and edit project files and try examples.',
-      routes: 'Set up the AI assistants HA works with.',
-      knowledge: 'Reference material and what HA has learned.',
-      evidence: 'Results, backups and recovering interrupted work.',
-      traces: 'Detailed activity logs.',
-      connections: 'Connect other apps and cloud machines.',
-      settings: 'Install tools and change settings.',
+      overview: 'Summary, getting started and activity logs.',
+      projects: 'Projects, their files and tests, and results and backups.',
+      routes: 'The AI assistants, their usage, and knowledge and skills.',
+      settings: 'Tools, GitHub, connections and other settings.',
     },
     go: {
-      projects: 'Go to Projects & tasks.',
-      workspace: 'Go to Project files.',
+      projects: 'Go to Projects.',
+      workspace: 'Go to the project files.',
       routes: 'Go to AI assistants.',
       settings: 'Go to Settings.',
     },
