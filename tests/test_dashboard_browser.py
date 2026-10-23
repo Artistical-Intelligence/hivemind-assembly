@@ -25,6 +25,7 @@ def test_edit_upload_check_and_draft_retention(server, app):
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
         page.locator('[data-tab="workspace"]').click()
+        page.evaluate("document.querySelector('#examples-card details').open = true")
         page.get_by_role("button", name="Create register example", exact=True).click()
         expect(page.locator("#file-editor")).to_have_value("8d0437\n")
         page.locator("#workspace-check").click()
@@ -60,6 +61,7 @@ def test_edit_upload_check_and_draft_retention(server, app):
         expect(page.locator('[data-file="notes.txt"]')).to_be_visible()
         page.reload()
         page.locator('[data-tab="workspace"]').click()
+        page.evaluate("document.querySelector('#examples-card details').open = true")
         page.locator('[data-file="notes.txt"]').click()
         expect(page.locator("#file-editor")).to_have_value("persist across restart")
         page.locator("#starter-native-allow").check()
@@ -117,6 +119,7 @@ def test_frame_replay_starter_and_synchronized_capture_inspection(server, app, t
         page.on("pageerror", lambda e: errors.append(str(e)))
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
         page.locator('[data-tab="workspace"]').click()
+        page.evaluate("document.querySelector('#examples-card details').open = true")
         page.locator("#starter-native-allow").check()
         page.get_by_role("button", name="Create frame replay example", exact=True).click()
         expect(page.locator("#file-path")).to_have_value("candidate.c", timeout=30000)
@@ -330,6 +333,7 @@ def test_aarch64_example_to_x86_candidate_checks(server, app, button, old, new):
         page.on("pageerror", lambda e: errors.append(str(e)))
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
         page.locator('[data-tab="workspace"]').click()
+        page.evaluate("document.querySelector('#examples-card details').open = true")
         page.get_by_role("button", name=button, exact=True).click()
         expect(page.locator("#file-path")).to_have_value("candidate.c", timeout=30000)
         page.locator("#workspace-check").click()
@@ -367,6 +371,7 @@ def test_windows_console_starter_edit_and_protected_check(server, app):
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
         page.locator('[data-tab="workspace"]').click()
+        page.evaluate("document.querySelector('#examples-card details').open = true")
         page.get_by_role(
             "button", name="Create Windows console example", exact=True
         ).click()
@@ -403,6 +408,7 @@ def test_emulated_frames_protected_capture_scrubbing(server, app, tmp_path):
         page.on("pageerror", lambda e: errors.append(str(e)))
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
         page.locator('[data-tab="workspace"]').click()
+        page.evaluate("document.querySelector('#examples-card details').open = true")
         # This example does not request native execution permission.
         page.get_by_role("button", name="Create emulated frame example", exact=True).click()
         expect(page.locator("#file-path")).to_have_value("candidate.c", timeout=30000)
@@ -451,6 +457,7 @@ def test_every_button_has_a_hover_description(server, app):
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
         page.locator('[data-tab="workspace"]').click()
+        page.evaluate("document.querySelector('#examples-card details').open = true")
         page.get_by_role("button", name="Create register example", exact=True).click()
         page.wait_for_selector("[data-file]")
         missing = page.evaluate(
@@ -509,6 +516,7 @@ def test_game_panel_plays_explores_shrinks_and_runs_regressions(server, app):
         page.on("pageerror", lambda e: errors.append(str(e)))
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
         page.locator('[data-tab="workspace"]').click()
+        page.evaluate("document.querySelector('#examples-card details').open = true")
         page.get_by_role("button", name="Create game testing example", exact=True).click()
         expect(page.locator("#file-path")).to_have_value("README.txt", timeout=60000)
         page.locator("#game-load").click()
