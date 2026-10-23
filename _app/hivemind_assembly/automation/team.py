@@ -175,6 +175,20 @@ class NativeTeam:
                 self.observations[route] = refreshed
                 self.store.put("availability", uid("usage"), asdict(refreshed))
 
+    def exhausted(self, route):
+        """Out of usage: a quota block, or a usage limit below what work needs."""
+        observation = self.observations.get(route)
+        if observation is None or not observation.allowance_known:
+            return False
+        if observation.blocked_kind == "quota":
+            return True
+        return any(w.remaining < 10 for w in observation.windows)
+
+    def poll_interval(self, routes):
+        if any(self.exhausted(route) for route in routes):
+            return self.usage.EXHAUSTED_INTERVAL
+        return self.usage.ACTIVE_INTERVAL
+
     async def poll(self):
         grouped = {}
         for route, cfg in self.config["routes"].items():
@@ -185,7 +199,7 @@ class NativeTeam:
             ):
                 grouped.setdefault(cfg["usage"]["scope"], []).append(route)
         for scope, routes in grouped.items():
-            if not self.usage.claim_poll(scope):
+            if not self.usage.claim_poll(scope, interval=self.poll_interval(routes)):
                 for route in routes:
                     await self.refresh_readiness(route)
                 continue
