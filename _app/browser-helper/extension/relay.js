@@ -51,7 +51,7 @@ async function handle(message) {
     }
     case 'removeDownload':
       await chrome.downloads.removeFile(message.downloadId).catch(() => {});
-      await chrome.downloads.erase({id: message.downloadId});
+      await chrome.downloads.erase({id: message.downloadId}).catch(() => {});
       return {};
   }
   throw new Error('Unknown request');
