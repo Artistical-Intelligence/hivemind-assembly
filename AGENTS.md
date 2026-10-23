@@ -10,7 +10,8 @@
   and execution safeguards, not a competing general-purpose reasoning runtime.
 - Native autonomous sessions are mandatory. Preserve exact configured
   provider/surface/model/mode/effort and allowance distinctions. No model API
-  fallback, manual relay substitute, overage or extra usage polling.
+  fallback, manual relay substitute or overage. During work, re-read usage every
+  10 minutes while an account has usage left; once it runs out, check once a day.
 - Learning includes knowledge, procedures and executable workflows. Measure
   correctness and speed with independent holdouts/regressions before promotion.
   Do not claim self-improvement from retrieval or contracts alone.
