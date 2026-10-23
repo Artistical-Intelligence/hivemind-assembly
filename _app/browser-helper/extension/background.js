@@ -1,4 +1,5 @@
 /* Opens the ChatGPT/Claude connector form after a toolbar click, and fills HA's approval
+importScripts('relay.js');
    code automatically on the one HA address you allowed. Never submits or approves. */
 'use strict';
 const SETUP = Object.freeze({ChatGPT: 'https://chatgpt.com/plugins', Claude: 'https://claude.ai/new#customize/connectors'});
