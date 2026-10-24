@@ -158,12 +158,20 @@ class Connections:
                 ):
                     raise ContractError("Use HTTPS or a loopback HTTP MCP endpoint")
             elif spec.get("transport") == "stdio":
+                command = spec.get("command")
+                if isinstance(command, str) and command and not Path(command).is_absolute():
+                    # "npx" or "uvx" as the tool instructions say: store where it is.
+                    import shutil
+
+                    found = shutil.which(command)
+                    if found:
+                        spec["command"] = str(Path(found).absolute())
                 if (
                     not isinstance(spec.get("command"), str)
                     or not Path(spec["command"]).is_absolute()
                 ):
                     raise ContractError(
-                        "Use an absolute executable path for local MCP servers"
+                        "HA can't find that program. Use Browse to choose it."
                     )
                 if not isinstance(spec.get("args", []), list) or any(
                     not isinstance(a, str) or "\x00" in a for a in spec.get("args", [])
