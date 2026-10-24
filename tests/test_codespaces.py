@@ -355,3 +355,34 @@ def test_stale_cloud_output_requires_confirmation(app):
         app.codespaces.import_output("stale", "answer.txt", edited["sha256"])
     app.codespaces.import_output("stale", "answer.txt", edited["sha256"], allow_stale=True)
     assert app.workspace.read(task["id"], "answer.txt")["text"] == "remote"
+
+
+def test_output_import_can_replace_the_current_file(app):
+    task = app.store.create_project("replace", "test", paused=True)
+    app.workspace.write(task["id"], "answer.txt", "old")
+    row = {
+        "id": "replace",
+        "task": task["id"],
+        "project": task["project_id"],
+        "space": "cpu",
+        "request_hash": "matching",
+        "status": "completed",
+    }
+    app.store.put("cloud_request", "replace", {"outputs": ["answer.txt", "fresh.txt"]})
+    app.codespaces.retain(
+        row,
+        {
+            "id": "replace",
+            "request_hash": "matching",
+            "status": "completed",
+            "outputs": {
+                "answer.txt": base64.b64encode(b"new").decode(),
+                "fresh.txt": base64.b64encode(b"brand new").decode(),
+            },
+        },
+    )
+    # Ticking "Replace" needs no fingerprint; a file the project lacks is simply added.
+    app.codespaces.import_output("replace", "answer.txt", replace=True)
+    assert app.workspace.read(task["id"], "answer.txt")["text"] == "new"
+    app.codespaces.import_output("replace", "fresh.txt", replace=True)
+    assert app.workspace.read(task["id"], "fresh.txt")["text"] == "brand new"
