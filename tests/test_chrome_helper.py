@@ -172,3 +172,40 @@ def test_watch_tells_the_extension_when_ha_wants_chrome():
     out = io.BytesIO()
     assert chrome_helper.native_main(["--data-dir", "/tmp/x", ORIGIN_ARG], io.BytesIO(frames({"op": "watch"})), out, requester) == 0
     assert replies(out.getvalue()) == [{"op": "relay", "url": None}, {"op": "relay", "url": "ws://127.0.0.1:5/extension?token=t"}]
+
+
+def fake_desktop(appears=True, steal_focus_after=None):
+    state = {"now": 0.0, "windows": ["old"], "front": "dashboard", "sent": []}
+
+    def launch():
+        if appears:
+            state["windows"].append("new")
+            state["front"] = "new"
+
+    def send(*keys):
+        state["sent"].append(keys)
+        if steal_focus_after is not None and len(state["sent"]) >= steal_focus_after:
+            state["front"] = "other app"
+
+    def sleep(seconds):
+        state["now"] += seconds
+
+    return state, (lambda: list(state["windows"]), lambda: state["front"], launch, send, sleep, lambda: state["now"])
+
+
+def test_types_the_extensions_address_only_into_the_new_chrome_window():
+    state, desktop = fake_desktop()
+    assert chrome_helper.type_into_new_window(*desktop) == {"opened": True, "typed": True}
+    assert state["sent"] == [("ctrl+l",), ("text", "chrome://extensions"), ("enter",)]
+
+
+def test_no_new_window_means_no_typing():
+    state, desktop = fake_desktop(appears=False)
+    assert chrome_helper.type_into_new_window(*desktop) == {"opened": True, "typed": False}
+    assert state["sent"] == []
+
+
+def test_typing_stops_if_another_window_comes_to_the_front():
+    state, desktop = fake_desktop(steal_focus_after=1)
+    assert chrome_helper.type_into_new_window(*desktop) == {"opened": True, "typed": False}
+    assert state["sent"] == [("ctrl+l",)]
