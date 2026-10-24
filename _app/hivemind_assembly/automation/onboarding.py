@@ -225,8 +225,10 @@ class NativeSetup:
                     route, stage="waiting_delivery", instruction=str(error)
                 )
             except Exception as error:
+                # Browser errors carry long call logs; the first line says what happened.
+                first = (str(error).strip().splitlines() or [type(error).__name__])[0][:300]
                 return self.save(
-                    route, stage="attention", instruction="Setup paused: " + str(error)
+                    route, stage="attention", instruction="Setup paused: " + first + " Select Open sign-in to retry."
                 )
             if result["stage"] not in (
                 "authentication",
