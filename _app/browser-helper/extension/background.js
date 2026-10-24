@@ -84,9 +84,13 @@ async function prepare(message) {
 }
 
 async function localHA(message) {
-  const reply = await chrome.runtime.sendNativeMessage(HOST, message);
-  if (!reply?.ok) throw new Error(reply?.error || 'HA is not reachable.');
-  return reply.value;
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const reply = await chrome.runtime.sendNativeMessage(HOST, message);
+    if (!reply?.ok) throw new Error(reply?.error || 'HA is not reachable.');
+    if (!reply.value?.retry) return reply.value;
+    await pause(2000);  // HA is starting its connection
+  }
+  throw new Error('HA\'s connection didn\'t start.');
 }
 const pairRequests = new Map();
 async function armPairing(message) {
