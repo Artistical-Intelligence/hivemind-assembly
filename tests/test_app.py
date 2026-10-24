@@ -479,3 +479,24 @@ def test_status_lists_practice_sets_newest_first_with_the_default(app):
     sets = app.status()["practice_sets"]
     assert [s["id"] for s in sets] == [second["id"], first["id"]]
     assert [s["default"] for s in sets] == [False, True]
+
+
+def test_private_repository_list_for_the_picker(app, monkeypatch):
+    calls = []
+    monkeypatch.setattr(app.github_auth, "credentials", lambda: {"access_token": "t"})
+
+    def request(method, path, **kw):
+        calls.append((method, path, kw))
+        return [
+            {"owner": {"login": "me"}, "name": "game", "description": None},
+            {"owner": {"login": "team"}, "name": "tools", "description": "Shared"},
+            "not a repository",
+        ]
+
+    monkeypatch.setattr(app.github_auth.http, "request", request)
+    assert app.action("/api/github/repositories", {}) == [
+        {"owner": "me", "name": "game", "description": ""},
+        {"owner": "team", "name": "tools", "description": "Shared"},
+    ]
+    method, path, kw = calls[0]
+    assert method == "GET" and "visibility=private" in path and kw["allow_list"] is True
