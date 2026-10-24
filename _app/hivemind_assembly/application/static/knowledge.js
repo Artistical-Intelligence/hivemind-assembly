@@ -5,11 +5,11 @@
   let learningDirty = false;
   learningForm.addEventListener('input', () => {learningDirty = true;});
   const tags = value => value.split(',').map(x => x.trim()).filter(Boolean);
-  function options(select, items) {
+  function options(select, items, empty = '') {
     const prior = select.value;
     const signature = JSON.stringify(items);
     if (select.dataset.items === signature) return;
-    select.replaceChildren(...items.map(([value, label]) => {
+    select.replaceChildren(...(items.length || !empty ? items : [['', empty]]).map(([value, label]) => {
       const option = document.createElement('option');
       option.value = value; option.textContent = label; return option;
     }));
@@ -54,8 +54,8 @@
       const lesson = (status.lessons || []).find(s => s.id === row.item_id);
       return [JSON.stringify([row.kind, row.item_id]), `${row.kind}: ${source?.name || lesson?.asset_key || row.item_id} [${JSON.parse(row.tags).join(', ')}]`];
     });
-    options(document.querySelector('#knowledge-item'), material);
-    options(document.querySelector('#knowledge-task'), (status.tasks || []).filter(t => t.status === 'paused').map(t => [t.id, t.objective]));
+    options(document.querySelector('#knowledge-item'), material, 'No reference material or lessons yet');
+    options(document.querySelector('#knowledge-task'), (status.tasks || []).filter(t => t.status === 'paused').map(t => [t.id, (status.projects || []).find(p => p.id === t.project_id)?.name || t.objective]), 'No paused projects; pause one under Run the project');
     document.querySelector('#knowledge-scope-list').replaceChildren(...(status.knowledge_scopes || []).map(scope => {
       const p = document.createElement('p');
       const task = (status.tasks || []).find(t => t.id === scope.task_id);
