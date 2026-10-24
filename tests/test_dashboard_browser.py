@@ -275,18 +275,22 @@ def test_tag_scope_and_optional_learning_controls(server, app, tmp_path):
         page.on("pageerror", lambda e: errors.append(str(e)))
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
         page.locator('[data-tab="routes"]').click()
-        page.locator('#knowledge-tag-form [name="id"]').fill("integer-arithmetic")
+        # Typing the name fills in the short name.
         page.locator('#knowledge-tag-form [name="label"]').fill("Integer arithmetic")
+        expect(page.locator('#knowledge-tag-form [name="id"]')).to_have_value(
+            "integer-arithmetic"
+        )
         page.locator("#knowledge-tag-form button").click()
         expect(page.locator("#knowledge-catalog")).to_contain_text("integer-arithmetic")
         page.locator('#source-form [name="path"]').fill(str(source_path))
-        page.locator('#source-form [name="tags"]').fill("integer-arithmetic")
+        # Categories are ticked, not typed.
+        page.locator('#source-form [data-tag="integer-arithmetic"]').check()
         page.locator("#source-form button").click()
         expect(page.locator("#source-list")).to_contain_text("learning.txt")
         # The header task picker selects the task for every form, including this one.
         page.locator("#workspace-task").select_option(task["id"])
         expect(page.locator("#knowledge-task")).to_have_value(task["id"])
-        page.locator('#knowledge-scope-form [name="tags"]').fill("integer-arithmetic")
+        page.locator('#knowledge-scope-form [data-tag="integer-arithmetic"]').check()
         page.locator("#knowledge-scope-form button").click()
         expect(page.locator("#knowledge-scope-list")).to_contain_text(
             "Integer arithmetic: integer-arithmetic"
