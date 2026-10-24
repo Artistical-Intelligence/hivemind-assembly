@@ -111,7 +111,7 @@ class Application:
 
         def shared():
             cfg = self.connections.settings()
-            return bool(cfg["enabled"] and cfg["projects"])
+            return bool(cfg["enabled"] and (cfg["all_projects"] or cfg["projects"]))
 
         self.quick = QuickConnection(
             self.store.root, self.mcp_gateway.call, __version__, enabled=shared
@@ -166,14 +166,23 @@ class Application:
         self.auto_reconnect = AutoReconnect(
             self.quick.folder,
             self.browser,
-            lambda provider: chrome_helper.details(self.quick, provider),
-            lambda provider, url, flow: chrome_helper.pair(self.quick, provider, url, flow),
+            lambda provider: chrome_helper.details(self.connection(), provider),
+            lambda provider, url, flow: chrome_helper.pair(self.connection(), provider, url, flow),
             lambda: self.config["routes"],
         )
         # A new address: reconnect the chosen providers from HA's own windows.
         self.quick.on_ready = lambda origin: (
             self.submit(self.auto_reconnect.run_all()) if self.auto_reconnect.providers() else None
         )
+        # ChatGPT/Claude were connected before: start the connection by itself, and the
+        # address change that follows reconnects them in HA's tabs.
+        if (
+            self.auto_reconnect.providers()
+            and shared()
+            and not self.permanent.enabled()
+            and os.environ.get("HA_SKIP_HELPER_REGISTRATION") != "1"
+        ):
+            self.quick.start()
         # Like VSC: register the Chrome helper bridge automatically on every start.
         if os.environ.get("HA_SKIP_HELPER_REGISTRATION") != "1":  # tests keep the real profile untouched
             threading.Thread(target=self.register_helper, daemon=True).start()
@@ -266,6 +275,43 @@ class Application:
             "last_seen": seen,
             "connected": bool(seen and time.time() - seen < 15),
         }
+
+    def ensure_access(self):
+        """Connecting ChatGPT or Claude means letting them use HA: turn access on if it's off.
+
+        A first connection shares all projects (the owner can narrow it in Settings).
+        """
+        cfg = self.connections.settings()
+        if cfg["enabled"] and (cfg["all_projects"] or cfg["projects"]):
+            return False
+        cfg["enabled"] = True
+        if not cfg["projects"]:
+            cfg["all_projects"] = True
+        self.connections.save(cfg)
+        return True
+
+    async def connect_provider(self, provider):
+        """One click: start HA's connection, then add and approve HA in that provider's tab."""
+        auto = self.auto_reconnect
+        auto.report(provider, "working", "Starting HA's connection…")
+        try:
+            self.ensure_access()
+            self.connection().start()
+            for _ in range(180):
+                state = self.connection().status()
+                if state["state"] == "ready":
+                    break
+                if state["state"] == "error":
+                    raise Blocked(state["message"] or "HA's connection couldn't start.")
+                await asyncio.sleep(1)
+            else:
+                raise Blocked("HA's connection didn't start within 3 minutes. Check this computer's internet connection.")
+        except Exception as exc:
+            auto.report(provider, "manual", str(exc) or type(exc).__name__)
+            return
+        if provider not in auto.providers():
+            auto.save([*auto.providers(), provider])  # keep it connected after restarts
+        await auto.run(provider)
 
     def connection(self):
         """The browser connection in use: the permanent address once set up, else the temporary one."""
@@ -565,6 +611,12 @@ class Application:
             return self.browser_connection_status()
         if path == "/api/quick/auto":
             return self.auto_reconnect.save(data.get("providers"))
+        if path == "/api/quick/connect":
+            provider = data.get("provider")
+            if provider not in ("ChatGPT", "Claude"):
+                raise ContractError("Choose ChatGPT or Claude.")
+            self.submit(self.connect_provider(provider))
+            return self.browser_connection_status()
         if path == "/api/quick/reconnect":
             if self.quick.status()["state"] != "ready":
                 raise Blocked("Start the browser connection first.")
@@ -597,6 +649,15 @@ class Application:
                 status = self.connection().status()
                 return {"state": status["state"], "message": status["message"], "services": status["services"]}
             if path == "/api/helper/details":
+                if self.connection().status()["state"] != "ready":
+                    # The owner is filling a connector form: start the connection for them.
+                    self.ensure_access()
+                    self.connection().start()
+                    deadline = time.time() + 20
+                    while time.time() < deadline and self.connection().status()["state"] != "ready":
+                        time.sleep(0.5)
+                    if self.connection().status()["state"] != "ready":
+                        return {"retry": True, "message": "Starting HA's connection. This can take up to a minute…"}
                 return chrome_helper.details(self.connection(), data.get("provider"))
             return chrome_helper.pair(self.connection(), data.get("provider"), data.get("page_url"), data.get("flow"))
         if path == "/api/helper/relay":
