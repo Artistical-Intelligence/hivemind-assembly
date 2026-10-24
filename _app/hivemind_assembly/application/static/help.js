@@ -96,6 +96,7 @@
   };
   const byAttr = {
     starter: 'Create a ready-made example project.',
+    browse: 'Choose it with this computer\'s file picker.',
     go: 'Go to that page.',
     file: 'Open this file.',
     removeCase: 'Remove this test input.',
