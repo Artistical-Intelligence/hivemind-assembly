@@ -3,6 +3,8 @@
 import asyncio
 import copy
 import json
+import time
+from pathlib import Path
 from urllib.parse import urlsplit, urljoin
 from hivemind_assembly.core.common import (
     Blocked,
@@ -17,6 +19,9 @@ from .policy import Availability, Window, validate_config
 from .providers import discover, conversation_url
 
 
+PROVIDER_NAMES = {"openai": "ChatGPT", "claude": "Claude"}
+
+
 class NativeSetup:
     def __init__(self, browser, store, config_path, sessions=None, team=None):
         self.browser, self.store, self.config_path = browser, store, config_path
@@ -26,6 +31,9 @@ class NativeSetup:
         # Routes sharing a browser profile share one sign-in: only one of them
         # opens a page until that profile is signed in.
         self.signing_in = {}
+        self.changed = {}  # route -> when its stage last changed (for "for 3 min")
+        self.snapshot_dir = Path(store.root) / "private" / "setup-snapshots"
+        self.snapshots = {}  # route -> when the picture of its tab was taken
 
     def status(self, route):
         rows = self.store.rows(
@@ -35,9 +43,52 @@ class NativeSetup:
         return json.loads(rows[0]["payload"]) if rows else {"stage": "not_started"}
 
     def save(self, route, **state):
-        if self.status(route) != state:
+        previous = self.status(route)
+        if previous != state:
             self.store.put("native_setup:" + route, uid("setup"), state)
+            if previous.get("stage") != state.get("stage"):
+                self.changed[route] = time.time()
         return state
+
+    def progress(self, route):
+        """Setup status for the dashboard: stage, message, since when, and a tab picture."""
+        page = self.pages.get(route)
+        return {
+            **self.status(route),
+            "since": self.changed.get(route),
+            "tab_open": bool(page is not None and not page.is_closed()),
+            "snapshot": self.snapshots.get(route),
+        }
+
+    def snapshot_path(self, route):
+        return self.snapshot_dir / (route + ".jpg")
+
+    async def snapshot(self, route, force=False):
+        """Keep a picture of the assistant's tab, so the owner can see what HA sees."""
+        page = self.pages.get(route)
+        if page is None or page.is_closed():
+            return
+        if not force and time.time() - self.snapshots.get(route, 0) < 60:
+            return
+        try:
+            self.snapshot_dir.mkdir(parents=True, exist_ok=True)
+            await asyncio.wait_for(
+                page.screenshot(path=str(self.snapshot_path(route)), type="jpeg", quality=70),
+                15,
+            )
+            self.snapshots[route] = time.time()
+        except Exception:
+            pass  # a picture is a convenience; setup goes on without it
+
+    async def show(self, route):
+        """Bring the assistant's tab to the front (and its window), if HA has one open."""
+        page = self.pages.get(route)
+        if page is None or page.is_closed():
+            page = getattr(self.browser, "pages", {}).get(route)
+        if page is None or page.is_closed():
+            return False
+        await page.bring_to_front()
+        return True
 
     async def allowance(self, route, cfg):
         usage = cfg["usage"]
@@ -98,6 +149,11 @@ class NativeSetup:
                     )
                 from .providers import CONTRACTS
 
+                self.save(
+                    route,
+                    stage="opening",
+                    instruction="Opening " + PROVIDER_NAMES.get(cfg["provider"], cfg["provider"]) + " in a tab.",
+                )
                 url = (
                     cfg.get("conversation_url") or CONTRACTS[cfg["provider"]]["new_url"]
                 )
@@ -227,9 +283,12 @@ class NativeSetup:
             except Exception as error:
                 # Browser errors carry long call logs; the first line says what happened.
                 first = (str(error).strip().splitlines() or [type(error).__name__])[0][:300]
+                await self.snapshot(route, force=True)
                 return self.save(
-                    route, stage="attention", instruction="Setup paused: " + first + " Select Open sign-in to retry."
+                    route, stage="attention", instruction="Setup stopped: " + first + " Select Set up to try again."
                 )
+            if result["stage"] in ("binding_required", "allowance_mapping", "waiting_delivery"):
+                await self.snapshot(route)
             if result["stage"] not in (
                 "authentication",
                 "binding_required",
