@@ -23,7 +23,7 @@
     const running = !['off', 'error'].includes(q.state);
     el('quick-start').hidden = running;
     el('quick-stop').hidden = !running;
-    let text = q.message || 'Not started.';
+    let text = q.state === 'off' ? 'HA\'s connection is off. Connect starts it.' : (q.message || '');
     const auto = q.auto;
     if (q.address_changed) text += auto?.providers?.length
       ? ' The address changed; HA is reconnecting ' + auto.providers.join(' and ') + ' itself.'
@@ -49,10 +49,9 @@
   function renderMode(q) {
     const permanent = q.mode === 'permanent';
     el('quick-intro').textContent = permanent
-      ? 'ChatGPT and Claude reach HA at a permanent address (' + q.permanent.origin + '). Keep HA running while you chat. Approvals are kept through restarts.'
+      ? 'Work with your HA projects from ChatGPT and Claude chats, through your permanent address (' + q.permanent.origin + '). Select Connect once; approvals are kept through restarts. Keep HA running while you chat.'
       : temporaryIntro;
     el('quick-auto').hidden = permanent;
-    el('quick-auto-progress').hidden = permanent;
     el('permanent-setup').hidden = permanent;
     el('permanent-off').hidden = !permanent;
   }
@@ -103,12 +102,20 @@
       el('quick-address').select();
     }
   };
-  for (const b of [el('quick-chatgpt'), el('quick-claude')]) {
+  for (const b of [el('quick-manual-chatgpt'), el('quick-manual-claude')]) {
     b.onclick = () => {
-      const name = b.dataset.provider;
+      const name = b.dataset.manual;
       showSteps(name);
       const url = (providers[name] || {}).url;
       if (url) window.open(url, '_blank', 'noopener');
+    };
+  }
+  for (const b of [el('quick-chatgpt'), el('quick-claude')]) {
+    b.onclick = async () => {
+      try {
+        render(await api('quick/connect', {provider: b.dataset.provider}));
+        notice('Connecting ' + b.dataset.provider + '. Progress shows under the buttons.');
+      } catch (x) { notice(x.message, true); }
     };
   }
   el('quick-code-show').onclick = () => act('quick/pairing', r => {
