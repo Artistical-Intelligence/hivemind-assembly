@@ -792,6 +792,7 @@ class Application:
                 data["path"],
                 data.get("expected_sha"),
                 data.get("allow_stale") is True,
+                data.get("replace") is True,
             )
         if path == "/api/native/setup-all":
             if any(
