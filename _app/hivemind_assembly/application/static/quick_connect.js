@@ -124,6 +124,7 @@
     el('quick-code').querySelector('b').textContent = r.code;
   });
 
+  let stepsSet = false;
   function renderHelper(h) {
     if (!h) return;
     if (el('helper-folder').value !== h.folder) el('helper-folder').value = h.folder;
@@ -132,17 +133,12 @@
       : h.error ? 'Chrome can\'t reach HA yet: ' + h.error
       : 'Not installed yet, or Chrome is closed.';
     el('helper-card').classList.toggle('done', !!h.connected);
+    // Once installed, the steps are only needed again after moving HA.
+    if (!stepsSet) { el('helper-steps').open = !h.last_seen; stepsSet = true; }
   }
-  el('helper-open-extensions').onclick = async () => {
-    try { await navigator.clipboard.writeText('chrome://extensions'); } catch {}
-    try {
-      const r = await api('helper/open-extensions', {});
-      notice(r.opened ? 'Chrome\'s Extensions page is open. chrome://extensions is also copied.' : 'Couldn\'t open Chrome. chrome://extensions is copied: paste it into Chrome\'s address bar.');
-    } catch (x) { notice(x.message, true); }
-  };
   el('helper-copy-url').onclick = async () => {
-    try { await navigator.clipboard.writeText('chrome://extensions'); notice('Copied. Paste it into Chrome\'s address bar.'); }
-    catch { notice('Type chrome://extensions into Chrome\'s address bar.'); }
+    try { await navigator.clipboard.writeText('chrome://extensions'); notice('Copied. In Chrome: Ctrl+T, Ctrl+V, Enter.'); }
+    catch { notice('Type chrome://extensions into a new Chrome tab\'s address bar.'); }
   };
   el('helper-copy').onclick = async () => {
     try { await navigator.clipboard.writeText(el('helper-folder').value); notice('Folder copied.'); }
