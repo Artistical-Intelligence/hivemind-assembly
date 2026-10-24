@@ -232,7 +232,7 @@ def test_mcp_and_optional_cloud_settings(server, app):
         ).not_to_be_checked()
         page.locator('#mcp-access input[name="enabled"]').check()
         page.locator("#mcp-access button").first.click()
-        expect(page.locator("#notice")).to_contain_text("MCP project access saved")
+        expect(page.locator("#notice")).to_contain_text("Saved.")
         expect(page.locator("#quick-start")).to_be_visible()
         expect(page.locator("#quick-ready")).to_be_hidden()
         page.get_by_text("Add HA to another app by hand").click()
