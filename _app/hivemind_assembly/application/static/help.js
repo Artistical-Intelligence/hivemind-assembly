@@ -45,6 +45,7 @@
     'local-apps': 'Add HA to Claude Desktop and Codex on this computer.',
     'permanent-off': 'Stop using the permanent address and go back to the temporary one.',
     'quick-reconnect': 'Replace and approve the HA connector in ChatGPT and Claude now, using HA\'s assistant windows.',
+    'helper-open-extensions': 'Open a new Chrome window and type chrome://extensions into it for you.',
     'helper-copy-url': 'Copy chrome://extensions to paste into a new Chrome tab.',
     'helper-open-folder': 'Show the helper folder to choose in Load unpacked.',
     'helper-copy': 'Copy the helper folder to choose it in Load unpacked.',
