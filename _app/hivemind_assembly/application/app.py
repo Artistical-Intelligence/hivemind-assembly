@@ -464,7 +464,7 @@ class Application:
         return [
             {"id": r["id"], "created": r["created"], "default": r["id"] == chosen}
             for r in self.store.rows(
-                "SELECT id,created FROM artifacts WHERE logical_name='learning-holdouts.json' ORDER BY created DESC LIMIT 20"
+                "SELECT id,created FROM artifacts WHERE logical_name='learning-holdouts.json' ORDER BY created DESC, rowid DESC LIMIT 20"
             )
         ]
 
