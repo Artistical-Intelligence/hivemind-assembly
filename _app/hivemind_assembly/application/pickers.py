@@ -93,6 +93,12 @@ def commands(kind, title, filters, platform=None, which=shutil.which):
     env = {"HA_PICK_KIND": kind, "HA_PICK_TITLE": title, "HA_PICK_FILTER": filters}
     if platform == "win32":
         shell = which("powershell.exe") or which("powershell")
+        builtin = os.path.join(
+            os.environ.get("SystemRoot", r"C:\Windows"),
+            "System32", "WindowsPowerShell", "v1.0", "powershell.exe",
+        )
+        if not shell and platform == sys.platform and os.path.exists(builtin):
+            shell = builtin
         if not shell:
             raise Blocked("Windows PowerShell isn't available, so type or paste the path.")
         encoded = base64.b64encode(WINDOWS_SCRIPT.encode("utf-16-le")).decode()
