@@ -128,7 +128,7 @@
     'Save checks': 'Save the tests that decide when the project is done.',
     'Open file': 'Open the selected file.',
     'Add category': 'Create a new category.',
-    'Add to categories': 'Put the selected material in these categories.',
+    'Save categories': 'Put the selected material in the ticked categories.',
     'Save project categories': 'Choose which categories this task can use.',
     'Add document': 'Add this document to HA\'s reference material.',
     'Save experiment settings': 'Save the learning settings.',
