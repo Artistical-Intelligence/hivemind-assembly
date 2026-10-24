@@ -1,3 +1,3 @@
 """Hivemind Assembly: collaborative automation and learning."""
 
-__version__ = "0.28.0"
+__version__ = "0.28.1"
