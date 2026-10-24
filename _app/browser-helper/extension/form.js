@@ -57,6 +57,11 @@
     matched = matched.filter(r => !matched.some(other => other !== r && r.contains(other)));
     if (matched.length > 1) throw new Error('Multiple connector dialogs are open. Close the others first.');
     if (matched.length === 1) return matched[0];
+    // Providers rename their dialogs; a dialog with both a name and an MCP address field is the form.
+    const forms = roots.filter(r => {
+      try { return field(r, 'endpoint') && field(r, 'name'); } catch { return false; }
+    }).filter((r, _, all) => !all.some(o => o !== r && r.contains(o)));
+    if (forms.length === 1) return forms[0];
     // Fallback only around an exact connector heading, never around chat content/body.
     for (const heading of all(document, 'h1,h2,h3,[role=heading]')) {
       const wanted = who === 'ChatGPT' ? 'add custom mcp server' : 'add custom connector';
