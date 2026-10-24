@@ -292,6 +292,71 @@ def test_activity_logs_filter_by_lists(server, app):
         browser.close()
 
 
+def test_cloud_computers_use_lists_and_plain_commands(server, app, monkeypatch):
+    from playwright.sync_api import sync_playwright, expect
+
+    task = app.store.create_project("Cloud project", "Build in the cloud", paused=True)
+    app.workspace.write(task["id"], "main.c", "int main(void){return 0;}")
+    monkeypatch.setattr(
+        app.codespaces,
+        "listing",
+        lambda: {
+            "codespaces": [
+                {"name": "fuzzy-space-1", "display_name": "Builder", "state": "Available",
+                 "repository": {"full_name": "me/game"}},
+            ]
+        },
+    )
+    sent = []
+    monkeypatch.setattr(
+        app.codespaces, "submit", lambda data: sent.append(data) or {"id": data["request_id"]}
+    )
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ["WORKBENCH_TEST_CHROME"],
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+        page.locator('[data-tab="settings"]').click()
+        page.locator("#cloud-list").click()
+        expect(page.locator("#cloud-list-result")).to_contain_text("Found 1 Codespace")
+        # Codespaces are ticked by name, not typed.
+        page.locator('#cloud-spaces [data-space="fuzzy-space-1"]').check()
+        page.locator('#cloud-settings [name="enabled"]').check()
+        page.locator('#cloud-settings [name="allow_execution"]').check()
+        page.get_by_role("button", name="Save cloud settings").click()
+        expect(page.locator("#notice")).to_contain_text("Codespaces settings saved")
+        assert app.codespaces.settings()["spaces"] == ["fuzzy-space-1"]
+        page.get_by_text("Run a job on a cloud computer (advanced)").click()
+        expect(page.locator("#cloud-job-space")).to_have_value("fuzzy-space-1")
+        # The header project picker chooses the project for this form too.
+        page.locator("#workspace-task").select_option(task["id"])
+        expect(page.locator("#cloud-task")).to_have_value(task["id"])
+        page.locator("#cloud-all-files").click()
+        expect(page.locator('#cloud-job [name="files"]')).to_have_value("main.c")
+        page.locator('#cloud-job [name="commands"]').fill(
+            'cc main.c -o program\nbash -c "./program && echo done"'
+        )
+        page.locator('#cloud-job [name="timeout_minutes"]').fill("5")
+        first_id = page.locator('#cloud-job [name="request_id"]').input_value()
+        page.get_by_role("button", name="Run job").click()
+        expect(page.locator("#notice")).to_contain_text("is queued")
+        assert sent[0]["commands"] == [
+            ["cc", "main.c", "-o", "program"],
+            ["bash", "-c", "./program && echo done"],
+        ]
+        assert sent[0]["timeout"] == 300 and sent[0]["files"] == ["main.c"]
+        assert sent[0]["request_id"] == first_id
+        # The next job gets a new name by itself.
+        expect(page.locator('#cloud-job [name="request_id"]')).not_to_have_value(first_id)
+        assert errors == []
+        browser.close()
+
+
 def test_tag_scope_and_optional_learning_controls(server, app, tmp_path, monkeypatch):
     from playwright.sync_api import sync_playwright, expect
     from hivemind_assembly.application import pickers
