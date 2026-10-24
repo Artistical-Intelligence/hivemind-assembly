@@ -581,7 +581,7 @@ class Application:
                 return self.team.scopes.assign(data["kind"], data["id"], data["tags"])
             task = self.store.task(data["task"])
             if task["status"] != "paused":
-                raise Blocked("Pause the task before changing its knowledge scope")
+                raise Blocked("Pause the project (Run the project, then Pause) before changing which categories it may use.")
             return self.team.scopes.select(
                 task["id"],
                 data["tags"],
@@ -1593,7 +1593,7 @@ class Application:
                 (task_id,),
             ).fetchone():
                 raise Blocked(
-                    "Reconcile the previous operation in Results & backups first."
+                    "The previous GitHub change didn't finish. Select Check status under Results & backups, Changes outside HA, first."
                 )
             # Reserve ownership atomically so the team cannot acquire this task.
             epoch = task["epoch"] + 1
