@@ -7,7 +7,7 @@ controls stop admission and preserve the last verified binding.
 
 import re
 from urllib.parse import urlsplit
-from hivemind_assembly.core.common import Blocked
+from hivemind_assembly.core.common import Blocked, Retryable
 
 
 CONTRACTS = {
@@ -156,7 +156,32 @@ async def select_preferred_chat(page, cfg, preferences):
     )
 
 
+MODALS = '[role="dialog"][aria-modal="true"], [role="alertdialog"], dialog[open], [class*="dialog-overlay"][data-state="open"]'
+# Only buttons that close an announcement; never ones that change settings or accept terms.
+CLOSE_NAMES = re.compile(r"^(close|dismiss|not now|maybe later|got it|skip|no thanks)$", re.I)
+
+
+async def dismiss_popups(page, attempts=3):
+    """Close announcement pop-ups that cover the page, or ask the owner to."""
+    for _ in range(attempts):
+        if not await page.locator(MODALS).count():
+            return
+        await page.keyboard.press("Escape")
+        await page.wait_for_timeout(400)
+        if not await page.locator(MODALS).count():
+            return
+        buttons = page.locator('[role="dialog"], [role="alertdialog"], dialog[open]').get_by_role("button", name=CLOSE_NAMES)
+        if await buttons.count() >= 1 and await buttons.first.is_visible():
+            await buttons.first.click(timeout=5000)
+            await page.wait_for_timeout(400)
+    if await page.locator(MODALS).count():
+        raise Retryable(
+            "A pop-up is covering the page in HA's tab. Close it there and setup continues by itself."
+        )
+
+
 async def discover(page, cfg):
+    await dismiss_popups(page)
     contract = CONTRACTS[cfg["provider"]]
     selectors = {
         **contract["selectors"],
@@ -187,7 +212,8 @@ async def discover(page, cfg):
         for trigger in triggers:
             loc = page.locator(trigger)
             if await loc.count() == 1 and await loc.is_visible():
-                await loc.click()
+                await dismiss_popups(page)
+                await loc.click(timeout=10000)
                 opened_account = True
                 selectors["account_trigger"] = trigger
                 break
