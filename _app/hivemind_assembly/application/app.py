@@ -1627,6 +1627,7 @@ def make_server(app, port=0):
             files = {
                 "/": ("index.html", "text/html; charset=utf-8"),
                 "/app.js": ("app.js", "text/javascript"),
+                "/assistants.js": ("assistants.js", "text/javascript"),
                 "/native_captures.js": ("native_captures.js", "text/javascript"),
                 "/knowledge.js": ("knowledge.js", "text/javascript"),
                 "/connections.js": ("connections.js", "text/javascript"),
