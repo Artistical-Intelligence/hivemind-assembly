@@ -42,7 +42,7 @@ PURPOSES = {
 # WinForms dialogs need. A topmost owner keeps the dialog in front of Chrome.
 WINDOWS_SCRIPT = r"""
 $ErrorActionPreference = 'Stop'
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
 Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.Application]::EnableVisualStyles()
 $owner = New-Object System.Windows.Forms.Form -Property @{TopMost = $true; ShowInTaskbar = $false}
@@ -143,6 +143,7 @@ def choose(purpose, run=subprocess.run, platform=None, which=shutil.which):
     except subprocess.TimeoutExpired:
         return {"cancelled": True}
     out = done.stdout.decode("utf-8", errors="replace") if isinstance(done.stdout, bytes) else done.stdout or ""
+    out = out.lstrip("\ufeff")  # some consoles start redirected UTF-8 with a byte-order mark
     chosen = out.strip().splitlines()[-1].strip() if out.strip() else ""
     if done.returncode != 0 and not chosen:
         # zenity, kdialog and osascript exit 1 on Cancel; anything else is a failure.
