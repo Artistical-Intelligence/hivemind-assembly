@@ -9,7 +9,7 @@ const until=async fn=>{for(let n=0;n<100;n++){if(fn())return;await new Promise(r
  click('[data-tab="settings"]');await until(()=>$('#cloud-job').elements.request_id.value.startsWith('job-'));
  await new Promise(r=>setTimeout(r,150));
  assert.equal($('#cloud-settings').elements.enabled.checked,false);
- $('#mcp-access').elements.enabled.checked=true;submit('#mcp-access');await until(()=>$('#notice').textContent.includes('MCP project access saved'));
+ $('#mcp-access').elements.enabled.checked=true;submit('#mcp-access');await until(()=>$('#notice').textContent.includes('Saved.'));
  click('#mcp-config');await until(()=>$('#mcp-config-result').textContent.includes('hivemind-assembly'));
  const cfg=JSON.parse($('#mcp-config-result').textContent);assert.equal(cfg.mcpServers['hivemind-assembly'].args[2],'mcp');
  const cf=$('#cloud-settings').elements;cf.enabled.checked=true;cf.spaces.value='runner-one, runner-two';submit('#cloud-settings');
