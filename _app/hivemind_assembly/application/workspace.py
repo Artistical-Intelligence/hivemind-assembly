@@ -64,17 +64,17 @@ class Workspace:
             )
         )
         if (task["status"] != "paused" and not preparing) or task["owner"]:
-            raise Blocked("Pause the task before changing project files")
+            raise Blocked("Pause the project (Run the project, then Pause) before changing its files.")
         if self.store.rows(
             "SELECT id FROM tasks WHERE project_id=? AND owner IS NOT NULL",
             (task["project_id"],),
         ):
-            raise Blocked("Another task owns this project; pause it before editing")
+            raise Blocked("The project is still working on a step. Pause it (Run the project, then Pause) and try again.")
         if self.store.rows(
             "SELECT o.id FROM operations o JOIN tasks t ON t.id=o.task_id WHERE t.project_id=? AND o.state IN ('running','uncertain','applied')",
             (task["project_id"],),
         ):
-            raise Blocked("Reconcile unfinished project operations before editing")
+            raise Blocked("An earlier change to this project didn't finish. Select Check status under Results & backups, Changes outside HA, then try again.")
         return task
 
     def listing(self, task_id):
