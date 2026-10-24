@@ -326,30 +326,154 @@ def register_native_host(data_dir, home=None):
     return {"registered": registered, "extension_id": ident, "folder": str(EXTENSION_DIR)}
 
 
-def open_extensions_page():
-    """Open Chrome's own Extensions page; Chrome lets a program open it, not a web page."""
-    import shutil
-    import subprocess
+EXTENSIONS_URL = "chrome://extensions"
 
-    url = "chrome://extensions"
+
+def chrome_executable():
+    import shutil
+
     if os.name == "nt":
         roots = [os.environ.get(k) for k in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA")]
         found = [Path(r) / "Google/Chrome/Application/chrome.exe" for r in roots if r]
-        exe = next((str(p) for p in found if p.is_file()), None)
-    elif sys.platform == "darwin":
-        exe = None
-        if shutil.which("open"):
-            subprocess.Popen(["open", "-a", "Google Chrome", url])
+        return next((str(p) for p in found if p.is_file()), None)
+    if sys.platform == "darwin":
+        return None
+    return next((shutil.which(x) for x in ("google-chrome", "google-chrome-stable", "chromium") if shutil.which(x)), None)
+
+
+def type_into_new_window(windows, foreground, launch, send, sleep, clock, text=EXTENSIONS_URL, seconds=12):
+    """Open a new Chrome window and type an address into it, like a person would.
+
+    Chrome won't open chrome:// pages for other programs, but it accepts them typed
+    into its address bar. To never type into the wrong place, HA types only into a
+    Chrome window that appeared after it asked for one and is in front; it checks
+    that again right before each keystroke group.
+    """
+    before = set(windows())
+    launch()
+    deadline = clock() + seconds
+    target = None
+    while clock() < deadline:
+        current = foreground()
+        if current is not None and current not in before and current in set(windows()):
+            target = current
+            break
+        sleep(0.25)
+    if target is None:
+        return {"opened": True, "typed": False}
+    sleep(0.8)  # let the new window's address bar get ready
+    for keys in (("ctrl+l",), ("text", text), ("enter",)):
+        if foreground() != target:
+            return {"opened": True, "typed": False}
+        send(*keys)
+        sleep(0.15)
+    return {"opened": True, "typed": True}
+
+
+def _windows_keyboard():
+    """Windows functions for type_into_new_window, using only the standard library."""
+    import ctypes
+    from ctypes import wintypes as wt
+
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+    class KEYBDINPUT(ctypes.Structure):
+        _fields_ = [("wVk", wt.WORD), ("wScan", wt.WORD), ("dwFlags", wt.DWORD),
+                    ("time", wt.DWORD), ("dwExtraInfo", ctypes.c_size_t)]
+
+    class MOUSEINPUT(ctypes.Structure):
+        _fields_ = [("dx", wt.LONG), ("dy", wt.LONG), ("mouseData", wt.DWORD),
+                    ("dwFlags", wt.DWORD), ("time", wt.DWORD), ("dwExtraInfo", ctypes.c_size_t)]
+
+    class HARDWAREINPUT(ctypes.Structure):
+        _fields_ = [("uMsg", wt.DWORD), ("wParamL", wt.WORD), ("wParamH", wt.WORD)]
+
+    class UNION(ctypes.Union):
+        _fields_ = [("mi", MOUSEINPUT), ("ki", KEYBDINPUT), ("hi", HARDWAREINPUT)]
+
+    class INPUT(ctypes.Structure):
+        _fields_ = [("type", wt.DWORD), ("u", UNION)]
+
+    KEYUP, UNICODE, VK_CONTROL, VK_RETURN, VK_L = 0x2, 0x4, 0x11, 0x0D, 0x4C
+    user32.GetForegroundWindow.restype = wt.HWND
+
+    def key(vk=0, scan=0, flags=0):
+        item = INPUT(type=1)
+        item.u.ki = KEYBDINPUT(wVk=vk, wScan=scan, dwFlags=flags, time=0, dwExtraInfo=0)
+        return item
+
+    def press(*items):
+        array = (INPUT * len(items))(*items)
+        user32.SendInput(len(items), array, ctypes.sizeof(INPUT))
+
+    def send(kind, text=None):
+        if kind == "ctrl+l":
+            press(key(VK_CONTROL), key(VK_L), key(VK_L, flags=KEYUP), key(VK_CONTROL, flags=KEYUP))
+        elif kind == "enter":
+            press(key(VK_RETURN), key(VK_RETURN, flags=KEYUP))
+        else:
+            press(*[k for ch in text for k in (key(scan=ord(ch), flags=UNICODE), key(scan=ord(ch), flags=UNICODE | KEYUP))])
+
+    def process_name(hwnd):
+        pid = wt.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        handle = kernel32.OpenProcess(0x1000, False, pid.value)  # query limited information
+        if not handle:
+            return ""
+        try:
+            size = wt.DWORD(1024)
+            buffer = ctypes.create_unicode_buffer(size.value)
+            if kernel32.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(size)):
+                return Path(buffer.value).name.lower()
+            return ""
+        finally:
+            kernel32.CloseHandle(handle)
+
+    def windows():
+        found = []
+        callback = ctypes.WINFUNCTYPE(wt.BOOL, wt.HWND, wt.LPARAM)
+
+        def visit(hwnd, _):
+            name = ctypes.create_unicode_buffer(64)
+            user32.GetClassNameW(hwnd, name, 64)
+            if user32.IsWindowVisible(hwnd) and name.value == "Chrome_WidgetWin_1" and process_name(hwnd) == "chrome.exe":
+                found.append(hwnd)
             return True
-    else:
-        exe = next((shutil.which(x) for x in ("google-chrome", "google-chrome-stable", "chromium") if shutil.which(x)), None)
-    if not exe:
-        return False
-    subprocess.Popen(
-        [exe, url], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        **({"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)} if os.name == "nt" else {}),
-    )
-    return True
+
+        user32.EnumWindows(callback(visit), 0)
+        return found
+
+    def foreground():
+        return user32.GetForegroundWindow() or None
+
+    return windows, foreground, send
+
+
+def open_extensions_page():
+    """Open Chrome's Extensions page. Returns whether Chrome opened and whether HA typed the address."""
+    import subprocess
+    import time
+
+    exe = chrome_executable()
+    if os.name != "nt" or not exe:
+        if sys.platform == "darwin":
+            import shutil
+
+            if shutil.which("open"):
+                subprocess.Popen(["open", "-a", "Google Chrome"])
+                return {"opened": True, "typed": False}
+        if exe:
+            subprocess.Popen([exe, "--new-window"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return {"opened": True, "typed": False}
+        return {"opened": False, "typed": False}
+    windows, foreground, send = _windows_keyboard()
+
+    def launch():
+        subprocess.Popen([exe, "--new-window"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+    return type_into_new_window(windows, foreground, launch, send, time.sleep, time.monotonic)
 
 
 def open_folder(folder=EXTENSION_DIR):
