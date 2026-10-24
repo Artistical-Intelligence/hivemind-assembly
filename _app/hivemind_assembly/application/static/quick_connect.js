@@ -136,6 +136,16 @@
     // Once installed, the steps are only needed again after moving HA.
     if (!stepsSet) { el('helper-steps').open = !h.last_seen; stepsSet = true; }
   }
+  el('helper-open-extensions').onclick = async () => {
+    try { await navigator.clipboard.writeText('chrome://extensions'); } catch {}
+    notice('Opening Chrome…');
+    try {
+      const r = await api('helper/open-extensions', {});
+      if (r.typed) notice('Chrome\'s Extensions page is open in a new window. Next: turn on Developer mode (top right).');
+      else if (r.opened) notice('Chrome opened, but HA couldn\'t type the address safely. It\'s copied: click Chrome\'s address bar, press Ctrl+V, then Enter.', true);
+      else notice('HA couldn\'t find Chrome. The address is copied: open Chrome, press Ctrl+T, Ctrl+V, then Enter.', true);
+    } catch (x) { notice(x.message, true); }
+  };
   el('helper-copy-url').onclick = async () => {
     try { await navigator.clipboard.writeText('chrome://extensions'); notice('Copied. In Chrome: Ctrl+T, Ctrl+V, Enter.'); }
     catch { notice('Type chrome://extensions into a new Chrome tab\'s address bar.'); }
