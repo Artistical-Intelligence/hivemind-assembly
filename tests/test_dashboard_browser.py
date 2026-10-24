@@ -416,6 +416,40 @@ def test_other_tools_form_paste_list_and_tick(server, app, monkeypatch):
         browser.close()
 
 
+def test_completion_checks_suggest_files_and_insert_examples(server, app):
+    from playwright.sync_api import sync_playwright, expect
+
+    task = app.store.create_project("Checked project", "Compare programs", paused=True)
+    app.workspace.write(task["id"], "original.elf.txt", "x")
+    app.workspace.write(task["id"], "build.json", "{}")
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ["WORKBENCH_TEST_CHROME"],
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+        page.locator('[data-tab="projects"]').click()
+        page.locator("#workspace-task").select_option(task["id"])
+        page.locator('#acceptance-form [name="original_path"]').focus()
+        expect(page.locator('#acceptance-files option[value="build.json"]')).to_have_count(1)
+        page.locator("#acceptance-scope").select_option("linux_program")
+        cases = page.locator('#acceptance-form [name="program_cases"]')
+        cases.locator("xpath=ancestor::label/following-sibling::button[1]").click()
+        assert cases.input_value() == cases.get_attribute("placeholder")
+        deps = page.locator('#acceptance-form [name="program_dependencies"]')
+        deps.fill("{not json")
+        cases.focus()
+        assert "valid JSON" in deps.evaluate("t => t.validationMessage")
+        deps.fill("{}")
+        assert deps.evaluate("t => t.validationMessage") == ""
+        assert errors == []
+        browser.close()
+
+
 def test_tag_scope_and_optional_learning_controls(server, app, tmp_path, monkeypatch):
     from playwright.sync_api import sync_playwright, expect
     from hivemind_assembly.application import pickers
