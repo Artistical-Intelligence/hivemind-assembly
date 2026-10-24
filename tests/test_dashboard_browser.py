@@ -194,8 +194,9 @@ def test_oauth_dashboard_requests_session_default_and_disconnect(
         page = browser.new_page()
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
         page.locator('[data-tab="settings"]').click()
-        page.get_by_text("Other tools for the assistants (advanced)").click()
-        page.locator('#mcp-oauth [name="server"]').fill("fixture")
+        page.get_by_text("Other tools for the assistants (optional)").click()
+        # Saved web-address connections are picked from a list.
+        page.locator('#mcp-oauth [name="server"]').select_option("fixture")
         expect(page.locator('#mcp-oauth [name="remember"]')).not_to_be_checked()
         page.get_by_role("button", name="Sign in", exact=True).click()
         expect(page.locator("#mcp-oauth-status")).to_contain_text("authorization")
@@ -353,6 +354,64 @@ def test_cloud_computers_use_lists_and_plain_commands(server, app, monkeypatch):
         assert sent[0]["request_id"] == first_id
         # The next job gets a new name by itself.
         expect(page.locator('#cloud-job [name="request_id"]')).not_to_have_value(first_id)
+        assert errors == []
+        browser.close()
+
+
+def test_other_tools_form_paste_list_and_tick(server, app, monkeypatch):
+    import json
+    import sys
+    from playwright.sync_api import sync_playwright, expect
+
+    project = app.store.create_project("Tool project", "Use tools", paused=True)
+
+    async def external(server_name, *args, **kwargs):
+        return [
+            {"name": "read_file", "description": "Read a file", "inputSchema": {}},
+            {"name": "delete_file", "description": "Delete a file", "inputSchema": {}},
+        ]
+
+    monkeypatch.setattr(app.connections, "external", external)
+    snippet = json.dumps(
+        {"mcpServers": {"file tools": {"command": sys.executable, "args": ["-m", "files"], "env": {"API_KEY": "x"}}}}
+    )
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ["WORKBENCH_TEST_CHROME"],
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+        page.locator('[data-tab="settings"]').click()
+        page.get_by_text("Other tools for the assistants (optional)").click()
+        page.get_by_text("Paste a setup from the tool's instructions").click()
+        page.locator('#mcp-external [name="spec"]').fill(snippet)
+        page.locator("#mcp-paste").click()
+        expect(page.locator("#notice")).to_contain_text("API_KEY")
+        expect(page.locator('#mcp-external [name="name"]')).to_have_value("file-tools")
+        expect(page.locator('#mcp-external [name="command"]')).to_have_value(sys.executable)
+        expect(page.locator('#mcp-external [name="args"]')).to_have_value("-m\nfiles")
+        page.get_by_role("button", name="Save connection").click()
+        expect(page.locator("#notice")).to_contain_text("Select List tools")
+        page.locator("#mcp-discover").click()
+        expect(page.locator("#mcp-discovery")).to_contain_text("2 tools found")
+        page.locator('#mcp-tools input[value="read_file"]').check()
+        page.locator(f'#mcp-tool-projects input[value="{project["project_id"]}"]').check()
+        page.get_by_role("button", name="Save connection").click()
+        expect(page.locator("#notice")).to_have_text("Saved.")
+        spec = app.connections.settings()["servers"]["file-tools"]
+        assert spec["transport"] == "stdio" and spec["args"] == ["-m", "files"]
+        assert spec["tools"] == ["read_file"] and spec["projects"] == [project["project_id"]]
+        assert "env" not in spec
+        # A saved connection loads back into the form from the list.
+        page.reload()
+        page.locator('[data-tab="settings"]').click()
+        page.get_by_text("Other tools for the assistants (optional)").click()
+        page.locator("#mcp-saved").select_option("file-tools")
+        expect(page.locator('#mcp-tools input[value="read_file"]')).to_be_checked()
         assert errors == []
         browser.close()
 
