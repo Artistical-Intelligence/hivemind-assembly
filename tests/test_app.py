@@ -467,3 +467,15 @@ def test_setup_installs_optional_tools_in_the_same_step(app, monkeypatch):
     assert app.install_optional_tools() == {
         "github_cli": "ready", "tunnel_client": "ready", "browser_tunnel": "ready"
     }
+
+
+def test_status_lists_practice_sets_newest_first_with_the_default(app):
+    from hivemind_assembly.learning.pipeline import DEFAULT_SUITE
+
+    first = app.broker.artifacts.add('{"cases":[]}', "learning-holdouts.json", classification="protected")
+    second = app.broker.artifacts.add('{"cases":[1]}', "learning-holdouts.json", classification="protected")
+    app.broker.artifacts.add("other", "notes.txt")
+    app.store.put(DEFAULT_SUITE, "binding-1", {"suite": first["id"], "route": None, "repeats": 3})
+    sets = app.status()["practice_sets"]
+    assert [s["id"] for s in sets] == [second["id"], first["id"]]
+    assert [s["default"] for s in sets] == [False, True]
