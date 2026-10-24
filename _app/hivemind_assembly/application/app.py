@@ -979,6 +979,24 @@ class Application:
             atomic_write(self.config_path, canonical(cfg))
             self.config["github"] = cfg["github"]
             return {"saved": True}
+        if path == "/api/github/repositories":
+            # The owner's private repositories, to pick one instead of typing it.
+            saved = self.github_auth.credentials()
+            rows = self.github_auth.http.request(
+                "GET",
+                "/user/repos?visibility=private&affiliation=owner,collaborator,organization_member&sort=updated&per_page=100",
+                token=saved["access_token"],
+                allow_list=True,
+            )
+            return [
+                {
+                    "owner": r["owner"]["login"],
+                    "name": r["name"],
+                    "description": r.get("description") or "",
+                }
+                for r in rows
+                if isinstance(r, dict) and isinstance(r.get("owner"), dict)
+            ]
         if path == "/api/github/link":
             return self.create_repository(data["task"], data["repository"], link=True)
         if path == "/api/github/repository":
