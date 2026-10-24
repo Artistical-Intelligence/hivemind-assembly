@@ -258,3 +258,20 @@ def test_bearer_redaction_covers_encoded_echoes():
     for value in echoed.values():
         if value != "unrelated text":
             assert value.replace("Bearer ", "").replace("token=", "") not in cleaned
+
+
+def test_bare_tool_program_names_are_stored_with_their_full_path(app, tmp_path, monkeypatch):
+    import shutil
+    from hivemind_assembly.core.common import ContractError
+
+    program = tmp_path / "npx"
+    program.write_text("")
+    monkeypatch.setattr(shutil, "which", lambda name: str(program) if name == "npx" else None)
+    cfg = app.connections.settings()
+    cfg["servers"]["files"] = {"transport": "stdio", "command": "npx", "args": ["-y", "files"]}
+    saved = app.connections.save(cfg)
+    assert saved["servers"]["files"]["command"] == str(program.absolute())
+    assert app.connections.settings()["servers"]["files"]["command"] == str(program.absolute())
+    cfg["servers"]["files"]["command"] = "no-such-tool"
+    with pytest.raises(ContractError, match="Browse"):
+        app.connections.save(cfg)
