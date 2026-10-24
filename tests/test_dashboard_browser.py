@@ -258,6 +258,40 @@ def test_mcp_and_optional_cloud_settings(server, app):
         browser.close()
 
 
+def test_activity_logs_filter_by_lists(server, app):
+    from playwright.sync_api import sync_playwright, expect
+
+    task = app.store.create_project("Logged project", "Write things down", paused=True)
+    app.controller.traces.append(
+        task["id"], "message-1", "worker.opus", "response_error", {"error": "timed out"}
+    )
+    app.controller.traces.append(
+        task["id"], "message-1", "worker.opus", "request", {"body": "hello"}
+    )
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ["WORKBENCH_TEST_CHROME"],
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+        page.locator("#traces-details > summary").click()
+        # Projects and assistants are picked from lists, by name.
+        expect(page.locator("#trace-task option", has_text="Logged project")).to_have_count(1)
+        expect(page.locator("#trace-route option", has_text="Worker")).not_to_have_count(0)
+        page.locator("#trace-task").select_option(task["id"])
+        # Choosing from a list searches straight away.
+        page.locator('#trace-form [name="kind"]').select_option("response_error")
+        expect(page.locator("#trace-list")).to_contain_text("Reply problem")
+        expect(page.locator("#trace-list")).to_contain_text("Project: Logged project")
+        expect(page.locator("#trace-list")).not_to_contain_text("Message HA sent")
+        assert errors == []
+        browser.close()
+
+
 def test_tag_scope_and_optional_learning_controls(server, app, tmp_path):
     from playwright.sync_api import sync_playwright, expect
 
