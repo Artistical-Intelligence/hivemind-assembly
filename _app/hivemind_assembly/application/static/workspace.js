@@ -43,9 +43,9 @@
     listing = data;
     updateRecipeFiles(data.files);
     byId('guided-test-form').hidden = !!data.acceptance;
-    byId('workspace-contract').textContent = data.acceptance ? 'Pinned checks: ' + data.acceptance.scope.replaceAll('_',' ') + '. The reference and recipe are immutable. Edit the candidate and rerun checks below.' : 'No checks are pinned yet. Configure a native comparison here, or choose another check type under Independent acceptance above.';
+    byId('workspace-contract').textContent = data.acceptance ? 'Saved checks: ' + data.acceptance.scope.replaceAll('_',' ') + '. The original and the tests are fixed; edit the rebuilt file and run the tests again below.' : 'No tests saved yet. Set them up here, or choose another kind of check under Completion checks above.';
     byId('workspace-location').textContent = data.root;
-    byId('workspace-readiness').textContent = data.reason || (data.preparing ? 'Preparing project. Upload files and pin checks; agents will then start automatically. Pause the task to keep preparing.' : 'Paused and ready to edit. Independent checks leave the task paused.');
+    byId('workspace-readiness').textContent = data.reason || (data.preparing ? 'Getting ready: upload files and save checks, and the assistants start by themselves afterwards. Pause the project to keep preparing.' : 'Paused and ready to edit. Independent checks leave the task paused.');
     byId('workspace-files').innerHTML = data.files.map(f => `<button type="button" data-file="${esc(f.path)}" class="file-entry"><span>${esc(f.path)}</span><small>${f.size.toLocaleString()} B</small></button>`).join('') || '<p class="muted">No files yet.</p>';
     if (data.truncated) byId('workspace-files').insertAdjacentHTML('beforeend', '<p>First 2,000 files shown. Enter a relative path to open another file.</p>');
     byId('workspace-files').querySelectorAll('[data-file]').forEach(b => b.onclick = guarded(() => openFile(b.dataset.file)));
@@ -213,7 +213,7 @@
   document.querySelectorAll('[data-starter]').forEach(b => b.onclick = guarded(async () => {
     requireClean(); const kind = b.dataset.starter;
     const allow = byId('starter-native-allow').checked;
-    if (['native_python', 'native_frames'].includes(kind) && !allow) throw Error('Authorize the supplied native examples using the checkbox first.');
+    if (['native_python', 'native_frames'].includes(kind) && !allow) throw Error('Tick the box that lets the examples run on this computer first.');
     b.disabled = true;
     const key = 'ha-starter-request-' + kind;
     const request = sessionStorage.getItem(key) || crypto.randomUUID(); sessionStorage.setItem(key, request);
@@ -221,7 +221,7 @@
       const task = await api('project/starter', {kind,request_id:request,allow_native:allow});
       sessionStorage.removeItem(key); await refresh(); await selectTask(task.id); tab('workspace');
       await openFile(kind === 'registers' ? 'candidate.hex' : ['linked_arm64','program_arm64','program_windows','program_frames','native_frames','autonomous_program'].includes(kind) ? 'candidate.c' : kind === 'project_game' ? 'logic.c' : kind === 'game_testing' ? 'README.txt' : 'candidate.py');
-      message(kind === 'autonomous_program' ? 'Reconstruction trial ready. The candidate is unfinished and its checks are pinned. Start it under Project objective above once the AI assistants are ready.' : kind === 'game_testing' ? 'Game example ready. Use Play and test the game below: load it, play, explore and run saved regressions.' : 'Example ready. Run checks, edit the candidate, and check again.');
+      message(kind === 'autonomous_program' ? 'Reconstruction trial ready. Its rebuilt file is unfinished and its checks are saved. Start it under Run the project above once the AI assistants are ready.' : kind === 'game_testing' ? 'Game example ready. Use Play and test the game below: load it, play, explore and run saved regressions.' : 'Example ready. Run the tests, edit the rebuilt file (the candidate), and test again.');
     } finally { b.disabled = false; }
   }));
   function updateRecipeFiles(files) {
@@ -250,7 +250,7 @@
   byId('guided-test-form').onsubmit = guarded(async e => {
     e.preventDefault(); requireClean();
     if (!selected) throw Error('Create or select a project first.');
-    if (!byId('guided-native-allow').checked) throw Error('Authorize the selected native recipes first.');
+    if (!byId('guided-native-allow').checked) throw Error('Tick "Let HA run these programs and compilers on this computer" first.');
     const program = (kind, path, role) => {
       if (!path) throw Error('Choose the ' + role + ' file.');
       const args = byId('guided-arguments').value === '' ? [] : byId('guided-arguments').value.replace(/\r\n/g,'\n').split('\n');
@@ -272,10 +272,10 @@
     busy = true; controls(); byId('guided-pin').disabled = true;
     try {
       await api('native-tests/configure',{task:selected,suite,allow_native:true});
-      byId('guided-status').textContent = 'Checks pinned. Use Run checks below to execute this recipe.';
+      byId('guided-status').textContent = 'Checks saved. Use Run tests below.';
       byId('native-test-task').value = selected;
       document.querySelector('#native-test-form [name=suite]').value = JSON.stringify(suite,null,2);
-      message('Native recipe pinned for this task.');
+      message('Tests saved for this project.');
       await listFiles();
     } finally { busy = false; byId('guided-pin').disabled = false; controls(); }
   });
