@@ -66,8 +66,9 @@
   /* The submit button of the Add custom connector/MCP server dialog. */
   function submitButton(provider) {
     const title = provider === 'ChatGPT' ? 'add custom mcp server' : 'add custom connector';
+    const mcpField = d => all(d, 'input,textarea').some(i => /\/mcp\b|server url|mcp server/i.test((i.placeholder || '') + ' ' + (i.getAttribute('aria-label') || '') + ' ' + (i.value || '')));
     const dialogs = all(document, '[role=dialog],[aria-modal=true],dialog').filter(d =>
-      all(d, 'h1,h2,h3,[role=heading]').some(h => text(h) === title) || /oauth client|authentication/.test(text(d)));
+      all(d, 'h1,h2,h3,[role=heading]').some(h => text(h) === title) || mcpField(d) || /oauth client|authentication/.test(text(d)));
     const inner = dialogs.filter(d => !dialogs.some(o => o !== d && d.contains(o)));
     if (inner.length !== 1) return {state: 'missing'};
     const names = provider === 'ChatGPT' ? ['create', 'create as a plugin', 'add', 'connect', 'save'] : ['add', 'continue', 'connect', 'save'];
