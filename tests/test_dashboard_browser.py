@@ -469,11 +469,13 @@ def test_every_button_has_a_hover_description(server, app):
         # Buttons the dashboard builds later from saved state.
         samples = [
             '<button data-task="t" data-action="pause">Pause</button>',
-            '<button data-native-setup="r">Open sign-in</button>',
-            '<button data-probe="r">Test assistant</button>',
-            '<button data-native-renew="r">New conversation</button>',
-            '<button data-share="l">Allow testing</button>',
-            '<button data-unshare="l">Keep local</button>',
+            '<button data-native-setup="r">Set up</button>',
+            '<button data-native-show="r">Show tab</button>',
+            '<button data-native-snapshot="r">What HA sees</button>',
+            '<button data-probe="r">Check it works</button>',
+            '<button data-native-renew="r">Start a new conversation</button>',
+            '<button data-share="l">Allow in tests</button>',
+            '<button data-unshare="l">Keep private</button>',
             '<button data-rollback="l">Undo</button>',
             '<button data-evaluation-resume="v">Retry unfinished</button>',
             '<button data-reconcile="o">Check status</button>',
