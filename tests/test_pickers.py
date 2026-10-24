@@ -8,7 +8,9 @@ import pytest
 
 from hivemind_assembly.application import pickers
 from hivemind_assembly.core.common import Blocked, ContractError
-from test_app import app  # noqa: F401  (fixture)
+import test_app
+
+app = test_app.app  # the application fixture
 
 
 def test_pasted_paths_lose_quotes_and_spaces():
@@ -80,7 +82,7 @@ def test_choose_explains_when_no_picker_can_open():
         pickers.choose("document", fake()[0], "win32", lambda n: None)
 
 
-def test_browse_endpoint_and_quoted_paths(app, tmp_path, monkeypatch):  # noqa: F811
+def test_browse_endpoint_and_quoted_paths(app, tmp_path, monkeypatch):
     monkeypatch.setattr(pickers, "choose", lambda purpose: {"path": "/picked/" + purpose})
     assert app.action("/api/choose-path", {"purpose": "program"}) == {"path": "/picked/program"}
     task = app.action(
