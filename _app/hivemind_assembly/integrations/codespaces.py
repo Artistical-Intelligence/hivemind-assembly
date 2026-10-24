@@ -563,10 +563,18 @@ class Codespaces:
             self.app.broker.artifacts.read(row["result_artifact"], "controller")
         )
 
-    def import_output(self, key, name, expected_sha=None, allow_stale=False):
+    def import_output(self, key, name, expected_sha=None, allow_stale=False, replace=False):
         row = self.latest("cloud_job:" + self.name(key))
         if not row:
             raise ContractError("Unknown cloud job")
+        if replace is True and expected_sha is None:
+            # The owner chose to replace whatever the project has now; the workspace
+            # still keeps a copy of the replaced file.
+            current = self.app.workspace.path(row["task"], name)
+            if current.is_file():
+                from hivemind_assembly.core.common import file_hash
+
+                expected_sha = file_hash(current)
         task = self.store.task(row["task"])
         current = self.store.project(task["project_id"])["revision"]
         if row.get("revision") is not None and current != row["revision"] and allow_stale is not True:
