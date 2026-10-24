@@ -192,7 +192,7 @@ def test_github_uncertain_dashboard_recovery(app, monkeypatch):
     with pytest.raises(Blocked):
         app.action("/api/github/repository", data)
     assert app.store.task(task["id"])["status"] == "paused"
-    with pytest.raises(Blocked, match="Reconcile"):
+    with pytest.raises(Blocked, match="didn't finish"):
         app.action("/api/github/repository", data)
     op = app.store.one("SELECT id FROM operations WHERE task_id=?", (task["id"],))
     assert app.action("/api/reconcile", {"operation": op["id"]})["reconciled"]
