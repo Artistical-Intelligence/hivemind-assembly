@@ -390,7 +390,13 @@ class Application:
                     },
                     "bound": bool(v["conversation_url"]),
                     "out_of_usage": self.team.exhausted(k),
-                    "setup": self.native_setup.status(k),
+                    "setup": {
+                        **self.native_setup.progress(k),
+                        "running": bool(
+                            self.native_setup_futures.get(k) is not None
+                            and not self.native_setup_futures[k].done()
+                        ),
+                    },
                     "status": (
                         dict(self.team.observations[k].__dict__)
                         if k in self.team.observations
@@ -826,6 +832,23 @@ class Application:
                     self.native_setup.run(route)
                 )
             return {"started": True}
+        if path == "/api/native/show":
+            route = data.get("route")
+            if route not in self.config["routes"]:
+                raise ContractError("Unknown native route")
+            if self.submit(self.native_setup.show(route)).result(20):
+                return {"shown": True}
+            return {"shown": False}
+        if path == "/api/native/snapshot":
+            route = data.get("route")
+            if route not in self.config["routes"]:
+                raise ContractError("Unknown native route")
+            picture = self.native_setup.snapshot_path(route)
+            if not picture.is_file():
+                raise Blocked("No picture of this tab yet.")
+            import base64
+
+            return {"jpeg": base64.b64encode(picture.read_bytes()).decode(), "taken": self.native_setup.snapshots.get(route)}
         if path == "/api/github/setup":
             if self.github_setup_future is None or self.github_setup_future.done():
                 self.github_setup_future = self.submit(self.github_setup.run())
