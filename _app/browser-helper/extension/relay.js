@@ -41,9 +41,11 @@ async function handle(message) {
       haTabs.delete(message.tabId);
       await chrome.tabs.remove(message.tabId).catch(() => {});
       return {};
-    case 'activateTab':
-      await chrome.tabs.update(message.tabId, {active: true});
+    case 'activateTab': {
+      const tab = await chrome.tabs.update(message.tabId, {active: true});
+      await chrome.windows.update(tab.windowId, {focused: true, drawAttention: true});
       return {};
+    }
     case 'cdp': {
       if (!haTabs.has(message.tabId)) throw new Error('Not an HA tab');
       const target = message.sessionId ? {tabId: message.tabId, sessionId: message.sessionId} : {tabId: message.tabId};
