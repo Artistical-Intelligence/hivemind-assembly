@@ -184,8 +184,9 @@ selectors still require live-account validation.
 
 ## Model and tool review
 
-**Activity logs** searches requests, partial and complete model responses,
-validation errors, tool calls and results by task, role and text. Responses are
+**Activity logs** (on Overview) searches requests, partial and complete model
+responses, validation errors, tool calls and results. Pick the project, assistant
+and kind of event from lists, optionally with text; changing a list searches at once. Responses are
 captured before parsing and correlated by observed browser turn order. Review
 notes are append-only. JSONL exports stay local. An optional explicit export
 sends batches in OpenInference/OTLP format to a local Phoenix listener on port
@@ -577,7 +578,7 @@ from the API fixtures used to validate this integration.
 
 ## MCP and optional Codespaces
 
-Open **Connections & cloud** to enable the official-SDK MCP bridge, select shared
+Open **Settings** to enable the official-SDK MCP bridge, select shared
 projects, and optionally allow clients to create paused projects. HA can merge its
 connection into a JSON MCP client configuration while preserving other entries
 and saving a backup. Keep HA running; the bridge connects to its authenticated
@@ -597,12 +598,16 @@ reconnects can confirm what was verified and published. It is read-only; MCP
 clients cannot publish or change repository settings.
 
 External stdio and HTTP MCP connections have explicit project and tool grants.
+In **Other tools for the assistants**, choose a program on this computer (Browse,
+or a bare name such as `npx`, which HA stores with its full path) or a web address,
+or paste the setup block from a tool's instructions. **List tools** then shows its
+tools as checkboxes; tick the tools and projects the assistants may use.
 Workers receive only their authorized connection names and tool names. Calls use
 the existing operation journal and revision fences; an interrupted external
 mutation is not automatically replayed. Connection arguments must not contain
 credentials. HTTP bearer tokens can be held for the session or saved in the OS
 credential store, bound to the exact endpoint. For an OAuth-enabled HTTP server,
-use **Authorize in browser**: HA discovers the authorization server, registers a
+use **Sign in**: HA discovers the authorization server, registers a
 public client when supported, opens its dedicated browser profile, validates the
 loopback callback, and refreshes tokens. Credentials are session-only unless you
 select OS-vault storage. Existing registrations and verified token endpoints are
@@ -613,17 +618,20 @@ Disconnect removes HA's local authorization; provider-side revocation is separat
 
 Codespaces is disabled by default and requires separate execution permission.
 HA can prepare GitHub CLI on Windows, request the Codespaces OAuth scope, list
-machines, create a Codespace for an **existing** repository, start/stop it, and
-probe its installed tools and GPU. Repository creation is never required.
-A cloud job snapshots explicit source-text paths from a paused project and runs
-explicit argument arrays. Up to four separate Codespaces execute concurrently;
+your Codespaces so you can tick the ones HA may use, create a Codespace for an
+**existing** repository, start/stop it, and probe its installed tools and GPU.
+Repository creation is never required. A cloud job snapshots explicit source-text
+paths from a paused project (**Fill in all project files** lists them for you) and
+runs one command per line; quotes group words as in a terminal, and each line is
+stored as an explicit argument array. Job and creation IDs are made automatically. Up to four separate Codespaces execute concurrently;
 jobs within one Codespace queue in submission order. Source export checks reject
 protected/private paths and recognized secrets. The runner is not a security
 sandbox: submitted commands run with the Codespace account's permissions.
 
-Results survive lost connections. Use **reconcile** rather than submitting a new
-job ID after an uncertain delivery. Requested output files can be imported into
-a paused local project, with a current-file hash required for replacement.
+Results survive lost connections. Use **Check status** rather than submitting a
+new job after an uncertain delivery. Requested output files can be copied into a
+paused local project by picking the finished job and file; replacing an existing
+file is an explicit choice, and HA keeps the replaced version.
 Cloud execution does not accept a task or replace independent project checks.
 GPU requirements are checked both against the capability probe and at execution.
 GitHub compute/storage quotas and charges apply; HA does not enable paid usage.
@@ -659,14 +667,17 @@ the task and category catalog; it selects existing tags or none. Source reading,
 lesson retrieval and skill briefings then enforce those grants. Changed access
 starts a fresh conversation and briefing. Existing untagged material is retained
 as unclassified and remains unavailable to task models until categorized.
-The Knowledge page manages categories, material assignments and paused-task
-scope overrides. Authorized source ingestion queues an isolated native adviser
+**Knowledge & skills** (on AI assistants) manages categories, material
+assignments and paused-task scope overrides; categories are ticked, and a new
+category's short name is filled in from its name. Documents can be chosen with
+**Browse**. Authorized source ingestion queues an isolated native adviser
 categorization turn; ingestion may create reusable categories, while project
 classification cannot. External-processing permission remains a separate gate.
 
 
-Experimental learning is optional and off by default. Its controls are on the
-Knowledge page. Chat-only is the default; Work or other limited worker routes
+Experimental learning is optional and off by default. Its controls are under
+**Experiments** in Knowledge & skills; **Test a lesson** picks a prepared practice
+set by date and a worker by name. Chat-only is the default; Work or other limited worker routes
 require turning that restriction off. The controller tries the documented model
 and effort preferences against actual visible Chat controls, or uses an exact
 manual override, and pins the selected model for all paired samples. Main work
