@@ -27,8 +27,28 @@
       }
     }
     document.querySelector('#experimental-models').textContent = (status.experimental_models || []).map(x => `${x.model} · ${x.effort} (pinned for ${x.evaluation})`).join(' · ');
-    document.querySelector("#knowledge-curations").textContent = (status.knowledge_curations || []).map(x => `${x.stage}: ${x.reason || x.assignment?.tags.join(", ") || "categorization queued"}`).join(" · ");
-    document.querySelector('#knowledge-catalog').textContent = catalog.tags.map(t => `${t.id}: ${t.label}`).join(' · ') || 'No categories yet.';
+    const STAGE = {queued: 'Waiting to sort', waiting_quota: 'Waiting for usage', running: 'Sorting', done: 'Sorted', completed: 'Sorted', failed: 'Could not sort'};
+    document.querySelector("#knowledge-curations").textContent = (status.knowledge_curations || []).map(x => `${STAGE[x.stage] || x.stage.replaceAll('_', ' ')}: ${x.reason || x.assignment?.tags.join(", ") || "waiting for the adviser"}`).join(" · ");
+    document.querySelector('#knowledge-catalog').textContent = catalog.tags.length ? 'Categories: ' + catalog.tags.map(t => `${t.label} (${t.id})`).join(' · ') : 'No categories yet. Add one below.';
+    // Tick boxes instead of typing category names.
+    for (const picker of document.querySelectorAll('.tag-picker')) {
+      const input = picker.closest('form').elements.tags;
+      const chosen = new Set(tags(input.value));
+      const signature = JSON.stringify(catalog.tags.map(t => [t.id, t.label]));
+      if (picker.dataset.items !== signature) {
+        picker.replaceChildren(...catalog.tags.map(t => {
+          const label = document.createElement('label');
+          label.className = 'check';
+          const box = document.createElement('input');
+          box.type = 'checkbox'; box.dataset.tag = t.id; box.checked = chosen.has(t.id);
+          box.onchange = () => { input.value = [...picker.querySelectorAll('input:checked')].map(b => b.dataset.tag).join(','); };
+          label.append(box, document.createTextNode(t.label));
+          return label;
+        }));
+        if (!catalog.tags.length) picker.textContent = 'No categories yet.';
+        picker.dataset.items = signature;
+      }
+    }
     const material = (status.knowledge_assignments || []).map(row => {
       const source = (status.sources || []).find(s => s.id === row.item_id);
       const lesson = (status.lessons || []).find(s => s.id === row.item_id);
@@ -39,7 +59,7 @@
     document.querySelector('#knowledge-scope-list').replaceChildren(...(status.knowledge_scopes || []).map(scope => {
       const p = document.createElement('p');
       const task = (status.tasks || []).find(t => t.id === scope.task_id);
-      p.textContent = `${task?.objective || scope.task_id}: ${scope.selected ? scope.tags.join(', ') || 'No matching knowledge selected' : 'Awaiting task classification'}`;
+      p.textContent = `${task?.objective || scope.task_id}: ${scope.selected ? scope.tags.join(', ') || 'no reference material' : 'not chosen yet'}`;
       return p;
     }));
   };
@@ -53,7 +73,7 @@
   document.querySelector('#knowledge-curate').onclick = async () => {
     try {
       const [kind, id] = JSON.parse(document.querySelector('#knowledge-item').value);
-      await api('knowledge/curate', {kind, id}); notice('Automatic categorization queued.'); await refresh();
+      await api('knowledge/curate', {kind, id}); notice('The adviser will sort it shortly.'); await refresh();
     } catch (error) { notice(error.message, true); }
   };
   learningForm.onsubmit = async event => {
@@ -74,7 +94,17 @@
   };
   submit('#knowledge-tag-form'  , 'knowledge/tag', f => Object.fromEntries(f));
   submit('#knowledge-assignment-form', 'knowledge/assign', f => {
-    const [kind, id] = JSON.parse(f.get('item')); return {kind, id, tags: tags(f.get('tags'))};
+    const [kind, id] = JSON.parse(f.get('item'));
+    if (!tags(f.get('tags')).length) throw new Error('Tick at least one category.');
+    return {kind, id, tags: tags(f.get('tags'))};
   });
+  // The short name follows the category name until it's edited by hand.
+  const tagForm = document.querySelector('#knowledge-tag-form');
+  let shortEdited = false;
+  tagForm.elements.id.addEventListener('input', () => { shortEdited = true; });
+  tagForm.elements.label.addEventListener('input', () => {
+    if (!shortEdited) tagForm.elements.id.value = tagForm.elements.label.value.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64);
+  });
+  tagForm.addEventListener('submit', () => { shortEdited = false; });
   submit('#knowledge-scope-form', 'knowledge/scope', f => ({task: f.get('task'), tags: tags(f.get('tags')), catalog_revision: catalogRevision}));
 })();
