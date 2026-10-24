@@ -368,7 +368,16 @@ class Application:
             ),
             "github_setup": self.github_setup.status(),
             "repositories": [
-                self.repositories.status(p["id"])
+                {
+                    "project_id": p["id"],
+                    **self.repositories.status(p["id"]),
+                    # The last version HA saved to GitHub, to prefill GitHub test runs.
+                    "saved_sha": (
+                        self.broker.publications.status(p["id"]).get("sha")
+                        if self.broker.publications
+                        else None
+                    ),
+                }
                 for p in self.store.rows("SELECT id FROM projects")
             ],
             "projects": self.store.rows("SELECT * FROM projects ORDER BY created DESC"),
