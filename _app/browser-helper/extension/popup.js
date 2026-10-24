@@ -19,11 +19,17 @@ function checkDetails(value, provider) {
   return value;
 }
 async function native(message) {
-  let result;
-  try {result = await chrome.runtime.sendNativeMessage(HOST, message);}
-  catch {throw new Error('Can\'t reach HA. In HA, open Connections and select Set up Chrome helper, then retry.');}
-  if (!result?.ok) throw new Error(result?.error || 'HA did not answer.');
-  return result.value;
+  // HA may need a moment to start its connection; it says so and the helper waits.
+  for (let attempt = 0; attempt < 60; attempt++) {
+    let result;
+    try {result = await chrome.runtime.sendNativeMessage(HOST, message);}
+    catch {throw new Error('Can\'t reach HA. Make sure HA is running, then try again.');}
+    if (!result?.ok) throw new Error(result?.error || 'HA did not answer.');
+    if (!result.value?.retry) return result.value;
+    show(result.value.message || 'Starting HA\'s connection…');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+  throw new Error('HA\'s connection didn\'t start. Check HA\'s Settings page, then try again.');
 }
 async function onPage(tabId, operation, data, replace) {
   const result = await chrome.scripting.executeScript({target: {tabId}, func: async (op, payload, overwrite) => {
