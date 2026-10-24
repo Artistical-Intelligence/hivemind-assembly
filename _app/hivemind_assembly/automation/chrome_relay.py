@@ -304,6 +304,10 @@ class ChromeRelay:
             self.last_click = (tab_id, time.time())
         if method == "Runtime.runIfWaitingForDebugger":
             return {}
+        if method == "Page.bringToFront" and not child:
+            # Also raise the window, so "Show tab" works when Chrome is behind other windows.
+            await self.call({"op": "activateTab", "tabId": tab_id})
+            return {}
         message = {"op": "cdp", "tabId": tab_id, "method": method, "params": params}
         if child:
             message["sessionId"] = child
