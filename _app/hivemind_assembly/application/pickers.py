@@ -31,6 +31,11 @@ PURPOSES = {
         "Settings files (*.json)|*.json|All files (*.*)|*.*",
     ),
     "practice": ("folder", "Choose the practice problems folder", ""),
+    "mcp-program": (
+        "file",
+        "Choose the program that offers the tools",
+        "Programs (*.exe;*.cmd;*.bat)|*.exe;*.cmd;*.bat|All files (*.*)|*.*",
+    ),
 }
 
 # Windows PowerShell 5.1 ships with every supported Windows and runs STA, which the
