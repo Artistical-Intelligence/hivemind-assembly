@@ -97,3 +97,10 @@ def test_browse_endpoint_and_quoted_paths(app, tmp_path, monkeypatch):  # noqa: 
     notes = tmp_path / "notes.md"
     notes.write_text("Integer arithmetic")
     assert app.action("/api/source", {"path": f'  "{notes}" '})["id"]
+
+
+def test_byte_order_mark_is_not_part_of_the_path():
+    run, _ = fake(stdout="\ufeffC:\\Users\\me\\Café\\game.exe".encode("utf-8"))
+    assert pickers.choose("program", run, "win32", lambda n: "powershell.exe") == {
+        "path": "C:\\Users\\me\\Café\\game.exe"
+    }
