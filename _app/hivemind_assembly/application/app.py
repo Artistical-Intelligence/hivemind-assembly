@@ -638,10 +638,10 @@ class Application:
                 except Exception:
                     return {"opened": False}
             try:
-                opened = chrome_helper.open_extensions_page()
+                result = chrome_helper.open_extensions_page()
             except Exception:
-                opened = False
-            return {"opened": opened, "url": "chrome://extensions"}
+                result = {"opened": False, "typed": False}
+            return {**result, "url": "chrome://extensions"}
         if path in ("/api/helper/status", "/api/helper/details", "/api/helper/pair"):
             from hivemind_assembly.integrations import chrome_helper
 
