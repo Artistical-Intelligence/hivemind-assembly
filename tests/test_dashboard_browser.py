@@ -332,7 +332,7 @@ def test_cloud_computers_use_lists_and_plain_commands(server, app, monkeypatch):
         page.get_by_role("button", name="Save cloud settings").click()
         expect(page.locator("#notice")).to_contain_text("Codespaces settings saved")
         assert app.codespaces.settings()["spaces"] == ["fuzzy-space-1"]
-        page.get_by_text("Run a job on a cloud computer (advanced)").click()
+        page.get_by_text("Run a job on a cloud computer (optional)").click()
         expect(page.locator("#cloud-job-space")).to_have_value("fuzzy-space-1")
         # The header project picker chooses the project for this form too.
         page.locator("#workspace-task").select_option(task["id"])
@@ -491,7 +491,7 @@ def test_tag_scope_and_optional_learning_controls(server, app, tmp_path, monkeyp
         expect(page.locator("#knowledge-scope-list")).to_contain_text(
             "Integer arithmetic: integer-arithmetic"
         )
-        page.get_by_text("Experiments (advanced)").click()
+        page.get_by_text("Experiments (optional)").click()
         expect(
             page.locator('#experimental-settings [name="enabled"]')
         ).not_to_be_checked()
@@ -508,7 +508,7 @@ def test_tag_scope_and_optional_learning_controls(server, app, tmp_path, monkeyp
         assert app.team.experimental.settings()["max_turns_per_evaluation"] is None
         page.reload()
         page.locator('[data-tab="routes"]').click()
-        page.get_by_text("Experiments (advanced)").click()
+        page.get_by_text("Experiments (optional)").click()
         expect(page.locator('#experimental-settings [name="enabled"]')).to_be_checked()
         assert errors == []
         browser.close()
