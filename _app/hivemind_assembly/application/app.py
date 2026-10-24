@@ -37,6 +37,7 @@ from hivemind_assembly.domains.reverse_engineering.semantics import (
     differential,
 )
 from hivemind_assembly.domains.reverse_engineering.proof import prove
+from .pickers import user_path
 
 STATIC = Path(__file__).parent / "static"
 DEFAULT = APP_ROOT / "config" / "default.json"
@@ -698,7 +699,11 @@ class Application:
         if path == "/api/mcp/config":
             return self.connections.client_config()
         if path == "/api/mcp/install":
-            return self.connections.install_config(data["path"])
+            return self.connections.install_config(user_path(data["path"]))
+        if path == "/api/choose-path":
+            from .pickers import choose
+
+            return choose(data.get("purpose"))
         if path == "/api/mcp/call":
             return self.mcp_gateway.call(data["tool"], data.get("arguments", {}))
         if path == "/api/mcp/credential":
@@ -805,9 +810,9 @@ class Application:
                 )
                 if data.get("benchmark") == "humaneval_decompile"
                 else self.native_learning.verifier.protect_manifest(
-                    self.native_learning, data["path"]
+                    self.native_learning, user_path(data["path"])
                 )
-                if data.get("path")
+                if user_path(data.get("path"))
                 else self.native_learning.verifier.build_corpus(
                     self.native_learning,
                     self.store.root
@@ -1174,9 +1179,9 @@ class Application:
             # pending operations in the project.
             self.workspace.guard(task)
             root = self.broker.workspace(task)
-            source = Path(data["path"]).expanduser().resolve()
+            source = Path(user_path(data["path"])).expanduser().resolve()
             if not source.is_file():
-                raise ContractError("Target file does not exist")
+                raise ContractError("That program file doesn't exist. Use Browse to choose it.")
             target = scoped(root, source.name)
             if target.exists() and file_hash(target) != file_hash(source):
                 raise Blocked("A different file already has this name")
@@ -1210,8 +1215,10 @@ class Application:
                 "original_artifact": original["id"],
             }
         if path == "/api/source":
+            if not Path(user_path(data["path"])).expanduser().is_file():
+                raise ContractError("That document doesn't exist. Use Browse to choose it.")
             result = Knowledge(self.store).ingest(
-                data["path"],
+                str(Path(user_path(data["path"])).expanduser()),
                 bool(data.get("external_allowed", False)),
                 data.get("tags"),
             )
