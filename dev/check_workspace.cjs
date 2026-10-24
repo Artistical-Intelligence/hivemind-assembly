@@ -30,7 +30,7 @@ const until=async fn=>{for(let n=0;n<200;n++){if(fn())return;await new Promise(r
  $('#guided-candidate').value='tool.py';$('#guided-native-allow').checked=true;
  $('#guided-cases [data-field=stdin]').value='hello\n';$('#guided-cases [data-field=stdout]').value='HELLO\n';
  $('#guided-test-form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
- await until(()=>$('#guided-status').textContent.includes('Checks pinned'));
+ await until(()=>$('#guided-status').textContent.includes('Checks saved'));
  click('#workspace-check');await until(()=>$('#workspace-result-summary').textContent.startsWith('Checks passed'));
  console.log('Real controller dashboard flow passed: two starters, editing, dirty draft guard, passing and failing checks, retained native observations, and a fresh project with guided exact-output checks.');dom.window.close();
 })().catch(e=>{console.error(e);dom.window.close();process.exitCode=1});
