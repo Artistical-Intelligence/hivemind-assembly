@@ -72,7 +72,9 @@
   }
   document.querySelector('#knowledge-curate').onclick = async () => {
     try {
-      const [kind, id] = JSON.parse(document.querySelector('#knowledge-item').value);
+      const chosen = document.querySelector('#knowledge-item').value;
+      if (!chosen) throw new Error('Add a document or finish a project first; then choose it here.');
+      const [kind, id] = JSON.parse(chosen);
       await api('knowledge/curate', {kind, id}); notice('The adviser will sort it shortly.'); await refresh();
     } catch (error) { notice(error.message, true); }
   };
