@@ -35,7 +35,7 @@ class GitHubError(Blocked):
 class GitHubHTTP:
     """Bounded calls, no automatic mutation retry, no cross-host redirects."""
 
-    def request(self, method, path, *, token=None, data=None, oauth=False):
+    def request(self, method, path, *, token=None, data=None, oauth=False, allow_list=False):
         origin = "https://github.com" if oauth else "https://api.github.com"
         headers = {"Accept": "application/json", "User-Agent": "Hivemind-Assembly"}
         if not oauth:
@@ -66,7 +66,7 @@ class GitHubHTTP:
             return {}
         try:
             result = response.json()
-            if not isinstance(result, dict):
+            if not isinstance(result, (dict, list) if allow_list else dict):
                 raise ValueError()
             return result
         except ValueError:
