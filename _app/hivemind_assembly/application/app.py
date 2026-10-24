@@ -362,6 +362,7 @@ class Application:
                 else []
             ),
             "native_learning_error": self.native_learning_error,
+            "practice_sets": self.practice_sets(),
             "learning_pipeline": learning_stages(
                 self.store, self.team.experimental.settings(), self.native_learning
             ),
@@ -453,6 +454,19 @@ class Application:
                 for k, v in self.config["routes"].items()
             ],
         }
+
+    def practice_sets(self):
+        """Prepared practice sets for lesson tests, newest first, so the owner picks
+        one by date instead of typing its ID."""
+        from hivemind_assembly.learning.pipeline import default_suite
+
+        chosen = (default_suite(self.store) or {}).get("suite")
+        return [
+            {"id": r["id"], "created": r["created"], "default": r["id"] == chosen}
+            for r in self.store.rows(
+                "SELECT id,created FROM artifacts WHERE logical_name='learning-holdouts.json' ORDER BY created DESC LIMIT 20"
+            )
+        ]
 
     def foundations_status(self):
         """Whether the pinned foundations are configured on disk, for first-run setup."""
