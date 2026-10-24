@@ -67,13 +67,20 @@ class Connections:
             return {
                 "enabled": False,
                 "allow_create": False,
+                "all_projects": False,
                 "projects": [],
                 "servers": {},
             }
-        return json.loads(self.path.read_text("utf-8"))
+        value = json.loads(self.path.read_text("utf-8"))
+        value.setdefault("all_projects", False)
+        return value
+
+    def shared(self, project_id):
+        cfg = self.settings()
+        return bool(cfg["all_projects"] or project_id in cfg["projects"])
 
     def save(self, value):
-        if not isinstance(value, dict) or set(value) != {
+        if not isinstance(value, dict) or set(value) - {"all_projects"} != {
             "enabled",
             "allow_create",
             "projects",
@@ -82,7 +89,8 @@ class Connections:
             raise ContractError(
                 "MCP settings require enabled, allow_create, projects and servers"
             )
-        if any(type(value[k]) is not bool for k in ("enabled", "allow_create")):
+        value = {"all_projects": False, **value}
+        if any(type(value[k]) is not bool for k in ("enabled", "allow_create", "all_projects")):
             raise ContractError("MCP permissions must be booleans")
         if not isinstance(value["projects"], list) or any(
             not isinstance(x, str) for x in value["projects"]
@@ -544,7 +552,7 @@ class Gateway:
         if not self.connections.settings()["enabled"]:
             raise Blocked("MCP access is disabled")
         task = self.app.store.task(task_id)
-        if task["project_id"] not in self.connections.settings()["projects"]:
+        if not self.connections.shared(task["project_id"]):
             raise Blocked("Project is not shared with MCP")
         return task
 
@@ -562,7 +570,11 @@ class Gateway:
                             (p,),
                         ),
                     }
-                    for p in cfg["projects"]
+                    for p in (
+                        [row["id"] for row in self.app.store.rows("SELECT id FROM projects ORDER BY created")]
+                        if cfg["all_projects"]
+                        else cfg["projects"]
+                    )
                 ]
             }
         if tool == "ha_create_project":
