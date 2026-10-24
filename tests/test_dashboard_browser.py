@@ -95,7 +95,7 @@ def test_edit_upload_check_and_draft_retention(server, app):
         page.locator('#guided-cases [data-field="stdout"]').fill("HELLO\n")
         page.locator("#guided-native-allow").check()
         page.locator("#guided-pin").click()
-        expect(page.locator("#guided-status")).to_contain_text("Checks pinned")
+        expect(page.locator("#guided-status")).to_contain_text("Checks saved")
         page.locator("#workspace-check").click()
         expect(page.locator("#workspace-result-summary")).to_contain_text(
             "Checks passed", timeout=20000
