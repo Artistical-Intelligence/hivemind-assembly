@@ -81,11 +81,11 @@ class AutoReconnect:
             try:
                 await self.reconnect(provider)
             except Stuck as exc:
-                self.report(provider, "manual", str(exc) + " Connect " + provider + " by hand or with the Chrome helper.")
+                self.report(provider, "manual", str(exc) + " You can also connect " + provider + " by hand (Connection details).")
             except Blocked as exc:
                 self.report(provider, "manual", str(exc))
             except Exception as exc:  # browser closed, navigation failed, timeouts
-                self.report(provider, "manual", "Stopped (" + type(exc).__name__ + "). Connect " + provider + " by hand or with the Chrome helper.")
+                self.report(provider, "manual", "Stopped (" + type(exc).__name__ + "). Select Connect to try again, or connect " + provider + " by hand (Connection details).")
             return self.state.get(provider)
 
     async def inject(self, page):
@@ -104,7 +104,7 @@ class AutoReconnect:
         try:
             await page.wait_for_load_state("domcontentloaded")
             if urlsplit(page.url).hostname not in hosts:
-                raise Stuck("HA's " + provider + " window is signed out.")
+                raise Stuck("HA's " + provider + " tab isn't signed in. Sign in there (AI assistants, Set up), then select Connect again.")
             await self.remove_old(provider, page)
             await self.open_form(provider, page)
             self.report(provider, "working", "Filling in the new address.")
