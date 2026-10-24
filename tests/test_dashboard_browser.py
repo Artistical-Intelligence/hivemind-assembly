@@ -292,8 +292,9 @@ def test_activity_logs_filter_by_lists(server, app):
         browser.close()
 
 
-def test_tag_scope_and_optional_learning_controls(server, app, tmp_path):
+def test_tag_scope_and_optional_learning_controls(server, app, tmp_path, monkeypatch):
     from playwright.sync_api import sync_playwright, expect
+    from hivemind_assembly.application import pickers
 
     source_path = tmp_path / "learning.txt"
     source_path.write_text("Integer arithmetic documentation")
@@ -316,10 +317,13 @@ def test_tag_scope_and_optional_learning_controls(server, app, tmp_path):
         )
         page.locator("#knowledge-tag-form button").click()
         expect(page.locator("#knowledge-catalog")).to_contain_text("integer-arithmetic")
-        page.locator('#source-form [name="path"]').fill(str(source_path))
+        # Browse fills the path from this computer's own file picker.
+        monkeypatch.setattr(pickers, "choose", lambda purpose: {"path": str(source_path)})
+        page.locator('#source-form [data-browse="document"]').click()
+        expect(page.locator('#source-form [name="path"]')).to_have_value(str(source_path))
         # Categories are ticked, not typed.
         page.locator('#source-form [data-tag="integer-arithmetic"]').check()
-        page.locator("#source-form button").click()
+        page.get_by_role("button", name="Add document").click()
         expect(page.locator("#source-list")).to_contain_text("learning.txt")
         # The header task picker selects the task for every form, including this one.
         page.locator("#workspace-task").select_option(task["id"])
