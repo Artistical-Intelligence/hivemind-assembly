@@ -83,7 +83,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-nati
 
 $('#trace-viewer').onclick=async()=>{try{const r=await api('traces/viewer',{});notice('Sent '+r.sent+' events to the local viewer on port 6006.')}catch(e){notice(e.message,true)}};
 
-$('#native-corpus-form').onsubmit=async e=>{e.preventDefault();try{const r=await api('learning/native-corpus',Object.fromEntries(new FormData(e.target)));await refresh();$('#native-suite').value=r.suite;notice('Practice set ready. It\'s selected below.')}catch(x){notice(x.message,true)}};
+$('#native-corpus-form').onsubmit=async e=>{e.preventDefault();try{const r=await api('learning/native-corpus',Object.fromEntries(new FormData(e.target)));await refresh();const sel=$('#native-suite');if(![...sel.options].some(o=>o.value===r.suite))sel.insertAdjacentHTML('afterbegin',`<option value="${esc(r.suite)}">Just prepared</option>`);sel.value=r.suite;notice('Practice set ready. It\'s selected below.')}catch(x){notice(x.message,true)}};
 $('#native-eval-form').onsubmit=async e=>{e.preventDefault();try{const f=Object.fromEntries(new FormData(e.target));f.repeats=Number(f.repeats);f.default_suite=f.default_suite==='on';await api('learning/native-evaluate',f);notice('Lesson test started.');refresh()}catch(x){notice(x.message,true)}};
 document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;try{if(b.dataset.share||b.dataset.unshare){await api('learning/share',{lesson:b.dataset.share||b.dataset.unshare,allowed:!!b.dataset.share});notice(b.dataset.share?'Allowed.':'Asset kept local.')}if(b.dataset.nativeRenew){await api('native/renew',{route:b.dataset.nativeRenew});notice('Conversation renewal started.')} }catch(x){notice(x.message,true)}});
 
