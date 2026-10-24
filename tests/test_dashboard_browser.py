@@ -194,6 +194,7 @@ def test_oauth_dashboard_requests_session_default_and_disconnect(
         page = browser.new_page()
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
         page.locator('[data-tab="settings"]').click()
+        page.get_by_text("Other tools for the assistants (advanced)").click()
         page.locator('#mcp-oauth [name="server"]').fill("fixture")
         expect(page.locator('#mcp-oauth [name="remember"]')).not_to_be_checked()
         page.get_by_role("button", name="Sign in", exact=True).click()
@@ -233,7 +234,7 @@ def test_mcp_and_optional_cloud_settings(server, app):
         page.locator('#mcp-access input[name="enabled"]').check()
         page.locator("#mcp-access button").first.click()
         expect(page.locator("#notice")).to_contain_text("Saved.")
-        expect(page.locator("#quick-start")).to_be_visible()
+        expect(page.locator("#quick-chatgpt")).to_be_visible()
         expect(page.locator("#quick-ready")).to_be_hidden()
         page.get_by_text("Add HA to another app by hand").click()
         page.locator("#mcp-config").click()
@@ -290,7 +291,7 @@ def test_tag_scope_and_optional_learning_controls(server, app, tmp_path):
         expect(page.locator("#knowledge-scope-list")).to_contain_text(
             "Integer arithmetic: integer-arithmetic"
         )
-        page.get_by_text("Experimental learning (optional)").click()
+        page.get_by_text("Experiments (advanced)").click()
         expect(
             page.locator('#experimental-settings [name="enabled"]')
         ).not_to_be_checked()
@@ -307,7 +308,7 @@ def test_tag_scope_and_optional_learning_controls(server, app, tmp_path):
         assert app.team.experimental.settings()["max_turns_per_evaluation"] is None
         page.reload()
         page.locator('[data-tab="routes"]').click()
-        page.get_by_text("Experimental learning (optional)").click()
+        page.get_by_text("Experiments (advanced)").click()
         expect(page.locator('#experimental-settings [name="enabled"]')).to_be_checked()
         assert errors == []
         browser.close()
