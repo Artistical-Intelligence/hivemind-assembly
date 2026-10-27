@@ -105,15 +105,17 @@ class ExperimentalLearning:
     def choose(self, requested=None):
         settings = self.require()
         override = requested or settings["route_override"]
-        routes = (
-            [override]
-            if override
-            else (
-                ["worker.extra"]
-                if settings["chat_only"]
-                else ["worker.extra", "worker.opus", "worker.astra"]
+        configured = self.config.get("routes", {})
+        workers = [r for r in ("worker.extra", "worker.opus", "worker.astra") if r in configured]
+        if settings["chat_only"]:
+            # Saved setups may put ChatGPT Chat on any worker; use whichever have it.
+            workers = [r for r in workers if configured[r].get("mode") == "Chat"]
+        routes = [override] if override else workers
+        if not routes:
+            raise Blocked(
+                "No worker uses ChatGPT Chat. Set one to a ChatGPT Chat model,"
+                " or untick Only use workers on ChatGPT Chat."
             )
-        )
         for route in routes:
             self.require(route)
             if self.eligible(route, self.availability(route)):
