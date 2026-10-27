@@ -4,6 +4,9 @@ from dataclasses import dataclass, field
 from hivemind_assembly.core.common import Blocked, ContractError
 
 PREFERENCE = ("worker.opus", "worker.astra", "worker.extra")
+# The five assistant slots and the setup HA started with (saved as the "Default" setup).
+# The owner can give each slot any model a signed-in service offers; HA then keeps to
+# exactly that choice.
 TARGETS = {
     "worker.opus": ("claude", "native", "Opus 5.5", "High"),
     "worker.astra": ("openai", "Work", "GPT-6 Astra", "High"),
@@ -11,6 +14,43 @@ TARGETS = {
     "adviser.extra": ("openai", "Chat", "GPT-6", "Extra High"),
     "reviewer.high": ("openai", "Chat", "GPT-6", "High"),
 }
+FIELDS = ("provider", "mode", "model", "effort")
+PROVIDERS = {
+    "openai": {"name": "ChatGPT", "hosts": ["chatgpt.com"], "modes": ("Chat", "Work"), "profile": "openai"},
+    "claude": {"name": "Claude", "hosts": ["claude.ai"], "modes": ("native",), "profile": "claude"},
+}
+
+
+def usage_scope(provider, mode):
+    """Usage limits are per account and surface: ChatGPT Chat and Work are counted apart."""
+    return "claude.native" if provider == "claude" else provider + "." + mode.lower()
+
+
+def valid_target(target):
+    """One assistant's choice: service, mode, model and thinking level (empty when the
+    model has no thinking setting)."""
+    if not isinstance(target, dict) or set(target) != set(FIELDS):
+        raise ContractError("Each assistant needs a service, mode, model and thinking level")
+    info = PROVIDERS.get(target["provider"])
+    if info is None:
+        raise ContractError("Unknown AI service")
+    if target["mode"] not in info["modes"]:
+        raise ContractError(info["name"] + " has no " + str(target["mode"]) + " mode")
+    if not isinstance(target["model"], str) or not 1 <= len(target["model"].strip()) <= 100:
+        raise ContractError("Choose a model")
+    if not isinstance(target["effort"], str) or len(target["effort"]) > 100:
+        raise ContractError("Thinking level is too long")
+    return target
+
+
+def default_presets(config):
+    """The setup the owner has now, saved as "Default"."""
+    return {
+        "Default": {
+            route: {k: cfg.get(k) for k in FIELDS}
+            for route, cfg in config.get("routes", {}).items()
+        }
+    }
 
 
 @dataclass
@@ -192,16 +232,10 @@ def validate_config(config):
     for key, route in config["routes"].items():
         if key not in TARGETS:
             raise ContractError("Unknown route")
-        expected_hosts = (
-            ["claude.ai"] if TARGETS[key][0] == "claude" else ["chatgpt.com"]
-        )
+        target = valid_target({x: route.get(x) for x in FIELDS})
+        expected_hosts = PROVIDERS[target["provider"]]["hosts"]
         if route.get("allowed_hosts") != expected_hosts:
             raise ContractError("Native route host must match its designated provider")
-        if (
-            tuple(route.get(x) for x in ("provider", "mode", "model", "effort"))
-            != TARGETS[key]
-        ):
-            raise ContractError("Exact route target changed")
         binding = route.get("conversation_url")
         if binding:
             from urllib.parse import urlsplit
@@ -219,4 +253,17 @@ def validate_config(config):
             seen.add(binding)
         if route.get("inference_transport") != "native_browser":
             raise ContractError("Only native browser transport is enabled")
+    presets = config.get("presets", {})
+    if not isinstance(presets, dict) or len(presets) > 50:
+        raise ContractError("Keep at most 50 saved assistant setups")
+    for name, preset in presets.items():
+        if not isinstance(name, str) or name != name.strip() or not 1 <= len(name) <= 60:
+            raise ContractError("Setup names need 1–60 characters")
+        if not isinstance(preset, dict) or set(preset) != set(TARGETS):
+            raise ContractError("A saved setup names all five assistants")
+        for target in preset.values():
+            valid_target(target)
+    active = config.get("active_preset")
+    if active is not None and active not in presets:
+        raise ContractError("The setup in use must be a saved setup")
     return config
