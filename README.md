@@ -756,7 +756,7 @@ categories and to material the owner lets the assistants read; their answers sta
 readable only while that remains true. Search matches the material's own words, so
 the workers are told to search with its technical terms and to try other words when
 nothing fits. Semantic (vector) search is not used: on real questions about the
-owner's own collection, ranked search found an expected section in the top 3 for 16
+owner's own collection, ranked search found an expected section in the top 3 for 15
 of 20 (see the roadmap).
 
 
