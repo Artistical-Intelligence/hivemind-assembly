@@ -567,15 +567,21 @@ class Application:
         finally:
             self.team.pause_dispatch = False
 
-    def read_model_choices(self):
-        """Read every model and thinking level from ChatGPT's and Claude's own pickers."""
+    CHOICES_MAX_AGE = 7 * 86400  # services add models; re-read a week-old list at the next setup
+
+    async def read_choices(self, providers=None):
+        """Read every model and thinking level from the services' own pickers. A read that
+        fails keeps the lists read before, with the reason."""
         from hivemind_assembly.automation.providers import CONTRACTS
         from hivemind_assembly.automation.surfaces import SURFACES
 
-        async def read():
-            found = {"read_at": time.time()}
-            for provider, info in PROVIDERS.items():
-                surface = SURFACES[provider]
+        if getattr(self, "choices_lock", None) is None:
+            self.choices_lock = asyncio.Lock()
+        async with self.choices_lock:
+            found = self.model_choices()
+            for provider in providers or list(PROVIDERS):
+                info, surface = PROVIDERS[provider], SURFACES[provider]
+                old = {k: v for k, v in found.get(provider, {}).items() if k != "error"}
                 async with self.browser.profile_lock(info["profile"]):
                     page = await self.browser.service_page(
                         info["profile"], CONTRACTS[provider]["new_url"], info["hosts"]
@@ -584,23 +590,44 @@ class Application:
                         try:
                             await page.locator(surface.picker).first.wait_for(timeout=20000)
                         except Exception:
-                            found[provider] = {"error": "Sign in to " + info["name"] + " first (use its button above)."}
+                            found[provider] = {**old, "error": "Sign in to " + info["name"] + " first (use its button above)."}
                             continue
-                        found[provider] = {"modes": await surface.options(page)}
+                        found[provider] = {"modes": await surface.options(page), "read_at": time.time()}
                     except Exception as error:
                         first = (str(error).strip().splitlines() or [type(error).__name__])[0][:200]
-                        found[provider] = {"error": info["name"] + "'s menu couldn't be read: " + first}
+                        found[provider] = {**old, "error": info["name"] + "'s menu couldn't be read: " + first}
                     finally:
                         if page not in self.browser.pages.values():
                             await page.close()
+            found["read_at"] = time.time()
             path = self.store.root / "private" / self.CHOICES
             path.parent.mkdir(parents=True, exist_ok=True)
             atomic_write(path, canonical(found))
             return found
 
+    def read_model_choices(self):
+        """Read ChatGPT's and Claude's model menus now (the Read choices button)."""
         return self.background_job(
-            "Read model choices", lambda: self.submit(read()).result(timeout=900)
+            "Read model choices", lambda: self.submit(self.read_choices()).result(timeout=900)
         )
+
+    async def setup_assistant(self, route):
+        """Set up one assistant. Once its service works, read that service's model menu if
+        HA hasn't lately, so the Model and Thinking lists show what it offers."""
+        result = await self.native_setup.run(route)
+        provider = self.config["routes"][route]["provider"]
+        known = self.model_choices().get(provider, {})
+        if (
+            isinstance(result, dict)
+            and result.get("stage") == "verified"
+            and time.time() - known.get("read_at", 0) > self.CHOICES_MAX_AGE
+            and not self.assistants_busy()
+        ):
+            try:
+                await self.read_choices([provider])
+            except Exception:
+                pass  # the lists keep what is in use; Read choices can try again
+        return result
 
     def foundations_status(self):
         """Whether the pinned foundations are configured on disk, for first-run setup."""
