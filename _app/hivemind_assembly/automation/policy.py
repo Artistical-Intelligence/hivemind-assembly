@@ -197,10 +197,13 @@ def validate_config(config):
         "allow_repository_creation",
         "automatic_checkpoints",
         "allowed_organizations",
+        "default_visibility",
     }:
         raise ContractError(
-            "GitHub settings accept creation permission, automatic checkpoints and allowed organizations only; credentials belong in the OS credential store."
+            "GitHub settings accept creation permission, automatic checkpoints, allowed organizations and the default for new repositories only; credentials belong in the OS credential store."
         )
+    if github.get("default_visibility", "private") not in ("private", "public"):
+        raise ContractError("New repositories are Private or Public.")
     if type(github.get("automatic_checkpoints", True)) is not bool:
         raise ContractError("automatic_checkpoints must be a boolean")
     if type(github.get("allow_repository_creation", False)) is not bool:
