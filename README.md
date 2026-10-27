@@ -178,12 +178,36 @@ access in GitHub's application settings to revoke authorization on GitHub too.
 **Projects → Back up a folder to GitHub** uploads any folder on this computer to a
 new (private or public) or existing repository, then uploads only what changed, on
 request or on a schedule. It is automation, not AI. The folder itself is not
-changed; likely secrets, folders with their own Git history and files over GitHub's
-100 MiB limit are left out and listed. Changes made on GitHub are kept (no force
-push), and deleted files are removed from GitHub only if you turn that on. When the
-GitHub connection is missing or refused, HA creates the repository by filling in
-github.com's New repository page in its GitHub window, and Git asks you to sign in
-for uploading.
+changed; likely secrets and folders with their own Git history are left out and
+listed, each nested Git folder with **Back up this folder separately**. Changes made
+on GitHub are kept (no force push), and deleted files are removed from GitHub only if
+you turn that on. When the GitHub connection is missing or refused, HA creates the
+repository by filling in github.com's New repository page in its GitHub window, and
+Git asks you to sign in for uploading. Each upload records the visibility GitHub
+shows and says so when it changed.
+
+Files over GitHub's 100 MiB file limit are backed up as assets of one release in the
+same repository, `large-files`, titled "Large files backed up by HA". A release asset
+must be under 2 GiB; larger files go up in numbered parts of about 1.9 GiB. Asset
+names carry the first 12 characters of the file's SHA-256 (for example
+`video.mp4.3fa9c1d2e4b7.part01`), so a changed file gets new assets and the old ones
+stay as its history; nothing is overwritten or deleted, and an asset is uploaded
+again only when it is missing or has the wrong size. `LARGE_FILES.json` in the
+repository lists each file's path, size, SHA-256 and asset names, with earlier
+versions. To get the files back, run `restore-large-files.ps1` (Windows PowerShell)
+or `restore_large_files.py` from a copy of the repository: they download the assets,
+join the parts at each file's original path and check its SHA-256. Uploading assets
+needs HA's GitHub connection, or else a signed-in GitHub CLI; without either, each
+large file shows **Waiting: connect GitHub to upload this file** and is tried again
+on the next upload. Each backup has a **Large files** list with one status per file
+(uploaded, uploaded in N parts, waiting or failed), separate from what was left out.
+Release assets in a public repository are public.
+
+**Store large files with Git LFS instead** (Advanced, off by default, offered when
+Git LFS is installed) uploads them with Git LFS. GitHub Free includes 10 GiB of Git
+LFS storage and 10 GiB of bandwidth; when either is used up with no payment method or
+a $0 budget, Git LFS uploads and downloads are blocked until the next month. Files
+over Git LFS's 2 GB limit still go up as release assets.
 
 ## Automatic GitHub setup
 
