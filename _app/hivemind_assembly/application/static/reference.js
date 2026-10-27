@@ -11,7 +11,11 @@
   function showWhat() {
     const what = field('what').value;
     for (const el of document.querySelectorAll('[data-what]')) el.hidden = !el.dataset.what.split(' ').includes(what);
-    form.querySelector('button.primary').textContent = what === 'document' ? 'Add document' : what === 'folder' ? 'Import folder' : 'Import repository';
+    const button = form.querySelector('button.primary');
+    button.textContent = what === 'document' ? 'Add document' : what === 'folder' ? 'Import folder' : 'Import repository';
+    button.title = what === 'document' ? "Add this document to HA's reference material."
+      : what === 'folder' ? 'Import every document in this folder; files HA skips are listed with the reason.'
+      : 'Import every document in this repository; files HA skips are listed with the reason.';
     if (what === 'github') loadRepositories();
   }
   let reposLoaded = false;
