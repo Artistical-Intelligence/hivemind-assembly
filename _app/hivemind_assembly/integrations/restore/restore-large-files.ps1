@@ -82,8 +82,12 @@ function Open-Download([string]$Url) {
     throw "Too many redirects for $Url"
 }
 
+# .NET directly: Get-FileHash is missing when Windows PowerShell is started from PowerShell 7.
 function Get-Sha256([string]$Path) {
-    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    $sha = [Security.Cryptography.SHA256]::Create()
+    $stream = [IO.File]::OpenRead($Path)
+    try { return ([BitConverter]::ToString($sha.ComputeHash($stream)) -replace '-', '').ToLowerInvariant() }
+    finally { $stream.Dispose(); $sha.Dispose() }
 }
 
 # Where a file from the manifest goes: always inside the restore folder. A path that
