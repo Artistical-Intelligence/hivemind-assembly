@@ -839,6 +839,8 @@ def test_every_button_has_a_hover_description(server, app):
             '<button data-game-shrink="0">Shrink</button>',
             '<button data-game-package="0">Bug package</button>',
             '<button data-game-save="0">Save as regression</button>',
+            '<button data-backup-upload="b">Upload now</button>',
+            '<button data-backup-remove="b">Stop backing up</button>',
         ]
         untitled = page.evaluate(
             """samples => samples.filter(html => {
@@ -898,3 +900,51 @@ def test_game_panel_plays_explores_shrinks_and_runs_regressions(server, app):
         expect(page.locator("#game-status")).to_contain_text("2 of 2 passed", timeout=60000)
         assert errors == []
         browser.close()
+
+
+def test_folder_backup_form_uploads_and_keeps_settings(server, app, tmp_path):
+    import subprocess
+    from playwright.sync_api import sync_playwright, expect
+
+    folder = tmp_path / "My research"
+    (folder / "notes").mkdir(parents=True)
+    (folder / "notes" / "a.md").write_text("# Notes\n")
+    (folder / ".env").write_text("KEY=1\n")
+    remote = tmp_path / "remote.git"
+    subprocess.run(["git", "init", "--bare", "-q", str(remote)], check=True)
+    app.folder_backups.remote_url = lambda owner, name: str(remote)
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ["WORKBENCH_TEST_CHROME"],
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+        page.locator('[data-tab="projects"]').click()
+        form = page.locator("#folder-backup-form")
+        expect(page.locator("#folder-backup-visibility")).to_be_visible()
+        form.locator('[name="action"]').select_option("existing")
+        expect(page.locator("#folder-backup-visibility")).to_be_hidden()
+        form.locator('[name="folder"]').fill(str(folder))
+        # The repository name is suggested from the folder's name.
+        expect(form.locator('[name="name"]')).to_have_value("My-research")
+        form.locator('[name="owner"]').fill("owner")
+        form.get_by_role("button", name="Back up folder").click()
+        card = page.locator("#folder-backup-list [data-backup]")
+        expect(card.locator(".fb-message")).to_contain_text("Uploaded 1 new or changed files", timeout=30000)
+        expect(card).to_contain_text(".env: may hold a password or key")
+        card.get_by_role("button", name="Upload now").click()
+        expect(card.locator(".fb-message")).to_contain_text("Up to date", timeout=30000)
+        card.locator('[data-backup-setting="automatic"]').check()
+        expect(page.locator("#notice")).to_contain_text("Saved.")
+        assert app.folder_backups.view()[0]["automatic"] is True
+        assert errors == []
+        browser.close()
+    listed = subprocess.run(
+        ["git", "--git-dir", str(remote), "ls-tree", "-r", "--name-only", "main"],
+        capture_output=True, text=True, check=True,
+    ).stdout.split()
+    assert listed == ["notes/a.md"]
