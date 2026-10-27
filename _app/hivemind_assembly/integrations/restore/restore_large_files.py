@@ -27,7 +27,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 CHUNK = 1024 * 1024
 
@@ -83,11 +83,29 @@ def sha256(path):
             digest.update(block)
 
 
-def target_path(destination, relative):
-    parts = PurePosixPath(relative).parts
-    if not parts or PurePosixPath(relative).is_absolute() or any(p in ("..", "") for p in parts) or ":" in parts[0]:
+def target_path(destination, relative, windows=None):
+    """Where a file from the manifest goes: always inside the destination. A path that
+    could lead anywhere else (absolute, a drive, '..', a backslash on Windows, or a
+    link inside the destination pointing out of it) stops the restore."""
+    windows = os.name == "nt" if windows is None else windows
+    text = str(relative)
+    parts = text.replace("\\", "/").split("/") if windows else text.split("/")
+    unsafe = (
+        not text
+        or text.startswith(("/", "\\"))
+        or any(part in ("", ".", "..") for part in parts)
+        or (windows and any(":" in part for part in parts))
+    )
+    root = Path(destination).resolve()
+    target = root.joinpath(*parts) if not unsafe else None
+    if target is not None:
+        try:
+            target.resolve().relative_to(root)
+        except ValueError:
+            unsafe = True
+    if unsafe:
         sys.exit(f"Refusing an unsafe path in the manifest: {relative!r}")
-    return destination.joinpath(*parts)
+    return target
 
 
 def main(argv=None):
