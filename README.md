@@ -165,8 +165,8 @@ is reported without modifying the existing repository. GitHub may reject an
 organization request because of its policy or the account's permissions.
 
 If a request is interrupted, use **Results & backups → Reconcile saved
-operation**. HA checks the recorded repository identity, privacy and write access
-before accepting it; it does not blindly repeat an uncertain creation request.
+operation**. HA checks the recorded repository identity and write access, and
+follows its current visibility, before accepting it; it does not blindly repeat an uncertain creation request.
 If the repository remains inaccessible, the request stays unresolved rather
 than creating another repository. Reconnect the original account and reconcile
 again. Permission denials are reported separately and can be retried after
