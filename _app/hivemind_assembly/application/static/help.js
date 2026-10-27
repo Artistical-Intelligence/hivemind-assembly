@@ -126,10 +126,13 @@
     gameShrink: 'Find the fewest inputs that still cause this problem.',
     gamePackage: 'Show the frames and game state just before the problem.',
     gameSave: 'Save these inputs as a regression test.',
+    backupUpload: 'Upload what changed in this folder since the last upload.',
+    backupRemove: 'Stop backing up this folder. The folder and the copy on GitHub stay as they are.',
   };
   const byText = {
     'Create project': 'Create a new project.',
     'Save to GitHub': 'Link this project to a GitHub repository.',
+    'Back up folder': 'Create or pick the GitHub repository and upload the folder. Progress shows below.',
     'Save limit': 'Save the request limit.',
     'Add file to project': 'Copy the chosen file into the project.',
     'Save tests': 'Save these tests for this project.',
