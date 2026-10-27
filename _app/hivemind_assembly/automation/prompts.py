@@ -36,6 +36,26 @@ TOOL_SCHEMAS = {
         "visibility": "optional private or public; a public repository is visible to anyone on the internet. When omitted, the owner's default for new repositories applies. GitHub's later visibility changes are followed.",
     },
     "repository_status": {},
+    "search_knowledge": {
+        "query": "words to look for in the owner's reference material; ranked results cover only this project's allowed categories",
+        "limit": "optional 1–20 hits, default 10",
+    },
+    "lookup_knowledge": {"name": "a section or document title, or one of its other names (any letter case)"},
+    "open_section": {
+        "source": "document ID from search_knowledge or lookup_knowledge",
+        "section": "section number",
+        "offset": "optional character offset to continue a long section (next_offset)",
+    },
+    "follow_link": {
+        "source": "document ID",
+        "section": "section number",
+        "link": "link number from open_section's links; links inside the material open their section, outside web pages are not opened",
+    },
+    "section_pictures": {
+        "source": "document ID",
+        "section": "section number",
+        "pictures": "optional picture IDs from open_section; at most 4 at once, attached to your next turn. Pictures without a caption are marked not yet described",
+    },
     "publish_checkpoint": {
         "validation": "successful host-recorded validation operation ID; publishes only its exact checked source files"
     },
