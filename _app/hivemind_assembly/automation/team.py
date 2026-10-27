@@ -492,7 +492,7 @@ class NativeTeam:
             name = Path(str(item.get("name") or "frame.png")).name
             if (
                 row is None
-                or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,80}\.png", name)
+                or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,80}\.(?:png|jpe?g|gif|webp)", name)
             ):
                 continue
             data = self.broker.artifacts.read(
