@@ -484,7 +484,8 @@ class KnowledgeCollections:
         knowledge = Knowledge(self.store)
         before = self._copies(key)
         used, failed, missing_tags = set(), [], set()
-        counts = {"imported": 0, "updated": 0, "unchanged": 0, "removed": 0, "pictures": 0, "tables": 0, "sections": 0}
+        counts = {"imported": 0, "updated": 0, "unchanged": 0, "removed": 0, "pictures": 0,
+                  "pictures_not_described": 0, "tables": 0, "sections": 0}
         last = 0.0
         for n, (rel, path, kind) in enumerate(documents_, 1):
             if time.monotonic() - last > 0.5:
@@ -527,6 +528,7 @@ class KnowledgeCollections:
                 counts["imported"] += 1
             info = result.get("counts", {})
             counts["pictures"] += info.get("pictures", 0)
+            counts["pictures_not_described"] += info.get("pictures_not_described", 0)
             counts["tables"] += info.get("tables", 0)
             counts["sections"] += info.get("sections", 0)
         present = {rel for rel, _, _ in documents_} - {f["path"] for f in failed}
