@@ -171,6 +171,17 @@ class Application:
 
         self.github_setup = GitHubSetup(self.browser, self.github_auth, self.store.root)
         self.github_setup_future = None
+        from hivemind_assembly.integrations.github_folders import FolderBackups
+        from hivemind_assembly.integrations.github_web import GitHubWeb
+
+        # Folder backups: upload a folder to GitHub and keep it updated (no AI).
+        self.folder_backups = FolderBackups(
+            self.store.root,
+            self.github_auth,
+            self.config,
+            web=GitHubWeb(self.browser),
+            submit=self.submit,
+        )
         from hivemind_assembly.automation.onboarding import NativeSetup
 
         from hivemind_assembly.integrations import chrome_helper
@@ -209,6 +220,7 @@ class Application:
         self.action_lock = threading.RLock()
         self.thread.start()
         self.hosted_tests.start_monitor()
+        self.folder_backups.start_monitor()
 
     def configure_learning(self):
         self.team.learning_trials = None
@@ -446,6 +458,7 @@ class Application:
                 )
             ],
             "jobs": self.jobs_view(),
+            "folder_backups": self.folder_backups.view(),
             "foundations": self.foundations_status(),
             "assistant_setups": {
                 "presets": self.config.get("presets", {}),
@@ -1216,6 +1229,14 @@ class Application:
                 for r in rows
                 if isinstance(r, dict) and isinstance(r.get("owner"), dict)
             ]
+        if path == "/api/folders/add":
+            return self.folder_backups.add(data)
+        if path == "/api/folders/upload":
+            return self.folder_backups.start(data["id"])
+        if path == "/api/folders/settings":
+            return self.folder_backups.settings(data["id"], data.get("settings", {}))
+        if path == "/api/folders/remove":
+            return self.folder_backups.remove(data["id"])
         if path == "/api/github/link":
             return self.create_repository(data["task"], data["repository"], link=True)
         if path == "/api/github/repository":
@@ -1856,6 +1877,7 @@ class Application:
             return
         self.tunnel.close()
         self.quick.close()
+        self.folder_backups.close()
         try:
             self.submit(self.browser.relay.close()).result(5)
         except Exception:
