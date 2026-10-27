@@ -574,6 +574,8 @@ def test_assistants_page_sign_in_setups_and_model_lists(server, app, monkeypatch
         expect(page.locator("#setup-state")).to_have_text("In use: Fast.")
         assert app.config["active_preset"] == "Fast"
         assert app.config["routes"]["reviewer.high"]["model"] == "Sonnet 5.5"
+        for route in ("reviewer.high", "worker.astra"):
+            app.native_setup_futures[route].result(5)  # setup runs in the background
         assert sorted(started) == ["reviewer.high", "worker.astra"]
         # Default can be changed and saved over, then used again.
         page.locator("#setup-name").select_option("Default")
