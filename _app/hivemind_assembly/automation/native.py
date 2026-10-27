@@ -363,7 +363,7 @@ class NativeBrowser:
         state = await surface.read(page, deep)
         native = cfg.get("provider") == "claude" and cfg.get("mode") == "native"
         fields = ("model", "effort") if native else ("mode", "model", "effort")
-        if any(state.get(f) not in (None, cfg[f]) or (deep and state.get(f) is None) for f in fields):
+        if any(state.get(f) not in (None, cfg[f]) or (deep and state.get(f) is None and cfg[f]) for f in fields):
             await surface.ensure(page, cfg)
             self.deep_checked.pop(route, None)
 
@@ -379,7 +379,7 @@ class NativeBrowser:
             value = state.get(field)
             if value is None and not deep:
                 continue  # this page shows it only in its menu; checked on full checks
-            if value != cfg[field]:
+            if (value or "") != (cfg[field] or ""):  # "" is a model without an effort setting
                 raise Blocked(f"{route}: observed {field} does not match exact binding")
             evidence[field] = value
         if deep:
