@@ -150,7 +150,9 @@ The personal account is the default owner; organizations must be explicitly
 listed in GitHub settings and permit the connected account to create repositories.
 
 Each project has one primary repository, reused across tasks and experiments.
-New repositories start private and empty. With **Automatically push verified source
+New repositories start empty and private, unless you choose **Public** when creating
+one yourself; assistants can only create private repositories. A repository whose
+visibility is later changed on GitHub is refused until you reconnect it. With **Automatically push verified source
 checkpoints** enabled (the default), successful supported reconstruction comparisons
 queue checked source and manifest snapshots during the run. Local-only projects
 continue without GitHub. Compilation alone does not trigger publication.
@@ -167,6 +169,18 @@ than creating another repository. Reconnect the original account and reconcile
 again. Permission denials are reported separately and can be retried after
 fixing authorization. Disconnecting locally removes saved credentials; revoke
 access in GitHub's application settings to revoke authorization on GitHub too.
+
+## Folder backups to GitHub
+
+**Projects → Back up a folder to GitHub** uploads any folder on this computer to a
+new (private or public) or existing repository, then uploads only what changed, on
+request or on a schedule. It is automation, not AI. The folder itself is not
+changed; likely secrets, folders with their own Git history and files over GitHub's
+100 MiB limit are left out and listed. Changes made on GitHub are kept (no force
+push), and deleted files are removed from GitHub only if you turn that on. When the
+GitHub connection is missing or refused, HA creates the repository by filling in
+github.com's New repository page in its GitHub window, and Git asks you to sign in
+for uploading.
 
 ## Automatic GitHub setup
 
