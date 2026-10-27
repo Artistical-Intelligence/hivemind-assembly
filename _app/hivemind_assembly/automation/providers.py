@@ -25,7 +25,8 @@ CONTRACTS = {
             "complete": 'button[aria-label="Copy"], button[data-testid="copy-turn-action-button"]',
             "streaming": 'button[data-testid="stop-button"], button[aria-label="Stop streaming"], button[aria-label="Stop generating"], [data-talvt-turn-state]:not([data-talvt-turn-state="complete"])',
             "upload": 'input[type="file"][aria-label="Attach files"]',
-            "attachment_ready": '[data-testid="attachment"]',
+            # Not yet seen live: an attachment chip, else the composer form showing the file name.
+            "attachment_ready": '[data-testid="attachment"], [data-testid*="attachment"], form',
             "download": 'a[download], a[href^="https://chatgpt.com/backend-api/files/"]',
             "authentication": 'input[type="password"], input[autocomplete="one-time-code"]',
         },
@@ -42,7 +43,8 @@ CONTRACTS = {
             "complete": '[data-testid="message-actions"] button[aria-label="Copy"], button[aria-label="Copy response"]',
             "streaming": '[data-is-streaming="true"], button[aria-label="Stop response"]',
             "upload": 'input[data-testid="file-upload"]',
-            "attachment_ready": '[data-testid="attachment"]',
+            # Not yet seen live: an attachment chip, else the composer box showing the file name.
+            "attachment_ready": '[data-testid="attachment"], [data-testid*="file-thumbnail"], [data-testid*="attachment"], fieldset',
             "download": "a[download]",
             "authentication": 'input[type="password"], input[autocomplete="one-time-code"]',
         },
