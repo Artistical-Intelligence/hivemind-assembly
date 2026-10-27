@@ -141,7 +141,7 @@ fallback. **Test GitHub connection** verifies an authorization after restart.
 
 Repository creation is optional. Choose **Connect existing private repository**
 to use an existing repository, or leave the project local without GitHub.
-To create a new one, enable **Allow private repository creation for projects**. Use **Projects &
+To create a new one, enable **Let HA create repositories** under Settings, GitHub. Use **Projects &
 tasks → Project repository** while preparing a project, or let its assigned
 worker request `create_repository` through the broker. Workers also have
 `repository_status`, and the verified repository is included in their project
@@ -150,9 +150,12 @@ The personal account is the default owner; organizations must be explicitly
 listed in GitHub settings and permit the connected account to create repositories.
 
 Each project has one primary repository, reused across tasks and experiments.
-New repositories start empty and private, unless you choose **Public** when creating
-one yourself; assistants can only create private repositories. A repository whose
-visibility is later changed on GitHub is refused until you reconnect it. With **Automatically push verified source
+New repositories start empty. You or an assistant can make one private or public;
+when neither says which, **Settings → GitHub → New repositories are** decides, and the
+activity log records who chose. If a repository's visibility is later changed on
+GitHub, HA follows it: it records the new visibility, keeps saving, and shows a notice
+on the project and in Recent activity. Its identity, ID, write access and "not
+archived" are still checked, and a replacement repository is never adopted. With **Automatically push verified source
 checkpoints** enabled (the default), successful supported reconstruction comparisons
 queue checked source and manifest snapshots during the run. Local-only projects
 continue without GitHub. Compilation alone does not trigger publication.
