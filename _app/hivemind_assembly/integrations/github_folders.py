@@ -371,16 +371,18 @@ class FolderBackups:
         return program
 
     def _environment(self, e):
-        env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "LC_ALL": "C"}
+        env = {**os.environ, "LC_ALL": "C"}
         for name in [k for k in env if k.startswith("GIT_CONFIG_")]:
             env.pop(name)
         client, user = self._client()
         if client:
             # HA's connection signs Git in for this command only; nothing is saved.
-            # Without it, Git's own sign-in (Git Credential Manager) is used.
+            # Without it, Git's own sign-in (Git Credential Manager's window) is
+            # used, so prompts stay allowed in that case.
             token = self.auth.credentials()["access_token"]
             basic = base64.b64encode(f"{user['login']}:{token}".encode()).decode()
             env.update({
+                "GIT_TERMINAL_PROMPT": "0",
                 "GIT_CONFIG_COUNT": "2",
                 "GIT_CONFIG_KEY_0": "http.https://github.com/.extraheader",
                 "GIT_CONFIG_VALUE_0": "AUTHORIZATION: basic " + basic,
