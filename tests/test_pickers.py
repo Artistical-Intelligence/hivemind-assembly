@@ -66,7 +66,7 @@ def test_choose_returns_the_path_or_cancelled():
     assert pickers.choose("practice", run, "darwin") == {"path": "/Users/me/problems"}
 
 
-def test_choose_explains_when_no_picker_can_open():
+def test_choose_explains_when_no_picker_can_open(monkeypatch, tmp_path):
     with pytest.raises(ContractError):
         pickers.choose("anything")
 
@@ -78,6 +78,8 @@ def test_choose_explains_when_no_picker_can_open():
     run, _ = fake(returncode=1, stderr=b"_tkinter.TclError: no display name")
     with pytest.raises(Blocked, match="type or paste"):
         pickers.choose("document", run, "linux", lambda n: None)
+    # A Windows computer without PowerShell (real Windows always has the built-in one).
+    monkeypatch.setenv("SystemRoot", str(tmp_path / "no-windows"))
     with pytest.raises(Blocked, match="type or paste"):
         pickers.choose("document", fake()[0], "win32", lambda n: None)
 
