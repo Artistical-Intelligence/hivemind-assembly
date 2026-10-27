@@ -246,6 +246,7 @@
         const preset = last?.assistant_setups?.presets?.[chosen];
         const r = await api('assistants/use', same(draft, preset) ? {name: chosen} : {targets: draft});
         dirty = false;
+        expect = {live: clone(draft), until: Date.now() + 15000};
         notice(r.changed.length ? `Using it. Setting up ${r.changed.map(x => SLOT[x] || x).join(', ')} again.` : 'Already in use.');
         refresh();
       }
