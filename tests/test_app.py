@@ -526,6 +526,11 @@ def test_assistant_setups_default_save_overwrite_and_use(app):
     # Overwriting Default is allowed; unknown services and modes are refused.
     app.action("/api/assistants/save", {"name": "Default", "targets": fast})
     assert app.status()["assistant_setups"]["presets"]["Default"]["adviser.extra"]["effort"] == "Pro"
+    # Saving what the assistants use now marks it in use; changing the setup in use unmarks it.
+    assert app.status()["assistant_setups"]["active"] == "Default"
+    app.action("/api/assistants/save", {"name": "Default", "targets": default})
+    assert app.status()["assistant_setups"]["active"] is None
+    assert app.action("/api/assistants/use", {"name": "Default"})["active"] == "Default"
     bad = json.loads(json.dumps(fast))
     bad["worker.extra"]["mode"] = "Turbo"
     with pytest.raises(Exception, match="no Turbo mode"):
@@ -534,4 +539,5 @@ def test_assistant_setups_default_save_overwrite_and_use(app):
         app.action("/api/assistants/save", {"name": " ", "targets": fast})
     # The services row: one entry per service, with the assistants using it.
     services = {s["provider"]: s for s in app.status()["services"]}
-    assert sorted(services["claude"]["routes"]) == ["reviewer.high", "worker.opus"]
+    assert services["claude"]["routes"] == ["worker.opus"]
+    assert sorted(services["openai"]["routes"]) == ["adviser.extra", "reviewer.high", "worker.astra", "worker.extra"]
