@@ -39,6 +39,14 @@ class NativeBrowser:
         self.relay = None
         self.owner_browser = None
         self.owner_lock = asyncio.Lock()
+        # Today's pages keep model and effort per account, so routes sharing an account
+        # set their route and send one at a time; full checks are reused for a while.
+        self.dispatch_locks = {}
+        self.deep_checked = {}
+
+    def dispatch_lock(self, route):
+        profile = identifier(self.config["routes"][route]["profile"])
+        return self.dispatch_locks.setdefault(profile, asyncio.Lock())
 
     def profile_dir(self, profile):
         # Chrome gets its own folders: a profile Edge wrote may not open cleanly in Chrome.
@@ -204,7 +212,10 @@ class NativeBrowser:
             and await page.locator(selector).first.is_visible()
         )
 
-    async def observe(self, route):
+    async def observe(self, route, deep=True, repair=False, fresh=False):
+        """Check the route's page shows exactly its configured surface, model, effort and
+        account. deep opens menus where the page hides a value; repair sets the exact
+        route again first (only before sending)."""
         page = await self.page(route)
         cfg = self.config["routes"][route]
         selectors = cfg["selectors"]
@@ -247,7 +258,12 @@ class NativeBrowser:
                     )
                 raise Blocked(f"{route}: {kind} required or exhausted")
         evidence = {}
-        for field in ("model", "mode", "effort", "account"):
+        from .surfaces import from_selectors
+
+        surface = from_selectors(selectors)
+        if surface is not None:
+            evidence.update(await self.observe_surface(route, page, cfg, surface, deep, repair, fresh))
+        for field in ("model", "mode", "effort", "account") if surface is None else ():
             if (
                 field == "mode"
                 and cfg.get("provider") == "claude"
@@ -302,99 +318,133 @@ class NativeBrowser:
         )
         return evidence
 
+    async def observe_surface(self, route, page, cfg, surface, deep, repair, fresh):
+        key = (id(page), page.url)
+        recent = self.deep_checked.get(route)
+        if deep and not fresh and recent and recent[0] == key and time.time() - recent[1] < 600:
+            deep = False  # fully checked on this very page minutes ago
+        state = await surface.read(page, deep)
+        native = cfg.get("provider") == "claude" and cfg.get("mode") == "native"
+        fields = ("model", "effort") if native else ("mode", "model", "effort")
+        wrong = [f for f in fields if state.get(f) not in (None, cfg[f]) or (deep and state.get(f) is None)]
+        if wrong and repair:
+            await surface.ensure(page, cfg)
+            state, deep = await surface.read(page, True), True
+        evidence = {"mode": "native"} if native else {}
+        for field in fields:
+            value = state.get(field)
+            if value is None and not deep:
+                continue  # this page shows it only in its menu; checked on full checks
+            if value != cfg[field]:
+                raise Blocked(f"{route}: observed {field} does not match exact binding")
+            evidence[field] = value
+        if deep:
+            account = await surface.account(page)
+            if not account or account != cfg.get("account_label"):
+                raise Blocked(f"{route}: observed account does not match exact binding")
+            evidence["account"] = account
+            self.deep_checked[route] = (key, time.time())
+        return evidence
+
     async def exchange(self, route, message, attachments=(), timeout=900):
         lock = self.locks.setdefault(route, asyncio.Lock())
         async with lock:
-            await self.observe(route)
-            page = await self.page(route)
-            s = self.config["routes"][route]["selectors"]
-            marker = "WORKBENCH_REQUEST:" + message["id"]
-            payload = json.loads(message["payload"])
-            envelope = (
-                marker + "\n" + canonical({"request_id": message["id"], **payload})
-            )
-            users = page.locator(s["user_messages"])
-            # Whole-token match: one request ID may be a prefix of another.
-            echoes = users.filter(has_text=marker_pattern(marker))
-            exists = await echoes.count()
-            state = message["state"]
-            if exists > 1:
-                raise Blocked("Duplicate request marker; delivery quarantined")
-            if (
-                state in ("dispatching", "delivery_uncertain", "received", "processing")
-                and not exists
-            ):
-                raise Blocked(
-                    "Prior delivery uncertain; request will not be resent automatically"
+            # One send at a time per account: the page keeps model and effort per account.
+            dispatch = self.dispatch_lock(route)
+            await dispatch.acquire()
+            try:
+                await self.observe(route, repair=True)
+                page = await self.page(route)
+                s = self.config["routes"][route]["selectors"]
+                marker = "WORKBENCH_REQUEST:" + message["id"]
+                payload = json.loads(message["payload"])
+                envelope = (
+                    marker + "\n" + canonical({"request_id": message["id"], **payload})
                 )
-            if not exists:
-                if state != "prepared":
-                    raise Blocked("Message has no safe dispatch state")
-                for item in attachments:
-                    path = Path(item["path"])
-                    if file_hash(path) != item["sha256"]:
-                        raise ContractError("Attachment hash mismatch")
-                    if not s.get("upload") or not s.get("attachment_ready"):
-                        raise Blocked("Attachment round trip is not configured")
-                    await page.locator(s["upload"]).set_input_files(str(path))
-                    await (
-                        page.locator(s["attachment_ready"])
-                        .filter(has_text=path.name)
-                        .wait_for(state="visible", timeout=120000)
+                users = page.locator(s["user_messages"])
+                # Whole-token match: one request ID may be a prefix of another.
+                echoes = users.filter(has_text=marker_pattern(marker))
+                exists = await echoes.count()
+                state = message["state"]
+                if exists > 1:
+                    raise Blocked("Duplicate request marker; delivery quarantined")
+                if (
+                    state in ("dispatching", "delivery_uncertain", "received", "processing")
+                    and not exists
+                ):
+                    raise Blocked(
+                        "Prior delivery uncertain; request will not be resent automatically"
                     )
-                from .webmcp import NativeUI
-
-                native_ui = NativeUI(page)
-                native_send = (
-                    await native_ui.available("submit_conversation_message") is True
-                )
-                if not native_send:
-                    composer = page.locator(s["composer"])
-                    await composer.fill(envelope)
-                # Intent persisted BEFORE the click. A thrown click is ambiguous, never a safe retry.
-                self.controller.message_state(message["id"], "dispatching")
-                try:
-                    if native_send:
-                        await native_ui.call(
-                            "submit_conversation_message", {"prompt": envelope}
+                if not exists:
+                    if state != "prepared":
+                        raise Blocked("Message has no safe dispatch state")
+                    for item in attachments:
+                        path = Path(item["path"])
+                        if file_hash(path) != item["sha256"]:
+                            raise ContractError("Attachment hash mismatch")
+                        if not s.get("upload") or not s.get("attachment_ready"):
+                            raise Blocked("Attachment round trip is not configured")
+                        await page.locator(s["upload"]).set_input_files(str(path))
+                        await (
+                            page.locator(s["attachment_ready"])
+                            .filter(has_text=path.name)
+                            .wait_for(state="visible", timeout=120000)
                         )
-                    else:
-                        await page.locator(s["send"]).click()
-                    await echoes.wait_for(state="visible", timeout=30000)
-                except BaseException:
-                    self.controller.message_state(message["id"], "delivery_uncertain")
-                    raise
-            delivered = (await echoes.inner_text()).replace("\r\n", "\n")
-            if envelope not in delivered:
-                self.controller.message_state(message["id"], "delivery_uncertain")
-                raise Blocked(
-                    "Request marker found, but complete payload delivery is unconfirmed"
-                )
-            if self.config["routes"][route].get("draft_session"):
-                from .providers import conversation_url
+                    from .webmcp import NativeUI
 
-                if not conversation_url(self.config["routes"][route], page.url):
-                    raise Retryable(
-                        "Waiting for the provider to assign a persistent conversation URL"
+                    native_ui = NativeUI(page)
+                    native_send = (
+                        await native_ui.available("submit_conversation_message") is True
                     )
-                # The full echoed envelope, not merely navigation, binds a draft.
-                self.controller.store.put(
-                    "message_session",
-                    message["id"],
-                    {
-                        "route": route,
-                        "draft": message["conversation"],
-                        "conversation": page.url,
-                    },
-                )
-                self.config["routes"][route]["conversation_url"] = page.url
-                self.config["routes"][route]["draft_session"] = False
-            self.controller.message_state(message["id"], "received")
+                    if not native_send:
+                        composer = page.locator(s["composer"])
+                        await composer.fill(envelope)
+                    # Intent persisted BEFORE the click. A thrown click is ambiguous, never a safe retry.
+                    self.controller.message_state(message["id"], "dispatching")
+                    try:
+                        if native_send:
+                            await native_ui.call(
+                                "submit_conversation_message", {"prompt": envelope}
+                            )
+                        else:
+                            await page.locator(s["send"]).click()
+                        await echoes.wait_for(state="visible", timeout=30000)
+                    except BaseException:
+                        self.controller.message_state(message["id"], "delivery_uncertain")
+                        raise
+                delivered = (await echoes.inner_text()).replace("\r\n", "\n")
+                if envelope not in delivered:
+                    self.controller.message_state(message["id"], "delivery_uncertain")
+                    raise Blocked(
+                        "Request marker found, but complete payload delivery is unconfirmed"
+                    )
+                if self.config["routes"][route].get("draft_session"):
+                    from .providers import conversation_url
+
+                    if not conversation_url(self.config["routes"][route], page.url):
+                        raise Retryable(
+                            "Waiting for the provider to assign a persistent conversation URL"
+                        )
+                    # The full echoed envelope, not merely navigation, binds a draft.
+                    self.controller.store.put(
+                        "message_session",
+                        message["id"],
+                        {
+                            "route": route,
+                            "draft": message["conversation"],
+                            "conversation": page.url,
+                        },
+                    )
+                    self.config["routes"][route]["conversation_url"] = page.url
+                    self.config["routes"][route]["draft_session"] = False
+                self.controller.message_state(message["id"], "received")
+            finally:
+                dispatch.release()
             started = time.monotonic()
             stable_text = None
             stable_since = 0
             while time.monotonic() - started < timeout:
-                await self.observe(route)
+                await self.observe(route, deep=False)
                 # Associate by observed DOM order between this user turn and the
                 # next user turn, not a model's willingness to echo an ID.
                 candidates = await page.evaluate(
@@ -533,13 +583,15 @@ class NativeBrowser:
         try:
             await page.goto(usage["url"], wait_until="domcontentloaded")
             self.validate_url(route, page.url)
-            if page.url.rstrip("/") != usage["url"].rstrip("/"):
+            if not same_page(usage["url"], page.url):
                 raise Blocked("Usage page redirected; allowance observation rejected")
             windows = []
+            no_limit = False
             if usage.get("discover_progressbars"):
-                from .providers import usage_snapshot
+                from .providers import read_usage
 
-                windows = await usage_snapshot(page, cfg)
+                reading = await read_usage(page, cfg)
+                windows, no_limit = reading["windows"], reading["no_numeric_limit"]
             for window in usage.get("windows", []):
                 raw = await page.locator(window["selector"]).inner_text()
                 match = re.fullmatch(window["pattern"], raw.strip())
@@ -556,15 +608,26 @@ class NativeBrowser:
                         **window.get("estimate", {}),
                     }
                 )
-            if not windows and not usage.get("no_numeric_limit_confirmed"):
+            no_limit = no_limit or usage.get("no_numeric_limit_confirmed", False)
+            if not windows and not no_limit:
                 raise Blocked("Allowance mapping unknown")
             return {
                 "windows": windows,
-                "no_numeric_limit": usage.get("no_numeric_limit_confirmed", False),
+                "no_numeric_limit": no_limit,
                 "observed": time.time(),
             }
         finally:
             await page.close()
+
+
+def same_page(expected, actual):
+    """The usage page HA asked for, allowing what these sites add on load: ChatGPT adds
+    ?tab=overview, Claude shows /settings/usage as a dialog at /new#settings/usage."""
+    want, got = urlsplit(expected), urlsplit(actual)
+    if want.hostname != got.hostname:
+        return False
+    path = want.path.rstrip("/")
+    return got.path.rstrip("/") == path or (bool(path) and got.fragment.rstrip("/") == path.lstrip("/"))
 
 
 def parse_response(raw, request_id):
