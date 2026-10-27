@@ -129,6 +129,9 @@
     backupUpload: 'Upload what changed in this folder since the last upload.',
     backupRemove: 'Stop backing up this folder. The folder and the copy on GitHub stay as they are.',
     backupSeparately: 'Fill in the backup form for this folder, so it gets a repository of its own.',
+    collectionUpdate: 'Import the latest version. Only changed files are read again; copies of removed files are removed.',
+    collectionRemove: 'Remove HA\'s copies of this folder or repository. The folder or repository itself isn\'t changed.',
+    collectionReport: 'List every skipped file and why.',
   };
   const byText = {
     'Create project': 'Create a new project.',
