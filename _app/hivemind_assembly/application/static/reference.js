@@ -77,11 +77,23 @@
     if (c.links) parts.push(plural(c.links, 'link'));
     return parts.join(', ');
   }
+  // The adviser's picture descriptions: one job per document.
+  let jobs = [];
+  const STAGE = {queued: 'waiting to start', waiting_quota: 'waiting for the adviser (set up, with usage left)',
+    running: 'describing', completed: 'done', attention: 'stopped'};
+  function jobText(list) {
+    return list.map(j => `Picture descriptions: ${STAGE[j.stage] || j.stage}${j.of ? ` (${j.described || 0} of ${j.of})` : ''}${j.reason ? ': ' + j.reason : ''}`).join(' ');
+  }
+  function describeButton(n, attribute, id) {
+    return n ? ` <button type="button" ${attribute}="${esc(id)}">Let the adviser describe ${plural(n, 'picture')}</button>` : '';
+  }
   function sourceRow(v) {
     const c = v.counts ? JSON.parse(v.counts) : null;
     const gaps = v.gaps ? JSON.parse(v.gaps) : [];
-    return `<li>${esc(v.name)} ${badge(v.external_allowed ? 'assistants may read' : 'private')}<span class="muted"> ${esc(counts(c))}</span>${gaps.length
-      ? `<br><span class="warn-text">${esc(gaps.join(' '))}</span>` : ''}</li>`;
+    const mine = jobs.filter(j => j.source === v.id && j.stage !== 'completed');
+    const waiting = v.external_allowed && c && !mine.length ? c.pictures_not_described || 0 : 0;
+    return `<li>${esc(v.name)} ${badge(v.external_allowed ? 'assistants may read' : 'private')}<span class="muted"> ${esc(counts(c))}</span>${describeButton(waiting, 'data-describe-source', v.id)}${gaps.length
+      ? `<br><span class="warn-text">${esc(gaps.join(' '))}</span>` : ''}${mine.length ? `<br><span class="muted">${esc(jobText(mine))}</span>` : ''}</li>`;
   }
   function where(c) {
     return c.kind === 'github'
@@ -95,7 +107,9 @@
       .map(([why, n]) => `${esc(why)}: ${n}`).join(' · ')}</p><ul class="plain">${r.skipped_sample.map(x => `<li>${esc(x.path)}: ${esc(x.reason)}</li>`).join('')}</ul>${r.skipped_count > r.skipped_sample.length
       ? `<button type="button" data-collection-report="${esc(c.id)}">Show all ${r.skipped_count}</button>` : ''}</details>` : '';
     const failed = r && r.failed.length ? `<details open><summary>Couldn't be read (${r.failed.length})</summary><ul class="plain">${r.failed.map(x => `<li>${esc(x.path)}: ${esc(x.reason)}</li>`).join('')}</ul></details>` : '';
-    const what = r ? `<p>${plural(r.documents, 'document')}: ${plural(r.sections, 'section')}, ${plural(r.tables, 'table')}, ${plural(r.pictures, 'picture')}.${r.commit ? ` GitHub version ${esc(r.commit.slice(0, 7))}.` : ''}</p>` : '';
+    const busy = jobs.filter(j => (c.sources || []).includes(j.source) && j.stage !== 'completed');
+    const describe = r && c.external_allowed && !busy.length ? describeButton(r.pictures_not_described || 0, 'data-describe-collection', c.id) : '';
+    const what = r ? `<p>${plural(r.documents, 'document')}: ${plural(r.sections, 'section')}, ${plural(r.tables, 'table')}, ${plural(r.pictures, 'picture')}${r.pictures_not_described ? ` (${r.pictures_not_described} not yet described)` : ''}.${r.commit ? ` GitHub version ${esc(r.commit.slice(0, 7))}.` : ''}${describe}</p>${busy.length ? `<p class="muted">${esc(jobText(busy).split(' Picture descriptions: ')[0])}${busy.length > 1 ? ` (${busy.length} documents)` : ''}</p>` : ''}` : '';
     return `<details open data-collection="${esc(c.id)}"><summary>${esc(c.name)} ${badge(c.running ? 'importing' : c.state)}</summary>
       <p class="muted">${where(c)}</p>
       <progress max="100" class="kc-bar"${c.running ? '' : ' hidden'}></progress>
@@ -107,8 +121,12 @@
     </details>`;
   }
   window.renderReference = s => {
-    const items = s.knowledge_collections || [];
-    const sig = JSON.stringify(items.map(c => [c.id, c.state, c.running, c.schedule_minutes, c.external_allowed, c.report && c.report.finished]));
+    jobs = s.picture_descriptions || [];
+    const byCollection = {};
+    for (const v of s.sources || []) if (v.collection) (byCollection[v.collection] ||= []).push(v.id);
+    const items = (s.knowledge_collections || []).map(c => ({...c, sources: byCollection[c.id] || []}));
+    const sig = JSON.stringify([items.map(c => [c.id, c.state, c.running, c.schedule_minutes, c.external_allowed, c.report && c.report.finished]),
+      jobs.map(j => [j.id, j.stage, j.described])]);
     if (collections.dataset.sig !== sig) {
       collections.dataset.sig = sig;
       collections.innerHTML = items.map(card).join('');
@@ -137,7 +155,14 @@
     const update = e.target.closest('[data-collection-update]');
     const remove = e.target.closest('[data-collection-remove]');
     const report = e.target.closest('[data-collection-report]');
+    const describe = e.target.closest('[data-describe-collection]');
     try {
+      if (describe) {
+        describe.disabled = true;
+        const r = await api('knowledge/describe-pictures', {collection: describe.dataset.describeCollection});
+        notice(`The adviser will describe the pictures of ${plural(r.queued.length, 'document')} in its own conversation.`);
+        refresh();
+      }
       if (update) {
         update.disabled = true;
         await api('knowledge/update', {id: update.dataset.collectionUpdate});
@@ -159,6 +184,19 @@
       notice(x.message, true);
       if (update) update.disabled = false;
       if (remove) remove.disabled = false;
+    }
+  });
+  sources.addEventListener('click', async e => {
+    const describe = e.target.closest('[data-describe-source]');
+    if (!describe) return;
+    describe.disabled = true;
+    try {
+      await api('knowledge/describe-pictures', {source: describe.dataset.describeSource});
+      notice('The adviser will describe these pictures in its own conversation.');
+      refresh();
+    } catch (x) {
+      notice(x.message, true);
+      describe.disabled = false;
     }
   });
   collections.addEventListener('change', async e => {
