@@ -16,7 +16,7 @@ from hivemind_assembly.core.common import (
     uid,
 )
 from .policy import Availability, Window, validate_config
-from .providers import discover, conversation_url
+from .providers import CONTRACTS, discover, conversation_url
 
 
 PROVIDER_NAMES = {"openai": "ChatGPT", "claude": "Claude"}
@@ -147,8 +147,6 @@ class NativeSetup:
                         stage="authentication",
                         instruction="Waiting for sign-in in the window already open for this account.",
                     )
-                from .providers import CONTRACTS
-
                 self.save(
                     route,
                     stage="opening",
@@ -194,13 +192,20 @@ class NativeSetup:
             if self.signing_in.get(profile) == route:
                 # Signed in: the account's other routes can open their chats now.
                 del self.signing_in[profile]
-            discovered = await discover(page, cfg)
+            # Routes sharing an account take turns: the page keeps model and effort per account.
+            lock = getattr(self.browser, "dispatch_lock", None)
+            if lock is not None:
+                async with lock(route):
+                    discovered = await discover(page, cfg)
+            else:
+                discovered = await discover(page, cfg)
             if discovered["missing"]:
                 return self.save(
                     route,
                     stage="binding_required",
                     instruction="Waiting for visible exact controls: "
                     + ", ".join(discovered["missing"]),
+                    detail=discovered.get("detail", ""),
                 )
             old = copy.deepcopy(cfg)
             cfg.update(
@@ -226,6 +231,11 @@ class NativeSetup:
                     url = urljoin(page.url, await links[0].get_attribute("href") or "")
                     self.browser.validate_url(route, url)
                     usage.update(url=url, discover_progressbars=True)
+            if not usage.get("url") and CONTRACTS[cfg["provider"]].get("usage_url"):
+                # Today's sites keep usage behind menus; their usage pages have fixed addresses.
+                url = CONTRACTS[cfg["provider"]]["usage_url"]
+                self.browser.validate_url(route, url)
+                usage.update(url=url, discover_progressbars=True)
             atomic_write(self.config_path, canonical(self.browser.config))
             if self.sessions is None or self.team is None:
                 return self.save(
