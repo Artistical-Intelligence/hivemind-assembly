@@ -22,9 +22,10 @@ PURPOSES = {
     "document": (
         "file",
         "Choose a reference document",
-        "Documents (*.pdf;*.docx;*.md;*.txt;*.json;*.csv;*.c;*.h;*.py)|"
-        "*.pdf;*.docx;*.md;*.txt;*.json;*.csv;*.c;*.h;*.py|All files (*.*)|*.*",
+        "Documents (*.pdf;*.docx;*.md;*.txt;*.html;*.json;*.csv;*.c;*.h;*.py;*.ps1)|"
+        "*.pdf;*.docx;*.md;*.txt;*.html;*.json;*.csv;*.c;*.h;*.py;*.ps1|All files (*.*)|*.*",
     ),
+    "knowledge-folder": ("folder", "Choose the folder of reference material", ""),
     "app-settings": (
         "file",
         "Choose the app's MCP settings file",
