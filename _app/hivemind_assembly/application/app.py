@@ -261,7 +261,7 @@ class Application:
                 "waiting_delivery",
             ):
                 self.native_setup_futures[route] = self.loop.create_task(
-                    self.native_setup.run(route)
+                    self.setup_assistant(route)
                 )
         self.runner = self.loop.create_task(self.team.run())
         self.loop.run_forever()
