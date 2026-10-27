@@ -554,8 +554,14 @@ class Application:
                         "windows": [],
                         "no_numeric_limit_confirmed": False,
                     }
-                    self.browser.pages.pop(route, None)
-                    self.native_setup.pages.pop(route, None)
+                    # Its old tab belongs to the other service or mode; close it.
+                    for pages in (self.browser.pages, self.native_setup.pages):
+                        page = pages.pop(route, None)
+                        if page is not None and not page.is_closed():
+                            try:
+                                await page.close()
+                            except Exception:
+                                pass
                 self.team.observations.pop(route, None)
                 self.browser.deep_checked.pop(route, None)
                 self.native_setup.save(
