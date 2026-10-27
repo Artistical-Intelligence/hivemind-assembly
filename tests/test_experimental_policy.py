@@ -41,6 +41,21 @@ def test_experiments_are_optional_chat_only_and_have_no_default_ha_cap(store):
     }
 
 
+def test_chat_only_follows_whichever_worker_a_setup_puts_on_chatgpt_chat(store):
+    policy, config, observations = setup_policy(store)
+    config["experimental_learning"]["enabled"] = True
+    routes = config["routes"]
+    # A saved setup swaps the places: Claude on worker.extra, ChatGPT Chat on worker.opus.
+    routes["worker.extra"].update(provider="claude", mode="native", model="Opus 5.5", effort="High")
+    routes["worker.opus"].update(provider="openai", mode="Chat", model="GPT-6", effort="High")
+    assert policy.choose() == "worker.opus"
+    routes["worker.opus"].update(mode="Work", model="GPT-6 Astra")
+    with pytest.raises(Blocked, match="No worker uses ChatGPT Chat"):
+        policy.choose()
+    config["experimental_learning"]["chat_only"] = False
+    assert policy.choose() == "worker.extra"
+
+
 def test_unknown_allowance_is_optional_but_observed_blocks_are_respected(store):
     policy, config, observations = setup_policy(store)
     config["experimental_learning"]["enabled"] = True
