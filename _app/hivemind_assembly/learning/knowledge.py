@@ -114,7 +114,46 @@ class Knowledge:
                 s.setdefault("title", title if s["id"] == "1" else f"{row['name']} (part {s['id']})")
             with self.store.tx() as db:
                 self._write_sections(db, row["id"], sections, title, [])
+        self.fts = fts
+        self._upgrade()
         return fts
+
+    def _upgrade(self):
+        """Read documents imported by older versions again, from the original HA kept:
+        Word files get their heading sections, tables and pictures, and a picture no
+        longer marks them as partly read. IDs, categories and permission stay."""
+        import tempfile
+
+        for row in self.store.rows("SELECT id,name,external_allowed,extraction FROM sources"):
+            extraction = json.loads(row["extraction"])
+            if (
+                extraction.get("format") == 2
+                or not extraction.get("original_artifact")
+                or kind_of(row["name"]) is None
+                or self.store.rows("SELECT 1 FROM records WHERE kind='knowledge_upgrade_failed' AND id=?", (row["id"],))
+            ):
+                continue
+            try:
+                data = self.artifacts.read(extraction["original_artifact"], "controller")
+                with tempfile.TemporaryDirectory() as folder:
+                    path = Path(folder) / PurePosixPath(row["name"]).name
+                    path.write_bytes(data)
+                    self.ingest(path, bool(row["external_allowed"]), None, {"kind": "legacy", "name": row["name"]},
+                                display=row["name"], replace=row["id"])
+                self.store.event(row["id"], "knowledge_source_upgraded", {"message": f"{row['name']} was read again with headings, tables and pictures."})
+            except Exception as error:
+                self.store.put("knowledge_upgrade_failed", row["id"], {"reason": str(error)[:300]})
+
+    def _legacy(self, name):
+        """A document with this name that an older version imported (it didn't record
+        where documents came from), so adding the file again replaces it."""
+        rows = self.store.rows(
+            "SELECT id FROM sources WHERE lower(name)=lower(?) AND (json_extract(extraction,'$.origin') IS NULL "
+            "OR json_extract(extraction,'$.origin.kind')='legacy')",
+            (name,),
+        )
+        # Only when exactly one matches; with several, HA doesn't guess which.
+        return rows[0]["id"] if len(rows) == 1 else None
 
     def _write_sections(self, db, key, sections, title, names):
         for ord_, s in enumerate(sections):
@@ -153,11 +192,12 @@ class Knowledge:
             return rows[0]["source"]
         return None
 
-    def ingest(self, path, external_allowed=False, tags=None, origin=None, kind=None, image=None, display=None):
+    def ingest(self, path, external_allowed=False, tags=None, origin=None, kind=None, image=None, display=None,
+               replace=None):
         """Import one file; importing it again replaces the previous copy."""
         p = Path(path)
         origin = origin or {"kind": "file", "path": str(p.resolve())}
-        previous = self.origin_source(origin)
+        previous = replace or self.origin_source(origin) or (self._legacy(p.name) if origin["kind"] == "file" else None)
         if tags is None:
             tags = self.scopes.tags("source", previous) if previous else ["unclassified"]
         tags = self.scopes.validate_tags(tags)
