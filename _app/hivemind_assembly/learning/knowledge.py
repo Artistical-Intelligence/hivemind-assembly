@@ -251,6 +251,63 @@ class Knowledge:
             "sections": len(sections),
         }
 
+    def waiting_pictures(self, key):
+        """Pictures with no caption, alt text or description that an assistant could look at."""
+        row = self.store.one("SELECT extraction FROM sources WHERE id=?", (key,))
+        return [
+            p for p in json.loads(row["extraction"]).get("pictures", [])
+            if not p.get("described") and p.get("viewable") and p.get("artifact")
+        ]
+
+    def describe(self, key, revision, descriptions, by="adviser"):
+        """Record picture descriptions. Each appears in its section's text, so search finds it."""
+        with self.store.tx() as db:
+            row = db.execute("SELECT revision,extraction,sections FROM sources WHERE id=?", (key,)).fetchone()
+            if row is None or row["revision"] != revision:
+                raise Blocked("The document changed; ask again for its current pictures.")
+            extraction, sections = json.loads(row["extraction"]), json.loads(row["sections"])
+            added = {}
+            for p in extraction.get("pictures", []):
+                text = " ".join(str(descriptions.get(p["id"], "")).split())
+                if text and not p.get("described"):
+                    p.update(described=True, description=text, described_by=by)
+                    added.setdefault(p["section"], []).append(p)
+            if not added:
+                return 0
+            counts = extraction.setdefault("counts", {})
+            counts["pictures_not_described"] = sum(1 for p in extraction["pictures"] if not p.get("described"))
+
+            def text_with(body, pictures):
+                for p in pictures:
+                    marker, full = f"[Picture {p['id']}]", f"[Picture {p['id']}: {p['description']}]"
+                    body = body.replace(marker, full) if marker in body else body + "\n\n" + full
+                return body
+
+            for s in sections:
+                if s["id"] in added:
+                    s["text"] = text_with(s["text"], added[s["id"]])
+            db.execute(
+                "UPDATE sources SET extraction=?,sections=? WHERE id=?",
+                (canonical(extraction), canonical(sections), key),
+            )
+            for section, pictures in added.items():
+                old = db.execute(
+                    "SELECT rowid,title,names,body FROM knowledge_sections WHERE source=? AND section=?", (key, section)
+                ).fetchone()
+                if old is None:
+                    continue
+                body = text_with(old["body"], pictures)
+                if self.fts:
+                    db.execute(
+                        "INSERT INTO knowledge_fts(knowledge_fts,rowid,title,names,body) VALUES('delete',?,?,?,?)", tuple(old)
+                    )
+                    db.execute(
+                        "INSERT INTO knowledge_fts(rowid,title,names,body) VALUES(?,?,?,?)",
+                        (old["rowid"], old["title"], old["names"], body),
+                    )
+                db.execute("UPDATE knowledge_sections SET body=? WHERE rowid=?", (body, old["rowid"]))
+        return sum(len(p) for p in added.values())
+
     def remove(self, key):
         """Forget an imported copy (its file was removed from the imported folder)."""
         with self.store.tx() as db:
