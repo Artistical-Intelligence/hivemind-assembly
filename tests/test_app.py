@@ -517,6 +517,8 @@ def test_assistant_setups_default_save_overwrite_and_use(app):
     app.native_setup.run = lambda route: started.append(route) or asyncio.sleep(0)
     used = app.action("/api/assistants/use", {"name": "Fast"})
     assert sorted(used["changed"]) == ["adviser.extra", "reviewer.high"] and used["active"] == "Fast"
+    for route in used["changed"]:
+        app.native_setup_futures[route].result(5)  # setup runs in the background
     reviewer = app.config["routes"]["reviewer.high"]
     # Another service: its own host, sign-in, usage limits and a new conversation.
     assert reviewer["allowed_hosts"] == ["claude.ai"] and reviewer["profile"] == "claude"
