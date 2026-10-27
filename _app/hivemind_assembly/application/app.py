@@ -440,6 +440,12 @@ class Application:
                     "SELECT id FROM records WHERE kind='knowledge_curation'"
                 )
             ],
+            "picture_descriptions": [
+                {"id": row["id"], "source": json.loads(row["payload"])["source"], **self.team.curation.status(row["id"])}
+                for row in self.store.rows(
+                    "SELECT id,payload FROM records WHERE kind='knowledge_picture_job'"
+                )
+            ],
             "knowledge_catalog": self.team.scopes.catalog(),
             "knowledge_scopes": [
                 self.team.scopes.status(row["id"])
@@ -1523,6 +1529,25 @@ class Application:
             return self.knowledge_collections.remove(data["id"])
         if path == "/api/knowledge/report":
             return self.knowledge_collections.report(data["id"])
+        if path == "/api/knowledge/describe-pictures":
+            # The adviser describes pictures that have no caption, in its own conversation.
+            if data.get("collection"):
+                sources = [
+                    row["id"] for row in self.store.rows(
+                        "SELECT id FROM sources WHERE external_allowed=1 AND json_extract(extraction,'$.origin.collection')=?",
+                        (data["collection"],),
+                    )
+                ]
+            else:
+                sources = [data["source"]]
+            queued = []
+            for source in sources:
+                if data.get("collection") and not Knowledge(self.store).waiting_pictures(source):
+                    continue
+                queued.append(self.team.curation.queue_pictures(source))
+            if not queued:
+                raise ContractError("No pictures are waiting for a description here.")
+            return {"queued": queued}
         if path == "/api/source":
             if not Path(user_path(data["path"])).expanduser().is_file():
                 raise ContractError("That document doesn't exist. Use Browse to choose it.")
