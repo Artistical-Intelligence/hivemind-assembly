@@ -409,7 +409,7 @@ class NativeBrowser:
                         await (
                             page.locator(s["attachment_ready"])
                             .filter(has_text=path.name)
-                            .wait_for(state="visible", timeout=120000)
+                            .first.wait_for(state="visible", timeout=120000)
                         )
                     from .webmcp import NativeUI
 
