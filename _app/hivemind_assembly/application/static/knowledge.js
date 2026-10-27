@@ -19,6 +19,10 @@
   window.renderKnowledge = status => {
     const catalog = status.knowledge_catalog || {tags: [], revision: ''};
     catalogRevision = catalog.revision;
+    // Workers as they are set up now; a non-Chat one needs the Chat-only box unticked.
+    const workers = (status.routes || []).filter(r => r.id.startsWith('worker.'));
+    options(learningForm.elements.route_override, [['', 'Automatic'], ...workers.map(r => [r.id,
+      assistantName(r) + (r.provider === 'openai' && r.mode === 'Chat' ? '' : ' (untick the option above)')])]);
     if (!learningDirty && status.experimental_learning) {
       for (const [key, value] of Object.entries(status.experimental_learning)) {
         const field = learningForm.elements.namedItem(key);
