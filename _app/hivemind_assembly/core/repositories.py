@@ -1,4 +1,4 @@
-"""Domain-independent, durable provisioning of a project's repository (private unless the owner chooses public)."""
+"""Domain-independent, durable provisioning of a project's repository (private or public)."""
 
 import json
 import re
@@ -7,8 +7,12 @@ import time
 
 from .common import Blocked, Conflict, ContractError, uid
 
+VISIBILITIES = ("private", "public")
+
 
 def repository_args(args):
+    """Check a repository request. Visibility is optional: None means nobody chose,
+    so the owner's default for new repositories applies."""
     if not isinstance(args, dict) or set(args) - {
         "name",
         "owner",
@@ -18,8 +22,8 @@ def repository_args(args):
         raise ContractError(
             "Repository arguments are name, optional owner, description and visibility (private or public)."
         )
-    visibility = args.get("visibility", "private")
-    if visibility not in ("private", "public"):
+    visibility = args.get("visibility")
+    if visibility is not None and visibility not in VISIBILITIES:
         raise ContractError("Repository visibility must be private or public.")
     name, owner, description = (
         args.get("name"),
@@ -56,6 +60,13 @@ def repository_args(args):
     }
 
 
+def chooser(requested_by, explicit):
+    """Who decided a new repository's visibility, in the words the activity log uses."""
+    if not explicit:
+        return "your default for new repositories"
+    return "you" if requested_by == "user.repository" else "the assistant"
+
+
 class Repositories:
     """One primary repository per project, shared by all tasks and domains.
 
@@ -63,21 +74,28 @@ class Repositories:
     pre-existing repository. Once its ID is durable, remove the nonce and retain
     the requested description. No source files or commits are created.
 
-    Visibility is recorded with each request: private unless the owner chose
-    public. A repository whose visibility later differs from the record is
-    refused, so a private project is never published to a repository that has
-    since been made public.
+    Visibility is recorded with each request: what you or the assistant asked
+    for, or your default for new repositories when neither said. GitHub stays
+    the authority afterwards: when the repository's visibility is changed on
+    GitHub, HA records the new visibility (latest wins), keeps saving, and says
+    so on the project and in the activity log. Identity, ID, write access and
+    "not archived" are still checked, and a replacement repository is never
+    adopted.
     """
 
     def __init__(self, store, client, config):
         self.store, self.client, self.config = store, client, config
         self.lock = threading.RLock()
 
+    def default_visibility(self):
+        value = self.config.get("github", {}).get("default_visibility", "private")
+        return value if value in VISIBILITIES else "private"
+
     def link(self, project, operation_id, args):
         """Owner-requested binding to an existing repository; no creation.
 
-        The repository's current visibility (private or public) is recorded and
-        must stay the same for later publications."""
+        The repository's current visibility (private or public) is recorded;
+        later changes on GitHub are followed."""
         args = repository_args(args)
         with self.lock:
             user = self._identity()
@@ -89,7 +107,7 @@ class Repositories:
                 if isinstance(repo, dict) and repo.get("private") is False
                 else "private"
             )
-            self._validate(row, repo, visibility=visibility)
+            self._validate(row, repo)
             existing = self.status(project)
             if existing.get("state"):
                 if (
@@ -149,6 +167,7 @@ class Repositories:
         if not rows:
             return {"status": "unlinked"}
         row = rows[0]
+        change = self._seen(row)
         return {
             **{
                 k: row[k]
@@ -163,14 +182,29 @@ class Repositories:
                 )
             },
             "visibility": self._visibility(row),
+            "visibility_chosen_by": self._requested(row).get("chosen_by", ""),
+            **({"visibility_change": change} if change else {}),
         }
 
-    def _visibility(self, row):
+    def _requested(self, row):
+        """The visibility asked for when the repository was requested or linked."""
         rows = self.store.rows(
             "SELECT payload FROM records WHERE kind='repository_visibility' AND id=?",
             (row["operation_id"],),
         )
-        return json.loads(rows[0]["payload"])["visibility"] if rows else "private"
+        return json.loads(rows[0]["payload"]) if rows else {"visibility": "private"}
+
+    def _seen(self, row):
+        """The latest visibility change HA saw on GitHub, if any (latest wins)."""
+        rows = self.store.rows(
+            "SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1",
+            ("repository_visibility_seen:" + row["project_id"],),
+        )
+        return json.loads(rows[0]["payload"]) if rows else None
+
+    def _visibility(self, row):
+        seen = self._seen(row) if row.get("project_id") else None
+        return seen["visibility"] if seen else self._requested(row)["visibility"]
 
     def uncertain(self, project, operation_id):
         return bool(
@@ -209,7 +243,7 @@ class Repositories:
             )
         return user
 
-    def create(self, project, operation_id, args, cancel=None):
+    def create(self, project, operation_id, args, cancel=None, requested_by="user.repository"):
         args = repository_args(args)
         if not self.config.get("github", {}).get("allow_repository_creation", False):
             raise Blocked("Enable repository creation in GitHub settings first.")
@@ -235,16 +269,19 @@ class Repositories:
             )
             if rows:
                 row = rows[0]
+                requested = self._requested(row)["visibility"]
+                # A repeated request that doesn't say which keeps what was asked first.
+                wanted = args["visibility"] or requested
                 if (
                     row["owner"].lower(),
                     row["name"].lower(),
                     row["description"],
-                    self._visibility(row),
+                    requested,
                 ) != (
                     owner.lower(),
                     args["name"].lower(),
                     args["description"],
-                    args["visibility"],
+                    wanted,
                 ):
                     if (
                         row["state"] in ("prepared", "rejected", "conflict")
@@ -258,7 +295,7 @@ class Repositories:
                                 "DELETE FROM project_repositories WHERE project_id=?",
                                 (project,),
                             )
-                        return self.create(project, operation_id, args, cancel)
+                        return self.create(project, operation_id, args, cancel, requested_by)
                     raise Conflict(
                         "This project already has a different repository request. Reuse its recorded repository."
                     )
@@ -269,6 +306,8 @@ class Repositories:
                 if row["state"] == "conflict":
                     raise Conflict(row["error"])
             else:
+                visibility = args["visibility"] or self.default_visibility()
+                chosen_by = chooser(requested_by, args["visibility"] is not None)
                 with self.store.tx() as db:
                     other = db.execute(
                         "SELECT project_id FROM project_repositories WHERE owner=? COLLATE NOCASE AND name=? COLLATE NOCASE",
@@ -295,7 +334,7 @@ class Repositories:
                     self.store.put(
                         "repository_visibility",
                         operation_id,
-                        {"visibility": args["visibility"]},
+                        {"visibility": visibility, "chosen_by": chosen_by},
                         db,
                     )
                 row = self._row(project)
@@ -308,13 +347,18 @@ class Repositories:
                 raise Blocked("Task cancelled before repository creation.")
             self._bind(row, operation_id)
             self._update(project, state="pending", error="")
+            requested = self._requested(row)
+            who = requested.get("chosen_by", "")
             self.store.event(
                 project,
                 "repository_creation_requested",
                 {
                     "owner": owner,
                     "name": args["name"],
-                    "visibility": self._visibility(row),
+                    "visibility": requested["visibility"],
+                    "visibility_chosen_by": who,
+                    "message": f"Creating {owner}/{args['name']} as a {requested['visibility']} repository"
+                    + (f" (chosen by {who})." if who else "."),
                 },
             )
             try:
@@ -323,7 +367,7 @@ class Repositories:
                     row["name"],
                     self._marked(row),
                     organization=owner.lower() != user["login"].lower(),
-                    private=self._visibility(row) == "private",
+                    private=requested["visibility"] == "private",
                 )
             except Exception as error:
                 # These responses definitively reject creation. Transport errors,
@@ -346,20 +390,19 @@ class Repositories:
     def _marked(row):
         return (row["description"] + " " + row["marker"]).strip()
 
-    def _validate(self, row, repo, require_marker=False, visibility=None):
-        if visibility is None:
-            visibility = self._visibility(row)
+    def _validate(self, row, repo, require_marker=False):
+        """Identity, ID, write access and not archived must hold. Visibility follows
+        GitHub: a change there is recorded and announced, never a reason to stop."""
         if (
             not isinstance(repo, dict)
             or str(repo.get("full_name", "")).lower()
             != (row["owner"] + "/" + row["name"]).lower()
-            or repo.get("private") is not (visibility == "private")
             or repo.get("archived") is True
             or repo.get("permissions", {}).get("push") is not True
             or not repo.get("id")
         ):
             raise Conflict(
-                f"Repository identity, {visibility} visibility or write access could not be verified."
+                "Repository identity or write access could not be verified, or it is archived."
             )
         if row["repository_id"] and str(repo["id"]) != row["repository_id"]:
             raise Conflict(
@@ -369,6 +412,37 @@ class Repositories:
             raise Conflict(
                 "Repository does not carry this creation request's identity. No changes made."
             )
+        return self._follow(row, repo)
+
+    def _follow(self, row, repo):
+        """GitHub's current visibility wins: record a change (latest wins) and say so."""
+        if not row.get("project_id") or repo.get("private") not in (True, False):
+            return None
+        now = "private" if repo["private"] else "public"
+        before = self._visibility(row)
+        if now == before:
+            return None
+        message = f"This repository is now {now} on GitHub."
+        with self.store.tx() as db:
+            self.store.put(
+                "repository_visibility_seen:" + row["project_id"],
+                uid("visibility"),
+                {"visibility": now, "previous": before, "seen": time.time(), "message": message},
+                db,
+            )
+            self.store.event(
+                row["project_id"],
+                "repository_visibility_changed",
+                {
+                    "owner": row["owner"],
+                    "name": row["name"],
+                    "from": before,
+                    "to": now,
+                    "message": f"{row['owner']}/{row['name']}: {message} HA keeps saving to it.",
+                },
+                db,
+            )
+        return message
 
     def _verify(self, row):
         observed = self.client.lookup(row["owner"], row["name"])
@@ -392,6 +466,7 @@ class Repositories:
                 )
         # Later human description changes are preserved once the ID is known.
         url = f"https://github.com/{row['owner']}/{row['name']}"
+        visibility = self._visibility(row)
         if row["state"] != "verified":
             self._update(row["project_id"], state="verified", url=url, error="")
             self.store.event(
@@ -400,17 +475,20 @@ class Repositories:
                 {
                     "repository_id": str(observed["id"]),
                     "url": url,
-                    "private": self._visibility(row) == "private",
+                    "private": visibility == "private",
                 },
             )
+        change = self._seen(row)
         return {
             "status": "saved",
             "repository_id": str(observed["id"]),
             "url": url,
             "owner": row["owner"],
             "name": row["name"],
-            "private": self._visibility(row) == "private",
-            "visibility": self._visibility(row),
+            "private": visibility == "private",
+            "visibility": visibility,
+            "visibility_chosen_by": self._requested(row).get("chosen_by", ""),
+            **({"visibility_change": change["message"]} if change else {}),
             "initialized": False,
             "project_id": row["project_id"],
         }
