@@ -252,7 +252,7 @@
       }
       if (id === 'choices-read') {
         await api('models/read', {});
-        notice('Reading ChatGPT\'s and Claude\'s model menus in HA\'s tabs. This takes about a minute; your choices there are put back.');
+        notice('Reading ChatGPT\'s and Claude\'s model menus in tabs of their own. This takes about a minute; your choices there are put back.');
       }
     } catch (x) {
       notice(x.message, true);
