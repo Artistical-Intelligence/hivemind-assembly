@@ -25,6 +25,8 @@ from hivemind_assembly.core.common import Blocked
 
 SURFACE = "surface:"
 MENU = '[role="menu"]'
+POWER = '[aria-label="Power"]'
+RADIO = '[role="menuitemradio"]'
 EMAIL = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
 
 # Visible text pieces of one control, without aria-hidden or visibility:hidden parts
@@ -164,7 +166,8 @@ class Surface:
         wanted = {"model": cfg["model"], "effort": cfg["effort"]}
         if self.provider == "openai":
             wanted["mode"] = cfg["mode"]
-        wrong = [f"{field} is {state.get(field) or 'not shown'}" for field, value in wanted.items() if state.get(field) != value]
+        # A model without an effort setting is configured with an empty effort.
+        wrong = [f"{field} is {state.get(field) or 'not shown'}" for field, value in wanted.items() if (state.get(field) or "") != (value or "")]
         if wrong:
             raise Blocked(f"{self.label} still shows the wrong settings: " + "; ".join(wrong) + ".")
         return state
@@ -213,39 +216,102 @@ class ChatGPT(Surface):
 
     async def deep(self, page):
         state = await self.shallow(page)
-        async with self.menu(page, '[aria-label="Power"]'):
+        async with self.menu(page, POWER):
             menu = await page.evaluate(CHATGPT_MENU) or {}
         state["model"] = menu.get("model")
         state["effort"] = menu.get("effort") or state["effort"]
         return state
 
+    async def switch(self, page, mode):
+        if mode not in ("Chat", "Work") or await self.mode(page) == mode:
+            return
+        switch = page.get_by_role("button", name=mode, exact=True)
+        if await switch.count() != 1:
+            raise Blocked(f"ChatGPT's {mode} switch isn't on this page.")
+        await switch.click(timeout=10000)
+        if await settle(lambda: self.mode(page), mode) != mode:
+            raise Blocked(f"ChatGPT didn't switch to {mode}.")
+
+    async def select(self, page, mode, model):
+        async with self.menu(page, POWER):
+            state = await page.evaluate(CHATGPT_MENU) or {}
+            if state.get("model") == model:
+                return
+            offered = [m for m in state.get("models", []) if m]
+            if model not in offered:
+                raise Blocked(f"ChatGPT offers {', '.join(offered) or 'no models'} in {mode} for this account, not {model}.")
+            await page.locator(MENU + ' [aria-label="Select model"]').click(timeout=5000)
+            if not await pick(page, "menuitemradio", model):
+                raise Blocked(f"HA couldn't choose {model} in ChatGPT's model list.")
+        await asyncio.sleep(0.3)
+
     async def ensure(self, page, cfg):
         mode, model, effort = cfg["mode"], cfg["model"], cfg["effort"]
-        if mode in ("Chat", "Work") and await self.mode(page) != mode:
-            switch = page.get_by_role("button", name=mode, exact=True)
-            if await switch.count() != 1:
-                raise Blocked(f"ChatGPT's {mode} switch isn't on this page.")
-            await switch.click(timeout=10000)
-            if await settle(lambda: self.mode(page), mode) != mode:
-                raise Blocked(f"ChatGPT didn't switch to {mode}.")
-        async with self.menu(page, '[aria-label="Power"]'):
-            state = await page.evaluate(CHATGPT_MENU) or {}
-            if state.get("model") != model:
-                offered = [m for m in state.get("models", []) if m]
-                if model not in offered:
-                    raise Blocked(f"ChatGPT offers {', '.join(offered) or 'no models'} in {mode} for this account, not {model}.")
-                await page.locator(MENU + ' [aria-label="Select model"]').click(timeout=5000)
-                if not await pick(page, "menuitemradio", model):
-                    raise Blocked(f"HA couldn't choose {model} in ChatGPT's model list.")
-        await asyncio.sleep(0.3)
+        await self.switch(page, mode)
+        await self.select(page, mode, model)
         # Each model has its own efforts: set the effort in a freshly opened menu.
-        async with self.menu(page, '[aria-label="Power"]'):
+        async with self.menu(page, POWER):
             state = await page.evaluate(CHATGPT_MENU) or {}
             if state.get("model") != model:
                 raise Blocked(f"ChatGPT didn't switch to {model}.")
-            if state.get("effort") != effort:
+            if effort and state.get("effort") != effort:
                 await self.power(page, state, model, effort)
         return await self.verify(page, cfg)
+
+    async def levels(self, page):
+        """Every Power level of the chosen model, leaving the slider where it was."""
+        state = await page.evaluate(CHATGPT_MENU) or {}
+        count, start = state.get("count") or 0, state.get("index")
+        if not count or start is None:
+            return [state["effort"]] if state.get("effort") else []
+        await page.locator(MENU + ' [aria-label="Power"]').focus()
+
+        async def now():
+            return await page.evaluate(CHATGPT_MENU) or {}
+
+        async def step(key):
+            await page.keyboard.press(key)
+            await asyncio.sleep(0.15)
+
+        for _ in range(count):
+            if (await now()).get("index") in (1, None):
+                break
+            await step("ArrowLeft")
+        names = []
+        for _ in range(count):
+            current = await now()
+            names.append(current.get("effort"))
+            if (current.get("index") or count) >= count:
+                break
+            await step("ArrowRight")
+        for _ in range(count):
+            index = (await now()).get("index")
+            if index in (None, start):
+                break
+            await step("ArrowLeft" if index > start else "ArrowRight")
+        return [n for n in names if n]
+
+    async def options(self, page):
+        """Every mode, model and effort this account's ChatGPT offers, read from its own
+        picker. The owner's choices in this tab are put back afterwards."""
+        first = await self.mode(page)
+        catalog = {}
+        for mode in ("Chat", "Work"):
+            await self.switch(page, mode)
+            async with self.menu(page, POWER):
+                state = await page.evaluate(CHATGPT_MENU) or {}
+            keep = (state.get("model"), state.get("effort"))
+            found = {}
+            for model in [m for m in state.get("models", []) if m]:
+                await self.select(page, mode, model)
+                async with self.menu(page, POWER):
+                    found[model] = await self.levels(page)
+            if keep[0]:
+                await self.ensure(page, {"mode": mode, "model": keep[0], "effort": keep[1] or ""})
+            catalog[mode] = found
+        if first in ("Chat", "Work"):
+            await self.switch(page, first)
+        return catalog
 
     async def power(self, page, state, model, effort):
         """Move the Power slider one step at a time until it reads the exact effort."""
@@ -324,43 +390,69 @@ class Claude(Surface):
 
     async def deep(self, page):
         state = await self.shallow(page)
-        async with self.menu(page, '[role="menuitemradio"]'):
+        async with self.menu(page, RADIO):
             menu = await page.evaluate(CLAUDE_MENU) or {}
         state["model"] = menu.get("model")
         state["effort"] = menu.get("effort") or state["effort"]
         return state
 
+    async def select(self, page, model):
+        async with self.menu(page, RADIO):
+            state = await page.evaluate(CLAUDE_MENU) or {}
+            if state.get("model") == model:
+                return
+            if model not in state.get("models", []):
+                more = page.locator(MENU + ' [role="menuitem"]').filter(has_text=re.compile(r"^\s*More models"))
+                if await more.count() == 1:
+                    await more.hover(timeout=5000)
+                    await asyncio.sleep(0.5)
+            if not await pick(page, "menuitemradio", model):
+                offered = ", ".join(m for m in state.get("models", []) if m)
+                raise Blocked(f"Claude offers {offered or 'no models'} for this account, not {model}.")
+        await asyncio.sleep(0.3)
+
+    async def efforts(self, page):
+        """Open the Effort submenu of the open model menu; its choices (none for models
+        without an effort setting)."""
+        item = page.locator(MENU + ' [role="menuitem"]').filter(has_text=re.compile(r"^\s*Effort"))
+        if await item.count() != 1:
+            return []
+        await item.hover(timeout=5000)
+        await asyncio.sleep(0.5)
+        if not (await page.evaluate(CLAUDE_MENU) or {}).get("submenu"):
+            await item.click(timeout=5000)
+            await asyncio.sleep(0.5)
+        return [o for o in (await page.evaluate(CLAUDE_MENU) or {}).get("options", []) if o]
+
     async def ensure(self, page, cfg):
         model, effort = cfg["model"], cfg["effort"]
-        async with self.menu(page, '[role="menuitemradio"]'):
-            state = await page.evaluate(CLAUDE_MENU) or {}
-            if state.get("model") != model:
-                if model not in state.get("models", []):
-                    more = page.locator(MENU + ' [role="menuitem"]').filter(has_text=re.compile(r"^\s*More models"))
-                    if await more.count() == 1:
-                        await more.hover(timeout=5000)
-                        await asyncio.sleep(0.5)
-                if not await pick(page, "menuitemradio", model):
-                    offered = ", ".join(m for m in state.get("models", []) if m)
-                    raise Blocked(f"Claude offers {offered or 'no models'} for this account, not {model}.")
-        await asyncio.sleep(0.3)
-        async with self.menu(page, '[role="menuitemradio"]'):
+        await self.select(page, model)
+        async with self.menu(page, RADIO):
             state = await page.evaluate(CLAUDE_MENU) or {}
             if state.get("model") != model:
                 raise Blocked(f"Claude didn't switch to {model}.")
-            if state.get("effort") != effort:
-                item = page.locator(MENU + ' [role="menuitem"]').filter(has_text=re.compile(r"^\s*Effort"))
-                if await item.count() != 1:
+            if effort and state.get("effort") != effort:
+                offered = await self.efforts(page)
+                if not offered:
                     raise Blocked(f"Claude shows no Effort choice for {model}.")
-                await item.hover(timeout=5000)
-                await asyncio.sleep(0.5)
-                if not (await page.evaluate(CLAUDE_MENU) or {}).get("submenu"):
-                    await item.click(timeout=5000)
-                    await asyncio.sleep(0.5)
-                offered = (await page.evaluate(CLAUDE_MENU) or {}).get("options", [])
                 if not await pick(page, "menuitemradio", effort, within="sub"):
-                    raise Blocked(f"Claude offers {', '.join(o for o in offered if o) or 'no efforts'} for {model}, not {effort}.")
+                    raise Blocked(f"Claude offers {', '.join(offered)} for {model}, not {effort}.")
         return await self.verify(page, cfg)
+
+    async def options(self, page):
+        """Every model and effort this account's Claude offers, read from its own picker.
+        The owner's choice in this tab is put back afterwards."""
+        async with self.menu(page, RADIO):
+            state = await page.evaluate(CLAUDE_MENU) or {}
+        keep = (state.get("model"), state.get("effort"))
+        found = {}
+        for model in [m for m in state.get("models", []) if m]:
+            await self.select(page, model)
+            async with self.menu(page, RADIO):
+                found[model] = await self.efforts(page)
+        if keep[0]:
+            await self.ensure(page, {"mode": "native", "model": keep[0], "effort": keep[1] or ""})
+        return {"native": found}
 
     async def account(self, page):
         """The signed-in email at the top of the user menu."""
