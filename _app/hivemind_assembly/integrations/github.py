@@ -335,7 +335,7 @@ class GitHubClient:
                 return None  # Absence OR loss of access; never a reason to replay an uncertain POST.
             raise
 
-    def create(self, owner, name, description, organization=False):
+    def create(self, owner, name, description, organization=False, private=True):
         endpoint = f"/orgs/{owner}/repos" if organization else "/user/repos"
         return self.auth.http.request(
             "POST",
@@ -344,7 +344,7 @@ class GitHubClient:
             data={
                 "name": name,
                 "description": description,
-                "private": True,
+                "private": private is not False,
                 "auto_init": False,
             },
         )
