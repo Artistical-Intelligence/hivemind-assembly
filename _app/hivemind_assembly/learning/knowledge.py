@@ -14,6 +14,7 @@ without a caption or alt text are listed as not yet described.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sqlite3
@@ -394,12 +395,17 @@ class Knowledge:
         return {r["id"]: r["revision"] for r in rows if tags.get(r["id"], {"unclassified"}) & scope}
 
     def search(self, query, role="adviser", external=False, task=None, limit=20):
-        """Ranked search (FTS5, BM25) within what this role and task may read."""
+        """Ranked search (FTS5, BM25) within what this role and task may read.
+
+        Identical copies of a section in other documents (drafts, older snapshots)
+        come back once, with the other places listed under copies, so they don't
+        crowd out different results."""
         allowed = self.allowed(role, external, task)
         match = fts_query(query)
         if not allowed or not match:
             return []
         limit = max(1, min(50, int(limit)))
+        fetch = min(200, limit * 4)
         if self.fts:
             with self.store.lock:
                 rows = self.store.db.execute(
@@ -409,7 +415,7 @@ class Knowledge:
                     "FROM knowledge_fts JOIN knowledge_sections s ON s.rowid=knowledge_fts.rowid "
                     "WHERE knowledge_fts MATCH ? AND s.source IN (SELECT value FROM json_each(?)) "
                     "ORDER BY rank LIMIT ?",
-                    (match, json.dumps(sorted(allowed)), limit),
+                    (match, json.dumps(sorted(allowed)), fetch),
                 ).fetchall()
             found = [(dict(r), -r["rank"]) for r in rows]
         else:
@@ -423,10 +429,18 @@ class Knowledge:
                 score = sum(text.count(t) for t in terms)
                 if score:
                     found.append(({**r, "snippet": r["body"][:200]}, score))
-            found = sorted(found, key=lambda x: -x[1])[:limit]
-        hits = []
+            found = sorted(found, key=lambda x: -x[1])[:fetch]
+        hits, first = [], {}
         for r, score in found:
-            hits.append({
+            same = (r["title"], hashlib.sha256(r["body"].encode("utf-8")).hexdigest())
+            if same in first:
+                copies = first[same].setdefault("copies", [])
+                if len(copies) < 10:
+                    copies.append({"source": r["source"], "revision": allowed[r["source"]], "section": r["section"]})
+                continue
+            if len(hits) == limit:
+                continue  # Only copies of the hits already chosen are added from here on.
+            first[same] = hit = {
                 "source": r["source"],
                 "revision": allowed[r["source"]],
                 "section": r["section"],
@@ -436,7 +450,8 @@ class Knowledge:
                 "text": r["body"][:EXCERPT],
                 "truncated": len(r["body"]) > EXCERPT,
                 "score": round(score, 3),
-            })
+            }
+            hits.append(hit)
         return hits
 
     def lookup(self, name, role="adviser", external=False, task=None):
@@ -591,6 +606,7 @@ class Knowledge:
                 h.pop("truncated")
             result = {"hits": hits}
             sources = {(h["source"], h["revision"]) for h in hits}
+            sources |= {(c["source"], c["revision"]) for h in hits for c in h.get("copies", [])}
         elif name == "lookup_knowledge":
             if set(args) != {"name"}:
                 raise ContractError("lookup_knowledge takes name.")
