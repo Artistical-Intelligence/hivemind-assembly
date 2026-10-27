@@ -1087,6 +1087,12 @@ class Application:
             info = PROVIDERS[provider]
 
             async def open_tab():
+                # One sign-in covers the whole account: show a tab already open on the
+                # service instead of adding another each time the button is pressed.
+                for page in [*self.browser.service_pages, *self.browser.pages.values()]:
+                    if not page.is_closed() and urlsplit(page.url).hostname in info["hosts"]:
+                        await page.bring_to_front()
+                        return
                 page = await self.browser.service_page(
                     info["profile"], CONTRACTS[provider]["new_url"], info["hosts"]
                 )
