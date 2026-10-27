@@ -254,6 +254,30 @@ def test_ranked_search_prefers_titles_and_relevant_sections(store, tmp_path):
     assert knowledge.lookup("CALLING CONVENTIONS", role="controller")[0]["title"] == "Calling conventions"
 
 
+def test_identical_copies_of_a_section_come_back_once(store, tmp_path):
+    scopes = KnowledgeScopes(store)
+    scopes.create_tag("control-flow", "Control flow")
+    knowledge = Knowledge(store)
+    copy = "# Jump tables\n\nA switch becomes a table of addresses.\n\n# Loops\n\nCounting down.\n"
+    for name in ("book.md", "draft.md", "snapshot.md"):
+        (tmp_path / name).write_text(copy)
+    (tmp_path / "notes.md").write_text("# Jump tables\n\nMy own notes on a switch table.\n")
+    keys = [knowledge.ingest(tmp_path / n, True, tags=["control-flow"])["id"]
+            for n in ("book.md", "draft.md", "snapshot.md", "notes.md")]
+    assert len(set(keys)) == 4
+    hits = knowledge.search("switch jump tables", role="controller", limit=2)
+    # The copies don't crowd out the different section; where they are is still listed.
+    assert [h["title"] for h in hits] == ["Jump tables", "Jump tables"]
+    grouped = next(h for h in hits if h.get("copies"))
+    assert {grouped["source"], *(c["source"] for c in grouped["copies"])} == set(keys[:3])
+    assert next(h for h in hits if not h.get("copies"))["source"] == keys[3]
+    # An assistant's answer depends on every copy it names, so each one is part of its grant.
+    task = store.create_project("copies", "jump tables")
+    scopes.select(task["id"], ["control-flow"], scopes.catalog()["revision"])
+    found = knowledge.tool(task["id"], "search_knowledge", {"query": "switch jump tables", "limit": 2})
+    assert {s["source"] for s in found["_knowledge_grant"]["sources"]} == set(keys)
+
+
 def test_reference_tools_stay_within_the_projects_categories(store, tmp_path):
     scopes = KnowledgeScopes(store)
     scopes.create_tag("arithmetic", "Arithmetic")
