@@ -462,7 +462,7 @@ class KnowledgeCollections:
                     documents_.append((rel, path, kind))
         if (commit and commit == entry.get("commit") and entry.get("report")
                 and not entry["report"].get("failed") and entry.get("imported_with") == entry["external_allowed"]):
-            return {"message": "Already up to date with GitHub.", "last_check": self.clock()}
+            return {"message": "Already up to date with GitHub."}
         knowledge = Knowledge(self.store)
         before = self._copies(key)
         used, failed, missing_tags = set(), [], set()
