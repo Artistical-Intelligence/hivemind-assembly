@@ -74,9 +74,8 @@ HA now imports the owner's collection itself (Word files split at headings with
 their tables and pictures, whole folders and GitHub repositories, ranked search and
 the assistants' reference tools); no manual conversion is needed. Still open:
 
-- Use the reference tools in a live project run with signed-in assistants.
-- Let the adviser describe pictures that have no caption or alt text (they are
-  listed per picture as not yet described).
+- Use the reference tools, and the adviser's picture descriptions, in a live run
+  with signed-in assistants (both are checked only with stand-ins so far).
 - Add semantic (vector) search only if tests with real questions show it is needed.
 - Old Office formats (.doc, .xls, .ppt), spreadsheets and slides, and text in
   scanned PDF pages are not imported; they are listed as skipped or as gaps.
