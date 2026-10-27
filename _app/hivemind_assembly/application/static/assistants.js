@@ -176,7 +176,15 @@
     el('browser-mode-now').textContent = mode === 'your_chrome' ? 'your Chrome' : 'HA\'s own Chrome windows';
   }
 
+  // After Use or Save, a status that was already on its way shows the old state; skip
+  // such answers (for up to 15 seconds) instead of briefly showing the old lists again.
+  let expect = null;
   function render(s) {
+    if (expect && Date.now() < expect.until) {
+      const saved = s.assistant_setups?.presets || {};
+      if ((expect.preset && !same(saved[expect.preset], expect.targets)) || (expect.live && !same(inUse(s), expect.live))) return;
+    }
+    expect = null;
     last = s;
     paint();
   }
