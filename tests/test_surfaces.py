@@ -237,3 +237,31 @@ def test_observe_rejects_drift_and_repair_restores_the_exact_route(store, tmp_pa
         assert await page.evaluate("window.opened") == 0
 
     run(CHATGPT, body, url)
+
+
+def test_replies_rendered_as_code_blocks_are_read_as_their_code():
+    from hivemind_assembly.automation.native import REPLIES, parse_response
+
+    html = """<html><body>
+    <div class="user">WORKBENCH_REQUEST:r1
+{"request_id":"r1"}</div>
+    <div class="assistant"><pre><div>json<button aria-label="Copy">Copy code</button></div><code>{"request_id":"r1","type":"brief"}</code></pre></div>
+    <div class="user">WORKBENCH_REQUEST:r2
+{"request_id":"r2"}</div>
+    <div class="assistant"><div>json</div><pre><code>{"request_id":"r2","type":"brief"}</code></pre></div>
+    <div class="user">WORKBENCH_REQUEST:r3
+{"request_id":"r3"}</div>
+    <div class="assistant"><p>Sure, here it is:</p><pre><code>{"request_id":"r3","type":"brief"}</code></pre></div>
+    </body></html>"""
+
+    async def body(page):
+        read = lambda marker: page.evaluate(REPLIES, {"users": ".user", "assistants": ".assistant", "marker": marker})
+        return [await read("WORKBENCH_REQUEST:" + r) for r in ("r1", "r2", "r3")]
+
+    chatgpt, claude, prose = run(html, body, "https://chatgpt.com/c/fixture")
+    # ChatGPT puts the label and copy button inside the block, Claude puts the label above it.
+    assert parse_response(chatgpt[0], "r1")["type"] == "brief"
+    assert parse_response(claude[0], "r2")["type"] == "brief"
+    # Prose around the JSON is still refused, as before.
+    with pytest.raises(Exception, match="single structured JSON"):
+        parse_response(prose[0], "r3")
