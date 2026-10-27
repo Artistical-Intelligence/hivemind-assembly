@@ -196,7 +196,7 @@ class KnowledgeCollections:
             repository = str(data.get("repository", "")).strip().removeprefix("https://github.com/").removesuffix(".git").strip("/")
             owner, _, name = repository.partition("/")
             if not OWNER.fullmatch(owner) or not NAME.fullmatch(name) or name in (".", ".."):
-                raise ContractError("Type the repository as owner/name, for example Artistical-Intelligence/RE-Wizard.")
+                raise ContractError("Type the repository as owner/name, for example your-name/research-notes.")
             branch = str(data.get("branch", "") or "")
             if branch and (len(branch) > 200 or branch.startswith("-") or ".." in branch or re.search(r"[\s~^:?*\[\\]", branch)):
                 raise ContractError("That isn't a branch name.")
