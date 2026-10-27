@@ -715,6 +715,37 @@ category's short name is filled in from its name. Documents can be chosen with
 categorization turn; ingestion may create reusable categories, while project
 classification cannot. External-processing permission remains a separate gate.
 
+### Reference material
+
+**Add reference material** takes one document, a whole folder on this computer, or a
+whole GitHub repository (through HA's GitHub connection, so private repositories
+work). Word files are split at their headings (Heading 1, 2 and 3) into named
+sections; tables stay tables (Markdown tables in the section text); pictures become
+separate image files linked to their section, with any caption or alt text, and never
+mark a document as partly read or block a task. Pictures without a caption are listed
+per picture as not yet described; for material the assistants may read, **Let the
+adviser describe N pictures** asks the adviser, in its own conversation, to describe
+them, and the descriptions become searchable. Links are recorded per section: outside
+links by address, links inside the document by the section they open. Markdown is
+split at its headings and takes its title, tags and other names from its front
+matter; PDF, HTML, text and source files are read too.
+
+A folder or repository import lists everything it skips with the reason (archives,
+binary data, pictures no document shows, old Office formats); nothing is skipped
+silently. Each file's categories come from its front matter tags, or else from the
+names of the folders it's in, plus one named after the folder or repository.
+Importing again replaces the earlier copies: changed files are read again, unchanged
+ones stay, and copies of removed files are removed (the folder and the repository
+themselves are never changed). **Update from GitHub** fetches the latest version, and
+an optional schedule does so every day or week.
+
+Search is ranked with SQLite FTS5 (BM25, with titles weighted above body text), and
+titles and other names can be looked up directly. Workers have reference tools,
+`search_knowledge`, `lookup_knowledge`, `open_section`, `follow_link` and
+`section_pictures`, limited to the project's allowed categories and to material the
+owner lets the assistants read; their answers stay readable only while that remains
+true. Semantic (vector) search is not used.
+
 
 Experimental learning is optional and off by default. Its controls are under
 **Experiments** in Knowledge & skills; **Test a lesson** picks a prepared practice
