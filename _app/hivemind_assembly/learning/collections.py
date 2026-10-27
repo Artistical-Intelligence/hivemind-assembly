@@ -22,12 +22,14 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import threading
 import time
 from pathlib import Path, PurePosixPath
 from posixpath import normpath
+from urllib.parse import unquote
 
 from hivemind_assembly.core.common import Blocked, Conflict, ContractError, atomic_write, canonical, uid
 
@@ -85,6 +87,38 @@ def looks_like_text(head):
         return False
 
 
+def picture_path(target, folder, images):
+    """The imported file a Markdown or HTML picture link points to, if it's in the folder:
+    relative to the document, or from the top of the folder or repository when it
+    starts with /, with %20-style escapes and either kind of slash."""
+    clean = unquote(target.split("#")[0].split("?")[0]).strip().replace("\\", "/")
+    if not clean or re.match(r"[a-z][a-z0-9+.-]*:", clean, re.I):
+        return None
+    if clean.startswith("/"):
+        joined = normpath(clean.lstrip("/"))
+    else:
+        joined = normpath((folder + "/" if folder != "." else "") + clean)
+    if joined in images:
+        return joined
+    # Windows and macOS don't mind letter case in a link; match it the same way.
+    lowered = {k.lower(): k for k in images}
+    return lowered.get(joined.lower())
+
+
+def remove_tree(path):
+    """Delete one of HA's own copies, including the read-only files Git leaves on Windows."""
+
+    def retry(func, name, _):
+        try:
+            os.chmod(name, stat.S_IWRITE)
+            func(name)
+        except OSError:
+            pass
+
+    if Path(path).exists():
+        shutil.rmtree(path, **({"onexc": retry} if sys.version_info >= (3, 12) else {"onerror": retry}))
+
+
 def tag_id(label):
     """A category ID from a folder name or front-matter tag."""
     key = re.sub(r"[^a-z0-9_-]+", "-", label.lower()).strip("-_")[:64].strip("-_")
@@ -104,6 +138,7 @@ class KnowledgeCollections:
         self.remote_url = remote_url or (lambda owner, name: f"https://github.com/{owner}/{name}.git")
         self.lock = threading.RLock()
         self.running = {}
+        self.permission = {}  # The owner's latest choice, read by an import already running.
         self.monitor = None
         self.stopping = threading.Event()
 
@@ -232,8 +267,23 @@ class KnowledgeCollections:
         if entry is None:
             raise ContractError("Unknown imported collection.")
         if "external_allowed" in values:
-            self.start(key)  # The copies carry the permission; import again to apply it.
+            # Applies to every copy at once, even while the folder or GitHub can't be
+            # reached; an import already running uses it from its next file on.
+            self.permission[key] = values["external_allowed"]
+            self._apply_permission(key, values["external_allowed"], announce=True)
+            entry = self._set(key, imported_with=values["external_allowed"])
         return entry
+
+    def _apply_permission(self, key, allowed, announce=False):
+        copies = sorted(set(self._copies(key).values()))
+        with self.store.tx() as db:
+            db.executemany("UPDATE sources SET external_allowed=? WHERE id=?", [(int(allowed), s) for s in copies])
+            if announce:
+                name = (self._load().get(key) or {}).get("name", "This material")
+                self.store.event(key, "knowledge_collection_permission", {
+                    "allowed": bool(allowed), "copies": len(copies),
+                    "message": f"{name}: the assistants {'may now' if allowed else 'may no longer'} read its {len(copies)} documents.",
+                }, db)
 
     def remove(self, key):
         """Forget a collection and HA's copies of its files (the originals stay)."""
@@ -250,7 +300,8 @@ class KnowledgeCollections:
         for source in self._copies(key).values():
             knowledge.remove(source)
             removed += 1
-        shutil.rmtree(self.dir / "repos" / key, ignore_errors=True)
+        remove_tree(self.dir / "repos" / key)
+        self.permission.pop(key, None)
         return {"removed": True, "copies_removed": removed}
 
     def start(self, key):
@@ -374,12 +425,14 @@ class KnowledgeCollections:
 
         self._progress(key, 2, "Downloading the repository…")
         if not (target / ".git").exists():
-            shutil.rmtree(target, ignore_errors=True)
+            remove_tree(target)
             target.parent.mkdir(parents=True, exist_ok=True)
             branch = ["--branch", entry["branch"]] if entry.get("branch") else []
-            self._git("clone", "--progress", "--depth", "1", "--no-tags", "--single-branch", *branch, url, str(target),
-                      env=env, progress=show)
+            # Long paths: deep repositories check out on Windows too.
+            self._git("clone", "--progress", "--depth", "1", "--no-tags", "--single-branch", "-c", "core.longpaths=true",
+                      *branch, url, str(target), env=env, progress=show)
         else:
+            self._git("config", "core.longpaths", "true", cwd=target, env=env)
             self._git("remote", "set-url", "origin", url, cwd=target, env=env)
             self._git("fetch", "--progress", "--depth", "1", "--no-tags", "origin", entry.get("branch") or "HEAD",
                       cwd=target, env=env, progress=show)
@@ -397,21 +450,47 @@ class KnowledgeCollections:
         return copies
 
     def _walk(self, root):
+        """Every file to look at, and what's skipped without being opened. Links are
+        never followed (they could lead outside the folder), and HA's own data folder
+        (settings, sign-ins) is never imported."""
         files, skipped = [], []
-        for current, dirs, names in os.walk(root):
+        root = Path(root)
+        data = Path(self.store.root).resolve()
+        junction = getattr(os.path, "isjunction", lambda _: False)
+
+        def rel_of(path):
+            try:
+                rel = Path(path).relative_to(root).as_posix()
+            except ValueError:
+                rel = str(path)
+            return "" if rel == "." else rel
+
+        def unreadable(error):
+            skipped.append({"path": (rel_of(error.filename) or ".") + "/", "reason": "couldn't be read"})
+
+        for current, dirs, names in os.walk(root, onerror=unreadable):
             here = Path(current)
-            rel_dir = here.relative_to(root).as_posix()
+            rel_dir = rel_of(here)
             kept = []
             for d in sorted(dirs):
+                full = here / d
+                rel = (rel_dir + "/" if rel_dir else "") + d + "/"
                 if d in SKIP_DIRS:
-                    skipped.append({"path": (d if rel_dir == "." else rel_dir + "/" + d) + "/", "reason": SKIP_DIRS[d]})
+                    skipped.append({"path": rel, "reason": SKIP_DIRS[d]})
+                elif full.is_symlink() or junction(full):
+                    skipped.append({"path": rel, "reason": "a link to another folder; links aren't followed"})
+                elif full.resolve() == data:
+                    skipped.append({"path": rel, "reason": "HA's own data"})
                 else:
                     kept.append(d)
             dirs[:] = kept
             for name in sorted(names):
                 path = here / name
-                rel = name if rel_dir == "." else rel_dir + "/" + name
-                files.append((rel, path))
+                rel = (rel_dir + "/" if rel_dir else "") + name
+                if path.is_symlink():
+                    skipped.append({"path": rel, "reason": "a link to another file; links aren't followed"})
+                else:
+                    files.append((rel, path))
         return files, skipped
 
     def _tags(self, entry, rel, front):
@@ -497,27 +576,35 @@ class KnowledgeCollections:
                     text = documents.decode(f.read()) or ""
                 fields, _ = documents.front_matter(text.replace("\r\n", "\n"))
                 front = [t for k in ("tags", "tag", "categories", "category") for t in documents.as_list(fields.get(k))]
-            tags, lost = self._tags(entry, rel, front)
-            missing_tags.update(lost)
+            origin = {"kind": "collection", "collection": key, "path": rel}
+            earlier = knowledge.origin_source(origin)
+            given = knowledge.assigned_tags(earlier) if earlier else None
+            current = knowledge.scopes.tags("source", earlier) if earlier else None
+            if earlier and (given is None or sorted(current) != sorted(given)):
+                tags = current  # The owner (or the adviser) changed its categories; theirs stay.
+            else:
+                tags, lost = self._tags(entry, rel, front)
+                missing_tags.update(lost)
             folder = PurePosixPath(rel).parent.as_posix()
 
             def image(target, folder=folder):
-                clean = target.split("#")[0].split("?")[0]
-                joined = normpath((folder + "/" if folder != "." else "") + clean)
-                if joined in images:
-                    used.add(joined)
-                    return images[joined].read_bytes(), PurePosixPath(joined).name
+                found = picture_path(target, folder, images)
+                if found:
+                    used.add(found)
+                    return images[found].read_bytes(), PurePosixPath(found).name
                 return None
 
+            allowed = self.permission.get(key, entry["external_allowed"])
             try:
-                result = knowledge.ingest(
-                    path, entry["external_allowed"], tags,
-                    origin={"kind": "collection", "collection": key, "path": rel},
-                    kind=kind, image=image, display=rel,
-                )
+                result = knowledge.ingest(path, allowed, tags, origin=origin, kind=kind, image=image, display=rel)
             except Exception as error:
                 failed.append({"path": rel, "reason": str(error) or error.__class__.__name__})
                 continue
+            if self.permission.get(key, allowed) != allowed:
+                # The owner changed the permission while this file was being read.
+                with self.store.tx() as db:
+                    db.execute("UPDATE sources SET external_allowed=? WHERE id=?",
+                               (int(self.permission[key]), result["id"]))
             if result.get("unchanged"):
                 counts["unchanged"] += 1
                 if kind in ("markdown", "html"):
@@ -538,6 +625,9 @@ class KnowledgeCollections:
                 counts["removed"] += 1
         for rel in sorted(set(images) - used):
             skipped.append({"path": rel, "reason": "picture no imported document shows"})
+        # Whatever the owner chose last applies to every copy, including any read before the change.
+        allowed = self.permission.get(key, entry["external_allowed"])
+        self._apply_permission(key, allowed)
         skipped.sort(key=lambda x: x["path"])
         report = {
             **counts,
@@ -558,7 +648,7 @@ class KnowledgeCollections:
         if missing_tags:
             message += " The category list is full, so some folder names didn't become categories."
         return {"message": message, "report": report, "commit": commit, "last_import": self.clock(),
-                "imported_with": entry["external_allowed"]}
+                "imported_with": allowed}
 
     def _pictures_used(self, rel, folder, images, path):
         """Pictures an unchanged Markdown file shows (so they aren't listed as unused)."""
@@ -569,7 +659,7 @@ class KnowledgeCollections:
         found = set()
         for bang, _, target in documents.LINK.findall(text):
             if bang:
-                joined = normpath((folder + "/" if folder != "." else "") + target.split("#")[0].split("?")[0])
-                if joined in images:
+                joined = picture_path(target, folder, images)
+                if joined:
                     found.add(joined)
         return found
