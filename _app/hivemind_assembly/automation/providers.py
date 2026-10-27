@@ -293,8 +293,11 @@ async def discover(page, cfg):
 USAGE = """() => {
   const named = e => (e.getAttribute('aria-labelledby') || '').split(/\\s+/).filter(Boolean)
     .map(i => (document.getElementById(i) || {}).textContent || '').join(' ').trim();
-  const card = e => { let c = e; for (let i = 0; i < 4 && c; i++) c = c.parentElement;
-    return c ? (((c.innerText || '').trim().split('\\n')[0]) || '').trim() : ''; };
+  // The bar's card title: the nearest text above it that isn't "Resets in…" or "88% left".
+  const card = e => { for (let c = e.parentElement, i = 0; c && i < 7; c = c.parentElement, i++) {
+      const line = ((c.innerText || '').trim().split('\\n')[0] || '').trim();
+      if (line && !/^\\d|^resets\\b|\\b(left|used|remaining)$/i.test(line)) return line; }
+    return ''; };
   const items = [...document.querySelectorAll('[role="progressbar"], [role="meter"], progress')]
     .filter(e => e.getClientRects().length).map(e => ({
       kind: e.tagName === 'PROGRESS' ? 'progress' : e.getAttribute('role'),
