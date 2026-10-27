@@ -128,6 +128,7 @@
     gameSave: 'Save these inputs as a regression test.',
     backupUpload: 'Upload what changed in this folder since the last upload.',
     backupRemove: 'Stop backing up this folder. The folder and the copy on GitHub stay as they are.',
+    backupSeparately: 'Fill in the backup form for this folder, so it gets a repository of its own.',
   };
   const byText = {
     'Create project': 'Create a new project.',
