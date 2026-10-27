@@ -91,9 +91,10 @@
   function modelSelect(route, t, cat) {
     const value = JSON.stringify([t.provider, t.mode, t.model]);
     const groups = Object.entries(cat).flatMap(([p, modes]) => Object.entries(modes).map(([m, models]) =>
-      `<optgroup label="${esc((PROVIDER[p] || p) + (MODE[m] ? ' · ' + MODE[m] : ''))}">` + Object.keys(models).map(model => {
+      `<optgroup label="${esc((PROVIDER[p] || p) + (MODE[m] ? ' ' + MODE[m] : ''))}">` + Object.keys(models).map(model => {
         const v = JSON.stringify([p, m, model]);
-        return `<option value="${esc(v)}"${v === value ? ' selected' : ''}>${esc(model)}</option>`;
+        // ChatGPT has Chat and Work: name it, so the closed list still says which.
+        return `<option value="${esc(v)}"${v === value ? ' selected' : ''}>${esc(model + (MODE[m] ? ' (' + MODE[m] + ')' : ''))}</option>`;
       }).join('') + '</optgroup>'));
     return `<select data-role-model="${esc(route)}" aria-label="${esc(SLOT[route])} model">${groups.join('')}</select>`;
   }
