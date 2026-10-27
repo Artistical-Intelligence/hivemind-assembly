@@ -130,6 +130,29 @@ async def select_preferred_chat(page, cfg, preferences):
         raise Blocked("Automatic chat-model selection requires the Chat surface")
     if not isinstance(preferences, list) or not 1 <= len(preferences) <= 20:
         raise Blocked("A bounded model preference list is required")
+    from .surfaces import detect
+
+    surface = await detect(page, cfg)
+    if surface is not None:
+        for target in preferences:
+            if not isinstance(target, dict) or set(target) != {"model", "effort"}:
+                raise Blocked("Invalid model preference")
+            try:
+                await surface.ensure(page, {**cfg, **target, "mode": "Chat"})
+            except Blocked:
+                continue
+            return {
+                **target,
+                "selectors": {
+                    **cfg.get("selectors", {}),
+                    "mode": surface.tag,
+                    "model": surface.tag,
+                    "effort": surface.tag,
+                },
+            }
+        raise Blocked(
+            "No supported preferred Chat model/effort is visible; configure an exact manual override"
+        )
     if not await select_exact(page, "mode", "Chat"):
         raise Blocked("Chat mode could not be verified before model selection")
     for target in preferences:
@@ -187,6 +210,13 @@ async def dismiss_popups(page, attempts=3):
 async def discover(page, cfg):
     await dismiss_popups(page)
     contract = CONTRACTS[cfg["provider"]]
+    from .surfaces import detect
+
+    surface = await detect(page, cfg)
+    if surface is not None:
+        # Today's pages: set the exact route through their own model menus. Saved
+        # selectors from an older page layout are not reused.
+        return await surface.discover(page, cfg, dict(contract["selectors"]))
     selectors = {
         **contract["selectors"],
         **{k: v for k, v in cfg.get("selectors", {}).items() if v},
@@ -258,6 +288,80 @@ async def discover(page, cfg):
         if await loc.count() != 1 or not await loc.is_visible():
             missing.append(name)
     return {"selectors": selectors, "account_label": account, "missing": missing}
+
+
+USAGE = """() => {
+  const named = e => (e.getAttribute('aria-labelledby') || '').split(/\\s+/).filter(Boolean)
+    .map(i => (document.getElementById(i) || {}).textContent || '').join(' ').trim();
+  const card = e => { let c = e; for (let i = 0; i < 4 && c; i++) c = c.parentElement;
+    return c ? (((c.innerText || '').trim().split('\\n')[0]) || '').trim() : ''; };
+  const items = [...document.querySelectorAll('[role="progressbar"], [role="meter"], progress')]
+    .filter(e => e.getClientRects().length).map(e => ({
+      kind: e.tagName === 'PROGRESS' ? 'progress' : e.getAttribute('role'),
+      label: (e.getAttribute('aria-label') || '').trim(), named: named(e), card: card(e),
+      value: e.tagName === 'PROGRESS' ? String(e.value) : e.getAttribute('aria-valuenow'),
+      min: e.getAttribute('aria-valuemin') || '0',
+      max: e.tagName === 'PROGRESS' ? String(e.max) : e.getAttribute('aria-valuemax'),
+      text: (e.getAttribute('aria-valuetext') || '').trim()}));
+  const body = document.body ? document.body.innerText : '';
+  return {items, chat_excluded: /chat conversations are not included/i.test(body)};
+}"""
+
+
+def usage_windows(items):
+    """Usage windows from today's usage pages; unrelated bars are ignored.
+
+    Claude: meters named by their heading, "4% used". ChatGPT: a "Usage remaining"
+    progress bar in the "Weekly limit" card. Older pages: "Weekly remaining" bars.
+    """
+    windows = []
+    for item in items:
+        name = remaining = None
+        old = re.fullmatch(r"(.+?)\s+(used|remaining)(?:\s+usage)?", item.get("label", ""), re.I)
+        said = re.fullmatch(r"(\d+(?:\.\d+)?)%\s+(used|left|remaining)", item.get("text", ""), re.I)
+        try:
+            value = float(item.get("value"))
+            top = float(item.get("max") or 0)
+        except (TypeError, ValueError):
+            continue
+        if top <= 0 or not 0 <= value <= top:
+            continue
+        percent = value * 100 / top
+        if old and item.get("kind") == "progressbar":
+            name, remaining = old[1], (100 - percent if old[2].lower() == "used" else percent)
+        elif said and (item.get("named") or item.get("label")):
+            name = item.get("named") or item.get("label")
+            shown = float(said[1])
+            remaining = 100 - shown if said[2].lower() == "used" else shown
+        elif item.get("kind") == "progress" and re.fullmatch(r"usage (remaining|left|used)", item.get("label", ""), re.I) and item.get("card"):
+            name = item["card"]
+            remaining = 100 - percent if item["label"].lower().endswith("used") else percent
+        if name is None:
+            continue
+        windows.append({"name": name, "remaining": round(remaining, 2)})
+    if len({w["name"] for w in windows}) != len(windows):
+        raise Blocked("Provider usage page shows the same limit twice")
+    return windows
+
+
+async def read_usage(page, cfg):
+    """Usage left on today's usage pages, and whether this route has no numeric limit."""
+    try:
+        await page.locator('[role="meter"], [role="progressbar"], progress').first.wait_for(
+            state="visible", timeout=15000
+        )
+    except Exception:
+        pass  # read what is there; an empty page is reported below
+    found = await page.evaluate(USAGE)
+    if isinstance(found, list):  # older pages, read the old way
+        return {"windows": await usage_snapshot(page, cfg), "no_numeric_limit": False}
+    # ChatGPT's plan limits cover Work; its page says chat conversations aren't included.
+    if cfg.get("provider") == "openai" and cfg.get("mode") == "Chat" and found.get("chat_excluded"):
+        return {"windows": [], "no_numeric_limit": True}
+    windows = usage_windows(found.get("items", []))
+    if not windows:
+        raise Blocked("Provider has no complete unambiguous numeric allowance mapping")
+    return {"windows": windows, "no_numeric_limit": False}
 
 
 async def usage_snapshot(page, cfg):
