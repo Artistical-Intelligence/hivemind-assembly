@@ -386,9 +386,9 @@ SURFACES = {"openai": ChatGPT(), "claude": Claude()}
 async def detect(page, cfg):
     """The provider's current page layout, when this page is one HA knows."""
     surface = SURFACES.get(cfg.get("provider"))
-    if surface is not None and await surface.present(page):
-        return surface
-    return None
+    if surface is None or not hasattr(page, "locator"):
+        return None
+    return surface if await surface.present(page) else None
 
 
 def from_selectors(selectors):
