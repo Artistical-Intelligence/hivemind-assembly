@@ -378,3 +378,42 @@ def test_adviser_describes_pictures_only_for_material_it_may_read(store, tmp_pat
     assert knowledge.search("accumulator diagram", role="controller")[0]["title"] == "Registers"
     with pytest.raises(ContractError, match="no pictures waiting"):
         curation.queue_pictures(allowed["id"])
+
+
+def test_documents_from_older_versions_are_read_again_and_replaced_on_re_add(store, tmp_path):
+    import hashlib
+    import time
+
+    from hivemind_assembly.core.artifacts import Artifacts
+    from hivemind_assembly.core.common import canonical
+
+    path = word(tmp_path / "guide.docx")
+    raw = path.read_bytes()
+    original = Artifacts(store).add(raw, "guide.docx", classification="restricted")
+    # What versions before 0.33 stored: paragraphs, and a picture recorded as a gap.
+    old = {
+        "status": "partial",
+        "gaps": ["Embedded images inventoried; visual interpretation pending"],
+        "images": ["word/media/image1.png"],
+        "original_artifact": original["id"],
+        "original_sha256": hashlib.sha256(raw).hexdigest(),
+    }
+    with store.tx() as db:
+        db.execute(
+            "INSERT INTO sources VALUES(?,?,?,?,?,?,?)",
+            ("source_old", "guide.docx", hashlib.sha256(raw).hexdigest(), 1, canonical(old),
+             canonical([{"id": "1", "text": "Machine Guide"}, {"id": "2", "text": "Memory"}]), time.time()),
+        )
+    scopes = KnowledgeScopes(store)
+    scopes.create_tag("machines", "Machines")
+    scopes.assign("source", "source_old", ["machines"])
+    knowledge = Knowledge(store)  # The first use reads it again from the kept original.
+    source = knowledge.source("source_old", "controller")
+    assert source["extraction"]["status"] == "text_extracted" and source["extraction"]["format"] == 2
+    assert [s["title"] for s in source["sections"]][:2] == ["Machine Guide", "Memory"]
+    assert scopes.tags("source", "source_old") == ["machines"] and source["external_allowed"] == 1
+    # Adding the same file again replaces that copy instead of adding a second one.
+    assert knowledge.ingest(path, True)["id"] == "source_old"
+    word(path, extra_heading="Toolbox")
+    assert knowledge.ingest(path, True)["id"] == "source_old"
+    assert store.one("SELECT COUNT(*) AS n FROM sources")["n"] == 1
