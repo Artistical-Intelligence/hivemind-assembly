@@ -318,3 +318,63 @@ def test_broker_reference_answers_follow_later_scope_changes(ready, tmp_path):
     scopes.select(task["id"], [], scopes.catalog()["revision"])
     with pytest.raises(Blocked):
         read()
+
+
+def test_adviser_describes_pictures_only_for_material_it_may_read(store, tmp_path):
+    import asyncio
+    from contextlib import nullcontext
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    from hivemind_assembly.core.controller import Controller
+    from hivemind_assembly.learning.curation import KnowledgeCuration
+
+    knowledge = Knowledge(store)
+    controller = Controller(store)
+    sent = []
+
+    class Browser:
+        config = {"routes": {"adviser.extra": {"conversation_url": "pictures-only"}}}
+
+        async def exchange(self, route, message, attachments=()):
+            payload = json.loads(message["payload"])
+            sent.append(([p["id"] for p in payload["pictures"]], [Path(a["path"]).name for a in attachments]))
+            response = {
+                "request_id": message["id"],
+                "type": "picture_descriptions",
+                "descriptions": [{"id": "p2", "description": "A register diagram with the accumulator"},
+                                 {"id": "p9", "description": "Not one of the pictures asked about"}],
+            }
+            controller.message_state(message["id"], "validated", json.dumps(response))
+            return response
+
+    class Isolated:
+        async def isolated_browser(self, task, route, identity):
+            return Browser()
+
+        async def release_isolated(self, identity):
+            pass
+
+    team = SimpleNamespace(
+        store=store, controller=controller, sessions=Isolated(),
+        observations={"adviser.extra": SimpleNamespace(eligible=lambda: True)},
+        learning_budget=lambda *args: nullcontext(),
+    )
+    curation = KnowledgeCuration(team)
+    private = knowledge.ingest(word(tmp_path / "private.docx"), False)
+    with pytest.raises(Blocked, match="not authorized"):
+        curation.queue_pictures(private["id"])
+    allowed = knowledge.ingest(word(tmp_path / "guide.docx"), True)
+    key = curation.queue_pictures(allowed["id"])["id"]
+    asyncio.run(curation.supervise(key))
+    assert curation.status(key)["stage"] == "completed" and curation.status(key)["described"] == 1
+    # Only the picture without a caption or alt text was sent.
+    assert sent == [(["p2"], ["p2.png"])]
+    source = knowledge.source(allowed["id"], "controller")
+    p2 = {p["id"]: p for p in source["extraction"]["pictures"]}["p2"]
+    assert p2["described"] and p2["described_by"] == "adviser"
+    assert source["extraction"]["counts"]["pictures_not_described"] == 0
+    assert "[Picture p2: A register diagram with the accumulator]" in source["sections"][2]["text"]
+    assert knowledge.search("accumulator diagram", role="controller")[0]["title"] == "Registers"
+    with pytest.raises(ContractError, match="no pictures waiting"):
+        curation.queue_pictures(allowed["id"])
