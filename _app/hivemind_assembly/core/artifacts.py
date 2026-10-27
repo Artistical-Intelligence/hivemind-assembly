@@ -105,18 +105,22 @@ class Artifacts:
                     raise Blocked("Knowledge excerpt requires its scoped task")
                 from hivemind_assembly.learning.scopes import KnowledgeScopes
 
-                KnowledgeScopes(self.store).check(task, "source", grant["source"])
-                source = self.store.one(
-                    "SELECT revision,external_allowed FROM sources WHERE id=?",
-                    (grant["source"],),
-                )
-                if (
-                    not source["external_allowed"]
-                    or source["revision"] != grant["revision"]
-                ):
-                    raise Blocked(
-                        "Knowledge excerpt is stale or permission was revoked"
+                # One source (an excerpt) or several (a reference tool's answer):
+                # each must still be in the task's categories, allowed, and unchanged.
+                for item in grant.get("sources") or [grant]:
+                    KnowledgeScopes(self.store).check(task, "source", item["source"])
+                    found = self.store.rows(
+                        "SELECT revision,external_allowed FROM sources WHERE id=?",
+                        (item["source"],),
                     )
+                    if (
+                        not found
+                        or not found[0]["external_allowed"]
+                        or found[0]["revision"] != item["revision"]
+                    ):
+                        raise Blocked(
+                            "Knowledge excerpt is stale or permission was revoked"
+                        )
             elif cls == "task" and row["logical_name"] == "excerpt.json":
                 raise Blocked(
                     "Legacy knowledge excerpt must be reissued for a scoped task"
