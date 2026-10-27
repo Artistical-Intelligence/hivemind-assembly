@@ -211,6 +211,15 @@ class Knowledge:
                 and json.loads(old["extraction"]).get("format") == 2
             ):
                 kept = json.loads(old["extraction"])
+                if kept.get("origin") != origin:
+                    # The same file, now known by where it is: later imports find it there.
+                    kept["origin"] = origin
+                    with self.store.tx() as db:
+                        db.execute("UPDATE sources SET extraction=? WHERE id=?", (canonical(kept), previous))
+                        db.execute(
+                            "INSERT INTO knowledge_origins VALUES(?,?) ON CONFLICT(origin) DO UPDATE SET source=excluded.source",
+                            (canonical(origin), previous),
+                        )
                 return {"id": previous, "revision": revision, "unchanged": True, "tags": tags,
                         **kept, "sections": kept.get("counts", {}).get("sections", 0)}
         kind = kind or kind_of(p.name) or "unsupported"
