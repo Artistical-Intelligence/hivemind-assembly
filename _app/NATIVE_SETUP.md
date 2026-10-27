@@ -27,8 +27,8 @@ lists show only models already in use or saved. **Use** switches the
 assistants to the lists as shown; only assistants whose choice changed are set
 up again, with a new conversation and their own usage check when the service or
 mode changes. **Save** replaces the selected setup (including **Default**) and
-**Save as new** keeps another one. Changing setups waits while a project step is
-running.
+**Save as new** keeps another one. Pause a running project before using another
+setup or reading choices; both change models in the services' tabs.
 
 A route becomes eligible only after the exact controls are observed, its shared
 allowance permits admission, and a new persistent conversation passes a two-way
