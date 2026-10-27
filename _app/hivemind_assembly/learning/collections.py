@@ -67,6 +67,24 @@ def _flags():
     return getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
 
 
+def looks_like_text(head):
+    """The first 8 KiB of a file without a known extension: UTF-8 or UTF-16 text?
+    (A character cut off at the end of the sample doesn't count against it.)"""
+    import codecs
+
+    if not head.strip():
+        return False
+    if head.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return True
+    if b"\0" in head:
+        return False
+    try:
+        codecs.getincrementaldecoder("utf-8")().decode(head, final=False)
+        return True
+    except UnicodeDecodeError:
+        return False
+
+
 def tag_id(label):
     """A category ID from a folder name or front-matter tag."""
     key = re.sub(r"[^a-z0-9_-]+", "-", label.lower()).strip("-_")[:64].strip("-_")
@@ -452,7 +470,7 @@ class KnowledgeCollections:
                 if kind is None:
                     with open(path, "rb") as f:
                         head = f.read(8192)
-                    kind = "text" if documents.decode(head) is not None and head.strip() else None
+                    kind = "text" if looks_like_text(head) else None
                 if kind is None:
                     skipped.append({"path": rel, "reason": f"binary data ({suffix or 'no extension'}), not text"})
                 elif kind in ("word", "pdf") and size > MAX_DOCUMENT or kind not in ("word", "pdf") and size > MAX_TEXT:
