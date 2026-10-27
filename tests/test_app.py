@@ -1,4 +1,4 @@
-import json, threading, urllib.request, urllib.error
+import asyncio, json, threading, urllib.request, urllib.error
 from pathlib import Path
 import pytest
 from workbench.app import Application, make_server
@@ -500,3 +500,38 @@ def test_private_repository_list_for_the_picker(app, monkeypatch):
     ]
     method, path, kw = calls[0]
     assert method == "GET" and "visibility=private" in path and kw["allow_list"] is True
+
+
+def test_assistant_setups_default_save_overwrite_and_use(app):
+    setups = app.status()["assistant_setups"]
+    # The setup the owner already had is saved as Default and is in use.
+    assert setups["active"] == "Default"
+    default = setups["presets"]["Default"]
+    assert default["worker.opus"] == {"provider": "claude", "mode": "native", "model": "Opus 5.5", "effort": "High"}
+    fast = json.loads(json.dumps(default))
+    fast["reviewer.high"] = {"provider": "claude", "mode": "native", "model": "Sonnet 5.5", "effort": "Low"}
+    fast["adviser.extra"]["effort"] = "Pro"
+    saved = app.action("/api/assistants/save", {"name": "Fast", "targets": fast})
+    assert set(saved["presets"]) == {"Default", "Fast"} and saved["active"] == "Default"
+    started = []
+    app.native_setup.run = lambda route: started.append(route) or asyncio.sleep(0)
+    used = app.action("/api/assistants/use", {"name": "Fast"})
+    assert sorted(used["changed"]) == ["adviser.extra", "reviewer.high"] and used["active"] == "Fast"
+    reviewer = app.config["routes"]["reviewer.high"]
+    # Another service: its own host, sign-in, usage limits and a new conversation.
+    assert reviewer["allowed_hosts"] == ["claude.ai"] and reviewer["profile"] == "claude"
+    assert reviewer["usage"]["scope"] == "claude.native" and reviewer["conversation_url"] == ""
+    assert app.config["routes"]["adviser.extra"]["effort"] == "Pro"
+    assert sorted(started) == ["adviser.extra", "reviewer.high"]
+    # Overwriting Default is allowed; unknown services and modes are refused.
+    app.action("/api/assistants/save", {"name": "Default", "targets": fast})
+    assert app.status()["assistant_setups"]["presets"]["Default"]["adviser.extra"]["effort"] == "Pro"
+    bad = json.loads(json.dumps(fast))
+    bad["worker.extra"]["mode"] = "Turbo"
+    with pytest.raises(Exception, match="no Turbo mode"):
+        app.action("/api/assistants/save", {"name": "Bad", "targets": bad})
+    with pytest.raises(Exception, match="1–60"):
+        app.action("/api/assistants/save", {"name": " ", "targets": fast})
+    # The services row: one entry per service, with the assistants using it.
+    services = {s["provider"]: s for s in app.status()["services"]}
+    assert sorted(services["claude"]["routes"]) == ["reviewer.high", "worker.opus"]
