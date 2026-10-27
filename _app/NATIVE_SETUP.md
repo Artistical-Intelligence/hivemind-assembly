@@ -6,15 +6,29 @@ selects exact matching options when available. Sign-in, passkeys and 2FA stay in
 the provider browser; HA does not copy credentials from your ordinary profile.
 Pending setup resumes after sign-in and after an application restart.
 
-The required roles are:
+The first setup, saved as **Default**, is:
 
-| Role | Provider and surface | Model | Effort |
+| Assistant | Provider and surface | Model | Effort |
 | --- | --- | --- | --- |
-| Worker | Claude native | Opus 5.5 | High |
-| Worker | ChatGPT Work | GPT-6 Astra | High |
-| Worker | ChatGPT Chat | GPT-6 | Extra High |
+| Worker 1 | Claude native | Opus 5.5 | High |
+| Worker 2 | ChatGPT Work | GPT-6 Astra | High |
+| Worker 3 | ChatGPT Chat | GPT-6 | Extra High |
 | Adviser | Separate ChatGPT Chat conversation | GPT-6 | Extra High |
 | Reviewer | Separate ChatGPT Chat conversation | GPT-6 | High |
+
+## Choosing models and saving setups
+
+**AI assistants** has one sign-in button per service (ChatGPT, Claude) on its
+top row; one sign-in covers every assistant on that service. Each assistant's
+row has a **Model** and a **Thinking** list. **Read choices** opens each
+service's own model menu in HA's tab, records every model, Chat/Work mode and
+thinking level it offers, and puts your selection there back; until then the
+lists show only models already in use or saved. **Use** switches the
+assistants to the lists as shown; only assistants whose choice changed are set
+up again, with a new conversation and their own usage check when the service or
+mode changes. **Save** replaces the selected setup (including **Default**) and
+**Save as new** keeps another one. Changing setups waits while a project step is
+running.
 
 A route becomes eligible only after the exact controls are observed, its shared
 allowance permits admission, and a new persistent conversation passes a two-way
