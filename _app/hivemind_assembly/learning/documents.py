@@ -107,17 +107,21 @@ class Word:
     def __init__(self, path):
         self.path = Path(path)
         self.zip = zipfile.ZipFile(self.path)
-        self.names = set(self.zip.namelist())
-        self.styles = self._styles()
-        self.pictures = []
-        self.tables = 0
-        self.gaps = []
-        self.notes_used = []
-        self.footnotes = {}
-        # Footnotes have their own links and pictures, listed in their own relationships.
-        self.rels = self._rels("word/_rels/footnotes.xml.rels")
-        self.footnotes = self._notes("word/footnotes.xml", "footnote")
-        self.rels = self._rels("word/_rels/document.xml.rels")
+        try:
+            self.names = set(self.zip.namelist())
+            self.styles = self._styles()
+            self.pictures = []
+            self.tables = 0
+            self.gaps = []
+            self.notes_used = []
+            self.footnotes = {}
+            # Footnotes have their own links and pictures, listed in their own relationships.
+            self.rels = self._rels("word/_rels/footnotes.xml.rels")
+            self.footnotes = self._notes("word/footnotes.xml", "footnote")
+            self.rels = self._rels("word/_rels/document.xml.rels")
+        except BaseException:
+            self.zip.close()  # Not left open when the file can't be read.
+            raise
 
     def _xml(self, name):
         return ET.fromstring(self.zip.read(name)) if name in self.names else None
