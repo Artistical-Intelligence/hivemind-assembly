@@ -144,16 +144,27 @@ class Knowledge:
             except Exception as error:
                 self.store.put("knowledge_upgrade_failed", row["id"], {"reason": str(error)[:300]})
 
-    def _legacy(self, name):
-        """A document with this name that an older version imported (it didn't record
-        where documents came from), so adding the file again replaces it."""
+    def _legacy(self, name, revision):
+        """A document an older version imported (it didn't record where documents came
+        from). Only an identical file is taken to be the same document, so adding it
+        again finds it; a different file with the same name is added beside it, and
+        the older copy is named so the owner can remove it if it's the same document.
+        Returns (same document, older copy with the same name)."""
         rows = self.store.rows(
-            "SELECT id FROM sources WHERE lower(name)=lower(?) AND (json_extract(extraction,'$.origin') IS NULL "
+            "SELECT id,revision FROM sources WHERE lower(name)=lower(?) AND (json_extract(extraction,'$.origin') IS NULL "
             "OR json_extract(extraction,'$.origin.kind')='legacy')",
             (name,),
         )
-        # Only when exactly one matches; with several, HA doesn't guess which.
-        return rows[0]["id"] if len(rows) == 1 else None
+        same = [r["id"] for r in rows if r["revision"] == revision]
+        if len(same) == 1:
+            return same[0], None
+        return None, (rows[0]["id"] if len(rows) == 1 else None)
+
+    def assigned_tags(self, key):
+        """The categories HA itself gave this copy when it was last imported (None when
+        unknown), so a later import can tell whether the owner changed them."""
+        rows = self.store.rows("SELECT json_extract(extraction,'$.assigned_tags') AS tags FROM sources WHERE id=?", (key,))
+        return json.loads(rows[0]["tags"]) if rows and rows[0]["tags"] else None
 
     def _write_sections(self, db, key, sections, title, names):
         for ord_, s in enumerate(sections):
@@ -197,17 +208,19 @@ class Knowledge:
         """Import one file; importing it again replaces the previous copy."""
         p = Path(path)
         origin = origin or {"kind": "file", "path": str(p.resolve())}
-        previous = replace or self.origin_source(origin) or (self._legacy(p.name) if origin["kind"] == "file" else None)
+        revision = file_hash(p)
+        previous, older = replace or self.origin_source(origin), None
+        if not previous and origin["kind"] == "file":
+            previous, older = self._legacy(p.name, revision)
         if tags is None:
             tags = self.scopes.tags("source", previous) if previous else ["unclassified"]
         tags = self.scopes.validate_tags(tags)
-        revision = file_hash(p)
         if previous:
             old = self.store.one("SELECT revision,external_allowed,extraction FROM sources WHERE id=?", (previous,))
             if (
                 old["revision"] == revision
                 and bool(old["external_allowed"]) == bool(external_allowed)
-                and self.scopes.tags("source", previous) == tags
+                and sorted(self.scopes.tags("source", previous)) == sorted(tags)
                 and json.loads(old["extraction"]).get("format") == 2
             ):
                 kept = json.loads(old["extraction"])
@@ -250,6 +263,7 @@ class Knowledge:
                 "description": described,
                 "viewable": bool(data) and picture.get("suffix") in documents.VIEWABLE,
                 "linked": bool(picture.get("external")),
+                "missing": bool(picture.get("missing")),
             })
         sections = [
             {k: s[k] for k in ("id", "title", "level", "path", "text", "links", "pictures")} for s in parsed.sections
@@ -268,6 +282,7 @@ class Knowledge:
             "original_artifact": artifact["id"],
             "original_sha256": revision,
             "origin": origin,
+            "assigned_tags": tags,
         }
         name = display or p.name
         with self.store.tx() as db:
@@ -289,13 +304,14 @@ class Knowledge:
                 "INSERT INTO knowledge_origins VALUES(?,?) ON CONFLICT(origin) DO UPDATE SET source=excluded.source",
                 (canonical(origin), key),
             )
-        if not previous or self.scopes.tags("source", key) != tags:
+        if not previous or sorted(self.scopes.tags("source", key)) != sorted(tags):
             self.scopes.assign("source", key, tags)
         return {
             "tags": tags,
             "id": key,
             "revision": revision,
             "replaced": bool(previous),
+            **({"older_copy": older} if older else {}),
             **extraction,
             "sections": len(sections),
         }
@@ -575,6 +591,7 @@ class Knowledge:
                 item["shown"] = False
                 item["why_not"] = (
                     "a linked picture outside the document" if p.get("linked")
+                    else "the picture file is missing" if p.get("missing")
                     else "this picture format can't be shown" if not p.get("viewable")
                     else "too large to show, or more than 4 asked for at once"
                 )
