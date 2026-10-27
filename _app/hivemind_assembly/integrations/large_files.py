@@ -68,7 +68,8 @@ def script(name):
 def asset_base(path):
     """A file name GitHub keeps unchanged: letters, digits, dots, underscores, hyphens."""
     name = re.sub(r"[^A-Za-z0-9._-]+", "-", PurePosixPath(path).name)
-    name = re.sub(r"-{2,}", "-", name).strip(".-")[:100].strip(".-")
+    name = re.sub(r"-*\.-*", ".", re.sub(r"-{2,}", "-", name))
+    name = name.strip(".-")[:100].strip(".-")
     return name or "file"
 
 
