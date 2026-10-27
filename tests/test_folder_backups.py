@@ -1,6 +1,7 @@
 """Folder backups to GitHub, against a local Git remote standing in for GitHub."""
 
 import asyncio
+import os
 import subprocess
 from concurrent.futures import Future
 
@@ -10,6 +11,9 @@ from hivemind_assembly.core.common import Blocked, Conflict, ContractError
 from hivemind_assembly.integrations import github_folders
 from hivemind_assembly.integrations.github import GitHubError
 from hivemind_assembly.integrations.github_folders import FolderBackups
+
+# A name with pattern characters that must be taken literally (Windows doesn't allow *).
+ODD = "odd name [v2]*.txt" if os.name != "nt" else "odd name [v2].txt"
 
 
 def git(*args, cwd=None):
@@ -24,7 +28,7 @@ def world(tmp_path):
     (folder / "docs").mkdir(parents=True)
     (folder / "docs" / "guide.md").write_text("# Guide\n")
     (folder / "data.bin").write_bytes(bytes(range(256)) * 4)
-    (folder / "odd name [v2]*.txt").write_text("literal name\n")
+    (folder / ODD).write_text("literal name\n")
     (folder / ".env").write_text("TOKEN=secret\n")
     (folder / "vendored" / ".git").mkdir(parents=True)
     (folder / "vendored" / "lib.c").write_text("int x;\n")
@@ -75,7 +79,7 @@ def test_first_upload_leaves_out_secrets_and_nested_history_but_not_large_files(
     # Without a GitHub sign-in for release assets, the large file waits and says so.
     assert entry["state"] == "waiting", entry["message"]
     assert "waiting: connect GitHub" in entry["message"]
-    assert {"docs/guide.md", "data.bin", "odd name [v2]*.txt"} <= tree(remote)
+    assert {"docs/guide.md", "data.bin", ODD} <= tree(remote)
     assert "huge.iso" not in tree(remote)
     reasons = {x["path"]: x["reason"] for x in entry["excluded"]}
     assert set(reasons) == {".env", "vendored/"}
@@ -135,7 +139,7 @@ def test_large_first_upload_goes_up_in_parts(world, monkeypatch):
     assert entry["state"] == "done", entry["message"]
     history = git("--git-dir", str(remote), "log", "--format=%s", "main").splitlines()
     assert len(history) >= 2 and "(part" in history[0]
-    assert tree(remote) == {"docs/guide.md", "data.bin", "odd name [v2]*.txt"}
+    assert tree(remote) == {"docs/guide.md", "data.bin", ODD}
 
 
 def test_requests_are_checked_before_anything_runs(world, tmp_path):
