@@ -22,6 +22,30 @@ def marker_pattern(marker):
     return re.compile(r"(?:^|\s)" + re.escape(marker) + r"(?:\s|$)")
 
 
+# The assistant replies after one request, by DOM turn order between that user turn and
+# the next one; a reply that is only a rendered code block yields its code, fenced.
+REPLIES = """({users, assistants, marker}) => {
+const u=[...document.querySelectorAll(users)];
+const hit=u.filter(e=>e.innerText.split(/\\s+/).includes(marker));
+if(hit.length!==1) return [];
+const start=hit[0], next=u[u.indexOf(start)+1];
+return [...document.querySelectorAll(assistants)].filter(e=>
+    !!(start.compareDocumentPosition(e)&Node.DOCUMENT_POSITION_FOLLOWING) &&
+    (!next || !!(e.compareDocumentPosition(next)&Node.DOCUMENT_POSITION_FOLLOWING)))
+    .map(e=>{
+        // A reply that is only a rendered code block: its code, fenced, without
+        // the block's label and copy button. Any other text keeps the whole reply.
+        const pres=e.querySelectorAll('pre');
+        if(pres.length===1){
+            const code=pres[0].querySelector('code')||pres[0];
+            const outside=e.innerText.replace(pres[0].innerText,'').trim();
+            if(/^(json)?$/i.test(outside)) return '```json\\n'+code.textContent.trim()+'\\n```';
+        }
+        return e.innerText;
+    });
+}"""
+
+
 class NativeBrowser:
     def __init__(self, config, root, controller):
         self.config = config
@@ -477,16 +501,7 @@ class NativeBrowser:
             # Associate by observed DOM order between this user turn and the
             # next user turn, not a model's willingness to echo an ID.
             candidates = await page.evaluate(
-                """({users, assistants, marker}) => {
-                const u=[...document.querySelectorAll(users)];
-                const hit=u.filter(e=>e.innerText.split(/\\s+/).includes(marker));
-                if(hit.length!==1) return [];
-                const start=hit[0], next=u[u.indexOf(start)+1];
-                return [...document.querySelectorAll(assistants)].filter(e=>
-                    !!(start.compareDocumentPosition(e)&Node.DOCUMENT_POSITION_FOLLOWING) &&
-                    (!next || !!(e.compareDocumentPosition(next)&Node.DOCUMENT_POSITION_FOLLOWING)))
-                    .map(e=>e.innerText);
-            }""",
+                REPLIES,
                 {
                     "users": s["user_messages"],
                     "assistants": s["assistant_messages"],
