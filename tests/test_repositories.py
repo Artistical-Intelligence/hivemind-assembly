@@ -29,14 +29,14 @@ class GitHubFixture:
     def lookup(self, owner, name):
         return copy.deepcopy(self.repos.get((owner.lower(), name.lower())))
 
-    def create(self, owner, name, description, organization=False):
+    def create(self, owner, name, description, organization=False, private=True):
         self.creates += 1
         if self.denied:
             raise GitHubError(403)
         repo = {
             "id": 42,
             "full_name": owner + "/" + name,
-            "private": True,
+            "private": private,
             "description": description,
             "permissions": {"push": True},
             "archived": False,
@@ -279,3 +279,48 @@ def test_invalid_new_operation_cannot_claim_previous_repository(provisioning):
     )
     assert broker.recover_pending() == []
     assert remote.creates == 1
+
+
+def test_owner_can_choose_a_public_repository(provisioning):
+    c, t, remote, service, broker, request = provisioning
+    result = service.create(
+        t["project_id"], "public-op", {"name": "shared", "visibility": "public"}
+    )
+    assert result["private"] is False and result["visibility"] == "public"
+    assert remote.lookup("owner", "shared")["private"] is False
+    assert service.status(t["project_id"])["visibility"] == "public"
+    # Asking again for the same name as private is a different request.
+    with pytest.raises(Conflict):
+        service.create(t["project_id"], "private-op", {"name": "shared"})
+
+
+def test_visibility_change_on_github_blocks_reuse(provisioning):
+    c, t, remote, service, broker, request = provisioning
+    broker.execute(request)
+    remote.repos["owner", "recovered"]["private"] = False
+    with pytest.raises(Conflict, match="private visibility"):
+        service.reconcile(t["project_id"])
+
+
+def test_assistants_cannot_create_public_repositories(provisioning):
+    c, t, remote, service, broker, request = provisioning
+    public = {**request, "args": {**request["args"], "visibility": "public"}}
+    with pytest.raises(Blocked, match="public"):
+        broker.execute(public)
+    assert remote.creates == 0
+
+
+def test_link_records_an_existing_public_repository(provisioning):
+    c, t, remote, service, broker, request = provisioning
+    remote.repos["owner", "open-source"] = {
+        "id": 7,
+        "full_name": "owner/open-source",
+        "private": False,
+        "description": "",
+        "permissions": {"push": True},
+        "archived": False,
+        "default_branch": "main",
+    }
+    remote.head = lambda owner, name, branch: None
+    saved = service.link(t["project_id"], "link-op", {"name": "open-source"})
+    assert saved["visibility"] == "public" and saved["state"] == "verified"
