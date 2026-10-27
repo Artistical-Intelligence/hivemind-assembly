@@ -1027,3 +1027,51 @@ def test_folder_backup_large_files_list(server, app, tmp_path, monkeypatch):
     finally:
         stand_in.close()
     assert len(stand_in.names()) == 5
+
+
+def test_reference_material_folder_import_in_the_dashboard(server, app, tmp_path):
+    from playwright.sync_api import sync_playwright, expect
+    from test_reference_material import word
+
+    folder = tmp_path / "Notes"
+    (folder / "guides").mkdir(parents=True)
+    word(folder / "guides" / "book.docx")
+    (folder / "readme.md").write_text("---\ntags: [overview]\n---\n# Overview\n\nWhere things are.\n")
+    (folder / "tools.zip").write_bytes(b"PK\x05\x06" + b"\0" * 18)
+    (folder / "blob.bin").write_bytes(b"\0\1\2" * 50)
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ["WORKBENCH_TEST_CHROME"],
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+        page.locator('[data-tab="routes"]').click()
+        form = page.locator("#source-form")
+        expect(form.locator('[data-what="document"]')).to_be_visible()
+        form.locator('[name="what"]').select_option("folder")
+        expect(form.locator('[data-what="document"]')).to_be_hidden()
+        expect(form.get_by_role("button", name="Import folder")).to_be_visible()
+        form.locator('[name="folder"]').fill(str(folder))
+        form.locator('[name="external_allowed"]').check()
+        form.get_by_role("button", name="Import folder").click()
+        card = page.locator("#collection-list [data-collection]")
+        expect(card.locator(".kc-message")).to_contain_text("Imported 2 documents: 2 new", timeout=30000)
+        expect(card).to_contain_text("2 documents: 6 sections, 1 table, 2 pictures (1 not yet described)")
+        # Skipped files are listed with their reasons, never silently.
+        card.locator(".kc-skipped summary").click()
+        expect(card.locator(".kc-skipped")).to_contain_text("tools.zip: archive (.zip); unpack it to import what's inside")
+        expect(card.locator(".kc-skipped")).to_contain_text("blob.bin: binary data (.bin), not text")
+        expect(card.get_by_role("button", name="Let the adviser describe 1 picture")).to_be_visible()
+        expect(card.get_by_role("button", name="Import again")).to_be_visible()
+        # Folder names and front matter became categories.
+        catalog = page.locator("#knowledge-catalog")
+        expect(catalog).to_contain_text("overview")
+        expect(catalog).to_contain_text("guides")
+        card.get_by_role("button", name="Import again").click()
+        expect(card.locator(".kc-message")).to_contain_text("2 unchanged", timeout=30000)
+        assert errors == []
+        browser.close()
