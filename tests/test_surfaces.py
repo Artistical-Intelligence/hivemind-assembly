@@ -205,3 +205,35 @@ def test_usage_pages_as_the_sites_show_them():
         "windows": [{"name": "Current session", "remaining": 96.0}, {"name": "This week", "remaining": 75.0}],
         "no_numeric_limit": False,
     }
+
+
+def test_observe_rejects_drift_and_repair_restores_the_exact_route(store, tmp_path):
+    from hivemind_assembly.automation.native import NativeBrowser
+    from hivemind_assembly.core.controller import Controller
+
+    url = "https://chatgpt.com/c/abc-123"
+    cfg = route("openai", "Chat", "GPT-6", "Extra High", "owner@example.com")
+    cfg.update(
+        profile="openai",
+        conversation_url=url,
+        selectors={**CONTRACTS["openai"]["selectors"], **{f: "surface:chatgpt" for f in ("mode", "model", "effort", "account")}},
+    )
+
+    async def body(page):
+        native = NativeBrowser({"routes": {"adviser.extra": cfg}}, tmp_path, Controller(store))
+        native.pages["adviser.extra"] = page
+        native.contexts["openai"] = page.context
+        # The tab is on Work / GPT-6 Astra / High, not this route's Chat / GPT-6 / Extra High.
+        with pytest.raises(Blocked, match="observed mode does not match"):
+            await native.observe("adviser.extra")
+        await native.repair("adviser.extra")
+        evidence = await native.observe("adviser.extra", fresh=True)
+        assert (evidence["mode"], evidence["model"], evidence["effort"], evidence["account"]) == (
+            "Chat", "GPT-6", "Extra High", "owner@example.com")
+        # While a reply streams, checks read the page without opening any menu.
+        native.light.add("adviser.extra")
+        await page.evaluate("() => { window.opened = 0; new MutationObserver(r => r.forEach(m => m.addedNodes.forEach(n => n.getAttribute && n.getAttribute('role') === 'menu' && window.opened++))).observe(document.body, {childList: true}) }")
+        await native.observe("adviser.extra")
+        assert await page.evaluate("window.opened") == 0
+
+    run(CHATGPT, body, url)
