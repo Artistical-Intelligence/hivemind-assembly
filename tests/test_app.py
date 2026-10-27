@@ -541,3 +541,73 @@ def test_assistant_setups_default_save_overwrite_and_use(app):
     services = {s["provider"]: s for s in app.status()["services"]}
     assert services["claude"]["routes"] == ["worker.opus"]
     assert sorted(services["openai"]["routes"]) == ["adviser.extra", "reviewer.high", "worker.astra", "worker.extra"]
+
+
+def test_model_lists_read_after_setup_per_service_and_kept_when_a_read_fails(app, monkeypatch):
+    import time
+    from hivemind_assembly.automation.surfaces import SURFACES
+
+    signed_in = {"openai": True, "claude": True}
+    read = []
+
+    class Picker:
+        def __init__(self, ok):
+            self.ok = ok
+            self.first = self
+
+        async def wait_for(self, timeout=None):
+            if not self.ok:
+                raise TimeoutError("no model picker")
+
+    class Tab:
+        def __init__(self, profile):
+            self.profile, self.closed = profile, False
+
+        def locator(self, selector):
+            return Picker(signed_in[self.profile])
+
+        async def close(self):
+            self.closed = True
+
+    tabs = []
+
+    async def service_page(profile, url, hosts=None):
+        tabs.append(Tab(profile))
+        return tabs[-1]
+
+    def menu(provider, modes):
+        async def options(page):
+            read.append(provider)
+            return modes
+        return options
+
+    monkeypatch.setattr(app.browser, "service_page", service_page)
+    monkeypatch.setattr(SURFACES["openai"], "options", menu("openai", {"Chat": {"GPT-6": ["High", "Pro"]}}))
+    monkeypatch.setattr(SURFACES["claude"], "options", menu("claude", {"native": {"Opus 5.5": ["High", "Max"]}}))
+
+    async def verified(route):
+        return {"stage": "verified"}
+
+    monkeypatch.setattr(app.native_setup, "run", verified)
+    # A service's menu is read once it is set up, then not again for a week.
+    app.submit(app.setup_assistant("worker.extra")).result(10)
+    assert read == ["openai"]
+    assert app.model_choices()["openai"]["modes"] == {"Chat": {"GPT-6": ["High", "Pro"]}}
+    app.submit(app.setup_assistant("adviser.extra")).result(10)
+    assert read == ["openai"]
+    app.submit(app.setup_assistant("worker.opus")).result(10)
+    assert read == ["openai", "claude"]
+    assert all(t.closed for t in tabs)  # its own tab, closed after reading
+    # Signed out: the list read before stays, with the reason.
+    signed_in["claude"] = False
+    app.submit(app.read_choices(["claude"])).result(10)
+    claude = app.model_choices()["claude"]
+    assert claude["modes"] == {"native": {"Opus 5.5": ["High", "Max"]}}
+    assert claude["error"].startswith("Sign in to Claude first")
+    assert app.status()["model_choices"]["openai"]["modes"]
+    # A week-old list is read again at the next setup.
+    choices = app.model_choices()
+    choices["openai"]["read_at"] = time.time() - 8 * 86400
+    (app.store.root / "private" / app.CHOICES).write_text(json.dumps(choices))
+    app.submit(app.setup_assistant("reviewer.high")).result(10)
+    assert read == ["openai", "claude", "openai"]
