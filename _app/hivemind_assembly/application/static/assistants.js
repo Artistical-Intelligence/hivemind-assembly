@@ -227,7 +227,7 @@
       }
       if (signin) {
         await api('native/signin', {provider: signin.dataset.signin});
-        notice('Opened ' + (PROVIDER[signin.dataset.signin] || signin.dataset.signin) + ' in HA\'s browser. Sign in there if it asks.');
+        notice('Opened ' + (PROVIDER[signin.dataset.signin] || signin.dataset.signin) + ' in Chrome. Sign in there if it asks.');
       }
       if (id === 'setup-use') {
         const preset = last?.assistant_setups?.presets?.[chosen];
