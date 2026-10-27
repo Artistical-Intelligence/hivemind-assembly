@@ -31,6 +31,7 @@ PURPOSES = {
         "Settings files (*.json)|*.json|All files (*.*)|*.*",
     ),
     "practice": ("folder", "Choose the practice problems folder", ""),
+    "backup-folder": ("folder", "Choose the folder to back up to GitHub", ""),
     "mcp-program": (
         "file",
         "Choose the program that offers the tools",
