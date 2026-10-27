@@ -965,7 +965,7 @@ class Application:
                 future = self.native_setup_futures.get(route)
                 if future is None or future.done():
                     self.native_setup_futures[route] = self.submit(
-                        self.native_setup.run(route)
+                        self.setup_assistant(route)
                     )
             return {"started": True}
         if path == "/api/learning/share":
