@@ -89,7 +89,7 @@ $('#trace-more').onclick=()=>traceSearch(true);
 $('#trace-export').onclick=async()=>{try{const r=await api('traces/export',traceFilters);notice('Saved private transcript export: '+r.path)}catch(e){notice(e.message,true)}};
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-note]');if(b){try{await api('traces/annotate',{seq:Number(b.dataset.note),text:$('#note-'+b.dataset.note).value});notice('Review note saved.')}catch(x){notice(x.message,true)}}});
 
-document.addEventListener('click',async e=>{const b=e.target.closest('[data-native-setup]');if(b){try{await api('native/setup',{route:b.dataset.nativeSetup});notice('Setting up. The card shows each step.');refresh()}catch(x){notice(x.message,true)}}});
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-native-setup]');if(b){try{await api('native/setup',{route:b.dataset.nativeSetup});notice('Setting up. Its row shows each step.');refresh()}catch(x){notice(x.message,true)}}});
 
 $('#trace-viewer').onclick=async()=>{try{const r=await api('traces/viewer',{});notice('Sent '+r.sent+' events to the local viewer on port 6006.')}catch(e){notice(e.message,true)}};
 
