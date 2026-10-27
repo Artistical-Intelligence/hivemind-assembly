@@ -1987,6 +1987,7 @@ def make_server(app, port=0):
                 "/help.js": ("help.js", "text/javascript"),
                 "/workspace.js": ("workspace.js", "text/javascript"),
                 "/game_testing.js": ("game_testing.js", "text/javascript"),
+                "/folder_backups.js": ("folder_backups.js", "text/javascript"),
                 "/style.css": ("style.css", "text/css"),
                 "/favicon.svg": ("favicon.svg", "image/svg+xml"),
             }
