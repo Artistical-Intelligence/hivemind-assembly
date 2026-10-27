@@ -216,13 +216,20 @@ class ReleaseAssets:
                         progress(sent)
                     yield block
 
-        return self._call(
-            "POST",
-            f"{self.uploads}/repos/{self.owner}/{self.name}/releases/{release['id']}/assets",
-            params={"name": name},
-            headers={"Content-Type": "application/octet-stream", "Content-Length": str(size)},
-            content=body(),
-        )
+        try:
+            return self._call(
+                "POST",
+                f"{self.uploads}/repos/{self.owner}/{self.name}/releases/{release['id']}/assets",
+                params={"name": name},
+                headers={"Content-Type": "application/octet-stream", "Content-Length": str(size)},
+                content=body(),
+            )
+        except GitHubError as error:
+            if error.status == 422:
+                raise Blocked(
+                    f"GitHub refused {name}: the release may already hold 1,000 assets, or another upload of it is unfinished."
+                ) from None
+            raise
 
     def delete(self, asset):
         """Only for an interrupted upload's broken leftover with the same name."""
