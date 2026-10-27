@@ -1,5 +1,6 @@
-"""Domain-independent, durable provisioning of a project's private repository."""
+"""Domain-independent, durable provisioning of a project's repository (private unless the owner chooses public)."""
 
+import json
 import re
 import threading
 import time
@@ -8,10 +9,18 @@ from .common import Blocked, Conflict, ContractError, uid
 
 
 def repository_args(args):
-    if not isinstance(args, dict) or set(args) - {"name", "owner", "description"}:
+    if not isinstance(args, dict) or set(args) - {
+        "name",
+        "owner",
+        "description",
+        "visibility",
+    }:
         raise ContractError(
-            "Repository arguments are name, optional owner and description; repositories are always private."
+            "Repository arguments are name, optional owner, description and visibility (private or public)."
         )
+    visibility = args.get("visibility", "private")
+    if visibility not in ("private", "public"):
+        raise ContractError("Repository visibility must be private or public.")
     name, owner, description = (
         args.get("name"),
         args.get("owner", ""),
@@ -39,7 +48,12 @@ def repository_args(args):
         raise ContractError(
             "Repository description must be a single line of at most 200 characters."
         )
-    return {"name": name, "owner": owner, "description": description}
+    return {
+        "name": name,
+        "owner": owner,
+        "description": description,
+        "visibility": visibility,
+    }
 
 
 class Repositories:
@@ -48,6 +62,11 @@ class Repositories:
     A temporary description nonce distinguishes a lost creation response from a
     pre-existing repository. Once its ID is durable, remove the nonce and retain
     the requested description. No source files or commits are created.
+
+    Visibility is recorded with each request: private unless the owner chose
+    public. A repository whose visibility later differs from the record is
+    refused, so a private project is never published to a repository that has
+    since been made public.
     """
 
     def __init__(self, store, client, config):
@@ -55,14 +74,22 @@ class Repositories:
         self.lock = threading.RLock()
 
     def link(self, project, operation_id, args):
-        """Owner-requested binding to an existing private repository; no creation."""
+        """Owner-requested binding to an existing repository; no creation.
+
+        The repository's current visibility (private or public) is recorded and
+        must stay the same for later publications."""
         args = repository_args(args)
         with self.lock:
             user = self._identity()
             owner = args["owner"] or user["login"]
             repo = self.client.lookup(owner, args["name"])
             row = {"owner": owner, "name": args["name"], "repository_id": ""}
-            self._validate(row, repo)
+            visibility = (
+                "public"
+                if isinstance(repo, dict) and repo.get("private") is False
+                else "private"
+            )
+            self._validate(row, repo, visibility=visibility)
             existing = self.status(project)
             if existing.get("state"):
                 if (
@@ -107,6 +134,12 @@ class Repositories:
                     {"project_id": project, "marker": ""},
                     db,
                 )
+                self.store.put(
+                    "repository_visibility",
+                    operation_id,
+                    {"visibility": visibility},
+                    db,
+                )
             return {"status": "saved", **self.status(project)}
 
     def status(self, project):
@@ -117,17 +150,27 @@ class Repositories:
             return {"status": "unlinked"}
         row = rows[0]
         return {
-            k: row[k]
-            for k in (
-                "project_id",
-                "owner",
-                "name",
-                "state",
-                "repository_id",
-                "url",
-                "error",
-            )
+            **{
+                k: row[k]
+                for k in (
+                    "project_id",
+                    "owner",
+                    "name",
+                    "state",
+                    "repository_id",
+                    "url",
+                    "error",
+                )
+            },
+            "visibility": self._visibility(row),
         }
+
+    def _visibility(self, row):
+        rows = self.store.rows(
+            "SELECT payload FROM records WHERE kind='repository_visibility' AND id=?",
+            (row["operation_id"],),
+        )
+        return json.loads(rows[0]["payload"])["visibility"] if rows else "private"
 
     def uncertain(self, project, operation_id):
         return bool(
@@ -192,10 +235,16 @@ class Repositories:
             )
             if rows:
                 row = rows[0]
-                if (row["owner"].lower(), row["name"].lower(), row["description"]) != (
+                if (
+                    row["owner"].lower(),
+                    row["name"].lower(),
+                    row["description"],
+                    self._visibility(row),
+                ) != (
                     owner.lower(),
                     args["name"].lower(),
                     args["description"],
+                    args["visibility"],
                 ):
                     if (
                         row["state"] in ("prepared", "rejected", "conflict")
@@ -243,6 +292,12 @@ class Repositories:
                             time.time(),
                         ),
                     )
+                    self.store.put(
+                        "repository_visibility",
+                        operation_id,
+                        {"visibility": args["visibility"]},
+                        db,
+                    )
                 row = self._row(project)
             # A pre-existing name is never silently adopted or overwritten.
             if self.client.lookup(row["owner"], row["name"]) is not None:
@@ -256,7 +311,11 @@ class Repositories:
             self.store.event(
                 project,
                 "repository_creation_requested",
-                {"owner": owner, "name": args["name"]},
+                {
+                    "owner": owner,
+                    "name": args["name"],
+                    "visibility": self._visibility(row),
+                },
             )
             try:
                 created = self.client.create(
@@ -264,6 +323,7 @@ class Repositories:
                     row["name"],
                     self._marked(row),
                     organization=owner.lower() != user["login"].lower(),
+                    private=self._visibility(row) == "private",
                 )
             except Exception as error:
                 # These responses definitively reject creation. Transport errors,
@@ -286,18 +346,20 @@ class Repositories:
     def _marked(row):
         return (row["description"] + " " + row["marker"]).strip()
 
-    def _validate(self, row, repo, require_marker=False):
+    def _validate(self, row, repo, require_marker=False, visibility=None):
+        if visibility is None:
+            visibility = self._visibility(row)
         if (
             not isinstance(repo, dict)
             or str(repo.get("full_name", "")).lower()
             != (row["owner"] + "/" + row["name"]).lower()
-            or repo.get("private") is not True
+            or repo.get("private") is not (visibility == "private")
             or repo.get("archived") is True
             or repo.get("permissions", {}).get("push") is not True
             or not repo.get("id")
         ):
             raise Conflict(
-                "Repository identity, private visibility or write access could not be verified."
+                f"Repository identity, {visibility} visibility or write access could not be verified."
             )
         if row["repository_id"] and str(repo["id"]) != row["repository_id"]:
             raise Conflict(
@@ -335,7 +397,11 @@ class Repositories:
             self.store.event(
                 row["project_id"],
                 "repository_verified",
-                {"repository_id": str(observed["id"]), "url": url, "private": True},
+                {
+                    "repository_id": str(observed["id"]),
+                    "url": url,
+                    "private": self._visibility(row) == "private",
+                },
             )
         return {
             "status": "saved",
@@ -343,7 +409,8 @@ class Repositories:
             "url": url,
             "owner": row["owner"],
             "name": row["name"],
-            "private": True,
+            "private": self._visibility(row) == "private",
+            "visibility": self._visibility(row),
             "initialized": False,
             "project_id": row["project_id"],
         }
