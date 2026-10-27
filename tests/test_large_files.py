@@ -362,3 +362,105 @@ def test_powershell_restore_script_rebuilds_files(world, tmp_path):
     assert done.returncode == 0, done.stdout + done.stderr
     for path in ("media/video.mp4", "disk image.iso"):
         assert (copy / path).read_bytes() == (folder / path).read_bytes()
+
+
+def test_a_file_that_grows_past_the_limit_leaves_the_repository(world):
+    folder, remote, api, backups, signed_in = world
+    (folder / "log.txt").write_bytes(b"small\n" * 10)
+    entry = backup(backups, folder)
+    assert "log.txt" in tree(remote)
+    (folder / "log.txt").write_bytes(b"x" * 6000)  # Now over the (lowered) 5000-byte limit.
+    later = upload(backups, entry["id"])
+    assert later["state"] == "done", later["message"]
+    # It goes up as a release asset instead of into the repository, which GitHub would refuse.
+    assert "log.txt" not in tree(remote)
+    assert {f["path"]: f["status"] for f in later["large_files"]}["log.txt"] == "uploaded"
+    assert "log.txt" in {f["path"] for f in manifest(remote)["files"]}
+    # The earlier, small version stays in the repository's history.
+    first = git("--git-dir", str(remote), "log", "--format=%H", "main", "--", "log.txt").split()[-1]
+    assert git("--git-dir", str(remote), "show", f"{first}:log.txt") == "small\n" * 10
+    assert upload(backups, entry["id"])["message"].startswith("Up to date")
+
+
+@pytest.mark.skipif(
+    subprocess.run(["git", "lfs", "version"], capture_output=True).returncode != 0,
+    reason="Git LFS isn't installed",
+)
+def test_turning_git_lfs_off_moves_large_files_to_release_assets(world):
+    folder, remote, api, backups, signed_in = world
+    backups.remote_url = lambda owner, name: remote.as_uri()
+    (folder / ".gitattributes").write_text("*.txt text\n")
+    entry = backup(backups, folder, lfs=True)
+    assert {f["status"] for f in entry["large_files"]} == {"lfs"}
+    backups.settings(entry["id"], {"lfs": False})
+    later = upload(backups, entry["id"])
+    assert later["state"] == "done", later["message"]
+    assert not {"media/video.mp4", "disk image.iso"} & tree(remote)
+    assert {f["path"]: f["status"] for f in later["large_files"]} == {
+        "media/video.mp4": "uploaded", "disk image.iso": "uploaded",
+    }
+    assert git("--git-dir", str(remote), "show", "main:.gitattributes") == "*.txt text\n"
+
+
+UNSAFE = ["../outside.bin", "/etc/outside.bin", "a//b.bin", "./a.bin"]
+
+
+@pytest.mark.parametrize("unsafe", UNSAFE)
+def test_restore_refuses_paths_outside_the_folder(tmp_path, unsafe):
+    script = Path(github_folders.__file__).parent / "restore" / "restore_large_files.py"
+    copy = tmp_path / "copy"
+    copy.mkdir()
+    (copy / "LARGE_FILES.json").write_text(json.dumps({
+        "repository": "owner/backup", "release": "large-files",
+        "files": [{"path": unsafe, "size": 1, "sha256": "0" * 64, "parts": [{"name": "x", "size": 1}]}],
+    }))
+    done = subprocess.run(
+        [sys.executable, str(script), "--destination", str(copy), "--manifest", str(copy / "LARGE_FILES.json"),
+         "--api", "http://127.0.0.1:9", "--token", TOKEN],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert done.returncode != 0 and "Refusing an unsafe path" in done.stderr
+    assert not (tmp_path / "outside.bin").exists()
+
+
+def test_restore_refuses_windows_paths_and_links_outside_the_folder(tmp_path):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "restore_large_files", Path(github_folders.__file__).parent / "restore" / "restore_large_files.py")
+    restore = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(restore)
+    for unsafe in ("..\\..\\x", "\\Windows\\System32\\x", "ok/D:x", "C:x", "a\\..\\..\\x"):
+        with pytest.raises(SystemExit):
+            restore.target_path(tmp_path, unsafe, windows=True)
+    assert restore.target_path(tmp_path, "media\\clip.mp4", windows=True) == tmp_path.resolve() / "media" / "clip.mp4"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    try:
+        (tmp_path / "copy").mkdir()
+        (tmp_path / "copy" / "linked").symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("This computer doesn't allow creating links")
+    with pytest.raises(SystemExit):
+        restore.target_path(tmp_path / "copy", "linked/file.bin")
+
+
+@pytest.mark.skipif(not (shutil.which("powershell") or shutil.which("pwsh")), reason="PowerShell isn't installed")
+def test_powershell_restore_refuses_paths_outside_the_folder(tmp_path):
+    script = Path(github_folders.__file__).parent / "restore" / "restore-large-files.ps1"
+    shell = shutil.which("powershell") or shutil.which("pwsh")
+    copy = tmp_path / "copy"
+    copy.mkdir()
+    unsafe = ["../outside.bin", "a//b.bin"] + (["..\\..\\outside.bin", "ok/D:x"] if sys.platform == "win32" else [])
+    for path in unsafe:
+        (copy / "LARGE_FILES.json").write_text(json.dumps({
+            "repository": "owner/backup", "release": "large-files",
+            "files": [{"path": path, "size": 1, "sha256": "0" * 64, "parts": [{"name": "x", "size": 1}]}],
+        }))
+        done = subprocess.run(
+            [shell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script), "-Destination", str(copy),
+             "-Manifest", str(copy / "LARGE_FILES.json"), "-Api", "http://127.0.0.1:9", "-Token", TOKEN],
+            capture_output=True, text=True, timeout=300,
+        )
+        assert done.returncode != 0 and "Refusing an unsafe path" in done.stdout + done.stderr, path
+    assert not (tmp_path / "outside.bin").exists()
