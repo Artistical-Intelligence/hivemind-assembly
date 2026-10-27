@@ -218,9 +218,14 @@ class Application:
         self.closed = False
         self.learning_lock = threading.Lock()
         self.action_lock = threading.RLock()
+        from hivemind_assembly.learning.collections import KnowledgeCollections
+
+        # Reference material from whole folders and GitHub repositories (no AI).
+        self.knowledge_collections = KnowledgeCollections(self.store, self.github_auth)
         self.thread.start()
         self.hosted_tests.start_monitor()
         self.folder_backups.start_monitor()
+        self.knowledge_collections.start_monitor()
 
     def configure_learning(self):
         self.team.learning_trials = None
@@ -443,9 +448,15 @@ class Application:
             "knowledge_assignments": self.store.rows(
                 "SELECT * FROM knowledge_assignments ORDER BY kind,item_id"
             ),
+            # A short summary per document; imported folders and repositories are
+            # summarized under knowledge_collections instead of listing every file.
             "sources": self.store.rows(
-                "SELECT id,name,revision,external_allowed,extraction FROM sources"
+                "SELECT id,name,revision,external_allowed,"
+                "json_extract(extraction,'$.status') AS status,json_extract(extraction,'$.gaps') AS gaps,"
+                "json_extract(extraction,'$.counts') AS counts,json_extract(extraction,'$.origin.collection') AS collection "
+                "FROM sources"
             ),
+            "knowledge_collections": self.knowledge_collections.view(),
             "polls": self.store.rows("SELECT * FROM polls"),
             "retries": self.store.rows("SELECT * FROM retry_schedule"),
             "lessons": self.store.rows(
@@ -1880,6 +1891,7 @@ class Application:
         self.tunnel.close()
         self.quick.close()
         self.folder_backups.close()
+        self.knowledge_collections.close()
         try:
             self.submit(self.browser.relay.close()).result(5)
         except Exception:
