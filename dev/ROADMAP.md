@@ -77,10 +77,10 @@ the assistants' reference tools); no manual conversion is needed. Still open:
 - Use the reference tools, and the adviser's picture descriptions, in a live run
   with signed-in assistants (both are checked only with stand-ins so far).
 - Semantic (vector) search: not added. On 20 plain-language questions about the
-  owner's imported repository, ranked search put an expected section first for 12
-  and in the top 3 for 16. The 4 misses used different words from the material
+  owner's imported repository, ranked search put an expected section first for 11
+  and in the top 3 for 15. The 5 misses used different words from the material
   (a plain description instead of its technical term); a second search with the
-  material's terms found 3 of them, and the assistants are told to search that way.
+  material's terms found 4 of them, and the assistants are told to search that way.
   Revisit if the assistants' own searches show the same misses.
 - Old Office formats (.doc, .xls, .ppt), spreadsheets and slides, and text in
   scanned PDF pages are not imported; they are listed as skipped or as gaps.
