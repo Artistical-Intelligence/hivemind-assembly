@@ -43,9 +43,10 @@ class NativeBrowser:
         # set their route and send one at a time; full checks are reused for a while.
         self.dispatch_locks = {}
         self.deep_checked = {}
+        self.light = set()  # routes waiting for a reply: quick checks only, no menus
 
     def dispatch_lock(self, route):
-        profile = identifier(self.config["routes"][route]["profile"])
+        profile = identifier(self.config["routes"][route].get("profile") or route)
         return self.dispatch_locks.setdefault(profile, asyncio.Lock())
 
     def profile_dir(self, profile):
@@ -212,10 +213,12 @@ class NativeBrowser:
             and await page.locator(selector).first.is_visible()
         )
 
-    async def observe(self, route, deep=True, repair=False, fresh=False):
+    async def observe(self, route, deep=True, fresh=False):
         """Check the route's page shows exactly its configured surface, model, effort and
-        account. deep opens menus where the page hides a value; repair sets the exact
-        route again first (only before sending)."""
+        account. deep opens menus where the page hides a value (reused for 10 minutes on
+        the same page unless fresh); while a reply streams, only quick checks run."""
+        if route in self.light:
+            deep = False
         page = await self.page(route)
         cfg = self.config["routes"][route]
         selectors = cfg["selectors"]
@@ -262,7 +265,7 @@ class NativeBrowser:
 
         surface = from_selectors(selectors)
         if surface is not None:
-            evidence.update(await self.observe_surface(route, page, cfg, surface, deep, repair, fresh))
+            evidence.update(await self.observe_surface(route, page, cfg, surface, deep, fresh))
         for field in ("model", "mode", "effort", "account") if surface is None else ():
             if (
                 field == "mode"
@@ -318,18 +321,35 @@ class NativeBrowser:
         )
         return evidence
 
-    async def observe_surface(self, route, page, cfg, surface, deep, repair, fresh):
-        key = (id(page), page.url)
+    def deep_due(self, route, page):
         recent = self.deep_checked.get(route)
-        if deep and not fresh and recent and recent[0] == key and time.time() - recent[1] < 600:
+        return not (recent and recent[0] == (id(page), page.url) and time.time() - recent[1] < 600)
+
+    async def repair(self, route):
+        """Before sending: put today's pages back on the exact route if they drifted,
+        for example after the owner changed the model in HA's tab."""
+        from .surfaces import from_selectors
+
+        cfg = self.config["routes"][route]
+        surface = from_selectors(cfg.get("selectors", {}))
+        if surface is None:
+            return
+        page = await self.page(route)
+        deep = self.deep_due(route, page)
+        state = await surface.read(page, deep)
+        native = cfg.get("provider") == "claude" and cfg.get("mode") == "native"
+        fields = ("model", "effort") if native else ("mode", "model", "effort")
+        if any(state.get(f) not in (None, cfg[f]) or (deep and state.get(f) is None) for f in fields):
+            await surface.ensure(page, cfg)
+            self.deep_checked.pop(route, None)
+
+    async def observe_surface(self, route, page, cfg, surface, deep, fresh):
+        key = (id(page), page.url)
+        if deep and not fresh and not self.deep_due(route, page):
             deep = False  # fully checked on this very page minutes ago
         state = await surface.read(page, deep)
         native = cfg.get("provider") == "claude" and cfg.get("mode") == "native"
         fields = ("model", "effort") if native else ("mode", "model", "effort")
-        wrong = [f for f in fields if state.get(f) not in (None, cfg[f]) or (deep and state.get(f) is None)]
-        if wrong and repair:
-            await surface.ensure(page, cfg)
-            state, deep = await surface.read(page, True), True
         evidence = {"mode": "native"} if native else {}
         for field in fields:
             value = state.get(field)
@@ -353,7 +373,8 @@ class NativeBrowser:
             dispatch = self.dispatch_lock(route)
             await dispatch.acquire()
             try:
-                await self.observe(route, repair=True)
+                await self.repair(route)
+                await self.observe(route)
                 page = await self.page(route)
                 s = self.config["routes"][route]["selectors"]
                 marker = "WORKBENCH_REQUEST:" + message["id"]
@@ -440,98 +461,106 @@ class NativeBrowser:
                 self.controller.message_state(message["id"], "received")
             finally:
                 dispatch.release()
-            started = time.monotonic()
-            stable_text = None
-            stable_since = 0
-            while time.monotonic() - started < timeout:
-                await self.observe(route, deep=False)
-                # Associate by observed DOM order between this user turn and the
-                # next user turn, not a model's willingness to echo an ID.
-                candidates = await page.evaluate(
-                    """({users, assistants, marker}) => {
-                    const u=[...document.querySelectorAll(users)];
-                    const hit=u.filter(e=>e.innerText.split(/\\s+/).includes(marker));
-                    if(hit.length!==1) return [];
-                    const start=hit[0], next=u[u.indexOf(start)+1];
-                    return [...document.querySelectorAll(assistants)].filter(e=>
-                        !!(start.compareDocumentPosition(e)&Node.DOCUMENT_POSITION_FOLLOWING) &&
-                        (!next || !!(e.compareDocumentPosition(next)&Node.DOCUMENT_POSITION_FOLLOWING)))
-                        .map(e=>e.innerText);
-                }""",
+            self.light.add(route)
+            try:
+                return await self.await_reply(route, message, page, s, marker, timeout)
+            finally:
+                self.light.discard(route)
+
+    async def await_reply(self, route, message, page, s, marker, timeout):
+        """Wait for the assistant's complete reply to this request, by DOM turn order."""
+        started = time.monotonic()
+        stable_text = None
+        stable_since = 0
+        while time.monotonic() - started < timeout:
+            await self.observe(route)
+            # Associate by observed DOM order between this user turn and the
+            # next user turn, not a model's willingness to echo an ID.
+            candidates = await page.evaluate(
+                """({users, assistants, marker}) => {
+                const u=[...document.querySelectorAll(users)];
+                const hit=u.filter(e=>e.innerText.split(/\\s+/).includes(marker));
+                if(hit.length!==1) return [];
+                const start=hit[0], next=u[u.indexOf(start)+1];
+                return [...document.querySelectorAll(assistants)].filter(e=>
+                    !!(start.compareDocumentPosition(e)&Node.DOCUMENT_POSITION_FOLLOWING) &&
+                    (!next || !!(e.compareDocumentPosition(next)&Node.DOCUMENT_POSITION_FOLLOWING)))
+                    .map(e=>e.innerText);
+            }""",
+                {
+                    "users": s["user_messages"],
+                    "assistants": s["assistant_messages"],
+                    "marker": marker,
+                },
+            )
+            if candidates:
+                raw = "\n\n".join(candidates)
+                self.controller.traces.append(
+                    message["task_id"],
+                    message["id"],
+                    route,
+                    "response_snapshot",
                     {
-                        "users": s["user_messages"],
-                        "assistants": s["assistant_messages"],
-                        "marker": marker,
+                        "text": raw,
+                        "association": "DOM turn order",
+                        "parts": len(candidates),
                     },
                 )
-                if candidates:
-                    raw = "\n\n".join(candidates)
+            completed_here = await page.evaluate(
+                """({users, assistants, complete, marker}) => {
+                const us=[...document.querySelectorAll(users)];
+                const hit=us.filter(e=>e.innerText.split(/\\s+/).includes(marker));
+                if(hit.length!==1)return false;
+                const start=hit[0], next=us[us.indexOf(start)+1];
+                const after=e=>(start.compareDocumentPosition(e)&Node.DOCUMENT_POSITION_FOLLOWING) &&
+                    (!next||(e.compareDocumentPosition(next)&Node.DOCUMENT_POSITION_FOLLOWING));
+                return [...document.querySelectorAll(complete)].some(e=>e.getClientRects().length && after(e));
+            }""",
+                {
+                    "users": s["user_messages"],
+                    "assistants": s["assistant_messages"],
+                    "complete": s["complete"],
+                    "marker": marker,
+                },
+            )
+            if (
+                candidates
+                and completed_here is True
+                and not await self.visible(page, s.get("streaming", ""))
+            ):
+                raw = "\n\n".join(candidates)
+                if raw != stable_text:
+                    stable_text = raw
+                    stable_since = time.monotonic()
+                elif time.monotonic() - stable_since >= 1:
                     self.controller.traces.append(
                         message["task_id"],
                         message["id"],
                         route,
-                        "response_snapshot",
-                        {
-                            "text": raw,
-                            "association": "DOM turn order",
-                            "parts": len(candidates),
-                        },
+                        "response_complete",
+                        {"text": raw},
                     )
-                completed_here = await page.evaluate(
-                    """({users, assistants, complete, marker}) => {
-                    const us=[...document.querySelectorAll(users)];
-                    const hit=us.filter(e=>e.innerText.split(/\\s+/).includes(marker));
-                    if(hit.length!==1)return false;
-                    const start=hit[0], next=us[us.indexOf(start)+1];
-                    const after=e=>(start.compareDocumentPosition(e)&Node.DOCUMENT_POSITION_FOLLOWING) &&
-                        (!next||(e.compareDocumentPosition(next)&Node.DOCUMENT_POSITION_FOLLOWING));
-                    return [...document.querySelectorAll(complete)].some(e=>e.getClientRects().length && after(e));
-                }""",
-                    {
-                        "users": s["user_messages"],
-                        "assistants": s["assistant_messages"],
-                        "complete": s["complete"],
-                        "marker": marker,
-                    },
-                )
-                if (
-                    candidates
-                    and completed_here is True
-                    and not await self.visible(page, s.get("streaming", ""))
-                ):
-                    raw = "\n\n".join(candidates)
-                    if raw != stable_text:
-                        stable_text = raw
-                        stable_since = time.monotonic()
-                    elif time.monotonic() - stable_since >= 1:
+                    try:
+                        response = parse_response(raw, message["id"])
+                    except ContractError as error:
                         self.controller.traces.append(
                             message["task_id"],
                             message["id"],
                             route,
-                            "response_complete",
-                            {"text": raw},
+                            "response_error",
+                            {"error": str(error)},
                         )
-                        try:
-                            response = parse_response(raw, message["id"])
-                        except ContractError as error:
-                            self.controller.traces.append(
-                                message["task_id"],
-                                message["id"],
-                                route,
-                                "response_error",
-                                {"error": str(error)},
-                            )
-                            self.controller.message_state(message["id"], "invalid")
-                            raise
-                        self.controller.message_state(
-                            message["id"], "validated", canonical(response)
-                        )
-                        return response
-                await asyncio.sleep(0.5)
-            self.controller.message_state(message["id"], "processing")
-            raise Retryable(
-                "Native response deadline exceeded; retained for reconciliation"
-            )
+                        self.controller.message_state(message["id"], "invalid")
+                        raise
+                    self.controller.message_state(
+                        message["id"], "validated", canonical(response)
+                    )
+                    return response
+            await asyncio.sleep(0.5)
+        self.controller.message_state(message["id"], "processing")
+        raise Retryable(
+            "Native response deadline exceeded; retained for reconciliation"
+        )
 
     async def download(
         self, route, selector, destination, expected_sha256, filename=None
