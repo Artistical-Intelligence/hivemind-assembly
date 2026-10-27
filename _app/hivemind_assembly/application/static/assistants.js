@@ -34,6 +34,8 @@
           tone: 'act', step: 1};
       case 'binding_required': {
         const missing = (s.instruction || '').split(':').pop().split(',').map(x => CONTROL[x.trim()] || x.trim()).filter(Boolean);
+        // The page said exactly what's wrong (for example, a model this account doesn't offer).
+        if (s.detail) return {text: s.detail + ' HA tries again every 30 seconds.', tone: stuck ? 'warn' : '', step: 2};
         return {
           text: stuck
             ? `HA can't find the ${missing.join(', ')} on the ${name} page. Check the picture of what HA sees; a pop-up or a changed page may be in the way.`
