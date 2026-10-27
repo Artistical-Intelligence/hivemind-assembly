@@ -153,8 +153,13 @@
       : 'Changed here, not in use yet: select Use to switch the assistants.';
     el('setup-use').classList.toggle('primary', !live_);
     // Services: one button each, showing who is signed in.
-    el('service-buttons').innerHTML = (s.services || []).map(v =>
+    const services = (s.services || []).map(v =>
       `<button type="button" class="service${v.account ? ' signed' : ''}" data-signin="${esc(v.provider)}"><b>${esc(v.name)}</b><span>${v.account ? esc(v.account) : v.waiting ? 'Sign in now' : 'Open to sign in'}</span></button>`).join('');
+    // Rebuilt only when something changed, so a click in progress isn't lost.
+    if (el('service-buttons').dataset.sig !== services) {
+      el('service-buttons').innerHTML = services;
+      el('service-buttons').dataset.sig = services;
+    }
     // Each service's list is read from its own model menu after it is set up, or with Read choices.
     const choices = s.model_choices || {};
     const when = t => new Date(t * 1000).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'});
