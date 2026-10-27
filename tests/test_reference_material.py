@@ -441,3 +441,158 @@ def test_documents_from_older_versions_are_read_again_and_replaced_on_re_add(sto
     word(path, extra_heading="Toolbox")
     assert knowledge.ingest(path, True)["id"] == "source_old"
     assert store.one("SELECT COUNT(*) AS n FROM sources")["n"] == 1
+
+
+def test_turning_off_reading_applies_at_once_even_when_the_folder_is_gone(store, tmp_path):
+    import shutil
+
+    root = collection(tmp_path)
+    collections = KnowledgeCollections(store)
+    entry = run(collections, collections.add({"kind": "folder", "folder": str(root), "external_allowed": True}))
+    allowed = lambda: {r["external_allowed"] for r in store.rows("SELECT external_allowed FROM sources")}
+    assert allowed() == {1}
+    shutil.rmtree(root)  # Like an unplugged drive: importing again can't work.
+    collections.settings(entry["id"], {"external_allowed": False})
+    assert allowed() == {0}
+    scopes = KnowledgeScopes(store)
+    task = store.create_project("everything", "use all reference material")
+    scopes.select(task["id"], [t["id"] for t in scopes.catalog()["tags"] if t["id"] != "unclassified"],
+                  scopes.catalog()["revision"])
+    assert Knowledge(store).tool(task["id"], "search_knowledge", {"query": "accumulator"})["hits"] == []
+    # A failed import afterwards doesn't bring the old permission back.
+    collections.start(entry["id"])
+    assert run(collections, entry)["state"] == "failed" and allowed() == {0}
+    assert store.rows("SELECT 1 FROM events WHERE kind='knowledge_collection_permission'")
+    # An import that was already running uses the owner's latest choice for every copy.
+    (root.parent / "Research").mkdir()
+    (root.parent / "Research" / "page.md").write_text("# Page\n\nText.\n")
+    collections.settings(entry["id"], {"external_allowed": True})
+    collections.permission[entry["id"]] = False  # As settings() leaves it when turned off mid-import.
+    collections.start(entry["id"])
+    run(collections, entry)
+    assert allowed() == {0}
+
+
+def test_links_in_a_folder_are_listed_not_followed(store, tmp_path):
+    outside = tmp_path / "outside"
+    (outside / "sub").mkdir(parents=True)
+    (outside / "private.txt").write_text("SECRET notes from elsewhere\n")
+    (outside / "sub" / "elsewhere.md").write_text("# Elsewhere\n\nSECRET too.\n")
+    root = tmp_path / "Notes"
+    root.mkdir()
+    (root / "readme.md").write_text("# Readme\n\nHello.\n")
+    try:
+        (root / "linked.txt").symlink_to(outside / "private.txt")
+        (root / "linked-folder").symlink_to(outside / "sub", target_is_directory=True)
+    except OSError:
+        pytest.skip("This computer doesn't allow creating links")
+    collections = KnowledgeCollections(store)
+    entry = run(collections, collections.add({"kind": "folder", "folder": str(root), "external_allowed": True}))
+    reasons = {x["path"]: x["reason"] for x in entry["report"]["skipped"]}
+    assert reasons["linked.txt"].startswith("a link to another file")
+    assert reasons["linked-folder/"].startswith("a link to another folder")
+    assert entry["report"]["documents"] == 1
+    assert Knowledge(store).search("SECRET", role="controller") == []
+
+
+def test_a_folder_that_holds_has_data_skips_it(tmp_path):
+    from hivemind_assembly.core.store import Store
+
+    home = tmp_path / "home"
+    store = Store(home / "HA data")
+    try:
+        (home / "notes.md").write_text("# Notes\n\nMine.\n")
+        (home / "HA data" / "private").mkdir(parents=True, exist_ok=True)
+        (home / "HA data" / "private" / "endpoint.json").write_text('{"token": "dashboard"}')
+        collections = KnowledgeCollections(store)
+        entry = run(collections, collections.add({"kind": "folder", "folder": str(home)}))
+        reasons = {x["path"]: x["reason"] for x in entry["report"]["skipped"]}
+        assert reasons["HA data/"] == "HA's own data"
+        assert entry["report"]["documents"] == 1
+    finally:
+        store.close()
+
+
+def test_a_different_file_with_an_older_documents_name_is_added_beside_it(store, tmp_path):
+    import time
+
+    from hivemind_assembly.core.common import canonical
+
+    with store.tx() as db:
+        db.execute(
+            "INSERT INTO sources VALUES(?,?,?,?,?,?,?)",
+            ("source_notes", "notes.md", "0" * 64, 0, canonical({"status": "text_extracted", "gaps": []}),
+             canonical([{"id": "1", "text": "Project A notes"}]), time.time()),
+        )
+    knowledge = Knowledge(store)
+    (tmp_path / "projB").mkdir()
+    (tmp_path / "projB" / "notes.md").write_text("# Project B\n\nDifferent notes.\n")
+    result = knowledge.ingest(tmp_path / "projB" / "notes.md", True)
+    assert result["id"] != "source_notes" and result["older_copy"] == "source_notes"
+    assert store.one("SELECT COUNT(*) AS n FROM sources")["n"] == 2
+    assert "source_notes" in {h["source"] for h in knowledge.search("Project A notes", role="controller")}
+
+
+def test_update_keeps_the_owners_category_changes(store, tmp_path):
+    root = collection(tmp_path)
+    collections = KnowledgeCollections(store)
+    entry = run(collections, collections.add({"kind": "folder", "folder": str(root), "external_allowed": True}))
+    scopes = KnowledgeScopes(store)
+    notes = Knowledge(store).origin_source({"kind": "collection", "collection": entry["id"], "path": "notes/registers.md"})
+    assert scopes.tags("source", notes) == ["arithmetic", "audio-formats", "research"]
+    scopes.assign("source", notes, ["research"])  # The owner narrows it.
+    collections.start(entry["id"])
+    entry = run(collections, entry)
+    assert scopes.tags("source", notes) == ["research"] and entry["report"]["updated"] == 0
+    (root / "notes" / "registers.md").write_text("---\ntags: [arithmetic]\n---\n# Accumulator\n\nChanged.\n")
+    collections.start(entry["id"])
+    entry = run(collections, entry)
+    assert entry["report"]["updated"] == 1 and scopes.tags("source", notes) == ["research"]
+
+
+def test_missing_pictures_never_block_and_picture_links_resolve(store, tmp_path):
+    root = tmp_path / "Docs"
+    (root / "docs" / "img").mkdir(parents=True)
+    (root / "docs" / "img" / "My Pic.png").write_bytes(PNG)
+    (root / "docs" / "img" / "top.png").write_bytes(PNG + b"t")
+    (root / "docs" / "page.md").write_text(
+        "# Page\n\n![spaced](img/My%20Pic.png) ![from the top](/docs/img/top.png) ![gone](img/missing.png)\n"
+    )
+    collections = KnowledgeCollections(store)
+    entry = run(collections, collections.add({"kind": "folder", "folder": str(root), "external_allowed": True}))
+    knowledge = Knowledge(store)
+    key = knowledge.origin_source({"kind": "collection", "collection": entry["id"], "path": "docs/page.md"})
+    source = knowledge.source(key, "controller")
+    assert source["extraction"]["status"] == "text_extracted" and source["extraction"]["gaps"] == []
+    pictures = source["extraction"]["pictures"]
+    assert [bool(p["artifact"]) for p in pictures] == [True, True, False] and pictures[2]["missing"]
+    assert not any(x["path"].startswith("docs/img/") for x in entry["report"]["skipped"])
+    read = knowledge.reading(
+        [{"source": key, "revision": source["revision"], "section": source["sections"][0]["id"]}], role="controller"
+    )
+    assert read["critical_gaps"] == [] and read["records"]
+
+
+def test_word_file_with_a_picture_in_a_footnote(store, tmp_path):
+    plain = word(tmp_path / "plain.docx")
+    path = tmp_path / "noted.docx"
+    with zipfile.ZipFile(plain) as source, zipfile.ZipFile(path, "w") as z:
+        for item in source.namelist():
+            data = source.read(item)
+            if item == "word/document.xml":
+                data = data.replace(
+                    b"The accumulator holds arithmetic results.</w:t></w:r>",
+                    b'The accumulator holds arithmetic results.</w:t></w:r><w:r><w:footnoteReference w:id="1"/></w:r>',
+                )
+            z.writestr(item, data)
+        z.writestr("word/footnotes.xml", f'<w:footnotes {W}><w:footnote w:id="1"><w:p><w:r><w:t>See the figure.</w:t></w:r>'
+                   + drawing("rId1", "Footnote figure") + "</w:p></w:footnote></w:footnotes>")
+        z.writestr("word/_rels/footnotes.xml.rels",
+                   '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                   '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" '
+                   'Target="media/image3.png"/></Relationships>')
+        z.writestr("word/media/image3.png", PNG + b"3")
+    result = Knowledge(store).ingest(path, True)
+    assert result["status"] == "text_extracted"
+    stored = [p for p in result["pictures"] if p["description"] == "Footnote figure"]
+    assert len(stored) == 1 and stored[0]["artifact"]
