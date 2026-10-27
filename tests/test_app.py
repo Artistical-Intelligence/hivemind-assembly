@@ -489,17 +489,18 @@ def test_private_repository_list_for_the_picker(app, monkeypatch):
         calls.append((method, path, kw))
         return [
             {"owner": {"login": "me"}, "name": "game", "description": None},
-            {"owner": {"login": "team"}, "name": "tools", "description": "Shared"},
+            {"owner": {"login": "team"}, "name": "tools", "description": "Shared", "private": False},
             "not a repository",
         ]
 
     monkeypatch.setattr(app.github_auth.http, "request", request)
+    # Public repositories are listed too, marked so the picker can say which is which.
     assert app.action("/api/github/repositories", {}) == [
-        {"owner": "me", "name": "game", "description": ""},
-        {"owner": "team", "name": "tools", "description": "Shared"},
+        {"owner": "me", "name": "game", "description": "", "private": True},
+        {"owner": "team", "name": "tools", "description": "Shared", "private": False},
     ]
     method, path, kw = calls[0]
-    assert method == "GET" and "visibility=private" in path and kw["allow_list"] is True
+    assert method == "GET" and "visibility=all" in path and kw["allow_list"] is True
 
 
 def test_assistant_setups_default_save_overwrite_and_use(app):
