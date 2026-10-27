@@ -132,6 +132,8 @@
     collectionUpdate: 'Import the latest version. Only changed files are read again; copies of removed files are removed.',
     collectionRemove: 'Remove HA\'s copies of this folder or repository. The folder or repository itself isn\'t changed.',
     collectionReport: 'List every skipped file and why.',
+    describeSource: 'Send this document\'s pictures that have no caption to the adviser, in its own conversation, to describe them so search can find them.',
+    describeCollection: 'Send the pictures that have no caption to the adviser, in its own conversation, to describe them so search can find them.',
   };
   const byText = {
     'Create project': 'Create a new project.',
