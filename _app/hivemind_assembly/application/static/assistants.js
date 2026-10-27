@@ -112,7 +112,7 @@
     const actions = [
       s.tab_open ? `<button data-native-show="${esc(r.id)}">Show tab</button>` : `<button data-native-setup="${esc(r.id)}"${working ? ' disabled' : ''}>${r.status.ready ? 'Set up again' : 'Set up'}</button>`,
       s.snapshot ? `<button data-native-snapshot="${esc(r.id)}">What HA sees</button>` : '',
-      `<details class="row-more"><summary>More</summary><button data-probe="${esc(r.id)}">Check it works</button><button data-native-renew="${esc(r.id)}">New conversation</button></details>`,
+      `<details class="row-more"><summary>More</summary><div class="row-menu"><button data-probe="${esc(r.id)}">Check it works</button><button data-native-renew="${esc(r.id)}">New conversation</button></div></details>`,
     ].join('');
     return `<tr data-route="${esc(r.id)}"><th scope="row">${esc(SLOT[r.id] || r.id)}</th>`
       + `<td>${modelSelect(r.id, draft[r.id], cat)}</td><td>${levelSelect(r.id, draft[r.id], cat)}</td>`
@@ -205,6 +205,10 @@
   });
 
   document.addEventListener('click', async e => {
+    // A More menu closes when something in it is chosen or the click lands elsewhere.
+    for (const menu of document.querySelectorAll('details.row-more[open]')) {
+      if (!menu.contains(e.target) || e.target.closest('.row-menu button')) menu.open = false;
+    }
     const show = e.target.closest('[data-native-show]');
     const picture = e.target.closest('[data-native-snapshot]');
     const signin = e.target.closest('[data-signin]');
