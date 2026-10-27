@@ -43,7 +43,8 @@
       if (what === 'document') {
         if (!f.get('path')) throw new Error('Choose the document first (Browse…).');
         const r = await api('source', {path: f.get('path'), external_allowed: f.has('external_allowed'), tags});
-        notice(r.replaced ? 'Replaced the earlier copy of this document.' : r.unchanged ? 'Already imported; nothing changed.' : `Added: ${r.sections} sections.`);
+        notice(r.replaced ? 'Replaced the earlier copy of this document.' : r.unchanged ? 'Already imported; nothing changed.'
+          : `Added: ${r.sections} sections.` + (r.older_copy ? ' A document with the same name, added by an earlier version of HA, is still listed; remove it if it was an older copy of this one.' : ''));
       } else {
         const request = {kind: what, external_allowed: f.has('external_allowed'), tags: tags || [],
           schedule_minutes: Number(f.get('schedule_minutes'))};
