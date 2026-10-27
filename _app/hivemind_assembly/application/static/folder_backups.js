@@ -73,9 +73,10 @@
     const items = b.large_files || [];
     if (!items.length) return '';
     const open = items.some(f => f.status !== 'uploaded' && f.status !== 'lfs') ? ' open' : '';
+    // Shown outside the list so it's seen even while the list is closed.
     const pub = b.visibility === 'public' && items.some(f => f.status !== 'lfs')
-      ? '<p class="muted">This repository is public, so its release assets (the large files) are public too.</p>' : '';
-    return `<details class="fb-large"${open}><summary>Large files (${items.length})</summary>${pub}<ul class="plain">${items.map(f =>
+      ? '<p class="muted fb-public">This repository is public, so its release assets (the large files) are public too.</p>' : '';
+    return `${pub}<details class="fb-large"${open}><summary>Large files (${items.length})</summary><ul class="plain">${items.map(f =>
       `<li data-large="${esc(f.path)}">${esc(f.path)} <span class="muted">${size(f.size)}</span>: <span class="fb-large-status">${esc(statusText(f))}</span></li>`).join('')}</ul>
       <p class="muted">${items.some(f => f.status !== 'lfs') ? 'To get them back, run restore-large-files.ps1 (Windows) or restore_large_files.py from a copy of the repository.' : 'Git LFS gives them back when the repository is cloned.'}</p></details>`;
   }
