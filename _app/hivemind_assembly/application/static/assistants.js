@@ -155,12 +155,16 @@
     // Services: one button each, showing who is signed in.
     el('service-buttons').innerHTML = (s.services || []).map(v =>
       `<button type="button" class="service${v.account ? ' signed' : ''}" data-signin="${esc(v.provider)}"><b>${esc(v.name)}</b><span>${v.account ? esc(v.account) : v.waiting ? 'Sign in now' : 'Open to sign in'}</span></button>`).join('');
+    // Each service's list is read from its own model menu after it is set up, or with Read choices.
     const choices = s.model_choices || {};
-    const errors = Object.entries(choices).filter(([k, v]) => k !== 'read_at' && v?.error).map(([, v]) => v.error);
-    el('choices-state').textContent = (choices.read_at
-      ? `Model choices read from ChatGPT and Claude at ${new Date(choices.read_at * 1000).toLocaleString()}.`
-      : 'The lists show only models already in use until HA reads ChatGPT\'s and Claude\'s model menus.') + (errors.length ? ' ' + errors.join(' ') : '');
-    el('choices-read').textContent = choices.read_at ? 'Read again' : 'Read choices';
+    const when = t => new Date(t * 1000).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'});
+    const read = Object.entries(PROVIDER).filter(([p]) => choices[p]?.modes).map(([p, name]) => `${name} (${when(choices[p].read_at || choices.read_at)})`);
+    const errors = Object.keys(PROVIDER).map(p => choices[p]?.error).filter(Boolean);
+    el('choices-state').textContent = (read.length
+      ? `Model lists read from ${read.join(' and ')}.`
+      : 'The lists show the models in use until HA reads each service\'s model menu, which it does after setting the service up.')
+      + (errors.length ? ' ' + errors.join(' ') : '');
+    el('choices-read').textContent = read.length ? 'Read again' : 'Read choices';
     const ready = s.routes.filter(r => r.status.ready).length;
     const working = s.routes.some(r => r.setup?.running);
     el('assistants-overall').hidden = false;
