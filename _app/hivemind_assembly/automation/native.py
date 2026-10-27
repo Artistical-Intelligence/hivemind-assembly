@@ -70,8 +70,10 @@ class NativeBrowser:
         self.light = set()  # routes waiting for a reply: quick checks only, no menus
 
     def dispatch_lock(self, route):
-        profile = identifier(self.config["routes"][route].get("profile") or route)
-        return self.dispatch_locks.setdefault(profile, asyncio.Lock())
+        return self.profile_lock(self.config["routes"][route].get("profile") or route)
+
+    def profile_lock(self, profile):
+        return self.dispatch_locks.setdefault(identifier(profile), asyncio.Lock())
 
     def profile_dir(self, profile):
         # Chrome gets its own folders: a profile Edge wrote may not open cleanly in Chrome.
