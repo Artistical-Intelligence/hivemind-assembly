@@ -114,7 +114,7 @@
     nativeSetup: 'Open this assistant\'s tab and set it up step by step.',
     nativeShow: 'Switch to this assistant\'s tab in Chrome.',
     nativeSnapshot: 'See a picture of what HA sees in this assistant\'s tab.',
-    signin: 'Open this service in HA\'s browser to sign in or see which account it uses. One sign-in covers all its assistants.',
+    signin: 'Show this service\'s tab in Chrome to sign in or see which account it uses. One sign-in covers all its assistants.',
     note: 'Save your note.',
     probe: 'Check this assistant works: HA reads its page to confirm the sign-in and controls. Sends nothing.',
     reconcile: 'Check whether this saved action finished.',
