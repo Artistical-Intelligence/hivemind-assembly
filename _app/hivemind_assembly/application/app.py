@@ -1685,7 +1685,8 @@ def make_server(app, port=0):
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header(
                 "Content-Security-Policy",
-                "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'",
+                # data: images only, for the picture of an assistant's tab (What HA sees).
+                "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'",
             )
             self.end_headers()
             self.wfile.write(data)
