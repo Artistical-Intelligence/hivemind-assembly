@@ -683,6 +683,13 @@ class FolderBackups:
             attributes_staged = self._lfs_setup(e, env, lfs_files)
         elif attributes.exists():
             attributes.write_text("", encoding="utf-8")
+        # A file already in the backup that has grown past GitHub's limit (or was stored
+        # with Git LFS before that was turned off) leaves the repository from this version
+        # on and goes up as a release asset instead; earlier versions keep it.
+        grown = [f["path"] for f in asset_files if self._tracked(e, env, f["path"])]
+        if grown:
+            self._git(e, "rm", "-q", "--cached", "--ignore-unmatch", "--pathspec-from-file=-", "--pathspec-file-nul",
+                      env=env, input=b"\0".join(p.encode("utf-8", "surrogateescape") for p in grown))
 
         self._progress(key, 20, "Finding new and changed files…")
         status = self._git(e, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignore-submodules=all",
@@ -701,7 +708,7 @@ class FolderBackups:
             code, path = item[:2], item[3:]
             if code[0] == "R":
                 i += 1  # Renames carry the old path next; not produced for untracked files.
-            if path in skip:
+            if path in skip or path in grown:
                 continue
             if "D" in code:
                 deleted.append(path)
@@ -712,7 +719,7 @@ class FolderBackups:
         end = 60 if asset_files else 100
         uploaded_any = False
         stamp = time.strftime("%Y-%m-%d %H:%M")
-        if changed or deleted or attributes_staged:
+        if changed or deleted or attributes_staged or grown:
             batches, current, size = [], [], 0
             for path in changed:
                 try:
