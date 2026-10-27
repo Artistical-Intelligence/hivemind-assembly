@@ -1106,7 +1106,7 @@ class Application:
             atomic_write(self.config_path, canonical(self.config))
             for route in changed:
                 # Set up the changed assistants straight away; sign-in waits if needed.
-                self.native_setup_futures[route] = self.submit(self.native_setup.run(route))
+                self.native_setup_futures[route] = self.submit(self.setup_assistant(route))
             return {"changed": changed, "active": self.config.get("active_preset")}
         if path == "/api/models/read":
             if self.assistants_busy():
