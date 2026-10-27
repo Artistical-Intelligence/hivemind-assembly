@@ -25,6 +25,12 @@ CREATE TABLE IF NOT EXISTS knowledge_tags(id TEXT PRIMARY KEY,label TEXT NOT NUL
 CREATE TABLE IF NOT EXISTS knowledge_assignments(kind TEXT NOT NULL,item_id TEXT NOT NULL,tags TEXT NOT NULL,PRIMARY KEY(kind,item_id));
 CREATE TABLE IF NOT EXISTS knowledge_scopes(task_id TEXT PRIMARY KEY REFERENCES tasks(id),tags TEXT NOT NULL,objective_hash TEXT NOT NULL,catalog_hash TEXT NOT NULL,revision INTEGER NOT NULL,reason TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sources(id TEXT PRIMARY KEY,name TEXT NOT NULL,revision TEXT NOT NULL,external_allowed INTEGER NOT NULL,extraction TEXT NOT NULL,sections TEXT NOT NULL,created REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS knowledge_sections(rowid INTEGER PRIMARY KEY,source TEXT NOT NULL,section TEXT NOT NULL,ord INTEGER NOT NULL,title TEXT NOT NULL,names TEXT NOT NULL,body TEXT NOT NULL,level INTEGER NOT NULL,path TEXT NOT NULL,links TEXT NOT NULL,pictures TEXT NOT NULL,UNIQUE(source,section));
+CREATE INDEX IF NOT EXISTS knowledge_sections_source ON knowledge_sections(source,ord);
+CREATE TABLE IF NOT EXISTS knowledge_names(name TEXT NOT NULL,source TEXT NOT NULL,section TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS knowledge_names_name ON knowledge_names(name);
+CREATE INDEX IF NOT EXISTS knowledge_names_source ON knowledge_names(source);
+CREATE TABLE IF NOT EXISTS knowledge_origins(origin TEXT PRIMARY KEY,source TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS lessons(id TEXT PRIMARY KEY,asset_key TEXT NOT NULL,version INTEGER NOT NULL,kind TEXT NOT NULL,status TEXT NOT NULL,payload TEXT NOT NULL,predecessor TEXT,created REAL NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS one_active_lesson ON lessons(asset_key) WHERE status='active';
 CREATE TABLE IF NOT EXISTS artifacts(id TEXT PRIMARY KEY,sha256 TEXT NOT NULL,size INTEGER NOT NULL,classification TEXT NOT NULL,project_id TEXT,logical_name TEXT NOT NULL,created REAL NOT NULL);
