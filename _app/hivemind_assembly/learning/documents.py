@@ -108,12 +108,15 @@ class Word:
         self.zip = zipfile.ZipFile(self.path)
         self.names = set(self.zip.namelist())
         self.styles = self._styles()
-        self.rels = self._rels("word/_rels/document.xml.rels")
-        self.footnotes = self._notes("word/footnotes.xml", "footnote")
         self.pictures = []
         self.tables = 0
         self.gaps = []
         self.notes_used = []
+        self.footnotes = {}
+        # Footnotes have their own links and pictures, listed in their own relationships.
+        self.rels = self._rels("word/_rels/footnotes.xml.rels")
+        self.footnotes = self._notes("word/footnotes.xml", "footnote")
+        self.rels = self._rels("word/_rels/document.xml.rels")
 
     def _xml(self, name):
         return ET.fromstring(self.zip.read(name)) if name in self.names else None
@@ -267,9 +270,9 @@ class Word:
                 target = normpath("word/" + rel["target"]) if not rel["target"].startswith("/") else rel["target"].lstrip("/")
                 suffix = PurePosixPath(target).suffix.lower()
                 data = self.zip.read(target) if target in self.names else None
-                picture.update(name=f"{self.path.stem}-picture-{number}{suffix}", data=data, suffix=suffix)
-                if data is None:
-                    self.gaps.append(f"Picture {picture['id']} is missing from the file.")
+                # A missing picture is listed as missing; it never makes the text partly read.
+                picture.update(name=f"{self.path.stem}-picture-{number}{suffix}", data=data, suffix=suffix,
+                               missing=data is None)
             self.pictures.append(picture)
             found.append(picture)
         return found
@@ -421,7 +424,8 @@ def parse_docx(path):
 # -------------------------------------------------------------- Markdown
 FRONT = re.compile(r"\A---\s*\n(.*?)\n(?:---|\.\.\.)\s*(?:\n|\Z)", re.S)
 HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
-LINK = re.compile(r"(!?)\[([^\]]*)\]\(\s*<?([^)\s>]+)>?(?:\s+\"[^\"]*\")?\s*\)")
+# [text](target "title") and ![alt](target); <target with spaces> in angle brackets too.
+LINK = re.compile(r"(!?)\[([^\]]*)\]\(\s*<?((?<=<)[^>\n]+|[^)\s>]+)>?(?:\s+\"[^\"]*\")?\s*\)")
 FENCE = re.compile(r"^\s*(```|~~~)")
 
 
@@ -510,9 +514,7 @@ def parse_markdown(text, name, image=None):
                 section["links"].append({"kind": "file", "text": shown, "target": target})
     flush()
     sections = build.finish()
-    gaps = [f"Picture {p['id']} ({p['name']}) isn't in the imported folder." for p in pictures if p.get("missing")]
-    for p in pictures:
-        p.pop("missing", None)
+    gaps = []  # A picture that can't be found is marked missing on the picture, not as a gap.
     if all(s["level"] == 0 for s in sections) and len(sections) == 1:
         # No headings: one section per paragraph, as plain text.
         plain = parse_text(body, name)
@@ -547,8 +549,9 @@ class _Html(HTMLParser):
             self.href = attrs["href"]
             self.current.append("[")
         elif tag == "img":
-            alt = attrs.get("alt") or ""
-            self.current.append(f"![{alt}]({attrs.get('src', '')})")
+            alt = (attrs.get("alt") or "").replace("]", " ")
+            src = (attrs.get("src") or "").strip()
+            self.current.append(f"![{alt}](<{src}>)" if re.search(r"[\s)]", src) else f"![{alt}]({src})")
         elif tag in self.BLOCK:
             self.end_line()
             if tag == "li":
