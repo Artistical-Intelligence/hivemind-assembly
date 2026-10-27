@@ -97,7 +97,7 @@ $('#native-corpus-form').onsubmit=async e=>{e.preventDefault();try{const r=await
 $('#native-eval-form').onsubmit=async e=>{e.preventDefault();try{const f=Object.fromEntries(new FormData(e.target));f.repeats=Number(f.repeats);f.default_suite=f.default_suite==='on';await api('learning/native-evaluate',f);notice('Lesson test started.');refresh()}catch(x){notice(x.message,true)}};
 document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;try{if(b.dataset.share||b.dataset.unshare){await api('learning/share',{lesson:b.dataset.share||b.dataset.unshare,allowed:!!b.dataset.share});notice(b.dataset.share?'Allowed.':'Asset kept local.')}if(b.dataset.nativeRenew){await api('native/renew',{route:b.dataset.nativeRenew});notice('Conversation renewal started.')} }catch(x){notice(x.message,true)}});
 
-$('#native-all').onclick=async()=>{try{await api('native/setup-all',{});notice('Setting up all assistants. Each card shows its progress.');refresh()}catch(e){notice(e.message,true)}};
+$('#native-all').onclick=async()=>{try{await api('native/setup-all',{});notice('Setting up all assistants. Each row shows its progress.');refresh()}catch(e){notice(e.message,true)}};
 
 $("#verify-foundations").onclick=async()=>{try{await api("verify-foundations",{});notice("Installed foundation checks started.");tab("evidence")}catch(e){notice(e.message,true)}};
 
