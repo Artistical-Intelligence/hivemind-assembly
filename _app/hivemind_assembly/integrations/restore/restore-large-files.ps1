@@ -86,11 +86,39 @@ function Get-Sha256([string]$Path) {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
+# Where a file from the manifest goes: always inside the restore folder. A path that
+# could lead anywhere else (absolute, a drive, '..', either slash on Windows, or a
+# linked folder inside the restore folder) stops the restore.
+$onWindows = ($PSVersionTable.PSEdition -eq 'Desktop') -or $IsWindows
+function Get-Target([string]$Relative) {
+    $parts = @(if ($onWindows) { $Relative -split '[\\/]' } else { $Relative -split '/' })
+    $odd = @($parts | Where-Object { $_ -eq '' -or $_ -eq '.' -or $_ -eq '..' -or ($onWindows -and $_.Contains(':')) })
+    if (-not $Relative -or $Relative.StartsWith('/') -or $Relative.StartsWith('\') -or $odd.Count -gt 0) {
+        throw "Refusing an unsafe path in the manifest: $Relative"
+    }
+    $target = [IO.Path]::GetFullPath((Join-Path $root ($parts -join [IO.Path]::DirectorySeparatorChar)))
+    if (-not $target.StartsWith($rootFull, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing an unsafe path in the manifest: $Relative"
+    }
+    $folder = Split-Path -Parent $target
+    while ($folder -and $folder.Length -ge $rootFull.Length) {
+        if ((Test-Path -LiteralPath $folder) -and ((Get-Item -LiteralPath $folder -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+            throw "Refusing an unsafe path in the manifest (it goes through a linked folder): $Relative"
+        }
+        $folder = Split-Path -Parent $folder
+    }
+    return $target
+}
+
 $data = Get-Content -LiteralPath $Manifest -Raw -Encoding UTF8 | ConvertFrom-Json
 $owner, $name = $data.repository.Split('/', 2)
 $root = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Destination)
+$rootFull = [IO.Path]::GetFullPath($root).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
 $files = @($data.files | Where-Object { $Only.Count -eq 0 -or $Only -contains $_.path })
 if ($files.Count -eq 0) { Write-Host 'Nothing to restore.'; exit 0 }
+# Every path is checked before anything is downloaded or written.
+$targets = @{}
+foreach ($item in $files) { $targets[[string]$item.path] = Get-Target ([string]$item.path) }
 
 $release = Get-Json "$Api/repos/$owner/$name/releases/tags/$([Uri]::EscapeDataString($data.release))"
 $assets = @{}
@@ -104,11 +132,7 @@ do {
 
 $failed = 0
 foreach ($item in $files) {
-    $parts = $item.path.Split('/')
-    if ([IO.Path]::IsPathRooted($item.path) -or $parts -contains '..' -or $parts -contains '' -or $parts[0].Contains(':')) {
-        throw "Refusing an unsafe path in the manifest: $($item.path)"
-    }
-    $target = Join-Path $root ($parts -join [IO.Path]::DirectorySeparatorChar)
+    $target = $targets[[string]$item.path]
     if ((Test-Path -LiteralPath $target -PathType Leaf) -and (Get-Item -LiteralPath $target).Length -eq $item.size -and (Get-Sha256 $target) -eq $item.sha256) {
         Write-Host "Already there: $($item.path)"
         continue
