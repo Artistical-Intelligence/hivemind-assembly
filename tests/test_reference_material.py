@@ -596,3 +596,22 @@ def test_word_file_with_a_picture_in_a_footnote(store, tmp_path):
     assert result["status"] == "text_extracted"
     stored = [p for p in result["pictures"] if p["description"] == "Footnote figure"]
     assert len(stored) == 1 and stored[0]["artifact"]
+
+
+def test_imported_files_are_not_left_open(store, tmp_path):
+    """On Windows a file HA keeps open can't be edited, moved or deleted."""
+    import os
+    from pathlib import Path
+
+    fds = Path("/proc/self/fd")
+    if not fds.is_dir():
+        pytest.skip("Listing open files needs /proc; the Windows run shows it by deleting the folder")
+    path = word(tmp_path / "guide.docx")
+    Knowledge(store).ingest(path, True)
+    still_open = set()
+    for fd in fds.iterdir():
+        try:
+            still_open.add(os.readlink(fd))
+        except OSError:
+            pass
+    assert str(path.resolve()) not in still_open
