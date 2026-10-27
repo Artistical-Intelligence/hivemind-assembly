@@ -632,6 +632,10 @@ def parse_pdf(path):
         import pypdf
     except ImportError:
         return Parsed(Path(path).stem, [], [], ["PDF text extraction isn't installed."])
+    import logging
+
+    # Font and encoding notes from odd PDFs aren't problems with the import.
+    logging.getLogger("pypdf").setLevel(logging.ERROR)
     reader = pypdf.PdfReader(str(path))
     for i, page in enumerate(reader.pages):
         text = page.extract_text() or ""
