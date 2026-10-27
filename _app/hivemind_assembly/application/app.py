@@ -30,7 +30,14 @@ from hivemind_assembly.core.acceptance import Acceptance
 from hivemind_assembly.learning.engine import Learning
 from hivemind_assembly.automation.native import NativeBrowser
 from hivemind_assembly.automation.team import NativeTeam
-from hivemind_assembly.automation.policy import validate_config
+from hivemind_assembly.automation.policy import (
+    FIELDS,
+    PROVIDERS,
+    default_presets,
+    usage_scope,
+    valid_target,
+    validate_config,
+)
 from hivemind_assembly.learning.knowledge import Knowledge
 from hivemind_assembly.domains.reverse_engineering.semantics import (
     smoke_cases,
@@ -80,6 +87,11 @@ class Application:
         ):
             # Earlier versions picked Edge first; use Chrome once it's installed.
             saved_config["browser"]["channel"] = "chrome"
+            atomic_write(self.config_path, canonical(saved_config))
+        if "presets" not in saved_config:
+            # The setup the owner has now becomes the "Default" setup they can change.
+            saved_config["presets"] = default_presets(saved_config)
+            saved_config["active_preset"] = "Default"
             atomic_write(self.config_path, canonical(saved_config))
         self.config = validate_config(saved_config)
         self.controller = Controller(self.store)
@@ -435,6 +447,12 @@ class Application:
             ],
             "jobs": self.jobs_view(),
             "foundations": self.foundations_status(),
+            "assistant_setups": {
+                "presets": self.config.get("presets", {}),
+                "active": self.config.get("active_preset"),
+            },
+            "model_choices": self.model_choices(),
+            "services": self.services_status(),
             "assistant_browser": {
                 "mode": "your_chrome" if self.browser.your_chrome() else "own_windows",
                 "extension_connected": self.browser.relay.connected(),
@@ -476,6 +494,113 @@ class Application:
                 "SELECT id,created FROM artifacts WHERE logical_name='learning-holdouts.json' ORDER BY created DESC, rowid DESC LIMIT 20"
             )
         ]
+
+    CHOICES = "model-choices.json"
+
+    def model_choices(self):
+        """Models and thinking levels last read from each service's own picker."""
+        path = self.store.root / "private" / self.CHOICES
+        try:
+            return json.loads(path.read_text())
+        except (OSError, ValueError):
+            return {}
+
+    def services_status(self):
+        """One entry per AI service: who is signed in, and whether a sign-in is waited for."""
+        out = []
+        for provider, info in PROVIDERS.items():
+            routes = [r for r, c in self.config["routes"].items() if c.get("provider") == provider]
+            accounts = {self.config["routes"][r].get("account_label") for r in routes} - {"", None}
+            out.append({
+                "provider": provider,
+                "name": info["name"],
+                "account": accounts.pop() if len(accounts) == 1 else "",
+                "waiting": any(self.native_setup.status(r).get("stage") == "authentication" for r in routes),
+                "routes": routes,
+            })
+        return out
+
+    def assistants_busy(self):
+        return any(
+            not p.done()
+            for p in [*self.team.active.values(), *self.team.learning_jobs.values()]
+        )
+
+    async def apply_targets(self, targets):
+        """Give each assistant its chosen service, mode, model and thinking level. Changed
+        assistants get a fresh setup; unchanged ones keep their conversations."""
+        await self.team.freeze_dispatch()
+        try:
+            changed = []
+            for route, target in targets.items():
+                cfg = self.config["routes"][route]
+                old = {k: cfg.get(k) for k in FIELDS}
+                if old == target:
+                    continue
+                changed.append(route)
+                future = self.native_setup_futures.pop(route, None)
+                if future is not None and not future.done():
+                    future.cancel()
+                info = PROVIDERS[target["provider"]]
+                cfg.update(target, allowed_hosts=list(info["hosts"]), profile=info["profile"])
+                if (old["provider"], old["mode"]) != (target["provider"], target["mode"]):
+                    # Another service or mode: a new conversation, and its own usage limits.
+                    cfg.update(conversation_url="", selectors={}, draft_session=False)
+                    if old["provider"] != target["provider"]:
+                        cfg["account_label"] = ""
+                    cfg["usage"] = {
+                        "scope": usage_scope(target["provider"], target["mode"]),
+                        "url": "",
+                        "windows": [],
+                        "no_numeric_limit_confirmed": False,
+                    }
+                    self.browser.pages.pop(route, None)
+                    self.native_setup.pages.pop(route, None)
+                self.team.observations.pop(route, None)
+                self.browser.deep_checked.pop(route, None)
+                self.native_setup.save(
+                    route, stage="not_started", instruction="Its model changed; setting it up again."
+                )
+            validate_config(self.config)
+            atomic_write(self.config_path, canonical(self.config))
+            return changed
+        finally:
+            self.team.pause_dispatch = False
+
+    def read_model_choices(self):
+        """Read every model and thinking level from ChatGPT's and Claude's own pickers."""
+        from hivemind_assembly.automation.providers import CONTRACTS
+        from hivemind_assembly.automation.surfaces import SURFACES
+
+        async def read():
+            found = {"read_at": time.time()}
+            for provider, info in PROVIDERS.items():
+                surface = SURFACES[provider]
+                async with self.browser.profile_lock(info["profile"]):
+                    page = await self.browser.service_page(
+                        info["profile"], CONTRACTS[provider]["new_url"], info["hosts"]
+                    )
+                    try:
+                        try:
+                            await page.locator(surface.picker).first.wait_for(timeout=20000)
+                        except Exception:
+                            found[provider] = {"error": "Sign in to " + info["name"] + " first (use its button above)."}
+                            continue
+                        found[provider] = {"modes": await surface.options(page)}
+                    except Exception as error:
+                        first = (str(error).strip().splitlines() or [type(error).__name__])[0][:200]
+                        found[provider] = {"error": info["name"] + "'s menu couldn't be read: " + first}
+                    finally:
+                        if page not in self.browser.pages.values():
+                            await page.close()
+            path = self.store.root / "private" / self.CHOICES
+            path.parent.mkdir(parents=True, exist_ok=True)
+            atomic_write(path, canonical(found))
+            return found
+
+        return self.background_job(
+            "Read model choices", lambda: self.submit(read()).result(timeout=900)
+        )
 
     def foundations_status(self):
         """Whether the pinned foundations are configured on disk, for first-run setup."""
@@ -922,6 +1047,53 @@ class Application:
                     self.native_setup.run(route)
                 )
             return {"started": True}
+        if path == "/api/assistants/save":
+            name = str(data.get("name", "")).strip()
+            targets = data.get("targets")
+            if not isinstance(targets, dict) or set(targets) != set(self.config["routes"]):
+                raise ContractError("A setup names all five assistants")
+            presets = {**self.config.get("presets", {}), name: {r: valid_target(t) for r, t in targets.items()}}
+            validate_config({**self.config, "presets": presets})
+            self.config["presets"] = presets
+            atomic_write(self.config_path, canonical(self.config))
+            return {"presets": presets, "active": self.config.get("active_preset")}
+        if path == "/api/assistants/use":
+            if self.assistants_busy():
+                raise Blocked("Pause the running project first; assistants can't change in the middle of a step.")
+            name = data.get("name")
+            targets = self.config.get("presets", {}).get(name) if name else data.get("targets")
+            if not isinstance(targets, dict) or set(targets) != set(self.config["routes"]):
+                raise ContractError("Choose a saved setup or all five assistants")
+            targets = {r: valid_target(dict(t)) for r, t in targets.items()}
+            changed = self.submit(self.apply_targets(targets)).result(timeout=60)
+            self.config["active_preset"] = name if name in self.config.get("presets", {}) else None
+            if self.config["active_preset"] is None:
+                self.config.pop("active_preset")
+            atomic_write(self.config_path, canonical(self.config))
+            for route in changed:
+                # Set up the changed assistants straight away; sign-in waits if needed.
+                self.native_setup_futures[route] = self.submit(self.native_setup.run(route))
+            return {"changed": changed, "active": self.config.get("active_preset")}
+        if path == "/api/models/read":
+            if self.assistants_busy():
+                raise Blocked("Pause the running project first; reading the choices switches models in HA's tabs.")
+            return self.read_model_choices()
+        if path == "/api/native/signin":
+            from hivemind_assembly.automation.providers import CONTRACTS
+
+            provider = data.get("provider")
+            if provider not in PROVIDERS:
+                raise ContractError("Unknown AI service")
+            info = PROVIDERS[provider]
+
+            async def open_tab():
+                page = await self.browser.service_page(
+                    info["profile"], CONTRACTS[provider]["new_url"], info["hosts"]
+                )
+                await page.bring_to_front()
+
+            self.submit(open_tab()).result(timeout=90)
+            return {"opened": True}
         if path == "/api/native/show":
             route = data.get("route")
             if route not in self.config["routes"]:
