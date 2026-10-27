@@ -265,3 +265,25 @@ def test_replies_rendered_as_code_blocks_are_read_as_their_code():
     # Prose around the JSON is still refused, as before.
     with pytest.raises(Exception, match="single structured JSON"):
         parse_response(prose[0], "r3")
+
+
+def test_model_choices_are_read_from_each_picker_and_the_owners_choice_is_kept():
+    async def chatgpt(page):
+        found = await surfaces.SURFACES["openai"].options(page)
+        return found, await surfaces.SURFACES["openai"].deep(page)
+
+    found, after = run(CHATGPT, chatgpt)
+    assert found["Chat"] == {"GPT-6": ["Instant", "Medium", "High", "Extra High", "Pro"], "GPT-5.6 Sol": ["Instant", "High"]}
+    assert found["Work"]["GPT-6 Astra"] == ["None", "Minimal", "High", "Extra High", "Max", "Ultra"]
+    assert found["Work"]["Default"] == ["High"] and found["Work"]["GPT-6.1 Sol"] == ["Light", "Medium", "High"]
+    # The tab is back on what the owner had: Work, GPT-6 Astra, High.
+    assert after == {"mode": "Work", "model": "GPT-6 Astra", "effort": "High"}
+
+    async def claude(page):
+        found = await surfaces.SURFACES["claude"].options(page)
+        return found, await surfaces.SURFACES["claude"].deep(page)
+
+    found, after = run(CLAUDE, claude, "https://claude.ai/new")
+    assert list(found["native"]) == ["Fable 5.1", "Opus 5.5", "Sonnet 5.5", "Haiku 5.5"]
+    assert found["native"]["Opus 5.5"] == ["Low", "Medium", "High", "Extra", "Max"]
+    assert after == {"mode": "native", "model": "Opus 5.5", "effort": "Max"}
