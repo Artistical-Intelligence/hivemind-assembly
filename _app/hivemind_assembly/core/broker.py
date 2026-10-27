@@ -365,6 +365,14 @@ class Broker:
                 )
                 effect_started = self.publications.uncertain(request["id"])
             elif tool == "create_repository" and self.repositories:
+                if (
+                    isinstance(args, dict)
+                    and args.get("visibility", "private") != "private"
+                    and request["owner"] != "user.repository"
+                ):
+                    raise Blocked(
+                        "Only you can make a public repository; assistants create private ones."
+                    )
                 result = self.repositories.create(
                     self.store.task(task)["project_id"], request["id"], args, cancel
                 )
