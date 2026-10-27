@@ -459,6 +459,8 @@ class Application:
             ],
             "jobs": self.jobs_view(),
             "folder_backups": self.folder_backups.view(),
+            # Store large files with Git LFS is offered only when Git LFS is installed.
+            "git_lfs": self.folder_backups.lfs_available(),
             "foundations": self.foundations_status(),
             "assistant_setups": {
                 "presets": self.config.get("presets", {}),
