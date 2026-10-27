@@ -20,10 +20,11 @@ The first setup, saved as **Default**, is:
 
 **AI assistants** has one sign-in button per service (ChatGPT, Claude) on its
 top row; one sign-in covers every assistant on that service. Each assistant's
-row has a **Model** and a **Thinking** list. **Read choices** opens each
-service's own model menu in HA's tab, records every model, Chat/Work mode and
-thinking level it offers, and puts your selection there back; until then the
-lists show only models already in use or saved. **Use** switches the
+row has a **Model** and a **Thinking** list. After a service is set up (and
+again when its list is a week old), HA opens that service's own model menu in a
+separate tab, records every model, Chat/Work mode and thinking level it offers,
+puts your selection there back and closes the tab; **Read choices** does this
+now. Until then the lists show the models in use or saved. **Use** switches the
 assistants to the lists as shown; only assistants whose choice changed are set
 up again, with a new conversation and their own usage check when the service or
 mode changes. **Save** replaces the selected setup (including **Default**) and
