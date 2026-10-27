@@ -450,6 +450,41 @@ def test_completion_checks_suggest_files_and_insert_examples(server, app):
         browser.close()
 
 
+def test_what_ha_sees_shows_the_tab_picture(server, app):
+    import time
+    from playwright.sync_api import sync_playwright, expect
+
+    route = next(iter(app.config["routes"]))
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ["WORKBENCH_TEST_CHROME"],
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        # A real JPEG, as HA saves it from an assistant's tab.
+        tab = browser.new_page(viewport={"width": 320, "height": 200})
+        tab.set_content("<h1>Sign in</h1>")
+        picture = app.native_setup.snapshot_path(route)
+        picture.parent.mkdir(parents=True, exist_ok=True)
+        tab.screenshot(path=str(picture), type="jpeg", quality=70)
+        app.native_setup.snapshots[route] = time.time()
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+        page.locator('[data-tab="routes"]').click()
+        page.locator(f'[data-native-snapshot="{route}"]').click()
+        expect(page.locator("#snapshot-view")).to_be_visible()
+        expect(page.locator("#snapshot-view p")).to_contain_text("What HA saw in this tab at")
+        # The picture must actually load, not show as a broken image.
+        page.wait_for_function(
+            "() => { const i = document.querySelector('#snapshot-view img'); return i.complete && i.naturalWidth === 320; }",
+            timeout=5000,
+        )
+        assert errors == []
+        browser.close()
+
+
 def test_tag_scope_and_optional_learning_controls(server, app, tmp_path, monkeypatch):
     from playwright.sync_api import sync_playwright, expect
     from hivemind_assembly.application import pickers
