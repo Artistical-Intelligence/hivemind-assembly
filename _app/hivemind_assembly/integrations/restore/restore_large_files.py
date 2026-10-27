@@ -66,6 +66,8 @@ def request(url, token, accept="application/vnd.github+json"):
         if error.code in (401, 403, 404) and not token:
             sys.exit("GitHub didn't allow the download. For a private repository, pass --token or sign in with gh.")
         sys.exit(f"GitHub answered HTTP {error.code} for {url}")
+    except (urllib.error.URLError, OSError) as error:
+        sys.exit(f"Couldn't reach GitHub ({getattr(error, 'reason', error)}). Check the internet connection and try again.")
 
 
 def get_json(url, token):
@@ -127,6 +129,8 @@ def main(argv=None):
     if not files:
         print("Nothing to restore.")
         return 0
+    # Every path is checked before anything is downloaded or written.
+    targets = {item["path"]: target_path(destination, item["path"]) for item in files}
 
     release = get_json(f"{api}/repos/{owner}/{name}/releases/tags/{urllib.parse.quote(manifest['release'])}", token)
     assets, page = {}, 1
@@ -140,7 +144,7 @@ def main(argv=None):
 
     failed = 0
     for item in files:
-        target = target_path(destination, item["path"])
+        target = targets[item["path"]]
         if target.is_file() and target.stat().st_size == item["size"] and sha256(target) == item["sha256"]:
             print(f"Already there: {item['path']}")
             continue
