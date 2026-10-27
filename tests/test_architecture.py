@@ -58,10 +58,13 @@ from hivemind_assembly.core.controller import Controller
 from hivemind_assembly.core.broker import Broker
 from hivemind_assembly.learning.engine import Learning
 from hivemind_assembly.automation.team import NativeTeam
+from hivemind_assembly.learning.knowledge import Knowledge
+from hivemind_assembly.learning.collections import KnowledgeCollections
 s = Store(sys.argv[1])
 c = Controller(s)
 b = Broker(c, {})
-assert {'list_files', 'read_file', 'write_file', 'checkpoint', 'read_artifact', 'verified_sources', 'run_workflow', 'propose_workflow', 'test_programs', 'mcp_call', 'cloud_submit', 'cloud_status'} == set(b.capabilities)
+assert {'list_files', 'read_file', 'write_file', 'checkpoint', 'read_artifact', 'verified_sources', 'run_workflow', 'propose_workflow', 'test_programs', 'mcp_call', 'cloud_submit', 'cloud_status',
+        'search_knowledge', 'lookup_knowledge', 'open_section', 'follow_link', 'section_pictures'} == set(b.capabilities)
 assert NativeTeam(c, b, None, {"routes": {}}).skill_manifest() == []
 s.close()
 """
