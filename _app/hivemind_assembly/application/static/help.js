@@ -2,6 +2,10 @@
 (() => {
   const byId = {
     'native-all': 'Open one sign-in window per account (ChatGPT, Claude), then set up each assistant.',
+    'setup-use': 'Switch the assistants to the models and thinking shown. Any assistant that changes is set up again.',
+    'setup-save': 'Save the models and thinking shown under the selected setup name, replacing what it had.',
+    'setup-save-as': 'Save the models and thinking shown as a new setup with the name you typed.',
+    'choices-read': 'Read which models and thinking levels ChatGPT and Claude offer, from their own model menus. Your choices there are put back.',
     'verify': 'Run a quick built-in self-test.',
     'native-test-run': 'Run the saved tests for this project now.',
     'native-test-results': 'Show the results of the most recent test run.',
