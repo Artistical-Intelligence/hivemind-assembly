@@ -96,7 +96,8 @@ $release = Get-Json "$Api/repos/$owner/$name/releases/tags/$([Uri]::EscapeDataSt
 $assets = @{}
 $page = 1
 do {
-    $batch = @(Get-Json "$Api/repos/$owner/$name/releases/$($release.id)/assets?per_page=100&page=$page")
+    # Invoke-RestMethod hands back a JSON list as one object; unroll it into its items.
+    $batch = @((Get-Json "$Api/repos/$owner/$name/releases/$($release.id)/assets?per_page=100&page=$page") | ForEach-Object { $_ })
     foreach ($asset in $batch) { $assets[$asset.name] = $asset }
     $page++
 } while ($batch.Count -eq 100)
