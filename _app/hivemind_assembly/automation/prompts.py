@@ -31,8 +31,9 @@ TOOL_SCHEMAS = {
     },
     "create_repository": {
         "name": "GitHub repository name (1–100 letters, numbers, dots, underscores or hyphens). Reuse the project's repository; never create one per trial.",
-        "description": "optional single line, at most 200 characters; exclude private target details. Creates an empty private repository, without commits or uploads. Reconcile uncertain results before retrying.",
+        "description": "optional single line, at most 200 characters; exclude private target details. Creates an empty repository, without commits or uploads. Reconcile uncertain results before retrying.",
         "owner": "optional authorized account or an organization allowed in settings",
+        "visibility": "optional private or public; a public repository is visible to anyone on the internet. When omitted, the owner's default for new repositories applies. GitHub's later visibility changes are followed.",
     },
     "repository_status": {},
     "publish_checkpoint": {
