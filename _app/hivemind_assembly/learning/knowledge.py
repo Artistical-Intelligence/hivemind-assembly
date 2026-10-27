@@ -433,7 +433,7 @@ class Knowledge:
         return None
 
     def pictures(self, task, key, section, ids=None, role="worker"):
-        """A section's pictures as images the next turn can look at (at most 8)."""
+        """A section's pictures as images the next turn can look at (at most 4 at once)."""
         self._check(task, key, role)
         row = self._section(key, section)
         wanted = json.loads(row["pictures"])
@@ -447,7 +447,7 @@ class Knowledge:
         for pid in wanted:
             p = meta.get(pid, {})
             item = {"id": pid, "description": p.get("description") or "Not yet described"}
-            if p.get("viewable") and p.get("artifact") and len(images) < 8 and p.get("size", 0) <= 2_000_000:
+            if p.get("viewable") and p.get("artifact") and len(images) < 4 and p.get("size", 0) <= 2_000_000:
                 images.append({"name": f"{pid}{Path(p['name']).suffix.lower()}",
                                "data": self.artifacts.read(p["artifact"], "controller")})
                 item["shown"] = True
@@ -456,7 +456,7 @@ class Knowledge:
                 item["why_not"] = (
                     "a linked picture outside the document" if p.get("linked")
                     else "this picture format can't be shown" if not p.get("viewable")
-                    else "too large to show, or more than 8 asked for"
+                    else "too large to show, or more than 4 asked for at once"
                 )
             listed.append(item)
         return {"source": key, "section": row["section"], "pictures": listed, "_images": images}
