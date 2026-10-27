@@ -1198,11 +1198,11 @@ class Application:
             self.config["github"] = cfg["github"]
             return {"saved": True}
         if path == "/api/github/repositories":
-            # The owner's private repositories, to pick one instead of typing it.
+            # The owner's repositories, to pick one instead of typing it.
             saved = self.github_auth.credentials()
             rows = self.github_auth.http.request(
                 "GET",
-                "/user/repos?visibility=private&affiliation=owner,collaborator,organization_member&sort=updated&per_page=100",
+                "/user/repos?visibility=all&affiliation=owner,collaborator,organization_member&sort=updated&per_page=100",
                 token=saved["access_token"],
                 allow_list=True,
             )
@@ -1211,6 +1211,7 @@ class Application:
                     "owner": r["owner"]["login"],
                     "name": r["name"],
                     "description": r.get("description") or "",
+                    "private": r.get("private") is not False,
                 }
                 for r in rows
                 if isinstance(r, dict) and isinstance(r.get("owner"), dict)
@@ -1825,8 +1826,8 @@ class Application:
                 task_id,
                 {"revision": revision},
                 {
-                    "procedure": "Create or recover the requested private GitHub repository.",
-                    "acceptance": "Verify account, repository identity, private visibility and write access.",
+                    "procedure": "Create or recover the requested GitHub repository.",
+                    "acceptance": "Verify account, repository identity, the requested visibility and write access.",
                 },
                 {"critical_gaps": []},
                 [],
