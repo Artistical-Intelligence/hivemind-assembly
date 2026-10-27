@@ -1408,10 +1408,10 @@ class NativeTeam:
             curations = [
                 row
                 for row in self.store.rows(
-                    "SELECT id FROM records WHERE kind='knowledge_curation'"
+                    "SELECT id FROM records WHERE kind IN ('knowledge_curation','knowledge_picture_job')"
                 )
                 if self.curation.status(row["id"])["stage"]
-                in ("queued", "waiting_quota")
+                in ("queued", "waiting_quota", "running")
             ]
             if work or evaluations or curations:
                 await self.poll()
