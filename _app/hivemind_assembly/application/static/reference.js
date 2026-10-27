@@ -208,7 +208,7 @@
     const value = input.type === 'checkbox' ? input.checked : Number(input.value);
     try {
       await api('knowledge/collection-settings', {id, settings: {[key]: value}});
-      notice(key === 'external_allowed' ? 'Saved. Importing again to apply it.' : 'Saved.');
+      notice(key === 'external_allowed' ? (value ? 'Saved. The assistants may read it now.' : 'Saved. The assistants can no longer read it.') : 'Saved.');
       refresh();
     } catch (x) {
       notice(x.message, true);
