@@ -10,18 +10,21 @@ from urllib.parse import urlsplit
 from hivemind_assembly.core.common import Blocked, Retryable
 
 
+# Selectors checked against the live pages on 2026-10-27 (see surfaces.py); the older
+# names stay as alternatives where the page may still use them.
 CONTRACTS = {
     "openai": {
         "new_url": "https://chatgpt.com/",
+        "usage_url": "https://chatgpt.com/settings/usage",
         "conversation": r"/(?:c|g/[^/]+/c)/[A-Za-z0-9-]+",
         "selectors": {
-            "composer": "#prompt-textarea",
-            "send": 'button[data-testid="send-button"]',
-            "user_messages": '[data-message-author-role="user"]',
-            "assistant_messages": '[data-message-author-role="assistant"]',
-            "complete": 'button[data-testid="copy-turn-action-button"]',
-            "streaming": 'button[data-testid="stop-button"]',
-            "upload": 'input[type="file"]',
+            "composer": 'div[contenteditable="true"][role="textbox"]',
+            "send": 'button[aria-label="Send"], button[data-testid="send-button"]',
+            "user_messages": '[data-user-message-bubble="true"], [data-message-author-role="user"]',
+            "assistant_messages": '[data-markdown-text-style="assistant-message"], [data-message-author-role="assistant"]',
+            "complete": 'button[aria-label="Copy"], button[data-testid="copy-turn-action-button"]',
+            "streaming": 'button[data-testid="stop-button"], button[aria-label="Stop streaming"], button[aria-label="Stop generating"], [data-talvt-turn-state]:not([data-talvt-turn-state="complete"])',
+            "upload": 'input[type="file"][aria-label="Attach files"]',
             "attachment_ready": '[data-testid="attachment"]',
             "download": 'a[download], a[href^="https://chatgpt.com/backend-api/files/"]',
             "authentication": 'input[type="password"], input[autocomplete="one-time-code"]',
@@ -29,15 +32,16 @@ CONTRACTS = {
     },
     "claude": {
         "new_url": "https://claude.ai/new",
+        "usage_url": "https://claude.ai/settings/usage",
         "conversation": r"/chat/[A-Za-z0-9-]+",
         "selectors": {
             "composer": 'div[contenteditable="true"][role="textbox"]',
             "send": 'button[aria-label="Send message"]',
             "user_messages": '[data-testid="user-message"]',
             "assistant_messages": '[data-testid="assistant-message"]',
-            "complete": 'button[aria-label="Copy response"]',
-            "streaming": 'button[aria-label="Stop response"]',
-            "upload": 'input[type="file"]',
+            "complete": '[data-testid="message-actions"] button[aria-label="Copy"], button[aria-label="Copy response"]',
+            "streaming": '[data-is-streaming="true"], button[aria-label="Stop response"]',
+            "upload": 'input[data-testid="file-upload"]',
             "attachment_ready": '[data-testid="attachment"]',
             "download": "a[download]",
             "authentication": 'input[type="password"], input[autocomplete="one-time-code"]',
