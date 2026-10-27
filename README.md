@@ -194,9 +194,13 @@ names carry the first 12 characters of the file's SHA-256 (for example
 stay as its history; nothing is overwritten or deleted, and an asset is uploaded
 again only when it is missing or has the wrong size. `LARGE_FILES.json` in the
 repository lists each file's path, size, SHA-256 and asset names, with earlier
-versions. To get the files back, run `restore-large-files.ps1` (Windows PowerShell)
-or `restore_large_files.py` from a copy of the repository: they download the assets,
-join the parts at each file's original path and check its SHA-256. Uploading assets
+versions. A file already in the repository that grows past the limit (or one stored
+with Git LFS after that is turned off) leaves the repository's next version and goes
+up as a release asset; earlier versions keep it. To get the files back, run
+`restore-large-files.ps1` (Windows PowerShell) or `restore_large_files.py` from a copy
+of the repository: they download the assets, join the parts at each file's original
+path and check its SHA-256. They refuse any path in the list that would lead outside
+the restore folder. Uploading assets
 needs HA's GitHub connection, or else a signed-in GitHub CLI; without either, each
 large file shows **Waiting: connect GitHub to upload this file** and is tried again
 on the next upload. Each backup has a **Large files** list with one status per file
@@ -725,15 +729,19 @@ separate image files linked to their section, with any caption or alt text, and 
 mark a document as partly read or block a task. Pictures without a caption are listed
 per picture as not yet described; for material the assistants may read, **Let the
 adviser describe N pictures** asks the adviser, in its own conversation, to describe
-them, and the descriptions become searchable. Links are recorded per section: outside
+them, and the descriptions become searchable. A picture that can't be found is listed
+as missing and doesn't block anything either. Links are recorded per section: outside
 links by address, links inside the document by the section they open. Markdown is
 split at its headings and takes its title, tags and other names from its front
 matter; PDF, HTML, text and source files are read too.
 
 A folder or repository import lists everything it skips with the reason (archives,
-binary data, pictures no document shows, old Office formats); nothing is skipped
-silently. Each file's categories come from its front matter tags, or else from the
-names of the folders it's in, plus one named after the folder or repository.
+binary data, pictures no document shows, old Office formats, links, which are never
+followed, and HA's own data folder); nothing is skipped silently. Each file's
+categories come from its front matter tags, or else from the names of the folders
+it's in, plus one named after the folder or repository; categories you change
+yourself stay when it's imported again. Turning **Let the assistants read it** on or
+off applies to every imported copy at once.
 Importing again replaces the earlier copies: changed files are read again, unchanged
 ones stay, and copies of removed files are removed (the folder and the repository
 themselves are never changed). **Update from GitHub** fetches the latest version, and
