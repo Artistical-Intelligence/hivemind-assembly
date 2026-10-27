@@ -14,6 +14,7 @@ Nothing here runs code or opens links; it only reads the file's bytes.
 from __future__ import annotations
 
 import html
+import io
 import json
 import re
 import zipfile
@@ -418,7 +419,11 @@ class Word:
 def parse_docx(path):
     with zipfile.ZipFile(path):
         pass  # A clear error for a file that isn't a ZIP package.
-    return Word(path).parse()
+    word = Word(path)
+    try:
+        return word.parse()
+    finally:
+        word.zip.close()  # On Windows an open file can't be changed, moved or deleted.
 
 
 # -------------------------------------------------------------- Markdown
@@ -639,7 +644,7 @@ def parse_pdf(path):
 
     # Font and encoding notes from odd PDFs aren't problems with the import.
     logging.getLogger("pypdf").setLevel(logging.ERROR)
-    reader = pypdf.PdfReader(str(path))
+    reader = pypdf.PdfReader(io.BytesIO(Path(path).read_bytes()))  # The file itself isn't kept open.
     for i, page in enumerate(reader.pages):
         text = page.extract_text() or ""
         sections.append({"id": str(i + 1), "title": f"{Path(path).stem}, page {i + 1}", "level": 0, "path": [],
