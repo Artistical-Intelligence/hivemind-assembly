@@ -1016,7 +1016,7 @@ def test_folder_backup_large_files_list(server, app, tmp_path, monkeypatch):
             stand_in.private = False
             card.get_by_role("button", name="Upload now").click()
             expect(card.locator(".alert")).to_contain_text("This repository is now public on GitHub.", timeout=30000)
-            expect(large).to_contain_text("its release assets (the large files) are public too")
+            expect(card.locator(".fb-public")).to_contain_text("its release assets (the large files) are public too")
             # A folder with its own Git history can be backed up on its own.
             left_out.locator("summary").click()
             left_out.get_by_role("button", name="Back up this folder separately").click()
