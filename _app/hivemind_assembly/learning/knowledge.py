@@ -103,7 +103,7 @@ class Knowledge:
             fts = True
         except sqlite3.OperationalError:
             fts = False  # Without FTS5, search falls back to counting words.
-        self.store.knowledge_fts = fts
+        self.store.knowledge_fts = self.fts = fts
         missing = self.store.rows(
             "SELECT * FROM sources WHERE id NOT IN (SELECT DISTINCT source FROM knowledge_sections)"
         )
@@ -114,7 +114,6 @@ class Knowledge:
                 s.setdefault("title", title if s["id"] == "1" else f"{row['name']} (part {s['id']})")
             with self.store.tx() as db:
                 self._write_sections(db, row["id"], sections, title, [])
-        self.fts = fts
         self._upgrade()
         return fts
 
