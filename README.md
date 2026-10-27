@@ -740,11 +740,16 @@ themselves are never changed). **Update from GitHub** fetches the latest version
 an optional schedule does so every day or week.
 
 Search is ranked with SQLite FTS5 (BM25, with titles weighted above body text), and
-titles and other names can be looked up directly. Workers have reference tools,
-`search_knowledge`, `lookup_knowledge`, `open_section`, `follow_link` and
-`section_pictures`, limited to the project's allowed categories and to material the
-owner lets the assistants read; their answers stay readable only while that remains
-true. Semantic (vector) search is not used.
+titles and other names can be looked up directly. Identical copies of a section in
+other documents (drafts, older snapshots) come back as one result that lists where
+the copies are. Workers have reference tools, `search_knowledge`, `lookup_knowledge`,
+`open_section`, `follow_link` and `section_pictures`, limited to the project's allowed
+categories and to material the owner lets the assistants read; their answers stay
+readable only while that remains true. Search matches the material's own words, so
+the workers are told to search with its technical terms and to try other words when
+nothing fits. Semantic (vector) search is not used: on real questions about the
+owner's own collection, ranked search found an expected section in the top 3 for 16
+of 20 (see the roadmap).
 
 
 Experimental learning is optional and off by default. Its controls are under
