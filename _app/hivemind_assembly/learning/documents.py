@@ -312,6 +312,8 @@ class Word:
             title = (node.text or "").strip() if node is not None else ""
         build = Builder(title or self.path.stem.replace("_", " "))
         body = root.find(q(W, "body"))
+        if body is None:
+            body = root  # A bare document without a body element.
         code = []
         last_pictures = []
 
