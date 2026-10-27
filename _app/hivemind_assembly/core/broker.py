@@ -27,6 +27,12 @@ CORE_CAPABILITIES = (
     Capability("run_workflow", recovery="discard"),
     Capability("test_programs", recovery="external"),
     Capability("propose_workflow", recovery="discard"),
+    # The owner's reference material, limited to the project's allowed categories.
+    Capability("search_knowledge", recovery="discard"),
+    Capability("lookup_knowledge", recovery="discard"),
+    Capability("open_section", recovery="discard"),
+    Capability("follow_link", recovery="discard"),
+    Capability("section_pictures", recovery="discard"),
 )
 
 
@@ -377,6 +383,10 @@ class Broker:
                 effect_started = True
             elif tool == "repository_status" and self.repositories:
                 result = self.repositories.status(self.store.task(task)["project_id"])
+            elif tool in ("search_knowledge", "lookup_knowledge", "open_section", "follow_link", "section_pictures"):
+                from hivemind_assembly.learning.knowledge import Knowledge
+
+                result = Knowledge(self.store).tool(task, tool, args)
             elif self.domain:
                 effect_started = tool in self.mutations
                 result = self.domain.execute(self.context(task, tool), request)
@@ -385,6 +395,8 @@ class Broker:
             # Domains may return small images (for example rendered game frames).
             # They become task artifacts so the next native turn can attach them.
             images = result.pop("_images", None) if isinstance(result, dict) else None
+            # Reference material stays readable only while the project may still use it.
+            grant = result.pop("_knowledge_grant", None) if isinstance(result, dict) else None
             if self.publications:
                 self.publications.record_checked_result(
                     task, request["id"], tool, args, result, root
@@ -401,7 +413,8 @@ class Broker:
                 result["image_artifacts"] = [
                     {
                         "id": self.artifacts.add(
-                            item["data"], item["name"], self.store.task(task)["project_id"]
+                            item["data"], item["name"], self.store.task(task)["project_id"],
+                            knowledge_grant=grant,
                         )["id"],
                         "name": item["name"],
                     }
@@ -412,6 +425,7 @@ class Broker:
                 canonical(result),
                 request["id"] + ".json",
                 self.store.task(task)["project_id"],
+                knowledge_grant=grant,
             )
             result["result_artifact"] = artifact["id"]
             result["operation_id"] = request["id"]
