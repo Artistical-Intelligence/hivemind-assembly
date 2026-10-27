@@ -166,7 +166,7 @@ def test_existing_repository_preserved_and_different_name_allowed(provisioning):
 
 
 @pytest.mark.parametrize(
-    "tamper", ["marker", "private", "push", "id", "account", "epoch", "revision"]
+    "tamper", ["marker", "push", "id", "account", "epoch", "revision"]
 )
 def test_recovery_rejects_identity_permission_and_fence_changes(provisioning, tamper):
     c, t, remote, service, broker, request = provisioning
@@ -176,8 +176,6 @@ def test_recovery_rejects_identity_permission_and_fence_changes(provisioning, ta
     repo = remote.repos["owner", "recovered"]
     if tamper == "marker":
         repo["description"] = "unrelated"
-    elif tamper == "private":
-        repo["private"] = False
     elif tamper == "push":
         repo["permissions"]["push"] = False
     elif tamper == "account":
@@ -291,23 +289,89 @@ def test_owner_can_choose_a_public_repository(provisioning):
     assert service.status(t["project_id"])["visibility"] == "public"
     # Asking again for the same name as private is a different request.
     with pytest.raises(Conflict):
-        service.create(t["project_id"], "private-op", {"name": "shared"})
+        service.create(t["project_id"], "private-op", {"name": "shared", "visibility": "private"})
 
 
-def test_visibility_change_on_github_blocks_reuse(provisioning):
+def events(c, kind):
+    return [json.loads(e["payload"]) for e in c.store.rows("SELECT payload FROM events WHERE kind=? ORDER BY seq", (kind,))]
+
+
+def test_visibility_change_on_github_is_followed_and_announced(provisioning):
     c, t, remote, service, broker, request = provisioning
     broker.execute(request)
     remote.repos["owner", "recovered"]["private"] = False
-    with pytest.raises(Conflict, match="private visibility"):
+    result = service.reconcile(t["project_id"])
+    # GitHub is the authority: HA records the change, keeps saving, and says so.
+    assert result["status"] == "saved" and result["visibility"] == "public"
+    assert result["visibility_change"] == "This repository is now public on GitHub."
+    status = service.status(t["project_id"])
+    assert status["visibility"] == "public" and status["visibility_change"]["previous"] == "private"
+    changes = events(c, "repository_visibility_changed")
+    assert len(changes) == 1 and changes[0]["to"] == "public"
+    assert "now public on GitHub" in changes[0]["message"]
+    # Seen again unchanged: nothing new is announced. Made private again: followed again.
+    service.reconcile(t["project_id"])
+    assert len(events(c, "repository_visibility_changed")) == 1
+    remote.repos["owner", "recovered"]["private"] = True
+    assert service.reconcile(t["project_id"])["visibility"] == "private"
+    assert [e["to"] for e in events(c, "repository_visibility_changed")] == ["public", "private"]
+    # The other checks are unchanged: write access, archived, and the repository's ID.
+    remote.repos["owner", "recovered"]["archived"] = True
+    with pytest.raises(Conflict, match="archived"):
+        service.reconcile(t["project_id"])
+    remote.repos["owner", "recovered"]["archived"] = False
+    remote.repos["owner", "recovered"]["id"] = 77
+    with pytest.raises(Conflict, match="replacement"):
         service.reconcile(t["project_id"])
 
 
-def test_assistants_cannot_create_public_repositories(provisioning):
+def test_visibility_change_after_a_lost_creation_response_is_followed(provisioning):
+    c, t, remote, service, broker, request = provisioning
+    remote.create_failure = "after_effect"
+    with pytest.raises(Blocked):
+        broker.execute(request)
+    remote.repos["owner", "recovered"]["private"] = False
+    assert broker.recover_pending()[0]["visibility"] == "public"
+    assert remote.creates == 1
+    assert events(c, "repository_visibility_changed")[0]["to"] == "public"
+
+
+def test_assistants_can_create_public_repositories_and_the_log_says_who_chose(provisioning):
     c, t, remote, service, broker, request = provisioning
     public = {**request, "args": {**request["args"], "visibility": "public"}}
-    with pytest.raises(Blocked, match="public"):
-        broker.execute(public)
-    assert remote.creates == 0
+    result = broker.execute(public)
+    assert result["visibility"] == "public" and remote.lookup("owner", "recovered")["private"] is False
+    assert result["visibility_chosen_by"] == "the assistant"
+    logged = events(c, "repository_creation_requested")[0]
+    assert logged["visibility_chosen_by"] == "the assistant"
+    assert "public repository (chosen by the assistant)" in logged["message"]
+
+
+def test_new_repositories_follow_the_default_setting(provisioning):
+    c, t, remote, service, broker, request = provisioning
+    # Neither you nor the assistant said which: the setting decides.
+    service.config["github"]["default_visibility"] = "public"
+    result = broker.execute(request)
+    assert result["visibility"] == "public" and result["visibility_chosen_by"] == "your default for new repositories"
+    assert remote.lookup("owner", "recovered")["private"] is False
+    # Asked explicitly, the request wins over the setting; the owner's own choice says so.
+    second = c.store.create_project("second", "coding")
+    explicit = service.create(
+        second["project_id"], "owner-op", {"name": "mine", "visibility": "private"}
+    )
+    assert explicit["visibility"] == "private" and explicit["visibility_chosen_by"] == "you"
+    # A repeated request that doesn't say which keeps what was first asked.
+    service.config["github"]["default_visibility"] = "private"
+    assert service.create(t["project_id"], "again", request["args"])["visibility"] == "public"
+    from hivemind_assembly.automation.policy import validate_config
+
+    base = json.loads(
+        (__import__("pathlib").Path(__file__).parents[1] / "_app/config/default.json").read_text()
+    )
+    for value in ("private", "public"):
+        validate_config({**base, "github": {"default_visibility": value}})
+    with pytest.raises(ContractError, match="Private or Public"):
+        validate_config({**base, "github": {"default_visibility": "internal"}})
 
 
 def test_link_records_an_existing_public_repository(provisioning):
