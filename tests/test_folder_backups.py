@@ -36,6 +36,7 @@ def world(tmp_path):
         None,
         config,
         remote_url=lambda owner, name: str(remotes / owner / (name + ".git")),
+        token=lambda: (None, None),  # No GitHub sign-in unless a test gives one.
     )
     return folder, remotes, backups, config
 
@@ -65,19 +66,27 @@ def tree(remote):
     return set(git("--git-dir", str(remote), "ls-tree", "-r", "--name-only", "main").split("\n")) - {""}
 
 
-def test_first_upload_leaves_out_secrets_nested_history_and_huge_files(world, monkeypatch):
+def test_first_upload_leaves_out_secrets_and_nested_history_but_not_large_files(world, monkeypatch):
     folder, remotes, backups, config = world
     monkeypatch.setattr(github_folders, "GITHUB_FILE_LIMIT", 5000)
     (folder / "huge.iso").write_bytes(b"x" * 6000)
     remote = bare(remotes)
     entry = run(backups, folder=str(folder))
-    assert entry["state"] == "done", entry["message"]
-    assert tree(remote) == {"docs/guide.md", "data.bin", "odd name [v2]*.txt"}
+    # Without a GitHub sign-in for release assets, the large file waits and says so.
+    assert entry["state"] == "waiting", entry["message"]
+    assert "waiting: connect GitHub" in entry["message"]
+    assert {"docs/guide.md", "data.bin", "odd name [v2]*.txt"} <= tree(remote)
+    assert "huge.iso" not in tree(remote)
     reasons = {x["path"]: x["reason"] for x in entry["excluded"]}
-    assert set(reasons) == {".env", "vendored/", "huge.iso"}
-    assert "over GitHub's 100 MiB" in reasons["huge.iso"]
-    # The folder itself is never turned into a Git repository.
-    assert not (folder / ".git").exists()
+    assert set(reasons) == {".env", "vendored/"}
+    assert [(f["path"], f["status"], f["message"]) for f in entry["large_files"]] == [
+        ("huge.iso", "waiting", "Waiting: connect GitHub to upload this file")
+    ]
+    # The nested Git folder can be backed up on its own.
+    nested = next(x for x in entry["excluded"] if x["path"] == "vendored/")
+    assert nested["separate"] == str(folder / "vendored")
+    # The folder itself is never turned into a Git repository or given HA's files.
+    assert not (folder / ".git").exists() and not (folder / "LARGE_FILES.json").exists()
     author = git("--git-dir", str(remote), "log", "-1", "--format=%an <%ae>", "main")
     assert author.strip() == "Hivemind Assembly <owner@users.noreply.github.com>"
 
