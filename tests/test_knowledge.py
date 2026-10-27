@@ -59,7 +59,7 @@ def test_missing_source(store):
     assert r["critical_gaps"]
 
 
-def test_docx_image_gap(store, tmp_path):
+def test_docx_picture_is_not_a_gap(store, tmp_path):
     p = tmp_path / "image.docx"
     with zipfile.ZipFile(p, "w") as z:
         z.writestr(
@@ -68,7 +68,8 @@ def test_docx_image_gap(store, tmp_path):
         )
         z.writestr("word/media/test.png", b"image")
     s = Knowledge(store).ingest(p, True)
-    assert s["status"] == "partial" and s["images"]
+    # A picture never marks a Word file as partly read (see test_reference_material.py).
+    assert s["status"] == "text_extracted" and not s["gaps"]
 
 
 def test_protected_artifacts(store):
