@@ -1055,6 +1055,13 @@ class Application:
             presets = {**self.config.get("presets", {}), name: {r: valid_target(t) for r, t in targets.items()}}
             validate_config({**self.config, "presets": presets})
             self.config["presets"] = presets
+            live = {r: {k: c.get(k) for k in FIELDS} for r, c in self.config["routes"].items()}
+            if presets[name] == live:
+                # Saving what the assistants use now makes it the setup in use.
+                self.config["active_preset"] = name
+            elif self.config.get("active_preset") == name:
+                # The setup in use now differs from the assistants until Use is selected.
+                self.config.pop("active_preset")
             atomic_write(self.config_path, canonical(self.config))
             return {"presets": presets, "active": self.config.get("active_preset")}
         if path == "/api/assistants/use":
