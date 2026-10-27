@@ -101,8 +101,8 @@ def picture_path(target, folder, images):
     if joined in images:
         return joined
     # Windows and macOS don't mind letter case in a link; match it the same way.
-    lowered = {k.lower(): k for k in images}
-    return lowered.get(joined.lower())
+    wanted = joined.lower()
+    return next((k for k in images if k.lower() == wanted), None)
 
 
 def remove_tree(path):
@@ -466,7 +466,8 @@ class KnowledgeCollections:
             return "" if rel == "." else rel
 
         def unreadable(error):
-            skipped.append({"path": (rel_of(error.filename) or ".") + "/", "reason": "couldn't be read"})
+            where = getattr(error, "filename", None)
+            skipped.append({"path": ((rel_of(where) if where else "") or ".") + "/", "reason": "couldn't be read"})
 
         for current, dirs, names in os.walk(root, onerror=unreadable):
             here = Path(current)
