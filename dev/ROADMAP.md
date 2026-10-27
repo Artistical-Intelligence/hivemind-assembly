@@ -68,31 +68,18 @@ Native credentials, profiles and protected target data remain outside GitHub.
   exported Godot binaries, other engines, pointer, touch and controller input,
   native audio capture, dynamic ELF stepping and measured learned navigation skills.
 
-## Planned for later: the owner's knowledge collection
+## Reference material: still open
 
-The owner's 1000+ page collection of information, currently one Word document,
-becomes OKF-style Markdown files: one file per topic in folders by category, each
-starting with a short header (title, type, tags, other names), with links between
-files and an index page per folder. Tag filtering then works per topic instead of
-per document.
+HA now imports the owner's collection itself (Word files split at headings with
+their tables and pictures, whole folders and GitHub repositories, ranked search and
+the assistants' reference tools); no manual conversion is needed. Still open:
 
-1. Owner: create a private repository at github.com/new (for example
-   `ha-knowledge`), choose Private, then Create.
-2. AI assistant: convert the Word document into those files, one per heading.
-   Tables stay tables and pictures become separate image files. Put the files in
-   the repository.
-3. HA changes:
-   - import a whole folder, taking tags from each file's header;
-   - split files at headings;
-   - replace the previous copy on re-import instead of adding a second one
-     (today every import adds a new source);
-   - stop pictures and tables in Word files from causing problems (today any
-     picture marks the whole document as incompletely read, which blocks tasks
-     that rely on it, and table cells arrive as separate paragraphs);
-   - add ranked search (SQLite FTS5 instead of the current word-count scan), name
-     lookup from titles and other names, and AI search tools (search, open a
-     section, follow links), all within the task's selected tags. Add semantic
-     (vector) search only if tests with real questions show it is needed.
+- Use the reference tools in a live project run with signed-in assistants.
+- Let the adviser describe pictures that have no caption or alt text (they are
+  listed per picture as not yet described).
+- Add semantic (vector) search only if tests with real questions show it is needed.
+- Old Office formats (.doc, .xls, .ppt), spreadsheets and slides, and text in
+  scanned PDF pages are not imported; they are listed as skipped or as gaps.
 
 ## Verification
 
