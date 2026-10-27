@@ -55,7 +55,10 @@ Native credentials, profiles and protected target data remain outside GitHub.
 ## Remaining implementation
 
 - Run a live folder backup on Windows, through both the GitHub connection and the
-  github.com New repository fallback with Git Credential Manager sign-in.
+  github.com New repository fallback with Git Credential Manager sign-in, including
+  a file over 100 MiB as release assets (and once with Git LFS), a restore with both
+  scripts, and a visibility change made on GitHub (all checked only against
+  stand-ins and local Git remotes so far).
 
 - Extend bounded x86-64/AArch64 function and static/dynamic Linux application lanes
   to broader Windows/game/graphics effects and target-level equivalence.
