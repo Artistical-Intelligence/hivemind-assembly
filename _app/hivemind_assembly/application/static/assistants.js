@@ -253,9 +253,12 @@
       if (id === 'setup-save' || id === 'setup-save-as') {
         const name = id === 'setup-save' ? chosen : el('setup-new-name').value.trim();
         if (!name) throw new Error('Type a name for the new setup first.');
-        await api('assistants/save', {name, targets: draft});
+        const r = await api('assistants/save', {name, targets: draft});
         chosen = name;
+        expect = {preset: name, targets: clone(draft), until: Date.now() + 15000};
+        last = {...last, assistant_setups: {presets: r.presets, active: r.active}};
         el('setup-new-name').value = '';
+        paint();
         notice(`Saved as "${name}".` + (same(draft, inUse(last)) ? '' : ' Select Use to switch the assistants to it.'));
         refresh();
       }
