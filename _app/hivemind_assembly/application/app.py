@@ -1509,6 +1509,20 @@ class Application:
                 "sha256": file_hash(target),
                 "original_artifact": original["id"],
             }
+        if path == "/api/knowledge/import":
+            # A whole folder on this computer, or a whole GitHub repository.
+            request = dict(data)
+            if request.get("kind") == "folder" and request.get("folder"):
+                request["folder"] = str(Path(user_path(request["folder"])).expanduser())
+            return self.knowledge_collections.add(request)
+        if path == "/api/knowledge/update":
+            return self.knowledge_collections.start(data["id"])
+        if path == "/api/knowledge/collection-settings":
+            return self.knowledge_collections.settings(data["id"], data.get("settings", {}))
+        if path == "/api/knowledge/collection-remove":
+            return self.knowledge_collections.remove(data["id"])
+        if path == "/api/knowledge/report":
+            return self.knowledge_collections.report(data["id"])
         if path == "/api/source":
             if not Path(user_path(data["path"])).expanduser().is_file():
                 raise ContractError("That document doesn't exist. Use Browse to choose it.")
