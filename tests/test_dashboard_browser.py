@@ -913,6 +913,7 @@ def test_folder_backup_form_uploads_and_keeps_settings(server, app, tmp_path):
     remote = tmp_path / "remote.git"
     subprocess.run(["git", "init", "--bare", "-q", str(remote)], check=True)
     app.folder_backups.remote_url = lambda owner, name: str(remote)
+    app.folder_backups.token_source = lambda: (None, None)  # No real GitHub API calls in tests.
     with sync_playwright() as pw:
         browser = pw.chromium.launch(
             executable_path=os.environ["WORKBENCH_TEST_CHROME"],
@@ -948,3 +949,81 @@ def test_folder_backup_form_uploads_and_keeps_settings(server, app, tmp_path):
         capture_output=True, text=True, check=True,
     ).stdout.split()
     assert listed == ["notes/a.md"]
+
+
+def test_folder_backup_large_files_list(server, app, tmp_path, monkeypatch):
+    import subprocess
+    from playwright.sync_api import sync_playwright, expect
+    from hivemind_assembly.integrations import github_folders, large_files
+    from test_large_files import ReleaseAPI, TOKEN
+
+    monkeypatch.setattr(github_folders, "GITHUB_FILE_LIMIT", 5000)
+    monkeypatch.setattr(large_files, "ASSET_LIMIT", 20000)
+    monkeypatch.setattr(large_files, "PART_BYTES", 8000)
+    folder = tmp_path / "Media"
+    (folder / "clips").mkdir(parents=True)
+    (folder / "readme.md").write_text("# Media\n")
+    (folder / "clips" / "intro.mp4").write_bytes(bytes(range(256)) * 24)
+    (folder / "archive.iso").write_bytes(bytes(n % 251 for n in range(30000)))
+    (folder / "tool" / ".git").mkdir(parents=True)
+    (folder / "tool" / "main.c").write_text("int main(void){return 0;}\n")
+    remote = tmp_path / "remote.git"
+    subprocess.run(["git", "init", "--bare", "-q", str(remote)], check=True)
+    stand_in = ReleaseAPI(remote)
+    backups = app.folder_backups
+    backups.remote_url = lambda owner, name: str(remote)
+    backups.api_url = backups.uploads_url = stand_in.url
+    signed_in = {"token": (None, None)}
+    backups.token_source = lambda: signed_in["token"]
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(
+                executable_path=os.environ["WORKBENCH_TEST_CHROME"],
+                headless=True,
+                args=["--no-sandbox"],
+            )
+            page = browser.new_page()
+            errors = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+            page.locator('[data-tab="projects"]').click()
+            form = page.locator("#folder-backup-form")
+            # A public repository's release assets are public too: the form says so.
+            form.locator('[name="visibility"]').select_option("public")
+            expect(page.locator("#folder-backup-public-note")).to_be_visible()
+            form.locator('[name="action"]').select_option("existing")
+            expect(page.locator("#folder-backup-public-note")).to_be_hidden()
+            form.locator('[name="folder"]').fill(str(folder))
+            form.locator('[name="owner"]').fill("owner")
+            form.locator('[name="name"]').fill("backup")
+            form.get_by_role("button", name="Back up folder").click()
+            card = page.locator("#folder-backup-list [data-backup]")
+            # Not signed in for release assets: each large file says it's waiting.
+            expect(card.locator(".fb-message")).to_contain_text("2 large files are waiting", timeout=30000)
+            large = card.locator(".fb-large")
+            expect(large.locator("summary")).to_have_text("Large files (2)")
+            expect(large.locator('[data-large="archive.iso"]')).to_contain_text("waiting: connect GitHub to upload this file")
+            # Large files are not listed as left out; the nested Git folder is.
+            left_out = card.locator("details", has_text="Left out")
+            expect(left_out.locator("summary")).to_have_text("Left out (1)")
+            expect(left_out).not_to_contain_text("archive.iso")
+            signed_in["token"] = (TOKEN, "connection")
+            card.get_by_role("button", name="Upload now").click()
+            expect(large.locator('[data-large="archive.iso"]')).to_contain_text("uploaded in 4 parts", timeout=30000)
+            expect(large.locator('[data-large="clips/intro.mp4"]')).to_contain_text(": uploaded")
+            expect(large).to_contain_text("restore-large-files.ps1")
+            # The repository was made public on GitHub: followed and announced.
+            stand_in.private = False
+            card.get_by_role("button", name="Upload now").click()
+            expect(card.locator(".alert")).to_contain_text("This repository is now public on GitHub.", timeout=30000)
+            expect(large).to_contain_text("its release assets (the large files) are public too")
+            # A folder with its own Git history can be backed up on its own.
+            left_out.locator("summary").click()
+            left_out.get_by_role("button", name="Back up this folder separately").click()
+            expect(form.locator('[name="folder"]')).to_have_value(str(folder / "tool"))
+            expect(form.locator('[name="name"]')).to_have_value("tool")
+            assert errors == []
+            browser.close()
+    finally:
+        stand_in.close()
+    assert len(stand_in.names()) == 5
