@@ -485,6 +485,112 @@ def test_what_ha_sees_shows_the_tab_picture(server, app):
         browser.close()
 
 
+def test_assistants_page_sign_in_setups_and_model_lists(server, app, monkeypatch):
+    import asyncio
+    import json
+    import time
+    from playwright.sync_api import sync_playwright, expect
+
+    # What the services' own model menus offered (as HA reads them with Read choices).
+    choices = {
+        "read_at": time.time(),
+        "openai": {"modes": {
+            "Chat": {"GPT-6": ["Instant", "Medium", "High", "Extra High", "Pro"]},
+            "Work": {"GPT-6 Astra": ["Low", "Medium", "High", "Extra High"]},
+        }},
+        "claude": {"modes": {"native": {
+            "Opus 5.5": ["Low", "Medium", "High", "Max"],
+            "Sonnet 5.5": ["Low", "Medium", "High"],
+            "Haiku 5.5": [],
+        }}},
+    }
+    path = app.store.root / "private" / app.CHOICES
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(choices))
+    started, opened = [], []
+    monkeypatch.setattr(app.native_setup, "run", lambda route: started.append(route) or asyncio.sleep(0))
+
+    class Tab:
+        url = "https://claude.ai/new"
+
+        def is_closed(self):
+            return False
+
+        async def bring_to_front(self):
+            pass
+
+    async def service_page(profile, url, hosts=None):
+        opened.append(profile)
+        return Tab()
+
+    monkeypatch.setattr(app.browser, "service_page", service_page)
+    monkeypatch.setattr(app, "read_model_choices", lambda: {"job": "read"})
+    model = lambda p, m, name: json.dumps([p, m, name], separators=(",", ":"))
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ["WORKBENCH_TEST_CHROME"],
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
+        page.locator('[data-tab="routes"]').click()
+        # One sign-in button per service, on the top row.
+        expect(page.locator("#service-buttons button")).to_have_count(2)
+        page.locator('[data-signin="claude"]').click()
+        expect(page.locator("#notice")).to_contain_text("Opened Claude in Chrome")
+        assert opened == ["claude"]
+        # One row per assistant, with the setup already defined saved as Default.
+        expect(page.locator("#role-rows th")).to_have_text(["Adviser", "Reviewer", "Worker 1", "Worker 2", "Worker 3"])
+        expect(page.locator("#setup-name")).to_have_value("Default")
+        expect(page.locator("#setup-state")).to_have_text("In use: Default.")
+        expect(page.locator("#choices-state")).to_contain_text("Model choices read from ChatGPT and Claude")
+        opus = page.locator('[data-role-effort="worker.opus"] option')
+        expect(opus).to_have_text(["Low", "Medium", "High", "Max"])
+        expect(page.locator('[data-role-effort="worker.opus"]')).to_have_value("High")
+        expect(page.locator('[data-role-model="worker.astra"] option:checked')).to_have_text("GPT-6 Astra (Work)")
+        # Another model keeps the thinking level when it offers it.
+        page.locator('[data-role-model="reviewer.high"]').select_option(model("claude", "native", "Sonnet 5.5"))
+        expect(page.locator('[data-role-effort="reviewer.high"]')).to_have_value("High")
+        page.locator('[data-role-effort="reviewer.high"]').select_option("Low")
+        # A model without thinking levels has nothing to choose.
+        page.locator('[data-role-model="worker.astra"]').select_option(model("claude", "native", "Haiku 5.5"))
+        expect(page.locator('[data-role-effort="worker.astra"]')).to_be_disabled()
+        expect(page.locator("#setup-state")).to_contain_text("not in use yet")
+        # Polling must not throw away the changes.
+        page.evaluate("refresh()")
+        expect(page.locator('[data-role-effort="reviewer.high"]')).to_have_value("Low")
+        page.locator("#setup-new-name").fill("Fast")
+        page.locator("#setup-save-as").click()
+        expect(page.locator("#notice")).to_contain_text('Saved as "Fast"')
+        fast = app.config["presets"]["Fast"]
+        assert fast["reviewer.high"] == {"provider": "claude", "mode": "native", "model": "Sonnet 5.5", "effort": "Low"}
+        assert fast["worker.astra"] == {"provider": "claude", "mode": "native", "model": "Haiku 5.5", "effort": ""}
+        expect(page.locator("#setup-name")).to_have_value("Fast")
+        page.locator("#setup-use").click()
+        expect(page.locator("#setup-state")).to_have_text("In use: Fast.")
+        assert app.config["active_preset"] == "Fast"
+        assert app.config["routes"]["reviewer.high"]["model"] == "Sonnet 5.5"
+        assert sorted(started) == ["reviewer.high", "worker.astra"]
+        # Default can be changed and saved over, then used again.
+        page.locator("#setup-name").select_option("Default")
+        expect(page.locator('[data-role-model="reviewer.high"] option:checked')).to_have_text("GPT-6 (Chat)")
+        page.locator('[data-role-effort="adviser.extra"]').select_option("Pro")
+        page.locator("#setup-save").click()
+        expect(page.locator("#notice")).to_contain_text('Saved as "Default". Select Use')
+        assert app.config["presets"]["Default"]["adviser.extra"]["effort"] == "Pro"
+        page.locator("#setup-use").click()
+        expect(page.locator("#setup-state")).to_have_text("In use: Default.")
+        assert app.config["routes"]["adviser.extra"]["effort"] == "Pro"
+        assert app.config["routes"]["worker.astra"]["model"] == "GPT-6 Astra"
+        page.locator("#choices-read").click()
+        expect(page.locator("#notice")).to_contain_text("Reading ChatGPT's and Claude's model menus")
+        assert errors == []
+        browser.close()
+
+
 def test_tag_scope_and_optional_learning_controls(server, app, tmp_path, monkeypatch):
     from playwright.sync_api import sync_playwright, expect
     from hivemind_assembly.application import pickers
