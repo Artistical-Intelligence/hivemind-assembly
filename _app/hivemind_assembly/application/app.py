@@ -2010,6 +2010,7 @@ def make_server(app, port=0):
                 "/assistants.js": ("assistants.js", "text/javascript"),
                 "/native_captures.js": ("native_captures.js", "text/javascript"),
                 "/knowledge.js": ("knowledge.js", "text/javascript"),
+                "/reference.js": ("reference.js", "text/javascript"),
                 "/connections.js": ("connections.js", "text/javascript"),
                 "/quick_connect.js": ("quick_connect.js", "text/javascript"),
                 "/help.js": ("help.js", "text/javascript"),
