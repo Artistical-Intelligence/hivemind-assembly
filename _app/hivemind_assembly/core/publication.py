@@ -153,7 +153,32 @@ class Publications:
                 ".toml",
                 ".yaml",
                 ".yml",
+                # Assembly, Godot, other languages and build files that projects are made of.
+                ".s",
+                ".asm",
+                ".inc",
+                ".ld",
+                ".gd",
+                ".tscn",
+                ".tres",
+                ".godot",
+                ".cs",
+                ".java",
+                ".kt",
+                ".go",
+                ".lua",
+                ".glsl",
+                ".hlsl",
+                ".shader",
+                ".csv",
+                ".xml",
+                ".html",
+                ".css",
+                ".sh",
+                ".ps1",
+                ".mk",
             }
+            and p.name not in {"Makefile", "CMakeLists.txt", "Cargo.toml"}
         ):
             raise Blocked(
                 "Checkpoint path is outside publishable source files: " + path
@@ -385,6 +410,113 @@ class Publications:
             "files": [x["path"] for x in intent["snapshot"]],
             "url": f"https://github.com/{row['owner']}/{row['name']}/commit/{intent['commit']}",
         }
+
+    # ------------------------------------------------------------ drafts
+    def push_files(self, project, build, message, check_remote=()):
+        """Push early, check later: one commit on the default branch, made at once,
+        before any review. build(read) returns {path: text, or None to remove it};
+        read(path) gives the file's text on GitHub now, so marker files merge with
+        what others wrote there. Files in check_remote aren't overwritten when someone
+        changed them on GitHub since HA last pushed them. Never forced; the usual
+        filters for passwords, keys, protected data and private reference text apply."""
+        if not self.enabled(project):
+            return {"status": "disabled", "reason": "No verified repository, or automatic saving is off"}
+        from .checks import blob_sha
+
+        with self.repositories.lock:
+            row = self.repositories._row(project)
+            self.repositories._identity(row)
+            client = self.repositories.client
+            repo = client.lookup(row["owner"], row["name"])
+            self.repositories._validate(row, repo)
+            branch = repo.get("default_branch", "main")
+            head = client.head(row["owner"], row["name"], branch)
+            if head is None and repo.get("size", 0) != 0:
+                raise Blocked("Default branch is inaccessible in a nonempty repository")
+            seen = {}
+
+            def read(path):
+                if path in seen:
+                    return seen[path][0]
+                text, sha = None, None
+                if head is not None:
+                    try:
+                        data = client.git(row["owner"], row["name"], "GET",
+                                          "contents/" + quote(path, safe="/") + "?ref=" + quote(head, safe=""))
+                    except Blocked as error:
+                        if getattr(error, "status", None) != 404:
+                            raise
+                        data = None
+                    if data is not None:
+                        if data.get("type") != "file" or data.get("encoding") != "base64":
+                            raise Conflict("GitHub has something other than a small text file at " + path)
+                        text = base64.b64decode(data.get("content", "")).decode("utf-8", "replace")
+                        sha = data.get("sha")
+                seen[path] = (text, sha)
+                return text
+
+            files = build(read)
+            blobs = self._load("draft_blobs", project) or {}
+            entries, skipped, conflicts = [], {}, []
+            for path, text in sorted(files.items()):
+                if text is None:
+                    if read(path) is not None:
+                        entries.append({"path": path, "mode": "100644", "type": "blob", "sha": None})
+                    continue
+                try:
+                    self._safe_text(path, text.encode("utf-8"))
+                except (Blocked, UnicodeDecodeError) as error:
+                    skipped[path] = str(error)
+                    continue
+                if path in check_remote:
+                    read(path)
+                    remote = seen[path][1]
+                    if remote and path in blobs and remote not in (blobs[path], blob_sha(text)):
+                        conflicts.append(path)
+                        continue
+                entries.append({"path": path, "mode": "100644", "type": "blob", "content": text})
+            if not entries:
+                return {"status": "unchanged", "sha": head, "skipped": skipped, "conflicts": conflicts}
+            call = lambda method, endpoint, data=None: client.git(row["owner"], row["name"], method, endpoint, data)
+            sha = head
+            if sha is None:
+                first = next((e for e in entries if "content" in e), None)
+                if first is None:
+                    return {"status": "unchanged", "sha": None, "skipped": skipped, "conflicts": conflicts}
+                created = call("PUT", "contents/" + quote(first["path"], safe="/"), {
+                    "message": message,
+                    "content": base64.b64encode(first["content"].encode()).decode(),
+                    "branch": branch,
+                })
+                sha = created["commit"]["sha"]
+                entries = [e for e in entries if e is not first]
+            if entries:
+                parent = call("GET", "git/commits/" + sha)
+                tree = call("POST", "git/trees", {"base_tree": parent["tree"]["sha"], "tree": entries})
+                if tree["sha"] != parent["tree"]["sha"]:
+                    commit = call("POST", "git/commits", {"message": message, "tree": tree["sha"], "parents": [sha]})
+                    # force:false: a commit someone else pushed meanwhile is never overwritten.
+                    call("PATCH", "git/refs/heads/" + quote(branch, safe=""), {"sha": commit["sha"], "force": False})
+                    sha = commit["sha"]
+            if client.head(row["owner"], row["name"], branch) != sha:
+                raise Conflict("GitHub's branch moved while saving; HA will try again")
+            pushed = [p for p, t in files.items() if p not in skipped and p not in conflicts]
+            for path in pushed:
+                if files[path] is None:
+                    blobs.pop(path, None)
+                else:
+                    blobs[path] = blob_sha(files[path])
+            self._save("draft_blobs", project, blobs)
+            previous = self.status(project)
+            self._save("publication_head", project, {**previous, "sha": sha, "branch": branch})
+            return {
+                "status": "saved",
+                "sha": sha,
+                "files": sorted(pushed),
+                "skipped": skipped,
+                "conflicts": conflicts,
+                "url": f"https://github.com/{row['owner']}/{row['name']}/commit/{sha}",
+            }
 
     def uncertain(self, operation):
         return self._load("publication_intent", operation) is not None
