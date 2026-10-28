@@ -441,6 +441,10 @@ class Publications:
 
             def read(path):
                 if path in seen:
+                    if seen[path][2]:
+                        error = Conflict("GitHub has something other than a small text file at " + path)
+                        error.sha = seen[path][1]
+                        raise error
                     return seen[path][0]
                 text, sha = None, None
                 if head is not None:
@@ -453,10 +457,14 @@ class Publications:
                         data = None
                     if data is not None:
                         if data.get("type") != "file" or data.get("encoding") != "base64":
-                            raise Conflict("GitHub has something other than a small text file at " + path)
+                            # Remember its ID: a large file HA pushed itself can still be replaced.
+                            seen[path] = (None, data.get("sha") if data.get("type") == "file" else None, True)
+                            error = Conflict("GitHub has something other than a small text file at " + path)
+                            error.sha = seen[path][1]  # Its Git blob ID, to compare without reading it.
+                            raise error
                         text = base64.b64decode(data.get("content", "")).decode("utf-8", "replace")
                         sha = data.get("sha")
-                seen[path] = (text, sha)
+                seen[path] = (text, sha, False)
                 return text
 
             files = build(read)
@@ -475,10 +483,14 @@ class Publications:
                 if path in check_remote:
                     try:
                         remote_text = read(path)
-                    except Exception:
-                        # A folder, or a file too large to compare, there now: not overwritten.
-                        conflicts.append(path)
-                        continue
+                    except Conflict:
+                        # A folder, or a file too large to compare, there now: not overwritten,
+                        # unless it is exactly what HA pushed last. Other errors fail the push,
+                        # which is tried again with the next change.
+                        if seen.get(path, (None, None))[1] in (None, "") or seen[path][1] != blobs.get(path):
+                            conflicts.append(path)
+                            continue
+                        remote_text = None
                     remote = seen[path][1]
                     if remote_text is not None and remote not in (blobs.get(path), blob_sha(text)):
                         before = check_remote.get(path)
