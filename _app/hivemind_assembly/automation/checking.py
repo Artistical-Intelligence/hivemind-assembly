@@ -108,26 +108,40 @@ class IndependentChecks:
         }
 
     def batches(self, project, items):
+        """Messages of files for the checker: [(files, unreadable {path: reason})]. A file
+        written outside HA is read from GitHub when the project's folder doesn't have it."""
+        import hashlib
+
         root = self.drafts.workspace(project)
-        batch, size, skipped = [], 0, {}
+        publications = self.team.broker.publications
+        out, batch, size, skipped = [], [], 0, {}
+        hand = "; check it yourself and mark it checked on the Projects page"
         for item in items:
             p = scoped(root, item["path"])
+            text = None
             try:
-                text = p.read_text("utf-8")
+                if p.is_file():
+                    text = p.read_text("utf-8")
+                elif item.get("outside") and publications:
+                    text = publications.read_text(project, item["path"])
             except (OSError, UnicodeDecodeError):
-                skipped[item["path"]] = "it isn't a text file HA can show a checker; check it by hand"
+                skipped[item["path"]] = "it isn't a text file HA can show a checker" + hand
+                continue
+            if text is None:
+                skipped[item["path"]] = "HA can't find it in the project's folder or on GitHub" + hand
                 continue
             if len(text) > FILE_CHARS:
-                skipped[item["path"]] = f"it's longer than {FILE_CHARS:,} characters; split it, or check it by hand"
+                skipped[item["path"]] = f"it's longer than {FILE_CHARS:,} characters; split it" + hand
                 continue
-            entry = {"path": item["path"], "sha256": self.store_hash(p), "text": text}
+            sha = self.store_hash(p) if p.is_file() else hashlib.sha256(text.encode("utf-8")).hexdigest()
             if batch and size + len(text) > MESSAGE_CHARS:
-                yield batch, {}
+                out.append((batch, {}))
                 batch, size = [], 0
-            batch.append(entry)
+            batch.append({"path": item["path"], "sha256": sha, "text": text})
             size += len(text)
         if batch or skipped:
-            yield batch, skipped
+            out.append((batch, skipped))
+        return out
 
     @staticmethod
     def store_hash(path):
@@ -137,7 +151,7 @@ class IndependentChecks:
 
     def who(self, project):
         """Which assistant would check this project's oldest pending file now."""
-        items = [i for i in self.checks.pending(project) if not i.get("outside")]
+        items = sorted(self.checks.pending(project), key=lambda i: i.get("since") or 0)
         route = self.choose(items[0].get("writer")) if items else None
         return self.checks.name(route) if route else None
 
@@ -146,9 +160,9 @@ class IndependentChecks:
         try:
             await self.run(project, requested=True)
         except Exception as error:
-            state = self.checks.state(project)
-            state["last_run"] = {"at": time.time(), "requested": True, "error": str(error)[:300]}
-            self.checks.save(project, state)
+            def note(state):
+                state["last_run"] = {"at": time.time(), "requested": True, "error": str(error)[:300]}
+            self.checks.update(project, note)
 
     async def run(self, project, requested=False):
         """Check what's pending in this project. Returns {passed, failed, left, waiting, reports}."""
@@ -157,13 +171,10 @@ class IndependentChecks:
         self.running.add(project)
         outcome = {"passed": [], "failed": [], "left": [], "reports": [], "waiting": None}
         try:
-            self.checks.stale(project)
-            items = [i for i in self.checks.pending(project) if not i.get("outside")]
-            outside = [i for i in self.checks.pending(project) if i.get("outside")]
-            if outside:
-                outcome["left"] += [i["path"] for i in outside]
+            if self.checks.stale(project):
+                await self.team.blocking(self.drafts.sync, project, (), None, "Checks stopped when HA stopped")
             groups = {}
-            for item in items:
+            for item in self.checks.pending(project):
                 groups.setdefault(item.get("writer"), []).append(item)
             for writer, group in groups.items():
                 route = self.choose(writer)
@@ -171,7 +182,7 @@ class IndependentChecks:
                     outcome["waiting"] = "No assistant has usage left to check; HA checks when one has."
                     outcome["left"] += [i["path"] for i in group]
                     continue
-                for batch, skipped in self.batches(project, group):
+                for batch, skipped in await self.team.blocking(self.batches, project, group):
                     if skipped:
                         self._unreadable(project, skipped)
                         outcome["left"] += list(skipped)
@@ -186,18 +197,18 @@ class IndependentChecks:
             self.running.discard(project)
 
     def _unreadable(self, project, skipped):
-        state = self.checks.state(project)
-        for path, reason in skipped.items():
-            if path in state["items"]:
-                state["items"][path].update(state="pending", note=f"can't be checked automatically: {reason}")
-        self.checks.save(project, state)
+        def note(state):
+            for path, reason in skipped.items():
+                if path in state["items"]:
+                    state["items"][path].update(state="pending", note=f"can't be checked automatically: {reason}")
+        self.checks.update(project, note)
 
     def _record(self, project, outcome, requested):
-        state = self.checks.state(project)
-        state["last_run"] = {"at": time.time(), "requested": requested,
-                             **{k: (len(v) if isinstance(v, list) else v) for k, v in outcome.items() if k != "reports"},
-                             "reports": outcome["reports"]}
-        self.checks.save(project, state)
+        def note(state):
+            state["last_run"] = {"at": time.time(), "requested": requested,
+                                 **{k: (len(v) if isinstance(v, list) else v) for k, v in outcome.items() if k != "reports"},
+                                 "reports": outcome["reports"]}
+        self.checks.update(project, note)
 
     async def check(self, project, route, writer, batch):
         paths = [f["path"] for f in batch]
