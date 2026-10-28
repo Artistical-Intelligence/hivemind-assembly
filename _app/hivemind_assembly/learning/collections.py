@@ -54,7 +54,7 @@ ARCHIVES = {".zip", ".7z", ".rar", ".tar", ".gz", ".tgz", ".bz2", ".tbz2", ".xz"
             ".apk", ".whl", ".nupkg", ".msi", ".dmg", ".iso", ".lz", ".lzma", ".z"}
 IMAGES = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".svg", ".ico", ".tif", ".tiff", ".emf", ".wmf"}
 OLD_OFFICE = {".doc": "Word", ".xls": "Excel", ".ppt": "PowerPoint", ".rtf": "Rich Text"}
-OTHER_OFFICE = {".xlsx", ".xlsm", ".pptx", ".odt", ".ods", ".odp", ".pages", ".numbers", ".key"}
+OTHER_OFFICE = {".pptx", ".odt", ".ods", ".odp", ".pages", ".numbers", ".key"}
 SECRETS = re.compile(
     r"(^\.env(\..*)?$|^\.netrc$|^\.npmrc$|^\.pypirc$|^id_(rsa|dsa|ecdsa|ed25519)(\.pub)?$"
     r"|\.(pem|key|pfx|p12|keystore|jks|kdbx|ppk)$|^credentials(\.json)?$)",
@@ -62,6 +62,7 @@ SECRETS = re.compile(
 )
 MAX_TEXT = 20 * 1024 * 1024
 MAX_DOCUMENT = 300 * 1024 * 1024
+PACKED = ("word", "pdf", "spreadsheet")  # Compressed formats get the larger limit.
 RECEIVING = re.compile(r"Receiving objects:\s+(\d+)%")
 
 
@@ -546,9 +547,9 @@ class KnowledgeCollections:
             elif suffix in IMAGES:
                 images[rel] = path
             elif suffix in OLD_OFFICE:
-                skipped.append({"path": rel, "reason": f"old {OLD_OFFICE[suffix]} format; save it as .docx to import it"})
+                skipped.append({"path": rel, "reason": f"old {OLD_OFFICE[suffix]} format; save it as {'.xlsx' if suffix == '.xls' else '.docx'} to import it"})
             elif suffix in OTHER_OFFICE:
-                skipped.append({"path": rel, "reason": "spreadsheets and slides aren't imported"})
+                skipped.append({"path": rel, "reason": "slides and other office formats aren't imported; save spreadsheets as .xlsx"})
             else:
                 kind = kind_of(name)
                 if kind is None:
@@ -557,13 +558,14 @@ class KnowledgeCollections:
                     kind = "text" if looks_like_text(head) else None
                 if kind is None:
                     skipped.append({"path": rel, "reason": f"binary data ({suffix or 'no extension'}), not text"})
-                elif kind in ("word", "pdf") and size > MAX_DOCUMENT or kind not in ("word", "pdf") and size > MAX_TEXT:
-                    limit = MAX_DOCUMENT if kind in ("word", "pdf") else MAX_TEXT
+                elif kind in PACKED and size > MAX_DOCUMENT or kind not in PACKED and size > MAX_TEXT:
+                    limit = MAX_DOCUMENT if kind in PACKED else MAX_TEXT
                     skipped.append({"path": rel, "reason": f"too large ({size // 1048576} MiB; the limit is {limit // 1048576} MiB)"})
                 else:
                     documents_.append((rel, path, kind))
         if (commit and commit == entry.get("commit") and entry.get("report")
-                and not entry["report"].get("failed") and entry.get("imported_with") == entry["external_allowed"]):
+                and not entry["report"].get("failed") and entry.get("imported_with") == entry["external_allowed"]
+                and not Knowledge(self.store).waiting_for_ocr(set(self._copies(key).values()))):
             return {"message": "Already up to date with GitHub."}
         knowledge = Knowledge(self.store)
         before = self._copies(key)
