@@ -561,9 +561,13 @@ class Drafts:
                 try:
                     remote = read(path)
                 except Exception as error:
-                    if getattr(error, "sha", None) == version["blob"]:
+                    sha = getattr(error, "sha", None)
+                    if sha == version["blob"]:
                         continue  # A large file, but exactly the version that passed.
-                    unsure.add(path)  # A folder, another large file, or no answer: decide later.
+                    if sha:
+                        moved[path] = version  # A different large file there now: it needs its own check.
+                    else:
+                        unsure.add(path)  # A folder, or no answer: decide on a later push.
                     continue
                 if remote is None:
                     if path in texts and blob_sha(texts[path]) != version["blob"]:
