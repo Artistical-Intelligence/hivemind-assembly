@@ -447,7 +447,10 @@ class Broker:
                         self.store.get("file_intent", request["id"]).get("before"),
                     )
                     if draft:
-                        if args["path"] in draft.get("conflicts", []):
+                        if args["path"] in (draft.get("skipped") or {}):
+                            result["checks"] = ("pending: kept on this computer only, not on GitHub ("
+                                                + draft["skipped"][args["path"]] + ")")
+                        elif args["path"] in draft.get("conflicts", []):
                             result["checks"] = ("pending: not pushed, because someone changed this file on GitHub "
                                                 "since HA last pushed it; reconcile the two versions")
                         elif draft.get("status") in ("saved", "unchanged"):
