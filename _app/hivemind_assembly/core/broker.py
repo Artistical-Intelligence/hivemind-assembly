@@ -455,6 +455,9 @@ class Broker:
                                                 "since HA last pushed it; reconcile the two versions")
                         elif draft.get("status") in ("saved", "unchanged"):
                             result["checks"] = "pending: pushed before review"
+                        elif draft.get("status") == "refused":
+                            result["checks"] = ("pending: saved in the project folder; GitHub didn't take this save ("
+                                                + str(draft.get("reason", ""))[:200] + "); HA tries again with the next change")
                         elif draft.get("status") == "failed":
                             result["checks"] = "pending: saved in the project folder; it goes to GitHub with the next save"
                         else:
