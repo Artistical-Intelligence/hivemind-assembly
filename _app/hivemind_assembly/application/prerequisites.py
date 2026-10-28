@@ -14,6 +14,7 @@ PACKAGES = {
     "node": "OpenJS.NodeJS.LTS",
     "java": "EclipseAdoptium.Temurin.21.JDK",
     "clang": "LLVM.LLVM",
+    "tesseract": "UB-Mannheim.TesseractOCR",
 }
 
 # Names shown while installing, and rough sizes in MB for the setup progress bar.
@@ -23,12 +24,14 @@ WEIGHTS = {
     "node": ("Node.js", 30),
     "java": ("Java (JDK 21)", 190),
     "clang": ("LLVM (Clang)", 400),
+    "tesseract": ("Tesseract (reads scanned PDF pages)", 50),
 }
 
 # Silent installers do not always add their tools to PATH (the LLVM installer
 # leaves PATH unchanged by default), so also look in their standard folders.
 STANDARD_FOLDERS = {
     "clang": (r"%ProgramFiles%\LLVM\bin", r"%LOCALAPPDATA%\Programs\LLVM\bin"),
+    "tesseract": (r"%ProgramFiles%\Tesseract-OCR", r"%LOCALAPPDATA%\Programs\Tesseract-OCR"),
 }
 
 
@@ -40,7 +43,7 @@ def refresh_windows_path():
     # Preserve working explicit/tool-runner selections; a registry default must
     # not downgrade a usable Node/JDK while refreshing an unrelated installation.
     working = []
-    for name in ("git", "node", "java", "clang", "gh"):
+    for name in ("git", "node", "java", "clang", "gh", "tesseract"):
         if available(name):
             executable = shutil.which(name)
             if name == "java" and os.environ.get("JAVA_HOME"):
@@ -139,7 +142,7 @@ def available(name):
 
 def missing(extra=()):
     """Prerequisites that are not usable yet (after refreshing PATH on Windows)."""
-    if set(extra) - {"gh"}:
+    if set(extra) - {"gh", "tesseract"}:
         raise Blocked("Unknown optional prerequisite")
     required = ["git", "node", "java", *extra]
     # Windows MinGW GCC cannot supply the Linux ELF/PE cross-target lanes.
