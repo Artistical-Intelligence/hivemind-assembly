@@ -6,7 +6,9 @@ linked to their section, with any caption or alt text; a picture never makes a
 document "partly read". Links are recorded per section: outside links by address,
 links inside the document by the section they point to. Markdown is split at its
 headings too, with front matter (title, tags, other names) and its pictures. PDF
-pages, plain text and source files become sections of their own kind.
+pages, plain text and source files become sections of their own kind. Excel sheets
+become Markdown tables, a section per sheet (or per 200 rows of a long sheet). PDF
+pages that are only a scan are read with Tesseract when it's installed.
 
 Nothing here runs code or opens links; it only reads the file's bytes.
 """
@@ -16,7 +18,11 @@ from __future__ import annotations
 import html
 import io
 import json
+import os
 import re
+import shutil
+import subprocess
+import sys
 import zipfile
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
@@ -32,6 +38,11 @@ V = "urn:schemas-microsoft-com:vml"
 MC = "http://schemas.openxmlformats.org/markup-compatibility/2006"
 PACKAGE_RELS = "http://schemas.openxmlformats.org/package/2006/relationships"
 CODE_LINES = 200  # Source files: one section per 200 lines.
+SHEET_ROWS = 200  # Spreadsheets: one section per 200 rows, each with the heading row.
+MAX_SHEET_ROWS = 20_000  # Rows read per sheet; the rest is noted as a gap.
+MAX_COLUMNS = 200
+OCR_SECONDS = 120  # Most time Tesseract gets for one scanned picture.
+X = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 VIEWABLE = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp"}
 MARKDOWN = {".md", ".markdown", ".mdx"}
 HTML = {".html", ".htm", ".xhtml"}
@@ -54,6 +65,8 @@ class Parsed:
     names: list = field(default_factory=list)
     tags: list | None = None
     tables: int = 0
+    scanned: int = 0  # PDF pages read from a scan.
+    needs_ocr: bool = False  # Scanned pages left unread because Tesseract isn't installed.
 
 
 class Builder:
@@ -637,7 +650,48 @@ def parse_code(text, name):
     return Parsed(file_name, sections)
 
 
-def parse_pdf(path):
+def tesseract():
+    """Tesseract's program, or None. Its Windows installer doesn't add it to PATH."""
+    found = shutil.which("tesseract")
+    if found or sys.platform != "win32":
+        return found
+    for folder in (r"%ProgramFiles%\Tesseract-OCR", r"%LOCALAPPDATA%\Programs\Tesseract-OCR"):
+        candidate = Path(os.path.expandvars(folder)) / "tesseract.exe"
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def ocr(program, picture):
+    """The text Tesseract reads in one picture (PNG bytes)."""
+    env = dict(os.environ, OMP_THREAD_LIMIT="1")  # One core per picture; HA keeps working meanwhile.
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
+    result = subprocess.run([program, "stdin", "stdout", "-l", "eng"], input=picture, capture_output=True,
+                            timeout=OCR_SECONDS, env=env, creationflags=flags)
+    if result.returncode:
+        raise RuntimeError((result.stderr or b"").decode("utf-8", "replace").strip()[-200:] or "Tesseract failed")
+    return result.stdout.decode("utf-8", "replace")
+
+
+def page_pictures(page):
+    """A page's pictures as PNG bytes, largest first."""
+    found = []
+    for image in page.images:
+        try:
+            picture = image.image
+            if picture.width * picture.height < 100 * 100:
+                continue  # Icons and rules hold no readable text.
+            if picture.mode not in ("1", "L", "RGB"):
+                picture = picture.convert("RGB")
+            out = io.BytesIO()
+            picture.save(out, "PNG")
+            found.append((picture.width * picture.height, out.getvalue()))
+        except Exception:
+            continue
+    return [data for _, data in sorted(found, key=lambda f: -f[0])]
+
+
+def parse_pdf(path, program=None):
     gaps = []
     sections = []
     try:
@@ -649,13 +703,152 @@ def parse_pdf(path):
     # Font and encoding notes from odd PDFs aren't problems with the import.
     logging.getLogger("pypdf").setLevel(logging.ERROR)
     reader = pypdf.PdfReader(io.BytesIO(Path(path).read_bytes()))  # The file itself isn't kept open.
+    program = program if program is not None else tesseract()
+    scanned, unread = 0, []
     for i, page in enumerate(reader.pages):
         text = page.extract_text() or ""
-        sections.append({"id": str(i + 1), "title": f"{Path(path).stem}, page {i + 1}", "level": 0, "path": [],
-                         "text": text, "links": [], "pictures": []})
+        title = f"{Path(path).stem}, page {i + 1}"
         if not text.strip():
-            gaps.append(f"Page {i + 1} has no text (a scan or picture); it needs reading by eye.")
-    return Parsed(Path(path).stem, sections, [], gaps)
+            read = []
+            if program:
+                try:
+                    read = [ocr(program, picture) for picture in page_pictures(page)]
+                except Exception:
+                    read = []
+            text = "\n\n".join(t.strip() for t in read if t.strip())
+            if text:
+                scanned += 1
+                title += " (scanned)"
+            else:
+                unread.append(i + 1)
+        sections.append({"id": str(i + 1), "title": title, "level": 0, "path": [],
+                         "text": text, "links": [], "pictures": []})
+    if unread:
+        pages = ", ".join(map(str, unread[:20])) + (f" and {len(unread) - 20} more" if len(unread) > 20 else "")
+        if program:
+            gaps.append(f"Page{'s' if len(unread) > 1 else ''} {pages} had no text HA could read, even as a scan; "
+                        "they need reading by eye.")
+        else:
+            gaps.append(f"Page{'s' if len(unread) > 1 else ''} {pages} {'are' if len(unread) > 1 else 'is'} a scan or "
+                        "picture. Select Install required tools in Settings to add Tesseract, which reads scans, "
+                        "then update this material.")
+    parsed = Parsed(Path(path).stem, sections, [], gaps)
+    parsed.scanned = scanned
+    parsed.needs_ocr = bool(unread) and not program
+    return parsed
+
+
+# ------------------------------------------------------------------ Excel
+def column_number(ref):
+    """1 for A, 27 for AA; 0 if the cell reference has no column."""
+    n = 0
+    for ch in ref:
+        if not ch.isalpha():
+            break
+        n = n * 26 + ord(ch.upper()) - 64
+    return n
+
+
+def _all_text(node):
+    """A cell's or shared string's text, without its phonetic guide (rPh)."""
+    if local(node.tag) == "rPh":
+        return ""
+    own = (node.text or "") if local(node.tag) == "t" else ""
+    return own + "".join(_all_text(child) for child in node)
+
+
+def _cell_text(text):
+    return " ".join(str(text).replace("|", "\\|").split()) if text is not None else ""
+
+
+def _markdown_rows(rows):
+    width = max(len(r) for r in rows)
+    rows = [r + [""] * (width - len(r)) for r in rows]
+    lines = ["| " + " | ".join(rows[0]) + " |", "|" + "|".join([" --- "] * width) + "|"]
+    return "\n".join(lines + ["| " + " | ".join(r) + " |" for r in rows[1:]])
+
+
+def parse_xlsx(path):
+    """Excel workbooks (.xlsx, .xlsm): each sheet's values as Markdown tables. Macros aren't read or run."""
+    stem = Path(path).stem
+    builder_sections, gaps, tables = [], [], 0
+    with zipfile.ZipFile(io.BytesIO(Path(path).read_bytes())) as zf:
+        names = set(zf.namelist())
+
+        def xml(name):
+            return ET.fromstring(zf.read(name)) if name in names else None
+
+        workbook = xml("xl/workbook.xml")
+        if workbook is None:
+            raise ValueError("it isn't an Excel workbook")
+        targets = {}
+        rels = xml("xl/_rels/workbook.xml.rels")
+        for rel in (rels if rels is not None else []):
+            target = rel.get("Target", "")
+            targets[rel.get("Id")] = target.lstrip("/") if target.startswith("/") else normpath("xl/" + target)
+        shared = []
+        strings = xml("xl/sharedStrings.xml")
+        for si in (strings if strings is not None else []):
+            shared.append(_all_text(si))
+        sheets = workbook.find(q(X, "sheets"))
+        for sheet in (sheets if sheets is not None else []):
+            name = sheet.get("name") or "Sheet"
+            target = targets.get(sheet.get(q(R, "id")))
+            if not target or target not in names:
+                gaps.append(f"Sheet {name} couldn't be found in the file.")
+                continue
+            rows, cut, wide = [], False, False
+            with zf.open(target) as stream:
+                for _, element in ET.iterparse(stream):
+                    if element.tag != q(X, "row"):
+                        continue
+                    if len(rows) >= MAX_SHEET_ROWS:
+                        cut = True
+                        element.clear()
+                        continue
+                    cells = {}
+                    for n, c in enumerate(element.findall(q(X, "c")), 1):
+                        col = column_number(c.get("r", "")) or n
+                        if col > MAX_COLUMNS:
+                            wide = True
+                            continue
+                        kind, value = c.get("t"), c.find(q(X, "v"))
+                        raw = value.text if value is not None else None
+                        if kind == "s" and raw is not None and raw.strip().isdigit() and int(raw) < len(shared):
+                            text = shared[int(raw)]
+                        elif kind == "inlineStr":
+                            inline = c.find(q(X, "is"))
+                            text = _all_text(inline) if inline is not None else ""
+                        elif kind == "b":
+                            text = "TRUE" if raw == "1" else "FALSE" if raw == "0" else raw
+                        else:
+                            text = raw
+                        text = _cell_text(text)
+                        if text:
+                            cells[col] = text
+                    element.clear()
+                    if cells:
+                        rows.append([cells.get(k, "") for k in range(1, max(cells) + 1)])
+            if cut:
+                gaps.append(f"Sheet {name} has more than {MAX_SHEET_ROWS:,} rows; only the first {MAX_SHEET_ROWS:,} were read.")
+            if wide:
+                gaps.append(f"Sheet {name} has more than {MAX_COLUMNS} columns; only the first {MAX_COLUMNS} were read.")
+            if not rows:
+                continue
+            tables += 1
+            heading, body = rows[0], rows[1:]
+            parts = [body[i:i + SHEET_ROWS] for i in range(0, len(body), SHEET_ROWS)] or [[]]
+            for n, part in enumerate(parts):
+                title = name if len(parts) == 1 else f"{name}, rows {n * SHEET_ROWS + 2}–{n * SHEET_ROWS + len(part) + 1}"
+                builder_sections.append({
+                    "id": str(len(builder_sections) + 1), "title": title, "level": 1, "path": [title],
+                    "text": f"# {title}\n\n" + _markdown_rows([heading] + part), "links": [], "pictures": [],
+                })
+        if "xl/vbaProject.bin" in names:
+            gaps.append("The workbook's macros weren't read.")
+    parsed = Parsed(stem, builder_sections, [], gaps)
+    parsed.tables = tables
+    return parsed
 
 
 def decode(raw):
@@ -674,11 +867,13 @@ def decode(raw):
 
 
 def parse(path, kind, image=None, display=None):
-    """Read one file of the given kind: word, markdown, html, pdf, text or code."""
+    """Read one file of the given kind: word, spreadsheet, markdown, html, pdf, text or code."""
     path = Path(path)
     name = display or path.name
     if kind == "word":
         return parse_docx(path)
+    if kind == "spreadsheet":
+        return parse_xlsx(path)
     if kind == "pdf":
         return parse_pdf(path)
     text = decode(path.read_bytes())
@@ -704,6 +899,7 @@ def summary(parsed):
         "pictures": len(parsed.pictures),
         "pictures_not_described": sum(1 for p in parsed.pictures if not (p.get("caption") or p.get("alt"))),
         "links": sum(len(s["links"]) for s in parsed.sections),
+        "scanned_pages": parsed.scanned,
     }
 
 
