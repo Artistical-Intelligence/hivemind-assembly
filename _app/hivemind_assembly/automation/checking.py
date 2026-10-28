@@ -15,7 +15,7 @@ import json
 import time
 from datetime import datetime, timezone
 
-from hivemind_assembly.core.checks import REPORTS, Checks
+from hivemind_assembly.core.checks import REPORTS, Checks, blob_sha
 from hivemind_assembly.core.common import AllowanceUnavailable, ContractError, digest, scoped
 
 MESSAGE_CHARS = 120_000  # File text per checker message.
@@ -250,7 +250,8 @@ class IndependentChecks:
         name = report_name(key)
         text = self.report(project, route, writer, batch, results, response.get("summary", ""), sources)
         outcome = self.checks.finish(project, {f["path"]: f["sha256"] for f in batch}, results, name, route,
-                                     report_text=text)
+                                     report_text=text,
+                                     versions={f["path"]: blob_sha(f["text"]) for f in batch})
         # The report and the removal of what passed go up in the same commit.
         await self.team.blocking(
             self.drafts.sync, project, (), {name: text},
