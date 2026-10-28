@@ -289,10 +289,14 @@ class Checks:
         return changed
 
     @locked
-    def finish(self, project, checked, results, report, checker):
+    def finish(self, project, checked, results, report, checker, report_text=None):
         """Record a finished check. checked: {path: sha256 it was given}; results:
-        {path: {"verdict": "pass"|"fail", "findings": text}}. Returns what passed and failed."""
+        {path: {"verdict": "pass"|"fail", "findings": text}}. Returns what passed and failed.
+        report_text is queued for GitHub in the same step, so no push can carry the
+        markers' removal without it."""
         state = self.state(project)
+        if report_text is not None:
+            state.setdefault("unpushed_extra", {})[report] = report_text
         passed, failed, left = [], [], []
         for path, sha in checked.items():
             item = state["items"].get(path)
@@ -321,7 +325,8 @@ class Checks:
                 passed.append(path)
             else:
                 findings = " ".join(str(result.get("findings") or "no reason given").split())[:300]
-                item.update(state="failed", note=f"check failed: {findings} (see {report}); fix it, then check again")
+                item.update(state="failed", note=f"check failed (see {report}); fix it, then check again",
+                            findings=findings)
                 failed.append(path)
         del state["checked"][HISTORY:]
         self.save(project, state)
@@ -522,6 +527,7 @@ class Drafts:
         state = self.checks.state(project)
         waiting = list(dict.fromkeys(list(state.get("unpushed", [])) + list(changed)))
         if not self.publications:
+            self.checks.update(project, lambda state: state.update(clear_remote=[], unpushed_extra={}))
             return {"status": "local"}
         skipped = {}
         texts = {}
@@ -555,6 +561,9 @@ class Drafts:
             self.checks.update(project, lambda state: keep(state, "failed", error=str(error)[:300]))
             self.store.event(project, "draft_push_failed", {"project": project, "error": str(error)[:300]})
             return {"status": "failed", "error": str(error), "skipped": skipped}
+        if result["status"] == "disabled":
+            # Nothing on GitHub to remove markers from; a repository linked later starts clean.
+            self.checks.update(project, lambda state: state.update(clear_remote=[]))
         if result["status"] in ("disabled", "refused"):
             self.checks.update(project, lambda state: keep(
                 state, "local" if result["status"] == "disabled" else "failed", error=result.get("reason", "")))
@@ -575,7 +584,9 @@ class Drafts:
             for path in pushed:
                 state.get("before", {}).pop(path, None)
                 state.get("unpushed_extra", {}).pop(path, None)
-            state["clear_remote"] = [p for p in state.get("clear_remote", []) if p not in clear]
+            if not any(managed(p) for p in skipped):
+                # Only once the marker files themselves went up.
+                state["clear_remote"] = [p for p in state.get("clear_remote", []) if p not in clear]
             state["blobs"] = {**state["blobs"], **result.get("blobs", {})}
             # A folder is forgotten only once its STATUS.md is gone from GitHub.
             state["remote_folders"] = sorted(
@@ -601,7 +612,7 @@ class Drafts:
         lines += ["", "## Note", "", " ".join(str(note or "No note.").split())[:2000], ""]
         outcome = self.checks.finish(project, {p: i.get("sha256") for p, i in items.items()},
                                      {p: {"verdict": "pass", "findings": "checked by the owner"} for p in items},
-                                     name, "owner")
+                                     name, "owner", report_text="\n".join(lines))
         self.sync(project, extra={name: "\n".join(lines)},
                   message=f"Checked by the owner: {len(outcome['passed'])} file(s)")
         return {**outcome, "report": name}
