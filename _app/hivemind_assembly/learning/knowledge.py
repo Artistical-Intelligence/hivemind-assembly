@@ -51,10 +51,12 @@ PAGE = 12000  # Characters per open_section answer.
 
 
 def kind_of(name):
-    """What a file is for import: word, markdown, html, pdf, text, code, or None."""
+    """What a file is for import: word, spreadsheet, markdown, html, pdf, text, code, or None."""
     suffix = PurePosixPath(name).suffix.lower()
     if suffix == ".docx":
         return "word"
+    if suffix in (".xlsx", ".xlsm"):
+        return "spreadsheet"
     if suffix in documents.MARKDOWN:
         return "markdown"
     if suffix in documents.HTML:
@@ -206,6 +208,14 @@ class Knowledge:
         db.execute("DELETE FROM knowledge_vector_sources WHERE source=?", (key,))
 
     # ---------------------------------------------------------------- import
+    def waiting_for_ocr(self, sources):
+        """Whether any of these documents has scanned pages that Tesseract, now installed, can read."""
+        if not sources or not documents.tesseract():
+            return False
+        rows = self.store.rows("SELECT id,extraction FROM sources")
+        wanted = set(sources)
+        return any(r["id"] in wanted and json.loads(r["extraction"] or "{}").get("needs_ocr") for r in rows)
+
     def origin_source(self, origin):
         rows = self.store.rows("SELECT source FROM knowledge_origins WHERE origin=?", (canonical(origin),))
         if rows and self.store.rows("SELECT 1 FROM sources WHERE id=?", (rows[0]["source"],)):
@@ -231,6 +241,8 @@ class Knowledge:
                 and bool(old["external_allowed"]) == bool(external_allowed)
                 and sorted(self.scopes.tags("source", previous)) == sorted(tags)
                 and json.loads(old["extraction"]).get("format") == 2
+                # Scans skipped before Tesseract was installed are read now.
+                and not (json.loads(old["extraction"]).get("needs_ocr") and documents.tesseract())
             ):
                 kept = json.loads(old["extraction"])
                 if kept.get("origin") != origin:
@@ -292,6 +304,7 @@ class Knowledge:
             "original_sha256": revision,
             "origin": origin,
             "assigned_tags": tags,
+            "needs_ocr": parsed.needs_ocr,
         }
         name = display or p.name
         with self.store.tx() as db:
