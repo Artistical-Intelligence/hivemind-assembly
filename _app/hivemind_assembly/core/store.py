@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS knowledge_names(name TEXT NOT NULL,source TEXT NOT NU
 CREATE INDEX IF NOT EXISTS knowledge_names_name ON knowledge_names(name);
 CREATE INDEX IF NOT EXISTS knowledge_names_source ON knowledge_names(source);
 CREATE TABLE IF NOT EXISTS knowledge_origins(origin TEXT PRIMARY KEY,source TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS knowledge_vectors(source TEXT NOT NULL,section TEXT NOT NULL,chunk INTEGER NOT NULL,vector BLOB NOT NULL,PRIMARY KEY(source,section,chunk));
+CREATE TABLE IF NOT EXISTS knowledge_vectors(source TEXT NOT NULL,section TEXT NOT NULL,chunk INTEGER NOT NULL,vector BLOB NOT NULL,hash TEXT NOT NULL DEFAULT '',PRIMARY KEY(source,section,chunk));
 CREATE TABLE IF NOT EXISTS knowledge_vector_sources(source TEXT PRIMARY KEY,model TEXT NOT NULL,chunks INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS lessons(id TEXT PRIMARY KEY,asset_key TEXT NOT NULL,version INTEGER NOT NULL,kind TEXT NOT NULL,status TEXT NOT NULL,payload TEXT NOT NULL,predecessor TEXT,created REAL NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS one_active_lesson ON lessons(asset_key) WHERE status='active';
