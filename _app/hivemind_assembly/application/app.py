@@ -1461,6 +1461,16 @@ class Application:
                 raise Blocked("No assistant has usage left to check with. Set one up under AI assistants, or wait for usage.")
             self.submit(self.team.independent.requested(project))
             return {"message": f"Checking {waiting} file{'s' if waiting != 1 else ''} with {who}, in a new conversation."}
+        if path == "/api/checks/owner":
+            # For what no assistant can check (pictures, very long files): the owner checked it.
+            project = data.get("project")
+            self.store.project(project)
+            paths = data.get("paths")
+            if not isinstance(paths, list) or not paths or not all(isinstance(p, str) for p in paths):
+                raise ContractError("Say which files you checked.")
+            outcome = self.broker.drafts.owner_checked(project, paths, str(data.get("note") or ""))
+            return {"message": f"Marked {len(outcome['passed'])} file{'s' if len(outcome['passed']) != 1 else ''} "
+                               "as checked by you; the record is in the project's checks folder."}
         if path == "/api/control":
             task = data["task"]
             action = data["action"]
