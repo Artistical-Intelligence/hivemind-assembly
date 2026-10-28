@@ -733,10 +733,15 @@ them, and the descriptions become searchable. A picture that can't be found is l
 as missing and doesn't block anything either. Links are recorded per section: outside
 links by address, links inside the document by the section they open. Markdown is
 split at its headings and takes its title, tags and other names from its front
-matter; PDF, HTML, text and source files are read too.
+matter; PDF, HTML, text and source files are read too. Excel workbooks (.xlsx,
+.xlsm) become Markdown tables, one section per sheet (or per 200 rows of a long sheet,
+each with the heading row); macros are never read or run. Scanned PDF pages are read
+with Tesseract, which **Install required tools** adds on Windows; until it's installed,
+those pages are listed as gaps, and the next update reads them.
 
 A folder or repository import lists everything it skips with the reason (archives,
-binary data, pictures no document shows, old Office formats, links, which are never
+binary data, pictures no document shows, old Office formats (.doc, .xls, .ppt) and
+slides, links, which are never
 followed, and HA's own data folder); nothing is skipped silently. Each file's
 categories come from its front matter tags, or else from the names of the folders
 it's in, plus one named after the folder or repository; categories you change
