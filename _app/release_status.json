@@ -1,5 +1,5 @@
 {
-  "version": "0.33.0",
+  "version": "0.34.0",
   "requested_product_complete": false,
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -47,7 +47,7 @@
     "game_play_testing": "Version 0.26.0 adds deterministic game play-testing. Stepped play matched program.replay streams, exit status, input consumption and instruction counts on x86-64 and AArch64 builds with 1-, 2- and 64-byte feeds, and function-entry coverage on the existing game target; faults, clock reads, rdtsc, event limits, per-tick freezes, total budgets, cancellation and out-of-order snapshot restores were exercised. On the source-known Coin cavern example the scripted route and the floor-gap quirk passed as regressions (quirk classified as original behavior); seeded differential exploration found the platform-edge divergence, shrinking reduced it to at most ten inputs and confirmed it on fresh engines; after that fix exploration found the spike freeze; after both fixes a 200-step exploration found nothing and pinned game_play checks passed, having reported divergence and freeze before. Cancelled and bounded runs are inconclusive, never a pass. A native lane plays real Godot 4 projects and Linux SDL2 programs through in-process adapters with fixed frame steps, virtual clocks, seeded operating-system randomness (including Rust GDExtensions) and HA-only input, after the owner enables trusted native execution; determinism is probed by launching each side twice. dev/check_real_games.py played Godot's Dodge the Creeps demo and its godot-rust port, Ubuntu's Chromium B.S.U. (C++) against a rebuild and a planted defect, and sokoban-rs (Rust) against a planted defect; see the real-games evidence entry. Worker operations ran through Broker.execute with PNG task artifacts and fixture upload bindings; a real Chromium run exercised the dashboard panel. No signed-in model played a game; no hardware timing is claimed.",
     "large_files_backup": "Version 0.33.0: folder backups put files over GitHub's 100 MiB limit in the repository's large-files release, as assets named with the first 12 characters of the file's SHA-256 (numbered parts of about 1.9 GiB from 2 GiB up), list them in LARGE_FILES.json with earlier versions, and add PowerShell and Python restore scripts. Checked with lowered limits against a stand-in release API and a local Git remote: single assets and parts, byte-identical restores (the token is dropped on the redirect to storage), new assets for a changed file with the old ones kept, re-uploads only of missing or wrong-size assets, files waiting without a sign-in, a file growing past the limit and Git LFS turned off moving to release assets, restore scripts refusing paths outside their folder, and Git LFS with a local remote. Nothing was uploaded to GitHub itself.",
     "repository_visibility": "Assistants may create public repositories; Settings, GitHub, New repositories are: Private / Public applies when neither the owner nor the assistant says, and the activity log records who chose. A visibility change made on GitHub is followed with a latest-wins record, saving continues, and the project and activity log say so; folder backups record the visibility seen on each upload. Identity, ID, write access and not-archived checks are unchanged and a replacement repository is never adopted. Checked with stand-ins only.",
-    "reference_material": "Word files split at Heading 1-3 into sections with Markdown tables, pictures as separate images with captions or alt text (a picture never marks a document partly read or blocks a task), and links per section; whole folders and GitHub repositories imported with every skipped file and its reason, categories from front matter or folder names, replacement on re-import, Update from GitHub and an optional schedule; links aren't followed and HA's own data is skipped; permission changes apply to every copy at once. SQLite FTS5 ranked search, lookup by title and other names, and five assistant tools limited to the project's categories, with grants covering every source an answer uses. Vector search not added (see the live import evidence). Tool use and picture descriptions were checked with fixture responses, not live assistants."
+    "reference_material": "Word files split at Heading 1-3 into sections with Markdown tables, pictures as separate images with captions or alt text (a picture never marks a document partly read or blocks a task), and links per section; whole folders and GitHub repositories imported with every skipped file and its reason, categories from front matter or folder names, replacement on re-import, Update from GitHub and an optional schedule; links aren't followed and HA's own data is skipped; permission changes apply to every copy at once. SQLite FTS5 ranked search, lookup by title and other names, and five assistant tools limited to the project's categories, with grants covering every source an answer uses. Meaning search (a 23 MB sentence model on this computer, combined with word search) added in 0.34.0; see its evidence. Tool use and picture descriptions were checked with fixture responses, not live assistants."
   },
   "native_live_acceptance": {
     "validated_routes": 0,
@@ -197,14 +197,43 @@
     "retention_days": 14
   },
   "automated_tests": {
-    "passed": 1017,
-    "skipped": 41,
+    "passed": 1024,
+    "skipped": 42,
     "failed": 0,
-    "elapsed_seconds": 875.02,
+    "elapsed_seconds": 970.72,
     "host": "GitHub Linux Python 3.12",
-    "scope": "Full regression at commit 9e2cc54, run 40593247172. Windows: 986 passed/72 skipped in 1382.46s. Local Linux with Chromium: 1046 passed/12 skipped, 20 dashboard browser tests. No live native-model acceptance inferred."
+    "scope": "Full regression at commit 676f627, run 40729696600. Windows: 993 passed/73 skipped in 1400.57s. Local Linux with Chromium and the real meaning-search model: 1054 passed/12 skipped. No live native-model acceptance inferred."
   },
   "evidence": [
+    {
+      "id": "meaning-search-measured-2026-10-28",
+      "date": "2026-10-28",
+      "commit": "676f627ff43cd9f1d01f3488e9110afb5afd4204",
+      "runs": [],
+      "host": "Linux x86-64 local (2 processor threads), owner's imported reference repository",
+      "live_model_inference": false,
+      "summary": "Meaning search (all-MiniLM-L6-v2, 8-bit, pinned and SHA-256 checked) indexed the imported repository's prose: 423 documents, 25,597 vectors in 1,289 s on one thread. On 20 task steps like the owner's (decomp, recomp, mods, HD art, Godot or Rust rewrites, a feature for another program), an expected section came first for 11 (word search alone 9) and in the top 10 for 20 (18); on 20 plain questions, first for 12 (11), top 3 for 14 (15), top 10 for 19 (16). A combined search took 138-198 ms here against 107-136 ms for word search alone. Expected sections were chosen from the book's headings before these runs; counts only."
+    },
+    {
+      "id": "hosted-ci-676f627",
+      "date": "2026-10-28",
+      "commit": "676f627ff43cd9f1d01f3488e9110afb5afd4204",
+      "runs": [
+        40729696600
+      ],
+      "host": "GitHub Linux and Windows",
+      "live_model_inference": false,
+      "summary": "All four jobs passed at 676f627: Linux 1024 passed/42 skipped (970.72s); Windows 993 passed/73 skipped (1400.57s); the Chromium browser fixture; Windows package build, install and restore with ONNX Runtime in the hash-locked dependencies. Meaning search ran with a stand-in model there."
+    },
+    {
+      "id": "local-suite-676f627",
+      "date": "2026-10-28",
+      "commit": "676f627ff43cd9f1d01f3488e9110afb5afd4204",
+      "runs": [],
+      "host": "Linux x86-64 local (Python 3.12, Playwright Chromium)",
+      "live_model_inference": false,
+      "summary": "Full local suite: 1054 passed/12 skipped (1185 s) with WORKBENCH_TEST_CHROME and HA_TEST_MEANING_MODEL set, including 20 Chromium dashboard tests and the test of the real meaning-search model."
+    },
     {
       "id": "reference-import-live-2026-10-27",
       "date": "2026-10-27",
