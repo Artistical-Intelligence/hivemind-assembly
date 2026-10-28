@@ -320,8 +320,9 @@ class Checks:
                 # those: a marker someone adds for this file later is a new one and stays.
                 for key in ("clear_local", "clear_remote"):
                     state[key] = list(dict.fromkeys(state.get(key, []) + [path]))[-2000:]
-                if item.get("outside") and (versions or {}).get(path):
-                    # Written elsewhere: its markers go only while GitHub still has this version.
+                if (versions or {}).get(path):
+                    # Its markers go from GitHub only while GitHub has this version (or gets it in
+                    # the same push): a version someone changed there meanwhile isn't checked.
                     state.setdefault("clear_versions", {})[path] = {"blob": versions[path], "item": item}
                 state["checked"].insert(0, {"path": path, "sha256": sha, "report": report, "checker": checker,
                                             "writer": item.get("writer"), "at": time.time()})
@@ -418,19 +419,20 @@ class Checks:
         text = existing if existing else "# Queue\n\n"
         return section(text, QUEUE_START, QUEUE_END, body)
 
-    def files(self, project, read, remote=False, clear=None, used=None):
+    def files(self, project, read, remote=False, clear=None, used=None, keep=()):
         """The marker and instruction files as they should now be: {path: text or None
         (remove it)}. read(path) gives the current text (from the folder or from GitHub).
         clear: files whose markers a passed check removes now (default: all waiting)."""
         state = self.state(project)
         items = list(state["items"].values())
         if clear is None:
-            clear = set(state.get("clear_remote" if remote else "clear_local", []))
+            # Taken with the items, from one reading of the state; keep: removals to hold back.
+            clear = set(state.get("clear_remote" if remote else "clear_local", [])) - set(keep)
         if used is not None:
             used.update(clear)
         ledger = read(LEDGER)
         if remote and ledger:
-            if self.adopt(project, parse_ledger(ledger), clear):
+            if self.adopt(project, parse_ledger(ledger), set(clear) | set(keep)):  # Held back: still HA's.
                 state = self.state(project)
                 items = list(state["items"].values())
         out = {}
@@ -548,20 +550,44 @@ class Drafts:
         clear = set()  # The removals this push carries, taken with the items they belong to.
 
         def build(read):
-            # A file written elsewhere that changed on GitHub since it passed keeps its
-            # markers, and waits for a check of the version there now.
-            versions = self.checks.state(project).get("clear_versions", {})
-            moved = {p: v for p, v in versions.items() if blob_sha(read(p) or "") != v["blob"]}
+            # A passed file keeps its markers on GitHub unless GitHub has the version that
+            # passed, or gets it in this push over a copy nobody else changed. A version
+            # someone changed there meanwhile waits for its own check.
+            current = self.checks.state(project)
+            versions = current.get("clear_versions", {})
+            before = current.get("before", {})
+            moved, unsure = {}, set()
+            for path, version in versions.items():
+                try:
+                    remote = read(path)
+                except Exception:
+                    unsure.add(path)  # A folder or a large file there now: decide on a later push.
+                    continue
+                if remote is None:
+                    if path in texts and blob_sha(texts[path]) != version["blob"]:
+                        unsure.add(path)
+                    continue  # Not on GitHub: nothing unchecked there.
+                rb = blob_sha(remote)
+                if rb == version["blob"]:
+                    continue
+                ours = path in texts and blob_sha(texts[path]) == version["blob"] and (
+                    rb == current["blobs"].get(path)
+                    or hashlib.sha256(remote.encode("utf-8")).hexdigest() == before.get(path))
+                if not ours:
+                    moved[path] = version
             if moved:
                 def again(state):
                     for path, version in moved.items():
                         state.get("clear_versions", {}).pop(path, None)
                         state["clear_remote"] = [p for p in state.get("clear_remote", []) if p != path]
-                        state["items"][path] = {**version["item"], "state": "pending", "sha256": None,
-                                                "note": "changed on GitHub while it was being checked; check it again"}
+                        if path not in state["items"]:
+                            state["items"][path] = {
+                                **version["item"], "state": "pending", "sha256": None, "outside": True,
+                                "writer": "outside", "note": "someone changed it on GitHub before its check "
+                                "finished; the version there needs its own check"}
                 self.checks.update(project, again)
             files = dict(texts)
-            files.update(self.checks.files(project, read, remote=True, used=clear))
+            files.update(self.checks.files(project, read, remote=True, used=clear, keep=unsure))
             files.update(reports)
             return files
 
@@ -616,6 +642,16 @@ class Drafts:
         self.checks.update(project, saved)
         return {**result, "skipped": skipped}
 
+    def _versions(self, project, paths):
+        """The Git blob IDs of these files as they are in the project's folder now."""
+        out = {}
+        for path in paths:
+            try:
+                out[path] = blob_sha(scoped(self.workspace(project), path).read_text("utf-8"))
+            except (OSError, UnicodeDecodeError):
+                continue
+        return out
+
     def owner_checked(self, project, paths, note=""):
         """The owner checked these files by hand (for what an assistant can't check)."""
         from datetime import datetime, timezone
@@ -632,7 +668,8 @@ class Drafts:
         lines += ["", "## Note", "", " ".join(str(note or "No note.").split())[:2000], ""]
         outcome = self.checks.finish(project, {p: i.get("sha256") for p, i in items.items()},
                                      {p: {"verdict": "pass", "findings": "checked by the owner"} for p in items},
-                                     name, "owner", report_text="\n".join(lines))
+                                     name, "owner", report_text="\n".join(lines),
+                                     versions=self._versions(project, items))
         self.sync(project, extra={name: "\n".join(lines)},
                   message=f"Checked by the owner: {len(outcome['passed'])} file(s)")
         return {**outcome, "report": name}
