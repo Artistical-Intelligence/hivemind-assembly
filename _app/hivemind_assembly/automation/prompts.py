@@ -37,7 +37,7 @@ TOOL_SCHEMAS = {
     },
     "repository_status": {},
     "search_knowledge": {
-        "query": "words to look for in the owner's reference material; ranked results cover only this project's allowed categories. Search matches the material's own words, so use its technical terms and names, and search again with other words when nothing fits. Identical copies in other documents are listed once, under copies",
+        "query": "words to look for in the owner's reference material; ranked results cover only this project's allowed categories. Search matches the material's own words, so use its technical terms and names, and search again with other words when nothing fits. Identical copies in other documents are listed once, under copies. Hits marked checks_pending come from files their repository says aren't independently checked yet: treat them as drafts",
         "limit": "optional 1–20 hits, default 10",
     },
     "lookup_knowledge": {"name": "a section or document title, or one of its other names (any letter case)"},
