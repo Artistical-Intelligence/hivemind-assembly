@@ -439,7 +439,6 @@ class Broker:
             )
             result["result_artifact"] = artifact["id"]
             result["operation_id"] = request["id"]
-            self.controller.finish(request["id"], result, tool in self.mutations)
             if tool == "write_file" and not str(request["owner"]).startswith("user."):
                 try:
                     draft = self.drafts.after_write(
@@ -464,6 +463,7 @@ class Broker:
                             result["checks"] = "pending: saved in the project folder; no GitHub repository"
                 except Exception as error:  # The write itself succeeded either way.
                     self.store.event(task, "draft_marker_failed", {"path": args["path"], "error": str(error)[:300]})
+            self.controller.finish(request["id"], result, tool in self.mutations)
             self.controller.traces.append(
                 task, request["id"], request["owner"], "tool_result", result
             )
