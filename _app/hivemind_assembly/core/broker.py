@@ -446,10 +446,15 @@ class Broker:
                         task, args["path"], request["owner"], file_hash(scoped(root, args["path"]))
                     )
                     if draft:
-                        result["checks"] = "pending: pushed before review" if draft.get("status") == "saved" else (
-                            "pending: saved in the project folder; " + (
-                                "it goes to GitHub with the next save" if draft.get("status") == "failed"
-                                else "no GitHub repository"))
+                        if args["path"] in draft.get("conflicts", []):
+                            result["checks"] = ("pending: not pushed, because someone changed this file on GitHub "
+                                                "since HA last pushed it; reconcile the two versions")
+                        elif draft.get("status") in ("saved", "unchanged"):
+                            result["checks"] = "pending: pushed before review"
+                        elif draft.get("status") == "failed":
+                            result["checks"] = "pending: saved in the project folder; it goes to GitHub with the next save"
+                        else:
+                            result["checks"] = "pending: saved in the project folder; no GitHub repository"
                 except Exception as error:  # The write itself succeeded either way.
                     self.store.event(task, "draft_marker_failed", {"path": args["path"], "error": str(error)[:300]})
             self.controller.traces.append(
