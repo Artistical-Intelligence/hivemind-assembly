@@ -1,5 +1,5 @@
 {
-  "version": "0.35.0",
+  "version": "0.36.0",
   "requested_product_complete": false,
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -197,14 +197,43 @@
     "retention_days": 14
   },
   "automated_tests": {
-    "passed": 1030,
+    "passed": 1075,
     "skipped": 43,
     "failed": 0,
-    "elapsed_seconds": 751.91,
+    "elapsed_seconds": 871.71,
     "host": "GitHub Linux Python 3.12",
-    "scope": "Full regression at commit 0a1a5e4, run 40760091331. Windows: 999 passed/74 skipped in 1547.10s. Local Linux with Chromium, Tesseract and the real meaning-search model: 1061 passed/12 skipped. No live native-model acceptance inferred."
+    "scope": "Full regression at commit a9813a0, run 40780070811. Windows: 1044 passed/74 skipped in 1805.48s. Local Linux with Chromium, Tesseract and the real meaning-search model: 1106 passed/12 skipped. No live native-model acceptance inferred."
   },
   "evidence": [
+    {
+      "id": "hosted-ci-a9813a0",
+      "date": "2026-10-28",
+      "commit": "a9813a0c43f86cd4f24e5eb21b5aff196560aa7d",
+      "runs": [
+        40780070811
+      ],
+      "host": "GitHub Linux and Windows",
+      "live_model_inference": false,
+      "summary": "All four jobs passed at a9813a0: Linux 1075 passed/43 skipped (871.71s); Windows 1044 passed/74 skipped (1805.48s); the Chromium browser fixture; Windows package install, update and restore. Push early, check later was tested with stand-ins for GitHub and the assistants only."
+    },
+    {
+      "id": "local-suite-85974a3",
+      "date": "2026-10-28",
+      "commit": "a9813a0c43f86cd4f24e5eb21b5aff196560aa7d",
+      "runs": [],
+      "host": "Linux x86-64 local (Python 3.12, Playwright Chromium, Tesseract 5.3.4)",
+      "live_model_inference": false,
+      "summary": "Full local suite at 85974a3 (a9813a0 changes only test encodings and the gate script's decoding): 1106 passed/12 skipped (1127 s) with WORKBENCH_TEST_CHROME and the real meaning-search model."
+    },
+    {
+      "id": "checks-workflow-reviews-2026-10-28",
+      "date": "2026-10-28",
+      "commit": "a9813a0c43f86cd4f24e5eb21b5aff196560aa7d",
+      "runs": [],
+      "host": "Linux x86-64 local",
+      "live_model_inference": false,
+      "summary": "Push early, check later was checked by nine independent reviews, each a separate Claude session with a fresh context that saw only the request, the code and earlier reports (checks/2026-10-28-push-early-review-1.md to -9.md). Reviews 1-7 failed and their findings were fixed with tests; review 8 passed with minor fail-safe findings, whose follow-ups review 9 passed. Not established: a live check by a signed-in ChatGPT of a Claude-written file, or draft pushes to a real GitHub repository."
+    },
     {
       "id": "hosted-ci-0a1a5e4",
       "date": "2026-10-28",
