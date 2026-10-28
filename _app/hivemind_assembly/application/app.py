@@ -1701,6 +1701,8 @@ class Application:
                 try:
                     if os.name == "nt" and "gh" in missing(extra=("gh",)):
                         progress.expect("Installing the GitHub CLI", 15)
+                    if os.name == "nt" and "tesseract" in missing(extra=("tesseract",)):
+                        progress.expect("Installing Tesseract (reads scanned PDF pages)", 50)
                 except Blocked:
                     pass
                 if not self.tunnel.status()["installed"]:
@@ -1796,6 +1798,15 @@ class Application:
             results["github_cli"] = "ready"
         except Blocked as e:
             results["github_cli"] = str(e)
+        try:
+            # Reads the text of scanned PDF pages in reference material.
+            if progress:
+                install_missing(extra=("tesseract",), progress=progress)
+            else:
+                install_missing(extra=("tesseract",))
+            results["ocr"] = "ready"
+        except Blocked as e:
+            results["ocr"] = str(e)
         if self.tunnel.status()["installed"]:
             results["tunnel_client"] = "ready"
         else:
