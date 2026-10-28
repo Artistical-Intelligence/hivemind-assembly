@@ -79,12 +79,13 @@ the assistants' reference tools); no manual conversion is needed. Still open:
 
 - Use the reference tools, and the adviser's picture descriptions, in a live run
   with signed-in assistants (both are checked only with stand-ins so far).
-- Semantic (vector) search: not added. On 20 plain-language questions about the
-  owner's imported repository, ranked search put an expected section first for 11
-  and in the top 3 for 15. The 5 misses used different words from the material
-  (a plain description instead of its technical term); a second search with the
-  material's terms found 4 of them, and the assistants are told to search that way.
-  Revisit if the assistants' own searches show the same misses.
+- Meaning search: measured on the owner's imported repository (prose only, 25,597
+  vectors). On 20 task steps like the owner's (decomp, recomp, mods, HD art, Godot or
+  Rust rewrites, a feature for another program), an expected section came first for 11
+  (word search alone: 9) and in the top 10 for 20 (18); on 20 plain questions, first for
+  12 (11), top 10 for 19 (16). Still open: measure it with the live assistants' own
+  searches, and the index build time on a typical Windows PC (about 20 pieces a second
+  per processor thread here).
 - Old Office formats (.doc, .xls, .ppt), spreadsheets and slides, and text in
   scanned PDF pages are not imported; they are listed as skipped or as gaps.
 
