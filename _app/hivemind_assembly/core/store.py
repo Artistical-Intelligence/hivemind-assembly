@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS lessons(id TEXT PRIMARY KEY,asset_key TEXT NOT NULL,v
 CREATE UNIQUE INDEX IF NOT EXISTS one_active_lesson ON lessons(asset_key) WHERE status='active';
 CREATE TABLE IF NOT EXISTS artifacts(id TEXT PRIMARY KEY,sha256 TEXT NOT NULL,size INTEGER NOT NULL,classification TEXT NOT NULL,project_id TEXT,logical_name TEXT NOT NULL,created REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS project_repositories(project_id TEXT PRIMARY KEY REFERENCES projects(id),operation_id TEXT NOT NULL,owner TEXT NOT NULL COLLATE NOCASE,name TEXT NOT NULL COLLATE NOCASE,description TEXT NOT NULL,account_id INTEGER NOT NULL,marker TEXT NOT NULL,state TEXT NOT NULL,repository_id TEXT,url TEXT,error TEXT NOT NULL DEFAULT '',created REAL NOT NULL,updated REAL NOT NULL,UNIQUE(owner,name));
+CREATE TABLE IF NOT EXISTS project_checks(project_id TEXT PRIMARY KEY,state TEXT NOT NULL,updated REAL NOT NULL);
 """
 
 
