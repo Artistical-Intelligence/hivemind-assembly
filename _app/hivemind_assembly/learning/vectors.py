@@ -191,6 +191,10 @@ class VectorIndex:
         self.thread = None
         self.cache = None
         self.status = {"state": "waiting", "message": "Meaning search starts after the first reference material is added."}
+        columns = {r["name"] for r in store.rows("PRAGMA table_info(knowledge_vectors)")}
+        if "hash" not in columns:  # Indexes made by 0.34.0 learn which text each vector is for.
+            with store.tx() as db:
+                db.execute("ALTER TABLE knowledge_vectors ADD COLUMN hash TEXT NOT NULL DEFAULT ''")
         store.knowledge_vectors = self
 
     # ------------------------------------------------------------ setup
@@ -284,12 +288,18 @@ class VectorIndex:
                 break
             rows = self.store.rows("SELECT section,title,body FROM knowledge_sections WHERE source=? ORDER BY ord", (key,))
             pieces = [(r["section"], i, text) for r in rows for i, text in enumerate(chunks(r["title"], r["body"]))]
-            vectors = []
-            for start in range(0, len(pieces), BATCH):
+            # Text that didn't change keeps its vector: an edit to a long book costs seconds.
+            kept = {r["hash"]: r["vector"] for r in self.store.rows(
+                "SELECT hash,vector FROM knowledge_vectors WHERE source=? AND hash!=''", (key,))}
+            hashes = [hashlib.sha256(text.encode("utf-8")).hexdigest() for _, _, text in pieces]
+            vectors = [kept.get(h) for h in hashes]
+            todo_pieces = [i for i, v in enumerate(vectors) if v is None]
+            for start in range(0, len(todo_pieces), BATCH):
                 if self.stopping.is_set():
                     return n
-                batch = pieces[start: start + BATCH]
-                vectors.extend(model.embed([text for _, _, text in batch]))
+                batch = todo_pieces[start: start + BATCH]
+                for i, v in zip(batch, model.embed([pieces[i][2] for i in batch])):
+                    vectors[i] = _pack(v)
                 time.sleep(0.001)  # Let other work run between batches.
             with self.store.tx() as db:
                 exists = db.execute("SELECT 1 FROM sources WHERE id=?", (key,)).fetchone()
@@ -297,8 +307,8 @@ class VectorIndex:
                 db.execute("DELETE FROM knowledge_vector_sources WHERE source=?", (key,))
                 if exists:
                     db.executemany(
-                        "INSERT INTO knowledge_vectors(source,section,chunk,vector) VALUES(?,?,?,?)",
-                        [(key, s, i, _pack(v)) for (s, i, _), v in zip(pieces, vectors)],
+                        "INSERT INTO knowledge_vectors(source,section,chunk,vector,hash) VALUES(?,?,?,?,?)",
+                        [(key, s, i, v, h) for (s, i, _), v, h in zip(pieces, vectors, hashes)],
                     )
                     db.execute("INSERT INTO knowledge_vector_sources VALUES(?,?,?)", (key, MODEL_ID, len(pieces)))
             self._set("indexing", f"Preparing meaning search: {done + n + 1} of {total} documents.",
@@ -347,12 +357,17 @@ class VectorIndex:
     # ------------------------------------------------------------ search
     def _matrix(self):
         np = __import__("numpy")
-        stamp = self.store.one("SELECT COUNT(*) AS n, COALESCE(MAX(rowid),0) AS m FROM knowledge_vectors")
-        key = (stamp["n"], stamp["m"])
+        stamp = self.store.one(
+            "SELECT (SELECT COUNT(*) FROM knowledge_vectors) AS n, (SELECT COALESCE(MAX(rowid),0) FROM knowledge_vectors) AS m, "
+            "(SELECT COUNT(*) FROM knowledge_vector_sources) AS s")
+        key = (stamp["n"], stamp["m"], stamp["s"])
         with self.lock:
             if self.cache and self.cache[0] == key:
                 return self.cache[1:]
-        rows = self.store.rows("SELECT source,section,vector FROM knowledge_vectors ORDER BY rowid")
+        # Only documents whose vectors match their current text (a changed one waits for its rebuild).
+        rows = self.store.rows(
+            "SELECT v.source,v.section,v.vector FROM knowledge_vectors v JOIN knowledge_vector_sources s "
+            "ON s.source=v.source AND s.model=? ORDER BY v.rowid", (MODEL_ID,))
         if not rows:
             matrix = np.zeros((0, OnnxEmbedder.dims), dtype=np.float32)
         else:
