@@ -3,6 +3,8 @@ pypcode==4.0.1
 unicorn==2.1.4
 z3-solver==5.3.1.0
 pypdf==6.21.1
+# Meaning search over reference material, on this computer (a 23 MB model is downloaded on first use).
+onnxruntime==1.31.1
 ruamel.yaml==0.19.1
 python-dotenv==1.2.4
 PyYAML==6.0.3
