@@ -1565,6 +1565,7 @@ class Application:
             )
             if data.get("external_allowed") and not data.get("tags"):
                 result["tagging"] = self.team.curation.queue("source", result["id"])
+            self.knowledge_vectors.poke()
             return result
         if path == "/api/settings":
             if any(
