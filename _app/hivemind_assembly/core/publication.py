@@ -412,7 +412,7 @@ class Publications:
         }
 
     # ------------------------------------------------------------ drafts
-    def push_files(self, project, build, message, check_remote=()):
+    def push_files(self, project, build, message, check_remote=(), blobs=None):
         """Push early, check later: one commit on the default branch, made at once,
         before any review. build(read) returns {path: text, or None to remove it};
         read(path) gives the file's text on GitHub now, so marker files merge with
@@ -456,7 +456,7 @@ class Publications:
                 return text
 
             files = build(read)
-            blobs = self._load("draft_blobs", project) or {}
+            blobs = dict(blobs or {})
             entries, skipped, conflicts = [], {}, []
             for path, text in sorted(files.items()):
                 if text is None:
@@ -506,7 +506,6 @@ class Publications:
                     blobs.pop(path, None)
                 else:
                     blobs[path] = blob_sha(files[path])
-            self._save("draft_blobs", project, blobs)
             previous = self.status(project)
             self._save("publication_head", project, {**previous, "sha": sha, "branch": branch})
             return {
@@ -516,6 +515,7 @@ class Publications:
                 "skipped": skipped,
                 "conflicts": conflicts,
                 "url": f"https://github.com/{row['owner']}/{row['name']}/commit/{sha}",
+                "blobs": blobs,
             }
 
     def uncertain(self, operation):
