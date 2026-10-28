@@ -289,7 +289,7 @@ class Checks:
         return changed
 
     @locked
-    def finish(self, project, checked, results, report, checker, report_text=None):
+    def finish(self, project, checked, results, report, checker, report_text=None, versions=None):
         """Record a finished check. checked: {path: sha256 it was given}; results:
         {path: {"verdict": "pass"|"fail", "findings": text}}. Returns what passed and failed.
         report_text is queued for GitHub in the same step, so no push can carry the
@@ -320,6 +320,9 @@ class Checks:
                 # those: a marker someone adds for this file later is a new one and stays.
                 for key in ("clear_local", "clear_remote"):
                     state[key] = list(dict.fromkeys(state.get(key, []) + [path]))[-2000:]
+                if item.get("outside") and (versions or {}).get(path):
+                    # Written elsewhere: its markers go only while GitHub still has this version.
+                    state.setdefault("clear_versions", {})[path] = {"blob": versions[path], "item": item}
                 state["checked"].insert(0, {"path": path, "sha256": sha, "report": report, "checker": checker,
                                             "writer": item.get("writer"), "at": time.time()})
                 passed.append(path)
@@ -415,7 +418,7 @@ class Checks:
         text = existing if existing else "# Queue\n\n"
         return section(text, QUEUE_START, QUEUE_END, body)
 
-    def files(self, project, read, remote=False, clear=None):
+    def files(self, project, read, remote=False, clear=None, used=None):
         """The marker and instruction files as they should now be: {path: text or None
         (remove it)}. read(path) gives the current text (from the folder or from GitHub).
         clear: files whose markers a passed check removes now (default: all waiting)."""
@@ -423,6 +426,8 @@ class Checks:
         items = list(state["items"].values())
         if clear is None:
             clear = set(state.get("clear_remote" if remote else "clear_local", []))
+        if used is not None:
+            used.update(clear)
         ledger = read(LEDGER)
         if remote and ledger:
             if self.adopt(project, parse_ledger(ledger), clear):
@@ -540,11 +545,23 @@ class Drafts:
                 # Never sent as a removal: GitHub's copy, if any, stays as it is.
                 skipped[path] = "not a text file"
         reports = {path: self.report_text(path, text) for path, text in state.get("unpushed_extra", {}).items()}
-        clear = set(state.get("clear_remote", []))
+        clear = set()  # The removals this push carries, taken with the items they belong to.
 
         def build(read):
+            # A file written elsewhere that changed on GitHub since it passed keeps its
+            # markers, and waits for a check of the version there now.
+            versions = self.checks.state(project).get("clear_versions", {})
+            moved = {p: v for p, v in versions.items() if blob_sha(read(p) or "") != v["blob"]}
+            if moved:
+                def again(state):
+                    for path, version in moved.items():
+                        state.get("clear_versions", {}).pop(path, None)
+                        state["clear_remote"] = [p for p in state.get("clear_remote", []) if p != path]
+                        state["items"][path] = {**version["item"], "state": "pending", "sha256": None,
+                                                "note": "changed on GitHub while it was being checked; check it again"}
+                self.checks.update(project, again)
             files = dict(texts)
-            files.update(self.checks.files(project, read, remote=True, clear=clear))
+            files.update(self.checks.files(project, read, remote=True, used=clear))
             files.update(reports)
             return files
 
@@ -584,9 +601,12 @@ class Drafts:
             for path in pushed:
                 state.get("before", {}).pop(path, None)
                 state.get("unpushed_extra", {}).pop(path, None)
-            if not any(managed(p) for p in skipped):
-                # Only once the marker files themselves went up.
-                state["clear_remote"] = [p for p in state.get("clear_remote", []) if p not in clear]
+            # A removal is done once the marker files it touches went up (not refused).
+            done = {p for p in clear if LEDGER not in skipped
+                    and (f"{folder_of(p)}/{STATUS}" if folder_of(p) else STATUS) not in skipped}
+            state["clear_remote"] = [p for p in state.get("clear_remote", []) if p not in done]
+            for path in done:
+                state.get("clear_versions", {}).pop(path, None)
             state["blobs"] = {**state["blobs"], **result.get("blobs", {})}
             # A folder is forgotten only once its STATUS.md is gone from GitHub.
             state["remote_folders"] = sorted(
