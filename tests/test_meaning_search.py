@@ -159,3 +159,55 @@ def test_the_real_model_matches_meaning():
         "Entropy as triage",
     ])
     assert float(query @ near) > 0.5 > float(query @ far) + 0.3
+
+
+class Counting(Meanings):
+    def __init__(self):
+        super().__init__()
+        self.texts = 0
+
+    def embed(self, texts):
+        self.texts += len(texts)
+        return super().embed(texts)
+
+
+def test_an_edit_reuses_the_vectors_of_unchanged_text(store, tmp_path):
+    book = tmp_path / "book.md"
+    chapters = [f"# Chapter {n}\n\nGhidra notes number {n}.\n" for n in range(1, 21)]
+    book.write_text("\n".join(chapters))
+    knowledge = Knowledge(store)
+    key = knowledge.ingest(book, True)["id"]
+    model = Counting()
+    index = VectorIndex(store, folder=tmp_path / "model", embedder=model)
+    index.build()
+    assert model.texts == 20
+    chapters[4] = "# Chapter 5\n\nNow about texture upscaling.\n"
+    book.write_text("\n".join(chapters))
+    knowledge.ingest(book, True)
+    # Until it's read again, the changed book isn't searched by meaning with old vectors.
+    assert index.search("upscale the textures", {key: "r"}) == []
+    index.build()
+    assert model.texts == 21  # Only the edited chapter was read by the model again.
+    assert knowledge.search("make the image sharper with upscale", role="controller")[0]["title"] == "Chapter 5"
+
+
+def test_indexes_from_0_34_learn_which_text_each_vector_is_for(tmp_path):
+    import sqlite3
+
+    from hivemind_assembly.core.store import Store
+
+    folder = tmp_path / "state"
+    store = Store(folder)
+    store.close()
+    db = sqlite3.connect(folder / "controller.sqlite3")
+    db.execute("DROP TABLE knowledge_vectors")
+    db.execute("CREATE TABLE knowledge_vectors(source TEXT NOT NULL,section TEXT NOT NULL,chunk INTEGER NOT NULL,"
+               "vector BLOB NOT NULL,PRIMARY KEY(source,section,chunk))")
+    db.commit()
+    db.close()
+    store = Store(folder)
+    try:
+        VectorIndex(store, folder=tmp_path / "model", embedder=Meanings())
+        assert "hash" in {r["name"] for r in store.rows("PRAGMA table_info(knowledge_vectors)")}
+    finally:
+        store.close()
