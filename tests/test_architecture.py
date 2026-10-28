@@ -220,7 +220,7 @@ def test_architectural_import_boundaries():
     base = APP / "hivemind_assembly"
     for group in ("core", "learning", "automation", "domains/reverse_engineering"):
         for path in (base / group).rglob("*.py"):
-            for node in ast.walk(ast.parse(path.read_text())):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
                 names = (
                     [node.module or ""]
                     if isinstance(node, ast.ImportFrom)
