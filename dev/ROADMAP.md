@@ -86,8 +86,9 @@ the assistants' reference tools); no manual conversion is needed. Still open:
   12 (11), top 10 for 19 (16). Still open: measure it with the live assistants' own
   searches, and the index build time on a typical Windows PC (about 20 pieces a second
   per processor thread here).
-- Old Office formats (.doc, .xls, .ppt), spreadsheets and slides, and text in
-  scanned PDF pages are not imported; they are listed as skipped or as gaps.
+- Old Office formats (.doc, .xls, .ppt) and slides are not imported; they are listed
+  as skipped. Excel workbooks and scanned PDF pages are (0.35.0). Still open: OCR of
+  pictures inside Word files, and languages other than English for scans.
 
 ## Verification
 
