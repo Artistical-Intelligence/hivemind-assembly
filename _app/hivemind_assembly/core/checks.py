@@ -21,9 +21,11 @@ before new work for whoever picks the repository up next.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import re
+import threading
 import time
 from pathlib import PurePosixPath
 
@@ -72,6 +74,15 @@ file's folder) means checked. Reports of finished checks are in checks/.
 | --- | --- | --- |"""
 
 PROVIDERS = {"openai": "ChatGPT", "claude": "Claude"}
+LOCK = threading.RLock()  # Writes and checks change the same state from different threads.
+
+
+def locked(method):
+    @functools.wraps(method)
+    def wrapper(*args, **kwargs):
+        with LOCK:
+            return method(*args, **kwargs)
+    return wrapper
 
 
 def managed(path):
@@ -126,18 +137,22 @@ class Checks:
 
     # ------------------------------------------------------------ state
     def state(self, project):
-        rows = self.store.rows("SELECT payload FROM records WHERE kind='checks_state' AND id=?", (project,))
-        state = json.loads(rows[0]["payload"]) if rows else {}
+        rows = self.store.rows("SELECT state FROM project_checks WHERE project_id=?", (project,))
+        state = json.loads(rows[0]["state"]) if rows else {}
         state.setdefault("items", {})
         state.setdefault("checked", [])
         state.setdefault("folders", [])  # Folders whose STATUS.md HA last wrote lines in.
         state.setdefault("remote_folders", [])
         state.setdefault("push", {"state": "idle"})
+        state.setdefault("blobs", {})  # What HA last pushed of each file (Git blob IDs).
         return state
 
     def save(self, project, state):
-        state["updated"] = time.time()
-        self.store.put("checks_state", project, state)
+        with self.store.tx() as db:
+            db.execute(
+                "INSERT INTO project_checks VALUES(?,?,?) ON CONFLICT(project_id) DO UPDATE SET state=excluded.state,updated=excluded.updated",
+                (project, json.dumps(state, ensure_ascii=False, separators=(",", ":")), time.time()),
+            )
 
     def pending(self, project):
         return sorted(self.state(project)["items"].values(), key=lambda i: i["path"])
@@ -162,6 +177,7 @@ class Checks:
         return f"{provider} ({route})" if provider else route
 
     # ------------------------------------------------------------ changes
+    @locked
     def mark(self, project, path, writer, sha256):
         """An assistant created or changed this file: it waits for an independent check."""
         if managed(path):
@@ -186,6 +202,7 @@ class Checks:
         self.save(project, state)
         return state["items"][path]
 
+    @locked
     def begin(self, project, paths, checker):
         state = self.state(project)
         for path in paths:
@@ -194,6 +211,7 @@ class Checks:
                                             checker=checker, started=time.time())
         self.save(project, state)
 
+    @locked
     def interrupt(self, project, paths, reason):
         state = self.state(project)
         for path in paths:
@@ -202,6 +220,7 @@ class Checks:
                 item.update(state="interrupted", note=f"check stopped early ({reason}); run it again")
         self.save(project, state)
 
+    @locked
     def stale(self, project, active=()):
         """Checks that were running when HA stopped are interrupted, not passed."""
         state = self.state(project)
@@ -214,6 +233,7 @@ class Checks:
             self.save(project, state)
         return changed
 
+    @locked
     def finish(self, project, checked, results, report, checker):
         """Record a finished check. checked: {path: sha256 it was given}; results:
         {path: {"verdict": "pass"|"fail", "findings": text}}. Returns what passed and failed."""
@@ -243,6 +263,7 @@ class Checks:
         self.save(project, state)
         return {"passed": passed, "failed": failed, "left": left}
 
+    @locked
     def adopt(self, project, rows, known=()):
         """Rows of the repository's CHECKS_STATUS.md written outside HA become pending
         items too, so HA checks them and never treats them as finished."""
@@ -360,12 +381,14 @@ class Checks:
                 out[name] = text
         return out
 
+    @locked
     def synced(self, project, remote=False):
         """The marker files were written: remember where HA's STATUS.md lines are."""
         state = self.state(project)
         state["remote_folders" if remote else "folders"] = sorted({i["folder"] for i in state["items"].values()})
         self.save(project, state)
 
+    @locked
     def write_local(self, project, root, extra=None):
         """Write the marker files (and a check report) into the project's folder."""
         def read(path):
@@ -395,6 +418,7 @@ class Drafts:
         self.workspace = workspace  # project id -> the project's folder
         self.checks = Checks(store, providers)
 
+    @locked
     def after_write(self, task, path, writer, sha256):
         project = self.store.task(task)["project_id"]
         if self.checks.mark(project, path, writer, sha256) is None:
@@ -402,6 +426,7 @@ class Drafts:
         return self.sync(project, changed=[path],
                          message=f"{path}: written by {self.checks.name(writer)}, checks pending")
 
+    @locked
     def sync(self, project, changed=(), extra=None, message=None):
         """Write the markers locally, then push the changed files, anything that
         couldn't be pushed before, and the markers in one commit."""
@@ -428,7 +453,8 @@ class Drafts:
         skipped = {}
         try:
             result = self.publications.push_files(
-                project, build, message or "Update checks status", check_remote=set(waiting))
+                project, build, message or "Update checks status", check_remote=set(waiting),
+                blobs=self.checks.state(project)["blobs"])
         except Exception as error:  # Saved locally either way; pushed on the next change.
             state = self.checks.state(project)
             state["unpushed"] = waiting[-2000:]
@@ -445,6 +471,7 @@ class Drafts:
         skipped.update(result.get("skipped", {}))
         conflicts = result.get("conflicts", [])
         state["unpushed"] = [p for p in waiting if p in conflicts]
+        state["blobs"] = result.get("blobs", state["blobs"])
         state["remote_folders"] = sorted({i["folder"] for i in state["items"].values()})
         state["push"] = {"state": "saved" if not conflicts else "conflict", "sha": result.get("sha"),
                          "url": result.get("url"), "at": time.time(), "skipped": skipped, "conflicts": conflicts}
