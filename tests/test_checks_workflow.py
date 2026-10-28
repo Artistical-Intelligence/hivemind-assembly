@@ -827,3 +827,29 @@ def test_ha_can_replace_and_clear_its_own_large_file(project):
     assert remote.tree()["data.json"] == "[1, 2]\n"
     asyncio.run(team_for(c, broker, Checker({}, ROUTES)).independent.run(t["project_id"]))
     assert STATUS not in remote.tree() and parse_ledger(remote.tree()[LEDGER]) == []
+
+
+def test_a_large_file_changed_on_github_after_its_check_waits_for_its_own(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "data.json", "[1]\n", "w1")
+    real_git = remote.git
+    checker = Checker({}, ROUTES)
+    original = checker.exchange
+
+    async def changed_meanwhile(route, message):
+        reply = await original(route, message)
+        remote.edit("data.json", "[9, 9]\n")  # Someone else's large edit during the check.
+        return reply
+
+    checker.exchange = changed_meanwhile
+
+    def large(owner, name, method, endpoint, data=None):
+        reply = real_git(owner, name, method, endpoint, data)
+        if method == "GET" and endpoint.startswith("contents/data.json?"):
+            return {**reply, "encoding": "none", "content": ""}
+        return reply
+
+    remote.git = large
+    asyncio.run(team_for(c, broker, checker).independent.run(t["project_id"]))
+    assert "CHECKS PENDING: data.json" in remote.tree()[STATUS]
+    assert "data.json" in {i["path"] for i in broker.drafts.checks.pending(t["project_id"])}
