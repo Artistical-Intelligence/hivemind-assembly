@@ -392,7 +392,8 @@ class Checks:
                 state = self.state(project)
                 items = list(state["items"].values())
         out = {}
-        known = {i["path"] for i in items} | {c["path"] for c in state["checked"]}
+        # Lines HA manages: its own items and what it checked. Others' lines stay as written.
+        known = {i["path"] for i in items if not i.get("outside")} | {c["path"] for c in state["checked"]}
         folders = {i["folder"] for i in items} | set(state["remote_folders" if remote else "folders"])
         for folder in sorted(folders):
             path = f"{folder}/{STATUS}" if folder else STATUS
