@@ -171,6 +171,7 @@ def test_folder_import_takes_categories_lists_skips_and_replaces_on_reimport(sto
     collections = KnowledgeCollections(store)
     entry = run(collections, collections.add({"kind": "folder", "folder": str(root), "external_allowed": True}))
     assert entry["state"] == "done", entry["message"]
+    assert entry["schedule_minutes"] == 1440  # Updated every day unless the owner chooses otherwise.
     report = entry["report"]
     assert (report["documents"], report["imported"], report["failed"]) == (3, 3, [])
     reasons = {x["path"]: x["reason"] for x in report["skipped"]}
