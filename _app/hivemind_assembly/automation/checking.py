@@ -127,6 +127,9 @@ class IndependentChecks:
             except (OSError, UnicodeDecodeError):
                 skipped[item["path"]] = "it isn't a text file HA can show a checker" + hand
                 continue
+            except Exception as error:  # A folder named in a row, a lost connection: this item only.
+                skipped[item["path"]] = f"HA couldn't read it from GitHub ({str(error)[:120]})" + hand
+                continue
             if text is None:
                 skipped[item["path"]] = "HA can't find it in the project's folder or on GitHub" + hand
                 continue
