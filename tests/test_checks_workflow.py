@@ -450,3 +450,106 @@ def test_a_file_marked_during_a_check_keeps_its_marker(project):
     checker.exchange = meanwhile
     asyncio.run(team.independent.run(t["project_id"]))
     assert [i["path"] for i in broker.drafts.checks.pending(t["project_id"])] == ["b.c"]
+
+
+# ---------------------------------------------------------------- second review
+def test_checks_pass_in_a_project_without_a_repository(ready):
+    c, t, epoch = ready
+    remote = Remote()
+    repos = Repositories(c.store, remote, {"github": {"allow_repository_creation": False}})  # Not linked.
+    broker = Broker(c, {"foundations": {}, "routes": ROUTES}, ReverseEngineeringDomain(), repos)
+    write(broker, t, epoch, "a.c", "int a;\n", "w1")
+    write(broker, t, epoch, "b.c", "int b;\n", "w2")
+    team = team_for(c, broker, Checker({}, ROUTES))
+    outcome = asyncio.run(team.independent.run(t["project_id"]))
+    assert set(outcome["passed"]) == {"a.c", "b.c"}
+    write(broker, t, epoch, "c.c", "int c;\n", "w3")
+    assert broker.drafts.owner_checked(t["project_id"], ["c.c"], "fine")["passed"] == ["c.c"]
+    assert not broker.drafts.checks.pending(t["project_id"])
+
+
+def test_a_report_always_goes_up_with_the_removal_of_its_markers(project, monkeypatch):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "a.c", "int a;\n", "w1")
+    real = broker.publications.push_files
+    calls = {"n": 0}
+
+    def flaky(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 2:  # The commit with the report is lost.
+            raise TimeoutError("connection lost")
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(broker.publications, "push_files", flaky)
+    team = team_for(c, broker, Checker({}, ROUTES))
+    report = asyncio.run(team.independent.run(t["project_id"]))["reports"][0]
+    assert report not in remote.tree() and [r["item"] for r in parse_ledger(remote.tree()[LEDGER])] == ["a.c"]
+    write(broker, t, epoch, "b.c", "int b;\n", "w2")
+    tree = remote.tree()
+    assert report in tree and "a.c" not in {r["item"] for r in parse_ledger(tree[LEDGER])}
+
+
+def test_a_report_quoting_something_like_a_key_goes_up_shortened(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "a.c", "int a;\n", "w1")
+    checker = Checker({}, ROUTES)
+    team = team_for(c, broker, checker)
+    original = checker.exchange
+
+    async def leaky(route, message):
+        reply = await original(route, message)
+        reply["results"][0]["findings"] = "Fine, but it prints ghp_" + "a" * 36
+        return reply
+
+    checker.exchange = leaky
+    report = asyncio.run(team.independent.run(t["project_id"]))["reports"][0]
+    assert "kept only in the project's folder" in remote.tree()[report] and "ghp_" not in remote.tree()[report]
+    assert "ghp_" in (broker.workspace(t["id"]) / report).read_text()
+    assert parse_ledger(remote.tree()[LEDGER]) == []
+
+
+def test_a_folder_whose_last_file_passes_mid_push_loses_its_status_on_github(project, monkeypatch):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "src/a.c", "int a;\n", "w1")
+    real = broker.publications.push_files
+
+    def check_finishes_meanwhile(*args, **kwargs):
+        result = real(*args, **kwargs)
+        checks = broker.drafts.checks
+        if "src/a.c" in {i["path"] for i in checks.pending(t["project_id"])}:
+            item = checks.state(t["project_id"])["items"]["src/a.c"]
+            checks.finish(t["project_id"], {"src/a.c": item["sha256"]}, {"src/a.c": {"verdict": "pass"}}, "r", "x")
+        return result
+
+    monkeypatch.setattr(broker.publications, "push_files", check_finishes_meanwhile)
+    write(broker, t, epoch, "lib/b.c", "int b;\n", "w2")
+    monkeypatch.setattr(broker.publications, "push_files", real)
+    broker.drafts.sync(t["project_id"])
+    assert "src/STATUS.md" not in remote.tree() and "lib/STATUS.md" in remote.tree()
+
+
+def test_a_row_naming_a_folder_does_not_stop_the_other_checks(project):
+    c, t, epoch, remote, broker = project
+    remote.edit("docs/x.md", "# X\n")
+    remote.edit(LEDGER, "| Item | Folder | Waiting for |\n| --- | --- | --- |\n| docs | docs | everything |\n")
+    write(broker, t, epoch, "zz.c", "int z;\n", "w1")
+
+    real_git = remote.git
+
+    def folder_listing(owner, name, method, endpoint, data=None):
+        if method == "GET" and endpoint.startswith("contents/docs?"):
+            raise Blocked("GitHub returned an invalid response")
+        return real_git(owner, name, method, endpoint, data)
+
+    remote.git = folder_listing
+    team = team_for(c, broker, Checker({}, ROUTES))
+    outcome = asyncio.run(team.independent.run(t["project_id"]))
+    assert outcome["passed"] == ["zz.c"] and outcome["left"] == ["docs"]
+
+
+def test_files_kept_off_github_say_so(project):
+    c, t, epoch, remote, broker = project
+    result = write(broker, t, epoch, "run.bat", "echo hi\n", "w1")
+    assert result["checks"].startswith("pending: kept on this computer only")
+    assert "run.bat" not in remote.tree()
+    assert "run.bat" in broker.drafts.checks.summary(t["project_id"])["kept_local"]
