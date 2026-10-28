@@ -126,6 +126,39 @@ def parse_ledger(text):
     return rows
 
 
+def waiting_in(root, rels):
+    """Files of a folder or repository that its own markers (STATUS.md lines and
+    CHECKS_STATUS.md rows) say still wait for a check; a row may name a whole folder."""
+    from pathlib import Path
+
+    rels = set(rels)
+    found = set()
+
+    def read(rel):
+        try:
+            return (Path(root) / rel).read_text("utf-8")
+        except (OSError, UnicodeDecodeError):
+            return ""
+
+    for row in parse_ledger(read(LEDGER)):
+        item = row["item"].strip("`").strip().strip("/")
+        if item in rels:
+            found.add(item)
+        elif item:
+            found |= {r for r in rels if r.startswith(item + "/")}
+    for rel in rels:
+        if PurePosixPath(rel).name != STATUS:
+            continue
+        folder = folder_of(rel)
+        for line in read(rel).splitlines():
+            if line.startswith(MARK):
+                name = line[len(MARK):].strip().split(" — ", 1)[0].strip().strip("`")
+                candidate = f"{folder}/{name}" if folder else name
+                if candidate in rels:
+                    found.add(candidate)
+    return found
+
+
 class Checks:
     """Which files of a project are waiting for an independent check, and the marker
     files that say so."""
