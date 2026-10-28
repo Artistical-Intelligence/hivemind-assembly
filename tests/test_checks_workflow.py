@@ -705,3 +705,45 @@ def test_a_check_finishing_during_another_push_isnt_readopted(project, monkeypat
     broker.drafts.sync(t["project_id"])
     assert "src/a.c" not in {i["path"] for i in checks.pending(t["project_id"])}
     assert "src/a.c" not in {r["item"] for r in parse_ledger(remote.tree()[LEDGER])}
+
+
+# ---------------------------------------------------------------- sixth review
+def test_ha_file_changed_on_github_before_its_check_keeps_its_markers(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "src/a.c", "int a;\n", "w1")
+    remote.edit("src/a.c", "int a = 9; /* ChatGPT */\n")
+    remote.edit("src/STATUS.md", remote.tree()["src/STATUS.md"] + "CHECKS PENDING: a.c — ChatGPT's edit\n")
+    checker = Checker({}, ROUTES)
+    team = team_for(c, broker, checker)
+    asyncio.run(team.independent.run(t["project_id"]))
+    tree = remote.tree()
+    assert "src/a.c" in {r["item"] for r in parse_ledger(tree[LEDGER])}
+    assert "CHECKS PENDING: a.c" in tree["src/STATUS.md"]
+    pending = {i["path"]: i for i in broker.drafts.checks.pending(t["project_id"])}
+    assert pending["src/a.c"]["outside"]
+    # The next check reads the version on GitHub and clears it.
+    asyncio.run(team.independent.run(t["project_id"]))
+    given = [f["text"] for _, body in checker.calls for f in body["files"] if f["path"] == "src/a.c"]
+    assert given[-1] == "int a = 9; /* ChatGPT */\n"
+    assert "src/STATUS.md" not in remote.tree()
+
+
+def test_a_folder_appearing_on_github_does_not_stop_pushing(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "src/a.c", "int a;\n", "w1")
+    checks = broker.drafts.checks
+    item = checks.state(t["project_id"])["items"]["src/a.c"]
+    checks.finish(t["project_id"], {"src/a.c": item["sha256"]}, {"src/a.c": {"verdict": "pass"}},
+                  "checks/r.md", "reviewer.high", report_text="# R\n", versions={"src/a.c": blob_sha("int a;\n")})
+    real_git = remote.git
+
+    def folder_now(owner, name, method, endpoint, data=None):
+        if method == "GET" and endpoint.startswith("contents/src/a.c?"):
+            raise Blocked("GitHub returned an invalid response")
+        return real_git(owner, name, method, endpoint, data)
+
+    remote.git = folder_now
+    result = write(broker, t, epoch, "b.c", "int b;\n", "w2")
+    assert result["checks"] == "pending: pushed before review" and remote.tree()["b.c"] == "int b;\n"
+    assert "CHECKS PENDING: a.c" in remote.tree()["src/STATUS.md"]  # Kept until it can be confirmed.
+    assert "src/a.c" not in {i["path"] for i in broker.drafts.checks.pending(t["project_id"])}
