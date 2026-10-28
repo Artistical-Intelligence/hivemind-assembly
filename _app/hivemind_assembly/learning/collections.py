@@ -199,7 +199,8 @@ class KnowledgeCollections:
         tags = KnowledgeScopes(self.store).validate_tags(data.get("tags") or [], allow_empty=True)
         if "unclassified" in tags:
             raise ContractError("Choose real categories, or none.")
-        schedule = int(data.get("schedule_minutes", 0) or 0)
+        # Every day unless the owner chooses otherwise (0 = only when Update is selected).
+        schedule = 1440 if data.get("schedule_minutes") in (None, "") else int(data["schedule_minutes"])
         if schedule not in SCHEDULES:
             raise ContractError("Choose how often to update: off, every day or every week.")
         entry = {
