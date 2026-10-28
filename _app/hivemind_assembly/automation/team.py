@@ -41,6 +41,11 @@ class NativeTeam:
         from hivemind_assembly.learning.curation import KnowledgeCuration
 
         self.curation = KnowledgeCuration(self)
+        from .checking import IndependentChecks
+
+        # Push early, check later: a different assistant checks what was written.
+        self.independent = IndependentChecks(self)
+        self.resume_checked = set()  # Projects whose pending checks ran since they were picked up.
         self.host = None
         self.sessions = None
         self.learning_trials = None
@@ -533,6 +538,11 @@ class NativeTeam:
         if self.goals.missing_acceptance(task_id):
             self.store.state(task_id, "waiting_setup", ACCEPTANCE_REQUIRED)
             return
+        if task["project_id"] not in self.resume_checked and self.broker.drafts.checks.pending(task["project_id"]):
+            # Picking a project up again: its pending checks come before new work.
+            self.resume_checked.add(task["project_id"])
+            await self.run_checks(task)
+            task = self.store.task(task_id)
         # Execution already authorized by a retained brief does not consume a
         # model allowance. Drain it before choosing or promoting a reasoning route.
         if self.host is None and self.config["foundations"].get("hermes_home"):
@@ -774,6 +784,8 @@ class NativeTeam:
                 },
             )
             if response["type"] == "complete":
+                if await self.completion_waits(task):
+                    return
                 await self.blocking(self.acceptance, task, response)
                 return
             if response["type"] != "step_intent":
@@ -857,6 +869,8 @@ class NativeTeam:
                 intent["revision"] = self.store.project(task["project_id"])["revision"]
                 flow.update(phase="brief", intent=intent)
             elif response["type"] == "complete":
+                if await self.completion_waits(task):
+                    return
                 await self.blocking(self.acceptance, task, response)
                 return
             elif response["type"] == "task_plan":
@@ -1028,6 +1042,58 @@ class NativeTeam:
             raise ContractError("Unknown workflow phase")
         flow["seq"] += 1
         self.save_flow(task_id, flow, task["owner"], task["epoch"])
+
+    @staticmethod
+    def check_brief(outcome):
+        return {k: outcome.get(k) for k in ("passed", "failed", "left", "reports", "waiting", "error") if outcome.get(k)}
+
+    async def run_checks(self, task, steer=True):
+        """Check this project's pending files now. Failures go back to the writer."""
+        try:
+            outcome = await self.independent.run(task["project_id"])
+        except AllowanceUnavailable as error:
+            outcome = {"passed": [], "failed": [], "left": [], "waiting": str(error)}
+        except Exception as error:
+            self.store.event(task["id"], "independent_check_stopped", {"error": str(error)[:300]})
+            outcome = {"passed": [], "failed": [], "left": [], "error": str(error)[:300]}
+        if steer and outcome.get("failed") and not self.store.rows(
+            "SELECT id FROM messages WHERE task_id=? AND state NOT IN ('validated','invalid','cancelled')",
+            (task["id"],),
+        ):
+            flow = self.flow(task["id"])
+            if flow["phase"] in ("intent", "execute"):
+                flow.update(seq=flow["seq"] + 1, phase="intent", last_result={
+                    "independent_check": self.check_brief(outcome),
+                    "instruction": "An independent check failed these files. Their STATUS.md lines and the report "
+                    "under checks/ say what is wrong. Fix them, then continue.",
+                })
+                self.save_flow(task["id"], flow)
+        return outcome
+
+    async def completion_waits(self, task):
+        """Nothing with a pending marker is accepted as finished: check it first."""
+        checks = self.broker.drafts.checks
+        if not checks.pending(task["project_id"]):
+            return False
+        outcome = await self.run_checks(task, steer=False)
+        left = checks.pending(task["project_id"])
+        if not left:
+            return False
+        flow = self.flow(task["id"])
+        flow.update(seq=flow["seq"] + 1, phase="intent", last_result={
+            "completion_waiting": f"{len(left)} file{'s' if len(left) != 1 else ''} still wait for an independent check",
+            "independent_check": self.check_brief(outcome),
+            "instruction": "Completion waits until every file passes an independent check. Fix what failed "
+            "(see STATUS.md and checks/), then propose completion again.",
+        })
+        self.save_flow(task["id"], flow, task["owner"], task["epoch"])
+        if not outcome.get("failed"):
+            # Nobody could check (no usage left, or the check stopped): wait rather than loop.
+            self.usage.release(task["id"])
+            self.store.state(task["id"], "waiting_quota",
+                             f"Waiting for an independent check of {len(left)} file{'s' if len(left) != 1 else ''}: "
+                             + (outcome.get("waiting") or outcome.get("error") or "run it from Projects"))
+        return True
 
     def finish_plan_flow(self, task_id):
         with self.store.tx() as db:
