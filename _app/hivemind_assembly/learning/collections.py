@@ -349,6 +349,9 @@ class KnowledgeCollections:
             entry = self._load()[key]
             result = self._import(entry)
             self._set(key, state="done", progress=None, last_check=self.clock(), **result)
+            index = getattr(self.store, "knowledge_vectors", None)
+            if index is not None:
+                index.poke()  # Read the new and changed documents for meaning search now.
         except Exception as error:
             self._set(key, state="failed", progress=None, message=str(error) or error.__class__.__name__,
                       last_check=self.clock())
