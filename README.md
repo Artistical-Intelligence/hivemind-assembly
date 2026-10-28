@@ -748,16 +748,20 @@ themselves are never changed). **Update from GitHub** fetches the latest version
 an optional schedule does so every day or week.
 
 Search is ranked with SQLite FTS5 (BM25, with titles weighted above body text), and
-titles and other names can be looked up directly. Identical copies of a section in
-other documents (drafts, older snapshots) come back as one result that lists where
-the copies are. Workers have reference tools, `search_knowledge`, `lookup_knowledge`,
-`open_section`, `follow_link` and `section_pictures`, limited to the project's allowed
-categories and to material the owner lets the assistants read; their answers stay
-readable only while that remains true. Search matches the material's own words, so
-the workers are told to search with its technical terms and to try other words when
-nothing fits. Semantic (vector) search is not used: on real questions about the
-owner's own collection, ranked search found an expected section in the top 3 for 15
-of 20 (see the roadmap).
+titles and other names can be looked up directly. **Meaning search** adds the sections
+whose text means something close even in other words ("without the user interface"
+finds "headless"): a small sentence model (all-MiniLM-L6-v2, 8-bit, 23 MB, downloaded
+once from Hugging Face at a pinned revision and checked by SHA-256) runs on this
+computer, using at most half the processor, and the two rankings are combined. It
+reads Word, Markdown, HTML and PDF documents in the background after each import; code
+and data files are left to word search. Nothing is sent to an AI service and no tokens
+are used; without the model, word search works alone and the reference page says why.
+Identical copies of a section in other documents (drafts, older snapshots) come back as
+one result that lists where the copies are. Workers have reference tools,
+`search_knowledge`, `lookup_knowledge`, `open_section`, `follow_link` and
+`section_pictures`, limited to the project's allowed categories and to material the
+owner lets the assistants read; their answers stay readable only while that remains
+true.
 
 
 Experimental learning is optional and off by default. Its controls are under
