@@ -55,6 +55,16 @@ class Broker:
         from .publication import Publications
 
         self.publications = Publications(repositories) if repositories else None
+        from .checks import Drafts
+
+        # Push early, check later: what an assistant writes is pushed at once,
+        # marked "checks pending" until a different assistant checks it.
+        self.drafts = Drafts(
+            self.store,
+            self.publications,
+            lambda project: self.store.root / "projects" / project / "workspace",
+            lambda route: ((self.config or {}).get("routes", {}).get(route) or {}).get("provider"),
+        )
         repository_specs = (
             (
                 Capability("create_repository", True, "reconcile"),
@@ -430,6 +440,18 @@ class Broker:
             result["result_artifact"] = artifact["id"]
             result["operation_id"] = request["id"]
             self.controller.finish(request["id"], result, tool in self.mutations)
+            if tool == "write_file" and not str(request["owner"]).startswith("user."):
+                try:
+                    draft = self.drafts.after_write(
+                        task, args["path"], request["owner"], file_hash(scoped(root, args["path"]))
+                    )
+                    if draft:
+                        result["checks"] = "pending: pushed before review" if draft.get("status") == "saved" else (
+                            "pending: saved in the project folder; " + (
+                                "it goes to GitHub with the next save" if draft.get("status") == "failed"
+                                else "no GitHub repository"))
+                except Exception as error:  # The write itself succeeded either way.
+                    self.store.event(task, "draft_marker_failed", {"path": args["path"], "error": str(error)[:300]})
             self.controller.traces.append(
                 task, request["id"], request["owner"], "tool_result", result
             )
