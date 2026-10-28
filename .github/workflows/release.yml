@@ -55,6 +55,10 @@ jobs:
         if: steps.plan.outputs.publish == 'true'
         with:
           python-version: '3.12'
+      - name: Refuse while anything is marked checks pending
+        if: steps.plan.outputs.publish == 'true'
+        shell: pwsh
+        run: python dev/checks_gate.py
       - name: Check the tag matches the release version
         if: steps.plan.outputs.publish == 'true'
         shell: pwsh
