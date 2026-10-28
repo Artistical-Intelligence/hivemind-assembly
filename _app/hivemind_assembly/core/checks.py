@@ -312,6 +312,10 @@ class Checks:
                 left.append(path)
             elif result["verdict"] == "pass":
                 del state["items"][path]
+                # Its markers are removed with the next writes (here and on GitHub), and only
+                # those: a marker someone adds for this file later is a new one and stays.
+                for key in ("clear_local", "clear_remote"):
+                    state[key] = list(dict.fromkeys(state.get(key, []) + [path]))[-2000:]
                 state["checked"].insert(0, {"path": path, "sha256": sha, "report": report, "checker": checker,
                                             "writer": item.get("writer"), "at": time.time()})
                 passed.append(path)
@@ -406,20 +410,23 @@ class Checks:
         text = existing if existing else "# Queue\n\n"
         return section(text, QUEUE_START, QUEUE_END, body)
 
-    def files(self, project, read, remote=False):
+    def files(self, project, read, remote=False, clear=None):
         """The marker and instruction files as they should now be: {path: text or None
-        (remove it)}. read(path) gives the current text (from the folder or from GitHub)."""
+        (remove it)}. read(path) gives the current text (from the folder or from GitHub).
+        clear: files whose markers a passed check removes now (default: all waiting)."""
         state = self.state(project)
         items = list(state["items"].values())
+        if clear is None:
+            clear = set(state.get("clear_remote" if remote else "clear_local", []))
         ledger = read(LEDGER)
         if remote and ledger:
-            known = {i["path"] for i in items} | {c["path"] for c in state["checked"]}
-            if self.adopt(project, parse_ledger(ledger), known):
+            if self.adopt(project, parse_ledger(ledger), clear):
                 state = self.state(project)
                 items = list(state["items"].values())
         out = {}
-        # Lines HA manages: its own items and what it checked. Others' lines stay as written.
-        known = {i["path"] for i in items if not i.get("outside")} | {c["path"] for c in state["checked"]}
+        # Lines HA manages: its own pending items, and those whose check just passed.
+        # Anyone else's lines and rows stay as written, even for a file HA checked before.
+        known = {i["path"] for i in items if not i.get("outside")} | set(clear)
         folders = {i["folder"] for i in items} | set(state["remote_folders" if remote else "folders"])
         for folder in sorted(folders):
             path = f"{folder}/{STATUS}" if folder else STATUS
@@ -443,10 +450,11 @@ class Checks:
         return out
 
     @locked
-    def synced(self, project, remote=False):
-        """The marker files were written: remember where HA's STATUS.md lines are."""
+    def synced(self, project, cleared=()):
+        """The marker files were written here: remember where HA's STATUS.md lines are."""
         state = self.state(project)
-        state["remote_folders" if remote else "folders"] = sorted({i["folder"] for i in state["items"].values()})
+        state["folders"] = sorted({i["folder"] for i in state["items"].values()})
+        state["clear_local"] = [p for p in state.get("clear_local", []) if p not in set(cleared)]
         self.save(project, state)
 
     @locked
@@ -456,7 +464,8 @@ class Checks:
             p = scoped(root, path)
             return p.read_text("utf-8") if p.is_file() else None
 
-        changes = self.files(project, read)
+        clear = set(self.state(project).get("clear_local", []))
+        changes = self.files(project, read, clear=clear)
         changes.update(extra or {})
         for path, text in changes.items():
             p = scoped(root, path)
@@ -465,7 +474,7 @@ class Checks:
                     p.unlink()  # A STATUS.md HA emptied: nothing in that folder waits any more.
             else:
                 atomic_write(p, text.encode("utf-8"))
-        self.synced(project)
+        self.synced(project, clear)
         return changes
 
 
@@ -492,10 +501,11 @@ class Drafts:
         try:
             self.publications._safe_text(path, text.encode("utf-8"))
             return text
-        except Exception as error:
-            head = text.split("## Findings", 1)[0].rstrip()
-            return (head + "\n\n## Findings\n\nThe findings are kept only in the project's folder on the "
-                    f"owner's computer: they can't go to GitHub ({error}).\n")
+        except Exception:
+            # Nothing of the original: its title, file names or note may be what was refused.
+            return ("# Check report\n\nThis report is kept only in the project's folder on the owner's computer, "
+                    "under the same name: it quotes something HA doesn't send to GitHub (private reference "
+                    "material, or text that looks like a password or key).\n")
 
     def sync(self, project, changed=(), extra=None, message=None):
         """Write the markers locally, then push the changed files, anything that
@@ -524,10 +534,11 @@ class Drafts:
                 # Never sent as a removal: GitHub's copy, if any, stays as it is.
                 skipped[path] = "not a text file"
         reports = {path: self.report_text(path, text) for path, text in state.get("unpushed_extra", {}).items()}
+        clear = set(state.get("clear_remote", []))
 
         def build(read):
             files = dict(texts)
-            files.update(self.checks.files(project, read, remote=True))
+            files.update(self.checks.files(project, read, remote=True, clear=clear))
             files.update(reports)
             return files
 
@@ -564,6 +575,7 @@ class Drafts:
             for path in pushed:
                 state.get("before", {}).pop(path, None)
                 state.get("unpushed_extra", {}).pop(path, None)
+            state["clear_remote"] = [p for p in state.get("clear_remote", []) if p not in clear]
             state["blobs"] = {**state["blobs"], **result.get("blobs", {})}
             # A folder is forgotten only once its STATUS.md is gone from GitHub.
             state["remote_folders"] = sorted(
