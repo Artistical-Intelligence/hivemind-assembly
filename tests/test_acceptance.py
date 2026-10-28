@@ -226,8 +226,31 @@ def test_native_team_file_proof_acceptance_and_learning_loop(store):
                 },
             }
 
+    checked = []
+
+    class Checker:
+        config = cfg
+
+        async def exchange(self, route, message):
+            body = json.loads(message["payload"])
+            checked.append((route, [f["path"] for f in body["files"]]))
+            return {"request_id": message["id"], "type": "check_report", "summary": "Bytes match the proof.",
+                    "results": [{"path": f["path"], "verdict": "pass", "findings": "Equivalent LEA."}
+                                for f in body["files"]]}
+
+    class Sessions:
+        async def ensure(self, *args, **kwargs):
+            pass
+
+        async def isolated_browser(self, key, route, identity):
+            return Checker()
+
+        async def release_isolated(self, identity):
+            pass
+
     team = NativeTeam(controller, broker, Native(), cfg)
     team.host = Host()
+    team.sessions = Sessions()
     for route in cfg["routes"]:
         team.observations[route] = Availability(
             route, True, True, False, time.time(), [Window("daily", 50)]
@@ -239,6 +262,13 @@ def test_native_team_file_proof_acceptance_and_learning_loop(store):
 
     asyncio.run(run())
     assert store.task(task["id"])["status"] == "accepted"
+    # The written file was checked by another provider before acceptance; its markers are gone.
+    writer = store.one("SELECT owner FROM operations WHERE tool='write_file'")["owner"]
+    assert checked and checked[0][1] == ["candidate.hex"]
+    assert cfg["routes"][checked[0][0]]["provider"] != cfg["routes"][writer]["provider"]
+    root = broker.workspace(task["id"])
+    assert not (root / "STATUS.md").exists() and "Nothing is waiting" in (root / "CHECKS_STATUS.md").read_text()
+    assert [p.name for p in (root / "checks").iterdir()][0].endswith(".md")
     lessons = store.rows("SELECT kind,status FROM lessons")
     assert {r["kind"] for r in lessons} == {"knowledge", "procedure"}
     assert all(r["status"] == "candidate" for r in lessons)
