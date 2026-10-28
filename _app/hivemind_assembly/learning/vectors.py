@@ -358,10 +358,12 @@ class VectorIndex:
         else:
             matrix = np.frombuffer(b"".join(r["vector"] for r in rows), dtype=np.float16).reshape(len(rows), -1).astype(np.float32)
         places = [(r["source"], r["section"]) for r in rows]
-        sources = np.array([r["source"] for r in rows], dtype=object)
+        numbers = {}
+        # Sources as small numbers: choosing the allowed ones is then quick.
+        sources = np.array([numbers.setdefault(r["source"], len(numbers)) for r in rows], dtype=np.int32)
         with self.lock:
-            self.cache = (key, places, sources, matrix)
-        return places, sources, matrix
+            self.cache = (key, places, (numbers, sources), matrix)
+        return places, (numbers, sources), matrix
 
     def search(self, query, allowed, limit=50):
         """[(source, section, similarity)] for sections of the allowed sources, best first."""
@@ -370,10 +372,10 @@ class VectorIndex:
         if self.model is None and not (self.runtime_installed() and self._files_ready()):
             return []
         np = __import__("numpy")
-        places, sources, matrix = self._matrix()
+        places, (numbers, sources), matrix = self._matrix()
         if not len(places):
             return []
-        mask = np.isin(sources, list(allowed))
+        mask = np.isin(sources, np.array([numbers[a] for a in allowed if a in numbers], dtype=np.int32))
         if not mask.any():
             return []
         query_vector = self.embedder().embed([query])[0].astype(np.float32)
