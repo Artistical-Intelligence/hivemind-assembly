@@ -412,14 +412,16 @@ class Publications:
         }
 
     # ------------------------------------------------------------ drafts
-    def push_files(self, project, build, message, check_remote=(), blobs=None):
+    def push_files(self, project, build, message, check_remote=(), blobs=None, required=()):
         """Push early, check later: one commit on the default branch, made at once,
         before any review. build(read) returns {path: text, or None to remove it};
         read(path) gives the file's text on GitHub now, so marker files merge with
         what others wrote there. Files in check_remote aren't overwritten when someone
         changed them on GitHub: check_remote maps each to the SHA-256 the file had before
         the assistant changed it, and GitHub's copy is replaced only when it is that
-        version, or what HA pushed last. Assistants' files are never removed. Never forced; the usual
+        version, or what HA pushed last. Assistants' files are never removed. When a
+        file in required can't go up, nothing is committed (a check report never goes
+        missing from the commit that removes its markers). Never forced; the usual
         filters for passwords, keys, protected data and private reference text apply."""
         if not self.enabled(project):
             return {"status": "disabled", "reason": "No verified repository, or automatic saving is off"}
@@ -479,6 +481,10 @@ class Publications:
                             conflicts.append(path)
                             continue
                 entries.append({"path": path, "mode": "100644", "type": "blob", "content": text})
+            held = sorted(p for p in required if p in skipped or p in conflicts)
+            if held:
+                return {"status": "refused", "sha": head, "skipped": skipped, "conflicts": conflicts,
+                        "reason": "these files couldn't go up with the rest: " + ", ".join(held)}
             if not entries:
                 return {"status": "unchanged", "sha": head, "skipped": skipped, "conflicts": conflicts}
             call = lambda method, endpoint, data=None: client.git(row["owner"], row["name"], method, endpoint, data)
@@ -517,6 +523,7 @@ class Publications:
                 "status": "saved",
                 "sha": sha,
                 "files": sorted(pushed),
+                "removed": sorted(p for p in pushed if files[p] is None),
                 "skipped": skipped,
                 "conflicts": conflicts,
                 "url": f"https://github.com/{row['owner']}/{row['name']}/commit/{sha}",
