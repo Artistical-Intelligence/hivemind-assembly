@@ -114,7 +114,7 @@ def test_each_write_is_pushed_at_once_with_its_markers(project):
     assert "Verify a bounded region" in tree["QUEUE.md"]
     # The same markers are in the project's folder.
     root = broker.workspace(t["id"])
-    assert (root / "src" / STATUS).read_text() == tree["src/STATUS.md"]
+    assert (root / "src" / STATUS).read_text(encoding="utf-8") == tree["src/STATUS.md"]
     # A second file in the same folder adds its own line; nothing else is touched.
     write(broker, t, epoch, "src/mul.c", "int mul(int a,int b){return a*b;}\n", "w2")
     assert remote.tree()["src/STATUS.md"].splitlines() == [
@@ -167,8 +167,8 @@ def test_without_github_the_markers_stay_in_the_folder(ready):
     result = write(broker, t, epoch, "a.c", "int a;\n", "w1")
     assert result["checks"].startswith("pending: saved in the project folder")
     root = broker.workspace(t["id"])
-    assert (root / STATUS).read_text().startswith("CHECKS PENDING: a.c")
-    assert parse_ledger((root / LEDGER).read_text())[0]["item"] == "a.c"
+    assert (root / STATUS).read_text(encoding="utf-8").startswith("CHECKS PENDING: a.c")
+    assert parse_ledger((root / LEDGER).read_text(encoding="utf-8"))[0]["item"] == "a.c"
 
 
 def test_markers_merge_and_disappear():
@@ -305,10 +305,10 @@ def test_reference_imports_flag_what_their_repository_marks_pending(store, tmp_p
 
     root = tmp_path / "Book"
     (root / "chapters").mkdir(parents=True)
-    (root / "chapters" / "one.md").write_text("# Relocations\n\nChecked text.\n")
-    (root / "chapters" / "two.md").write_text("# Relocation drafts\n\nUnchecked text.\n")
-    (root / "chapters" / STATUS).write_text("CHECKS PENDING: two.md — independent check\n")
-    (root / LEDGER).write_text("| Item | Folder | Waiting for |\n| --- | --- | --- |\n| chapters/two.md | chapters | check |\n")
+    (root / "chapters" / "one.md").write_bytes("# Relocations\n\nChecked text.\n".encode("utf-8"))
+    (root / "chapters" / "two.md").write_bytes("# Relocation drafts\n\nUnchecked text.\n".encode("utf-8"))
+    (root / "chapters" / STATUS).write_bytes("CHECKS PENDING: two.md — independent check\n".encode("utf-8"))
+    (root / LEDGER).write_bytes("| Item | Folder | Waiting for |\n| --- | --- | --- |\n| chapters/two.md | chapters | check |\n".encode("utf-8"))
     assert waiting_in(root, ["chapters/one.md", "chapters/two.md", "chapters/STATUS.md"]) == {"chapters/two.md"}
     collections = KnowledgeCollections(store)
     entry = collections.add({"kind": "folder", "folder": str(root), "external_allowed": True})
@@ -324,12 +324,12 @@ def test_release_gate_refuses_while_anything_is_pending(tmp_path):
     gate = Path(__file__).parents[1] / "dev" / "checks_gate.py"
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
     (tmp_path / "src").mkdir()
-    (tmp_path / "src" / STATUS).write_text("CHECKS PENDING: a.c — check\n")
+    (tmp_path / "src" / STATUS).write_bytes("CHECKS PENDING: a.c — check\n".encode("utf-8"))
     subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
     refused = subprocess.run([sys.executable, str(gate), str(tmp_path)], capture_output=True, text=True)
     assert refused.returncode == 1 and "src/STATUS.md" in refused.stdout
-    (tmp_path / "src" / STATUS).write_text("Notes only.\n")
-    (tmp_path / LEDGER).write_text("# Checks status\n\nNothing is waiting for a check.\n")
+    (tmp_path / "src" / STATUS).write_bytes("Notes only.\n".encode("utf-8"))
+    (tmp_path / LEDGER).write_bytes("# Checks status\n\nNothing is waiting for a check.\n".encode("utf-8"))
     assert subprocess.run([sys.executable, str(gate), str(tmp_path)], capture_output=True).returncode == 0
 
 
@@ -355,7 +355,7 @@ def test_project_rules_reach_any_assistant():
     text = section("# Mine\n", START, END, RULES)
     assert text.startswith("# Mine\n\n" + START) and section(text, START, END, RULES) == text
     repo = Path(__file__).parents[1]
-    assert RULES in (repo / "AGENTS.md").read_text() and "AGENTS.md" in (repo / "CLAUDE.md").read_text()
+    assert RULES in (repo / "AGENTS.md").read_text(encoding="utf-8") and "AGENTS.md" in (repo / "CLAUDE.md").read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------- review findings
@@ -379,7 +379,7 @@ def test_a_different_file_already_on_github_is_not_overwritten_by_a_first_push(p
     assert result["checks"].startswith("pending: not pushed, because someone changed")
     # Editing the version GitHub has is fine: it's replaced.
     root = broker.workspace(t["id"])
-    (root / "notes.md").write_text("v1\n")
+    (root / "notes.md").write_bytes("v1\n".encode("utf-8"))
     remote.edit("notes.md", "v1\n")
     import hashlib
 
@@ -504,7 +504,7 @@ def test_a_report_quoting_something_like_a_key_goes_up_shortened(project):
     checker.exchange = leaky
     report = asyncio.run(team.independent.run(t["project_id"]))["reports"][0]
     assert "kept only in the project's folder" in remote.tree()[report] and "ghp_" not in remote.tree()[report]
-    assert "ghp_" in (broker.workspace(t["id"]) / report).read_text()
+    assert "ghp_" in (broker.workspace(t["id"]) / report).read_text(encoding="utf-8")
     assert parse_ledger(remote.tree()[LEDGER]) == []
 
 
