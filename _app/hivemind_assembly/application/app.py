@@ -416,6 +416,14 @@ class Application:
                 for p in self.store.rows("SELECT id FROM projects")
             ],
             "projects": self.store.rows("SELECT * FROM projects ORDER BY created DESC"),
+            # Push early, check later: what waits for an independent check, per project.
+            "checks": {
+                p["id"]: {
+                    **self.broker.drafts.checks.summary(p["id"]),
+                    "running": p["id"] in self.team.independent.running,
+                }
+                for p in self.store.rows("SELECT id FROM projects")
+            },
             "goals": [
                 self.team.goals.status(row["task_id"])
                 for row in self.store.rows("SELECT task_id FROM goals")
@@ -1440,6 +1448,19 @@ class Application:
         if path == "/api/learning/rollback":
             Learning(self.store).rollback(data["lesson"])
             return {"rolled_back": data["lesson"]}
+        if path == "/api/checks/run":
+            project = data.get("project")
+            self.store.project(project)
+            waiting = len(self.broker.drafts.checks.pending(project))
+            if not waiting:
+                return {"message": "Nothing is waiting for a check."}
+            if project in self.team.independent.running:
+                return {"message": "A check of this project is already running."}
+            who = self.team.independent.who(project)
+            if who is None:
+                raise Blocked("No assistant has usage left to check with. Set one up under AI assistants, or wait for usage.")
+            self.submit(self.team.independent.requested(project))
+            return {"message": f"Checking {waiting} file{'s' if waiting != 1 else ''} with {who}, in a new conversation."}
         if path == "/api/control":
             task = data["task"]
             action = data["action"]
