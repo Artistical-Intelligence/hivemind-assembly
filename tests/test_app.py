@@ -444,8 +444,8 @@ def test_setup_installs_optional_tools_in_the_same_step(app, monkeypatch):
     from hivemind_assembly.core.common import Blocked
 
     def gh_fails(extra=()):
-        assert extra == ("gh",)
-        raise Blocked("GitHub CLI could not be installed")
+        assert extra in {("gh",), ("tesseract",)}
+        raise Blocked("GitHub CLI could not be installed" if extra == ("gh",) else "Tesseract could not be installed")
 
     def tunnel_fails():
         raise ConnectionError("offline")
@@ -458,6 +458,7 @@ def test_setup_installs_optional_tools_in_the_same_step(app, monkeypatch):
     retry = "Not installed (ConnectionError); select Install required tools in Settings to retry."
     assert app.install_optional_tools() == {
         "github_cli": "GitHub CLI could not be installed",
+        "ocr": "Tesseract could not be installed",
         "tunnel_client": retry,
         "browser_tunnel": retry,
     }
@@ -465,7 +466,7 @@ def test_setup_installs_optional_tools_in_the_same_step(app, monkeypatch):
     monkeypatch.setattr(app.tunnel, "status", lambda: {"installed": True})
     monkeypatch.setattr(app.quick, "installed", lambda: True)
     assert app.install_optional_tools() == {
-        "github_cli": "ready", "tunnel_client": "ready", "browser_tunnel": "ready"
+        "github_cli": "ready", "ocr": "ready", "tunnel_client": "ready", "browser_tunnel": "ready"
     }
 
 
