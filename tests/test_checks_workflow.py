@@ -747,3 +747,44 @@ def test_a_folder_appearing_on_github_does_not_stop_pushing(project):
     assert result["checks"] == "pending: pushed before review" and remote.tree()["b.c"] == "int b;\n"
     assert "CHECKS PENDING: a.c" in remote.tree()["src/STATUS.md"]  # Kept until it can be confirmed.
     assert "src/a.c" not in {i["path"] for i in broker.drafts.checks.pending(t["project_id"])}
+
+
+# ---------------------------------------------------------------- seventh review
+def test_a_folder_or_large_file_on_github_doesnt_stop_other_pushes(project):
+    c, t, epoch, remote, broker = project
+    remote.edit("big.txt", "old\n")
+    real_git = remote.git
+
+    def too_large(owner, name, method, endpoint, data=None):
+        if method == "GET" and endpoint.startswith("contents/big.txt?"):
+            return {"type": "file", "encoding": "none", "sha": "x", "content": ""}
+        return real_git(owner, name, method, endpoint, data)
+
+    remote.git = too_large
+    first = write(broker, t, epoch, "big.txt", "new\n", "w1")
+    assert first["checks"].startswith("pending: not pushed, because someone changed")
+    second = write(broker, t, epoch, "b.c", "int b;\n", "w2")
+    assert second["checks"] == "pending: pushed before review" and remote.tree()["b.c"] == "int b;\n"
+
+
+def test_the_owner_can_clear_a_file_written_elsewhere(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "src/a.c", "int a;\n", "w1")
+    remote.edit("src/a.c", "x" * 100_001)
+    remote.edit("src/STATUS.md", remote.tree()["src/STATUS.md"] + "CHECKS PENDING: a.c — ChatGPT's edit\n")
+    team = team_for(c, broker, Checker({}, ROUTES))
+    asyncio.run(team.independent.run(t["project_id"]))  # Passes the local copy; GitHub's version re-pends.
+    asyncio.run(team.independent.run(t["project_id"]))  # Too long for a checker.
+    assert "src/a.c" in {i["path"] for i in broker.drafts.checks.pending(t["project_id"])}
+    broker.drafts.owner_checked(t["project_id"], ["src/a.c"], "Read it on GitHub.")
+    write(broker, t, epoch, "b.c", "int b;\n", "w2")
+    assert [i["path"] for i in broker.drafts.checks.pending(t["project_id"])] == ["b.c"]
+    assert "src/STATUS.md" not in remote.tree()
+
+
+def test_windows_line_endings_go_up_as_written_and_pass_once(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "src/a.c", "int a;\r\nint b;\r\n", "w1")
+    assert remote.tree()["src/a.c"] == "int a;\r\nint b;\r\n"
+    asyncio.run(team_for(c, broker, Checker({}, ROUTES)).independent.run(t["project_id"]))
+    assert not broker.drafts.checks.pending(t["project_id"]) and "src/STATUS.md" not in remote.tree()
