@@ -235,7 +235,7 @@ def test_a_different_assistant_checks_and_its_report_goes_up_with_the_marker_rem
     tree = remote.tree()
     report = outcome["reports"][0]
     assert report.startswith("checks/") and "| src/sum.c |" in tree[report] and "Returns a-b" in tree[report]
-    assert tree["src/STATUS.md"].startswith("CHECKS PENDING: sub.c — check failed: Returns a-b, not a+b.")
+    assert tree["src/STATUS.md"].startswith("CHECKS PENDING: sub.c — check failed (see checks/")
     assert [r["item"] for r in parse_ledger(tree[LEDGER])] == ["src/sub.c"]
     # The report and the removal of what passed are one commit.
     last = remote.commits[remote.current]
@@ -583,3 +583,52 @@ def test_an_owner_note_github_mustnot_get_does_not_stop_pushing(project):
     assert "ghp_" not in remote.tree()[done["report"]]
     result = write(broker, t, epoch, "b.c", "int b;\n", "w2")
     assert result["checks"] == "pending: pushed before review" and remote.tree()["b.c"] == "int b;\n"
+
+
+# ---------------------------------------------------------------- fourth review
+def test_a_file_changed_elsewhere_is_checked_as_it_is_on_github(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "src/a.c", "int a;\n", "w1")
+    checker = Checker({}, ROUTES)
+    team = team_for(c, broker, checker)
+    asyncio.run(team.independent.run(t["project_id"]))
+    remote.edit("src/a.c", "int a = 2; /* ChatGPT */\n")
+    remote.edit("src/STATUS.md", "CHECKS PENDING: a.c — ChatGPT's edit\n")
+    remote.edit(LEDGER, "| Item | Folder | Waiting for |\n| --- | --- | --- |\n| src/a.c | src | ChatGPT's edit |\n")
+    write(broker, t, epoch, "b.c", "int b;\n", "w2")
+    checker.calls.clear()
+    asyncio.run(team.independent.run(t["project_id"]))
+    given = {f["path"]: f["text"] for _, body in checker.calls for f in body["files"]}
+    assert given["src/a.c"] == "int a = 2; /* ChatGPT */\n"
+
+
+def test_no_push_carries_a_removal_without_its_report(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "src/a.c", "int a;\n", "w1")
+    checks = broker.drafts.checks
+    item = checks.state(t["project_id"])["items"]["src/a.c"]
+    checks.finish(t["project_id"], {"src/a.c": item["sha256"]}, {"src/a.c": {"verdict": "pass"}},
+                  "checks/r.md", "reviewer.high", report_text="# Report\n\nFine.\n")
+    write(broker, t, epoch, "lib/b.c", "int b;\n", "w2")  # A write lands before the check's own push.
+    tree = remote.tree()
+    assert "src/STATUS.md" not in tree and tree["checks/r.md"] == "# Report\n\nFine.\n"
+
+
+def test_failure_findings_stay_in_the_report_not_in_the_markers(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "a.c", "int a;\n", "w1")
+    checker = Checker({"a.c": "fail"}, ROUTES)
+    team = team_for(c, broker, checker)
+    original = checker.exchange
+
+    async def leaky(route, message):
+        reply = await original(route, message)
+        reply["results"][0]["findings"] = "It prints ghp_" + "c" * 36
+        return reply
+
+    checker.exchange = leaky
+    asyncio.run(team.independent.run(t["project_id"]))
+    write(broker, t, epoch, "lib/new.c", "int n;\n", "w2")
+    tree = remote.tree()
+    assert "ghp_" not in tree[STATUS] and "ghp_" not in tree[LEDGER]
+    assert "lib/new.c" in {r["item"] for r in parse_ledger(tree[LEDGER])}
