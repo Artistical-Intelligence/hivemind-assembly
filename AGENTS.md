@@ -35,3 +35,24 @@
 - Record verified evidence in `_app/release_status.json` (`evidence`, with full
   commit SHAs and run IDs), then run `python dev/status_docs.py --write`; the README
   and ROADMAP status blocks are generated and checked by tests.
+
+<!-- checks-workflow:start (kept up to date by Hivemind Assembly) -->
+## Push early, check later
+
+Every assistant working in this repository (Claude, ChatGPT or any other) follows these rules:
+
+1. Commit and push every file you create or change right away, before any review.
+2. Mark what isn't checked yet: add a line `CHECKS PENDING: <file> — <what still needs checking>`
+   to STATUS.md in the file's folder, and a row to CHECKS_STATUS.md at the top of the repository
+   (item, folder, waiting for). No marker means checked.
+3. A check is done by a different assistant session than the one that wrote the file (another
+   provider when possible, otherwise a fresh conversation). The checker gets only the files and
+   their sources, and writes a report under checks/ that stays in the repository.
+4. When a check passes, remove its STATUS.md line (and STATUS.md once it's empty) and its
+   CHECKS_STATUS.md row in the same commit as the report. When a check fails or stops early,
+   keep the marker and say in STATUS.md what failed or what is left.
+5. Never put anything with a pending marker into a release, the main deliverable or any other
+   published output.
+6. When you pick up this repository, read CHECKS_STATUS.md and QUEUE.md first: finish pending
+   checks, then start new work.
+<!-- checks-workflow:end -->
