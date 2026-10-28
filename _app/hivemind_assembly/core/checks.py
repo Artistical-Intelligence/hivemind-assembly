@@ -564,6 +564,9 @@ class Drafts:
                     sha = getattr(error, "sha", None)
                     if sha == version["blob"]:
                         continue  # A large file, but exactly the version that passed.
+                    if sha and path in texts and blob_sha(texts[path]) == version["blob"] and (
+                            sha == current["blobs"].get(path)):
+                        continue  # HA's own older copy, replaced by the passed version in this push.
                     if sha:
                         moved[path] = version  # A different large file there now: it needs its own check.
                     else:
