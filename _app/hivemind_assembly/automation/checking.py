@@ -118,13 +118,14 @@ class IndependentChecks:
         hand = "; check it yourself and mark it checked on the Projects page"
         for item in items:
             p = scoped(root, item["path"])
-            text = None
+            text, raw = None, None
             try:
                 if item.get("outside") and publications and publications.enabled(project):
                     # Written elsewhere: the version on GitHub is the one to check.
                     text = publications.read_text(project, item["path"])
                 elif p.is_file():
-                    text = p.read_text("utf-8")
+                    raw = p.read_bytes()  # Hashed below from these same bytes.
+                    text = raw.decode("utf-8")
             except (OSError, UnicodeDecodeError):
                 skipped[item["path"]] = "it isn't a text file HA can show a checker" + hand
                 continue
@@ -137,8 +138,7 @@ class IndependentChecks:
             if len(text) > FILE_CHARS:
                 skipped[item["path"]] = f"it's longer than {FILE_CHARS:,} characters; split it" + hand
                 continue
-            sha = (hashlib.sha256(text.encode("utf-8")).hexdigest() if item.get("outside") or not p.is_file()
-                   else self.store_hash(p))
+            sha = hashlib.sha256(raw if raw is not None else text.encode("utf-8")).hexdigest()
             if batch and size + len(text) > MESSAGE_CHARS:
                 out.append((batch, {}))
                 batch, size = [], 0
