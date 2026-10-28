@@ -120,10 +120,11 @@ class IndependentChecks:
             p = scoped(root, item["path"])
             text = None
             try:
-                if p.is_file():
-                    text = p.read_text("utf-8")
-                elif item.get("outside") and publications:
+                if item.get("outside") and publications and publications.enabled(project):
+                    # Written elsewhere: the version on GitHub is the one to check.
                     text = publications.read_text(project, item["path"])
+                elif p.is_file():
+                    text = p.read_text("utf-8")
             except (OSError, UnicodeDecodeError):
                 skipped[item["path"]] = "it isn't a text file HA can show a checker" + hand
                 continue
@@ -136,7 +137,8 @@ class IndependentChecks:
             if len(text) > FILE_CHARS:
                 skipped[item["path"]] = f"it's longer than {FILE_CHARS:,} characters; split it" + hand
                 continue
-            sha = self.store_hash(p) if p.is_file() else hashlib.sha256(text.encode("utf-8")).hexdigest()
+            sha = (hashlib.sha256(text.encode("utf-8")).hexdigest() if item.get("outside") or not p.is_file()
+                   else self.store_hash(p))
             if batch and size + len(text) > MESSAGE_CHARS:
                 out.append((batch, {}))
                 batch, size = [], 0
@@ -247,7 +249,8 @@ class IndependentChecks:
         results = self.results(response, paths)
         name = report_name(key)
         text = self.report(project, route, writer, batch, results, response.get("summary", ""), sources)
-        outcome = self.checks.finish(project, {f["path"]: f["sha256"] for f in batch}, results, name, route)
+        outcome = self.checks.finish(project, {f["path"]: f["sha256"] for f in batch}, results, name, route,
+                                     report_text=text)
         # The report and the removal of what passed go up in the same commit.
         await self.team.blocking(
             self.drafts.sync, project, (), {name: text},
