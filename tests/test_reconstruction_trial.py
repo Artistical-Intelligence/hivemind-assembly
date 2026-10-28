@@ -130,6 +130,9 @@ def test_unfinished_trial_requires_repair_and_continues_after_checkpoint(app):
             }
 
     team.browser = Repair()
+    from native_fixtures import PassingChecks
+
+    team.sessions = PassingChecks(team.config)  # The independent check of what it wrote passes.
     # Keep the application's background scheduler idle; this test drives the real
     # controller explicitly with the isolated fixture transport.
     app.team.pause_dispatch = True
