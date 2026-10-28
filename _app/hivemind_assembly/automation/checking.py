@@ -135,6 +135,21 @@ class IndependentChecks:
 
         return file_hash(path)
 
+    def who(self, project):
+        """Which assistant would check this project's oldest pending file now."""
+        items = [i for i in self.checks.pending(project) if not i.get("outside")]
+        route = self.choose(items[0].get("writer")) if items else None
+        return self.checks.name(route) if route else None
+
+    async def requested(self, project):
+        """Run from the Projects page: any error is shown there, not lost."""
+        try:
+            await self.run(project, requested=True)
+        except Exception as error:
+            state = self.checks.state(project)
+            state["last_run"] = {"at": time.time(), "requested": True, "error": str(error)[:300]}
+            self.checks.save(project, state)
+
     async def run(self, project, requested=False):
         """Check what's pending in this project. Returns {passed, failed, left, waiting, reports}."""
         if project in self.running:
