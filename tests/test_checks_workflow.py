@@ -788,3 +788,42 @@ def test_windows_line_endings_go_up_as_written_and_pass_once(project):
     assert remote.tree()["src/a.c"] == "int a;\r\nint b;\r\n"
     asyncio.run(team_for(c, broker, Checker({}, ROUTES)).independent.run(t["project_id"]))
     assert not broker.drafts.checks.pending(t["project_id"]) and "src/STATUS.md" not in remote.tree()
+
+
+# ---------------------------------------------------------------- eighth review follow-ups
+def test_a_brief_github_error_is_not_called_a_conflict(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "src/a.c", "int a;\n", "w1")
+    real_git = remote.git
+    calls = {"n": 0}
+
+    def flaky(owner, name, method, endpoint, data=None):
+        if method == "GET" and endpoint.startswith("contents/src/a.c?") and calls["n"] == 0:
+            calls["n"] += 1
+            raise GitHubError(502)
+        return real_git(owner, name, method, endpoint, data)
+
+    remote.git = flaky
+    result = write(broker, t, epoch, "src/a.c", "int a = 1;\n", "w2", expected=broker_hash(broker, t, "src/a.c", "int a;\n"))
+    assert "goes to GitHub with the next save" in result["checks"]
+    write(broker, t, epoch, "b.c", "int b;\n", "w3")
+    assert remote.tree()["src/a.c"] == "int a = 1;\n"
+    assert broker.drafts.checks.state(t["project_id"]).get("conflicts", []) == []
+
+
+def test_ha_can_replace_and_clear_its_own_large_file(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "data.json", "[1]\n", "w1")
+    real_git = remote.git
+
+    def large(owner, name, method, endpoint, data=None):
+        reply = real_git(owner, name, method, endpoint, data)
+        if method == "GET" and endpoint.startswith("contents/data.json?"):
+            return {**reply, "encoding": "none", "content": ""}
+        return reply
+
+    remote.git = large
+    write(broker, t, epoch, "data.json", "[1, 2]\n", "w2", expected=broker_hash(broker, t, "data.json", "[1]\n"))
+    assert remote.tree()["data.json"] == "[1, 2]\n"
+    asyncio.run(team_for(c, broker, Checker({}, ROUTES)).independent.run(t["project_id"]))
+    assert STATUS not in remote.tree() and parse_ledger(remote.tree()[LEDGER]) == []
