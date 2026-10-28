@@ -563,6 +563,14 @@ class KnowledgeCollections:
                     skipped.append({"path": rel, "reason": f"too large ({size // 1048576} MiB; the limit is {limit // 1048576} MiB)"})
                 else:
                     documents_.append((rel, path, kind))
+        # Push early, check later: files their own markers say aren't checked yet are
+        # imported (so they can be found) but flagged, and listed in the report.
+        from hivemind_assembly.core.checks import LEDGER, waiting_in
+
+        waiting = waiting_in(root, [rel for rel, _, _ in documents_])
+        if any(rel == LEDGER for rel, _, _ in documents_):
+            documents_ = [d for d in documents_ if d[0] != LEDGER]
+            skipped.append({"path": LEDGER, "reason": "the list of files waiting for a check; those files are flagged"})
         if (commit and commit == entry.get("commit") and entry.get("report")
                 and not entry["report"].get("failed") and entry.get("imported_with") == entry["external_allowed"]
                 and not Knowledge(self.store).waiting_for_ocr(set(self._copies(key).values()))):
@@ -607,6 +615,7 @@ class KnowledgeCollections:
             except Exception as error:
                 failed.append({"path": rel, "reason": str(error) or error.__class__.__name__})
                 continue
+            knowledge.mark_checks_pending(result["id"], rel in waiting)
             if self.permission.get(key, allowed) != allowed:
                 # The owner changed the permission while this file was being read.
                 with self.store.tx() as db:
@@ -642,6 +651,7 @@ class KnowledgeCollections:
             "failed": failed,
             "skipped": skipped,
             "categories_full": sorted(missing_tags),
+            "checks_pending": sorted(waiting)[:200],
             "commit": commit,
             "finished": self.clock(),
         }
@@ -654,6 +664,9 @@ class KnowledgeCollections:
         message = "Imported " + "; ".join(parts) + "."
         if missing_tags:
             message += " The category list is full, so some folder names didn't become categories."
+        if waiting:
+            message += (f" {len(waiting)} document{'s are' if len(waiting) != 1 else ' is'} still marked “checks pending” "
+                        "there; the assistants are told they're unchecked drafts.")
         return {"message": message, "report": report, "commit": commit, "last_import": self.clock(),
                 "imported_with": allowed}
 
