@@ -632,3 +632,76 @@ def test_failure_findings_stay_in_the_report_not_in_the_markers(project):
     tree = remote.tree()
     assert "ghp_" not in tree[STATUS] and "ghp_" not in tree[LEDGER]
     assert "lib/new.c" in {r["item"] for r in parse_ledger(tree[LEDGER])}
+
+
+# ---------------------------------------------------------------- fifth review
+def outside_file(remote, path="docs/x.md", text="# X v1\n"):
+    remote.edit(path, text)
+    remote.edit(f"{path.rsplit('/', 1)[0]}/STATUS.md", f"CHECKS PENDING: {path.rsplit('/', 1)[1]} — ChatGPT's draft\n")
+    remote.edit(LEDGER, f"| Item | Folder | Waiting for |\n| --- | --- | --- |\n| {path} | docs | ChatGPT's draft |\n")
+
+
+def test_a_file_written_elsewhere_that_changes_during_its_check_keeps_its_markers(project):
+    c, t, epoch, remote, broker = project
+    outside_file(remote)
+    write(broker, t, epoch, "a.c", "int a;\n", "w1")
+    checker = Checker({}, ROUTES)
+    team = team_for(c, broker, checker)
+    original = checker.exchange
+
+    async def edited_meanwhile(route, message):
+        reply = await original(route, message)
+        if any(f["path"] == "docs/x.md" for f in json.loads(message["payload"])["files"]):
+            remote.edit("docs/x.md", "# X v2, not checked\n")
+        return reply
+
+    checker.exchange = edited_meanwhile
+    asyncio.run(team.independent.run(t["project_id"]))
+    tree = remote.tree()
+    assert "docs/x.md" in {r["item"] for r in parse_ledger(tree[LEDGER])}
+    assert "CHECKS PENDING: x.md" in tree["docs/STATUS.md"]
+    assert "docs/x.md" in {i["path"] for i in broker.drafts.checks.pending(t["project_id"])}
+    # Unchanged since its check: the next run clears it.
+    checker.exchange = original
+    asyncio.run(team.independent.run(t["project_id"]))
+    assert "docs/STATUS.md" not in remote.tree() and parse_ledger(remote.tree()[LEDGER]) == []
+
+
+def test_a_refused_marker_file_elsewhere_doesnt_make_ha_remove_new_markers(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "logs/run.md", "a log\n", "w1")  # Its folder never goes to GitHub.
+    write(broker, t, epoch, "src/a.c", "int a;\n", "w2")
+    checks = broker.drafts.checks
+    item = checks.state(t["project_id"])["items"]["src/a.c"]
+    checks.finish(t["project_id"], {"src/a.c": item["sha256"]}, {"src/a.c": {"verdict": "pass"}},
+                  "checks/r.md", "reviewer.high", report_text="# R\n")
+    write(broker, t, epoch, "b.c", "int b;\n", "w3")
+    assert "src/a.c" not in checks.state(t["project_id"])["clear_remote"]
+    remote.edit("src/a.c", "int a = 3;\n")
+    remote.edit(LEDGER, remote.tree()[LEDGER].rstrip("\n") + "\n| src/a.c | src | ChatGPT's edit |\n")
+    write(broker, t, epoch, "c.c", "int c;\n", "w4")
+    assert "src/a.c" in {r["item"] for r in parse_ledger(remote.tree()[LEDGER])}
+    assert "src/a.c" in {i["path"] for i in checks.pending(t["project_id"])}
+
+
+def test_a_check_finishing_during_another_push_isnt_readopted(project, monkeypatch):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "src/a.c", "int a;\n", "w1")
+    checks = broker.drafts.checks
+    real = broker.publications.push_files
+
+    def finish_first(project_id, build, *args, **kwargs):
+        def wrapped(read):
+            if "src/a.c" in checks.state(project_id)["items"]:
+                item = checks.state(project_id)["items"]["src/a.c"]
+                checks.finish(project_id, {"src/a.c": item["sha256"]}, {"src/a.c": {"verdict": "pass"}},
+                              "checks/r.md", "reviewer.high", report_text="# R\n")
+            return build(read)
+        return real(project_id, wrapped, *args, **kwargs)
+
+    monkeypatch.setattr(broker.publications, "push_files", finish_first)
+    write(broker, t, epoch, "b.c", "int b;\n", "w2")
+    monkeypatch.setattr(broker.publications, "push_files", real)
+    broker.drafts.sync(t["project_id"])
+    assert "src/a.c" not in {i["path"] for i in checks.pending(t["project_id"])}
+    assert "src/a.c" not in {r["item"] for r in parse_ledger(remote.tree()[LEDGER])}
