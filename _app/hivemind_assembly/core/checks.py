@@ -542,7 +542,7 @@ class Drafts:
             p = scoped(root, path)
             try:
                 if p.is_file():
-                    texts[path] = p.read_text("utf-8")
+                    texts[path] = p.read_bytes().decode("utf-8")  # Line endings as they are.
             except UnicodeDecodeError:
                 # Never sent as a removal: GitHub's copy, if any, stays as it is.
                 skipped[path] = "not a text file"
@@ -647,8 +647,14 @@ class Drafts:
         out = {}
         for path in paths:
             try:
-                out[path] = blob_sha(scoped(self.workspace(project), path).read_text("utf-8"))
-            except (OSError, UnicodeDecodeError):
+                if (self.checks.state(project)["items"].get(path) or {}).get("outside") and self.publications:
+                    # Written elsewhere: the owner looked at the version on GitHub.
+                    text = self.publications.read_text(project, path)
+                    if text is not None:
+                        out[path] = blob_sha(text)
+                    continue
+                out[path] = blob_sha(scoped(self.workspace(project), path).read_bytes().decode("utf-8"))
+            except Exception:
                 continue
         return out
 
@@ -660,7 +666,7 @@ class Drafts:
         if not items:
             return {"passed": [], "failed": [], "left": []}
         when = datetime.now(timezone.utc)
-        key = hashlib.sha256(json.dumps(sorted(items)).encode()).hexdigest()[:8]
+        key = hashlib.sha256(json.dumps([sorted(items), time.time_ns()]).encode()).hexdigest()[:8]
         name = f"{REPORTS}/{when.strftime('%Y-%m-%d-%H%M%S')}-owner-{key}.md"
         lines = [f"# Checked by the owner, {when.strftime('%Y-%m-%d %H:%M UTC')}", "",
                  "The owner checked these files by hand in HA.", "", "| File | SHA-256 |", "| --- | --- |"]
