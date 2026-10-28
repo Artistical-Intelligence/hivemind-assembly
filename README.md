@@ -173,6 +173,37 @@ again. Permission denials are reported separately and can be retried after
 fixing authorization. Disconnecting locally removes saved credentials; revoke
 access in GitHub's application settings to revoke authorization on GitHub too.
 
+### Push early, check later
+
+Every file an assistant creates or changes is pushed to the project's repository at
+once, before any review, so no progress is lost when usage runs out. Until it's
+checked it carries a marker: a line `CHECKS PENDING: <file> — <what it's waiting for>`
+in STATUS.md in its folder, and a row in CHECKS_STATUS.md at the top of the repository.
+No marker means checked. The same markers are kept in the project's folder, so this
+works without GitHub too.
+
+The check is done by a different assistant than the writer: ChatGPT checks Claude's
+files and the other way round when both are signed in with usage left (otherwise
+another of your assistants, or the same kind), always in a new conversation of its own.
+It gets only the files and their sources (the objective, the completion checks and
+HA's own check results), never the writer's conversation. Its report stays in the
+repository under checks/; what passed loses its markers in the same commit. A failed
+check keeps the marker, says what's wrong, and goes back to the writer to fix; an
+interrupted one keeps the marker and says it stopped early.
+
+Checks run when a project is picked up again (resumed, or HA restarted) before new
+work, before a project is accepted as finished (nothing marked is ever accepted), and
+when you select **Run independent check** on the project in Projects, which also shows
+what's waiting and what's checked. The repository's AGENTS.md (and a pointer in
+CLAUDE.md) gets the same rules in plain words, and QUEUE.md lists pending checks
+before new work, so Claude, ChatGPT or any other assistant working on the repository
+outside HA follows them too. Markers and rows written outside HA are kept, and HA
+checks those files as well. A file someone changed on GitHub since HA last pushed it
+isn't overwritten; the project says so. When reference material is imported from a
+folder or repository with these markers, its unchecked files are flagged as drafts
+in the import report and in search results. HA's own releases are refused while
+anything is marked (`dev/checks_gate.py`).
+
 ## Folder backups to GitHub
 
 **Projects → Back up a folder to GitHub** uploads any folder on this computer to a
