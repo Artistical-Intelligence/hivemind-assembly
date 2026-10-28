@@ -166,6 +166,7 @@ class Checks:
             "items": items[:200],
             "recent": state["checked"][:20],
             "push": state["push"],
+            "last_run": state.get("last_run"),
         }
 
     def name(self, route):
