@@ -198,9 +198,11 @@ class Knowledge:
         self._forget_vectors(db, key)
 
     @staticmethod
-    def _forget_vectors(db, key):
-        """The meaning index reads this document again in the background."""
-        db.execute("DELETE FROM knowledge_vectors WHERE source=?", (key,))
+    def _forget_vectors(db, key, everything=False):
+        """The meaning index reads this document again in the background; vectors of
+        text that didn't change are reused then (all go when the document goes)."""
+        if everything:
+            db.execute("DELETE FROM knowledge_vectors WHERE source=?", (key,))
         db.execute("DELETE FROM knowledge_vector_sources WHERE source=?", (key,))
 
     # ---------------------------------------------------------------- import
@@ -385,6 +387,7 @@ class Knowledge:
         """Forget an imported copy (its file was removed from the imported folder)."""
         with self.store.tx() as db:
             self._clear_sections(db, key)
+            self._forget_vectors(db, key, everything=True)
             db.execute("DELETE FROM sources WHERE id=?", (key,))
             db.execute("DELETE FROM knowledge_assignments WHERE kind='source' AND item_id=?", (key,))
             db.execute("DELETE FROM knowledge_origins WHERE source=?", (key,))
