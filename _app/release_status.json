@@ -1,5 +1,5 @@
 {
-  "version": "0.34.0",
+  "version": "0.34.1",
   "requested_product_complete": false,
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -197,14 +197,34 @@
     "retention_days": 14
   },
   "automated_tests": {
-    "passed": 1024,
+    "passed": 1026,
     "skipped": 42,
     "failed": 0,
-    "elapsed_seconds": 970.72,
+    "elapsed_seconds": 682.92,
     "host": "GitHub Linux Python 3.12",
-    "scope": "Full regression at commit 676f627, run 40729696600. Windows: 993 passed/73 skipped in 1400.57s. Local Linux with Chromium and the real meaning-search model: 1054 passed/12 skipped. No live native-model acceptance inferred."
+    "scope": "Full regression at commit 93c1c22, run 40736659843. Windows: 995 passed/73 skipped in 1498.93s. Local Linux with Chromium and the real meaning-search model: 1056 passed/12 skipped. No live native-model acceptance inferred."
   },
   "evidence": [
+    {
+      "id": "hosted-ci-93c1c22",
+      "date": "2026-10-28",
+      "commit": "93c1c225bf4a6677168dad5d2174aa0fd8e3d33a",
+      "runs": [
+        40736659843
+      ],
+      "host": "GitHub Linux and Windows",
+      "live_model_inference": false,
+      "summary": "All four jobs passed at 93c1c22 (imports update daily by default; an edited document reuses the meaning vectors of its unchanged text): Linux 1026 passed/42 skipped (682.92s); Windows 995 passed/73 skipped (1498.93s); the Chromium browser fixture; Windows package build, install and restore."
+    },
+    {
+      "id": "local-suite-93c1c22",
+      "date": "2026-10-28",
+      "commit": "93c1c225bf4a6677168dad5d2174aa0fd8e3d33a",
+      "runs": [],
+      "host": "Linux x86-64 local (Python 3.12, Playwright Chromium)",
+      "live_model_inference": false,
+      "summary": "Full local suite: 1056 passed/12 skipped (1199 s) with WORKBENCH_TEST_CHROME and HA_TEST_MEANING_MODEL set, including the real meaning-search model and a test that an edited chapter is the only text read again."
+    },
     {
       "id": "meaning-search-measured-2026-10-28",
       "date": "2026-10-28",
