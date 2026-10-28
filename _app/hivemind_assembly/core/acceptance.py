@@ -105,6 +105,10 @@ class Acceptance:
             or any(not isinstance(x, str) for x in ids)
         ):
             raise ContractError("Completion requires a bounded list of operation IDs")
+        # Push early, check later: work still marked "checks pending" isn't a deliverable.
+        from .checks import Checks
+
+        Checks(self.store).gate(task["project_id"], "accepting the project as finished")
         # A stable proposal ID makes a crash after validation safe to resume.
         proposal = "proposal_" + digest(
             {"task": task["id"], "epoch": task["epoch"], "response": response}
