@@ -89,6 +89,9 @@ the assistants' reference tools); no manual conversion is needed. Still open:
 - Old Office formats (.doc, .xls, .ppt) and slides are not imported; they are listed
   as skipped. Excel workbooks and scanned PDF pages are (0.35.0). Still open: OCR of
   pictures inside Word files, and languages other than English for scans.
+- Push early, check later (0.36.0): tested with stand-ins for GitHub and the assistants.
+  Still open: a live check by a signed-in ChatGPT of a Claude-written file, and the push of
+  drafts to a real GitHub repository.
 
 ## Verification
 
