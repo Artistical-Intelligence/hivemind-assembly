@@ -121,8 +121,16 @@
       <div class="actions"><button type="button" data-collection-update="${esc(c.id)}"${c.running ? ' disabled' : ''}>${c.kind === 'github' ? 'Update from GitHub' : 'Import again'}</button><button type="button" data-collection-remove="${esc(c.id)}"${c.running ? ' disabled' : ''}>Remove from HA</button></div>
     </details>`;
   }
+  // One line on meaning search: ready, preparing, or why only word search is used.
+  const meaning = document.createElement('p');
+  meaning.className = 'muted';
+  meaning.id = 'meaning-search';
+  collections.before(meaning);
   window.renderReference = s => {
     jobs = s.picture_descriptions || [];
+    const v = s.knowledge_vectors;
+    meaning.hidden = !v || v.state === 'waiting';
+    if (v) meaning.textContent = v.message || '';
     const byCollection = {};
     for (const v of s.sources || []) if (v.collection) (byCollection[v.collection] ||= []).push(v.id);
     const items = (s.knowledge_collections || []).map(c => ({...c, sources: byCollection[c.id] || []}));
