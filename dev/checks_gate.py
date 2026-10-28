@@ -23,9 +23,9 @@ def pending():
     found = []
     ledger = ROOT / LEDGER
     if ledger.is_file():
-        found += [f"{LEDGER}: {row['item']} ({row['waiting']})" for row in parse_ledger(ledger.read_text("utf-8"))]
+        found += [f"{LEDGER}: {row['item']} ({row['waiting']})" for row in parse_ledger(ledger.read_text("utf-8", errors="replace"))]
     for rel in tracked(STATUS):
-        for line in (ROOT / rel).read_text("utf-8").splitlines():
+        for line in (ROOT / rel).read_text("utf-8", errors="replace").splitlines():
             if line.startswith(MARK):
                 found.append(f"{rel}: {line}")
     return found
