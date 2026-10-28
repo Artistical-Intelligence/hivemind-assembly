@@ -195,6 +195,13 @@ class Knowledge:
                 )
         db.execute("DELETE FROM knowledge_sections WHERE source=?", (key,))
         db.execute("DELETE FROM knowledge_names WHERE source=?", (key,))
+        self._forget_vectors(db, key)
+
+    @staticmethod
+    def _forget_vectors(db, key):
+        """The meaning index reads this document again in the background."""
+        db.execute("DELETE FROM knowledge_vectors WHERE source=?", (key,))
+        db.execute("DELETE FROM knowledge_vector_sources WHERE source=?", (key,))
 
     # ---------------------------------------------------------------- import
     def origin_source(self, origin):
@@ -371,6 +378,7 @@ class Knowledge:
                         (old["rowid"], old["title"], old["names"], body),
                     )
                 db.execute("UPDATE knowledge_sections SET body=? WHERE rowid=?", (body, old["rowid"]))
+            self._forget_vectors(db, key)
         return sum(len(p) for p in added.values())
 
     def remove(self, key):
@@ -446,6 +454,7 @@ class Knowledge:
                 if score:
                     found.append(({**r, "snippet": r["body"][:200]}, score))
             found = sorted(found, key=lambda x: -x[1])[:fetch]
+        found = self._with_meaning(query, allowed, found, fetch)
         hits, first = [], {}
         for r, score in found:
             same = (r["title"], hashlib.sha256(r["body"].encode("utf-8")).hexdigest())
@@ -469,6 +478,30 @@ class Knowledge:
             }
             hits.append(hit)
         return hits
+
+    def _with_meaning(self, query, allowed, found, fetch):
+        """Combine the word ranking with the meaning ranking, when that index is ready."""
+        index = getattr(self.store, "knowledge_vectors", None)
+        if index is None:
+            return found
+        try:
+            meaning = index.search(query, allowed, fetch)
+        except Exception:
+            return found  # Word search still answers.
+        if not meaning:
+            return found
+        from .vectors import fuse
+
+        rows = {(r["source"], r["section"]): r for r, _ in found}
+        order, scores = fuse(list(rows), [(s, sec) for s, sec, _ in meaning], fetch)
+        for place in order:
+            if place not in rows:
+                row = self.store.rows(
+                    "SELECT source,section,title,path,body FROM knowledge_sections WHERE source=? AND section=?", place
+                )
+                if row:
+                    rows[place] = {**row[0], "snippet": " ".join(row[0]["body"][:300].split())}
+        return [(rows[p], scores[p] * 1000) for p in order if p in rows]
 
     def lookup(self, name, role="adviser", external=False, task=None):
         """Sections whose title or other name is exactly this (any letter case)."""
