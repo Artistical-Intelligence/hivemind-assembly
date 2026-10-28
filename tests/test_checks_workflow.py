@@ -553,3 +553,33 @@ def test_files_kept_off_github_say_so(project):
     assert result["checks"].startswith("pending: kept on this computer only")
     assert "run.bat" not in remote.tree()
     assert "run.bat" in broker.drafts.checks.summary(t["project_id"])["kept_local"]
+
+
+# ---------------------------------------------------------------- third review
+def test_a_marker_added_elsewhere_for_a_file_ha_checked_before_stays(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "src/a.c", "int a;\n", "w1")
+    asyncio.run(team_for(c, broker, Checker({}, ROUTES)).independent.run(t["project_id"]))
+    assert "src/STATUS.md" not in remote.tree()
+    # ChatGPT edits it outside HA and marks it, as AGENTS.md says.
+    remote.edit("src/a.c", "int a = 2;\n")
+    remote.edit("src/STATUS.md", "CHECKS PENDING: a.c — ChatGPT's edit\n")
+    remote.edit(LEDGER, "| Item | Folder | Waiting for |\n| --- | --- | --- |\n| src/a.c | src | ChatGPT's edit |\n")
+    write(broker, t, epoch, "b.c", "int b;\n", "w2")
+    write(broker, t, epoch, "src/c.c", "int c;\n", "w3")
+    tree = remote.tree()
+    assert "src/a.c" in {r["item"] for r in parse_ledger(tree[LEDGER])}
+    assert "CHECKS PENDING: a.c — ChatGPT's edit" in tree["src/STATUS.md"]
+    assert "src/a.c" in {i["path"] for i in broker.drafts.checks.pending(t["project_id"])}
+    with pytest.raises(Blocked):
+        Acceptance(c, broker).evaluate(c.store.task(t["id"]), {"result_operations": ["w3"]})
+
+
+def test_an_owner_note_github_mustnot_get_does_not_stop_pushing(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "a.c", "int a;\n", "w1")
+    done = broker.drafts.owner_checked(t["project_id"], ["a.c"], "It prints ghp_" + "b" * 36)
+    assert "This report is kept only in the project's folder" in remote.tree()[done["report"]]
+    assert "ghp_" not in remote.tree()[done["report"]]
+    result = write(broker, t, epoch, "b.c", "int b;\n", "w2")
+    assert result["checks"] == "pending: pushed before review" and remote.tree()["b.c"] == "int b;\n"
