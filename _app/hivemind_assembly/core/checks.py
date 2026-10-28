@@ -385,6 +385,73 @@ class Checks:
         return changes
 
 
+class Drafts:
+    """Pushes each file an assistant writes at once, with its markers; keeps the
+    markers in the project's folder in step; retries what couldn't be pushed."""
+
+    def __init__(self, store, publications, workspace, providers=None):
+        self.store = store
+        self.publications = publications
+        self.workspace = workspace  # project id -> the project's folder
+        self.checks = Checks(store, providers)
+
+    def after_write(self, task, path, writer, sha256):
+        project = self.store.task(task)["project_id"]
+        if self.checks.mark(project, path, writer, sha256) is None:
+            return None
+        return self.sync(project, changed=[path],
+                         message=f"{path}: written by {self.checks.name(writer)}, checks pending")
+
+    def sync(self, project, changed=(), extra=None, message=None):
+        """Write the markers locally, then push the changed files, anything that
+        couldn't be pushed before, and the markers in one commit."""
+        root = self.workspace(project)
+        self.checks.write_local(project, root, extra)
+        state = self.checks.state(project)
+        waiting = list(dict.fromkeys(list(state.get("unpushed", [])) + list(changed)))
+        if not self.publications:
+            return {"status": "local"}
+
+        def build(read):
+            files = {}
+            for path in waiting:
+                p = scoped(root, path)
+                try:
+                    files[path] = p.read_text("utf-8") if p.is_file() else None
+                except UnicodeDecodeError:
+                    files[path] = None
+                    skipped[path] = "not a text file; it stays on this computer"
+            files.update(self.checks.files(project, read, remote=True))
+            files.update(extra or {})
+            return files
+
+        skipped = {}
+        try:
+            result = self.publications.push_files(
+                project, build, message or "Update checks status", check_remote=set(waiting))
+        except Exception as error:  # Saved locally either way; pushed on the next change.
+            state = self.checks.state(project)
+            state["unpushed"] = waiting[-2000:]
+            state["push"] = {"state": "failed", "error": str(error)[:300], "at": time.time()}
+            self.checks.save(project, state)
+            self.store.event(project, "draft_push_failed", {"project": project, "error": str(error)[:300]})
+            return {"status": "failed", "error": str(error)}
+        state = self.checks.state(project)
+        if result["status"] == "disabled":
+            state["unpushed"] = waiting[-2000:]
+            state["push"] = {"state": "local", "at": time.time()}
+            self.checks.save(project, state)
+            return result
+        skipped.update(result.get("skipped", {}))
+        conflicts = result.get("conflicts", [])
+        state["unpushed"] = [p for p in waiting if p in conflicts]
+        state["remote_folders"] = sorted({i["folder"] for i in state["items"].values()})
+        state["push"] = {"state": "saved" if not conflicts else "conflict", "sha": result.get("sha"),
+                         "url": result.get("url"), "at": time.time(), "skipped": skipped, "conflicts": conflicts}
+        self.checks.save(project, state)
+        return result
+
+
 def blob_sha(text):
     raw = text.encode("utf-8")
     return hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()
