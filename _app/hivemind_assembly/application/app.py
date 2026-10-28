@@ -222,10 +222,16 @@ class Application:
 
         # Reference material from whole folders and GitHub repositories (no AI).
         self.knowledge_collections = KnowledgeCollections(self.store, self.github_auth)
+        from hivemind_assembly.learning.vectors import VectorIndex
+
+        # Meaning search over the reference material, on this computer (no AI service).
+        self.knowledge_vectors = VectorIndex(self.store)
         self.thread.start()
         self.hosted_tests.start_monitor()
         self.folder_backups.start_monitor()
         self.knowledge_collections.start_monitor()
+        if os.environ.get("HA_MEANING_SEARCH", "1") != "0":
+            self.knowledge_vectors.start()
 
     def configure_learning(self):
         self.team.learning_trials = None
@@ -463,6 +469,7 @@ class Application:
                 "FROM sources"
             ),
             "knowledge_collections": self.knowledge_collections.view(),
+            "knowledge_vectors": self.knowledge_vectors.view(),
             "polls": self.store.rows("SELECT * FROM polls"),
             "retries": self.store.rows("SELECT * FROM retry_schedule"),
             "lessons": self.store.rows(
@@ -1931,6 +1938,7 @@ class Application:
         self.quick.close()
         self.folder_backups.close()
         self.knowledge_collections.close()
+        self.knowledge_vectors.close()
         try:
             self.submit(self.browser.relay.close()).result(5)
         except Exception:
