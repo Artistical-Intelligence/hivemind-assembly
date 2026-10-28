@@ -744,8 +744,9 @@ yourself stay when it's imported again. Turning **Let the assistants read it** o
 off applies to every imported copy at once.
 Importing again replaces the earlier copies: changed files are read again, unchanged
 ones stay, and copies of removed files are removed (the folder and the repository
-themselves are never changed). **Update from GitHub** fetches the latest version, and
-an optional schedule does so every day or week.
+themselves are never changed). **Update from GitHub** fetches the latest version; each
+import is also updated every day by default (**Update it** on its card: every day, every
+week, or only when you select Update).
 
 Search is ranked with SQLite FTS5 (BM25, with titles weighted above body text), and
 titles and other names can be looked up directly. **Meaning search** adds the sections
@@ -753,7 +754,8 @@ whose text means something close even in other words ("without the user interfac
 finds "headless"): a small sentence model (all-MiniLM-L6-v2, 8-bit, 23 MB, downloaded
 once from Hugging Face at a pinned revision and checked by SHA-256) runs on this
 computer, using at most half the processor, and the two rankings are combined. It
-reads Word, Markdown, HTML and PDF documents in the background after each import; code
+reads Word, Markdown, HTML and PDF documents in the background after each import, and
+an edited document keeps the vectors of its unchanged text, so only the edits are read; code
 and data files are left to word search. Nothing is sent to an AI service and no tokens
 are used; without the model, word search works alone and the reference page says why.
 Identical copies of a section in other documents (drafts, older snapshots) come back as
