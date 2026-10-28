@@ -1,1 +1,1 @@
-CHECKS PENDING: push early, check later — fourth check failed (see checks/2026-10-28-push-early-review-4.md); fixing, then local suite, hosted CI and a fifth independent review
+CHECKS PENDING: push early, check later — fifth check failed (see checks/2026-10-28-push-early-review-5.md); fixing, then local suite, hosted CI and a sixth independent review
