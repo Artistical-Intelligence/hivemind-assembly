@@ -560,8 +560,10 @@ class Drafts:
             for path, version in versions.items():
                 try:
                     remote = read(path)
-                except Exception:
-                    unsure.add(path)  # A folder or a large file there now: decide on a later push.
+                except Exception as error:
+                    if getattr(error, "sha", None) == version["blob"]:
+                        continue  # A large file, but exactly the version that passed.
+                    unsure.add(path)  # A folder, another large file, or no answer: decide later.
                     continue
                 if remote is None:
                     if path in texts and blob_sha(texts[path]) != version["blob"]:
