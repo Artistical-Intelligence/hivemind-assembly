@@ -426,6 +426,9 @@ def test_worker_project_check_retains_snapshot_and_rolls_back(store, targets):
     assert (root / unit).read_text() == target["files"][unit]
     restored = call("project-check-3", "compare_project", dict(check_args, cases=target["cases"]))
     assert restored["passed"] and restored["composition"]["regressed"] == []
+    from native_fixtures import pass_checks
+
+    pass_checks(broker, task["project_id"])  # What the worker wrote passed an independent check.
     accepted = service.evaluate(
         store.task(task["id"]),
         {"result_operations": ["project-check-3"], "summary": "Recovered regions"},
