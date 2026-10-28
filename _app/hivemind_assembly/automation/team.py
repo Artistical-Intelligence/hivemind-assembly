@@ -1064,8 +1064,8 @@ class NativeTeam:
             if flow["phase"] in ("intent", "execute"):
                 flow.update(seq=flow["seq"] + 1, phase="intent", last_result={
                     "independent_check": self.check_brief(outcome),
-                    "instruction": "An independent check failed these files. Their STATUS.md lines and the report "
-                    "under checks/ say what is wrong. Fix them, then continue.",
+                    "instruction": "An independent check failed these files. Its report under checks/ (named in "
+                    "their STATUS.md lines) says what is wrong. Fix them, then continue.",
                 })
                 self.save_flow(task["id"], flow)
         return outcome
@@ -1084,7 +1084,7 @@ class NativeTeam:
             "completion_waiting": f"{len(left)} file{'s' if len(left) != 1 else ''} still wait for an independent check",
             "independent_check": self.check_brief(outcome),
             "instruction": "Completion waits until every file passes an independent check. Fix what failed "
-            "(see STATUS.md and checks/), then propose completion again.",
+            "(its report under checks/ says what), then propose completion again.",
         })
         self.save_flow(task["id"], flow, task["owner"], task["epoch"])
         if not outcome.get("failed"):
