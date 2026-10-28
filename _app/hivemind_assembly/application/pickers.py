@@ -22,8 +22,8 @@ PURPOSES = {
     "document": (
         "file",
         "Choose a reference document",
-        "Documents (*.pdf;*.docx;*.md;*.txt;*.html;*.json;*.csv;*.c;*.h;*.py;*.ps1)|"
-        "*.pdf;*.docx;*.md;*.txt;*.html;*.json;*.csv;*.c;*.h;*.py;*.ps1|All files (*.*)|*.*",
+        "Documents (*.pdf;*.docx;*.xlsx;*.xlsm;*.md;*.txt;*.html;*.json;*.csv;*.c;*.h;*.py;*.ps1)|"
+        "*.pdf;*.docx;*.xlsx;*.xlsm;*.md;*.txt;*.html;*.json;*.csv;*.c;*.h;*.py;*.ps1|All files (*.*)|*.*",
     ),
     "knowledge-folder": ("folder", "Choose the folder of reference material", ""),
     "app-settings": (
