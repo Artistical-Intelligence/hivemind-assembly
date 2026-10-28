@@ -91,6 +91,13 @@ def managed(path):
     return p.name in (STATUS, LEDGER, QUEUE) or (p.parts and p.parts[0] == REPORTS)
 
 
+def safe_path(path):
+    """A plain relative path inside the repository (rows written by others can be anything)."""
+    p = PurePosixPath(path)
+    return bool(path) and not p.is_absolute() and "\\" not in path and ":" not in path and ".." not in p.parts \
+        and not any(part.startswith(".") for part in p.parts) and len(path) <= 500
+
+
 def folder_of(path):
     parent = str(PurePosixPath(path).parent)
     return "" if parent == "." else parent
@@ -212,11 +219,24 @@ class Checks:
 
     # ------------------------------------------------------------ changes
     @locked
-    def mark(self, project, path, writer, sha256):
-        """An assistant created or changed this file: it waits for an independent check."""
+    def update(self, project, change):
+        """Change the state under the lock: change(state) edits it in place."""
+        state = self.state(project)
+        result = change(state)
+        self.save(project, state)
+        return result
+
+    @locked
+    def mark(self, project, path, writer, sha256, before=None):
+        """An assistant created or changed this file: it waits for an independent check.
+        before: the file's SHA-256 before this change, so a push can tell whether
+        GitHub still has the version the assistant started from."""
         if managed(path):
             return None
         state = self.state(project)
+        state.setdefault("before", {})
+        if path not in state.get("unpushed", []) and path not in state["before"]:
+            state["before"][path] = before
         old = state["items"].get(path)
         note = "independent check by a different assistant"
         if old and old.get("state") == "failed":
@@ -278,8 +298,13 @@ class Checks:
             result = results.get(path)
             if item is None:
                 continue
-            if item.get("sha256") != sha:
+            if item.get("sha256") not in (None, sha):
                 item.update(state="pending", note="check again: the file changed after it was given to the checker")
+                left.append(path)
+            elif result and result["verdict"] == "pass" and path in state.get("unpushed", []):
+                # GitHub has another version of it (changed there); that one isn't checked.
+                item.update(state="pending", note=f"this copy passed (see {report}), but GitHub has a different "
+                            "version someone changed there; reconcile the two, then check again")
                 left.append(path)
             elif not result:
                 item.update(state="interrupted", note=f"the checker didn't report on it (see {report}); run it again")
@@ -305,11 +330,11 @@ class Checks:
         ours = set(state["items"]) | set(known)
         added = 0
         for row in rows:
-            item = row["item"].strip("`")
-            if not item or item in ours or managed(item):
+            item = row["item"].strip().strip("`").strip()
+            if not safe_path(item) or item in ours or managed(item):
                 continue
             state["items"][item] = {
-                "path": item, "folder": row["folder"] if row["folder"] not in ("(top)", "") else folder_of(item),
+                "path": item, "folder": folder_of(item),
                 "writer": "outside", "writer_provider": None, "sha256": None, "since": time.time(),
                 "state": "pending", "note": row["waiting"] or "independent check", "outside": True,
             }
@@ -453,65 +478,95 @@ class Drafts:
         self.workspace = workspace  # project id -> the project's folder
         self.checks = Checks(store, providers)
 
-    @locked
-    def after_write(self, task, path, writer, sha256):
+    def after_write(self, task, path, writer, sha256, before=None):
         project = self.store.task(task)["project_id"]
-        if self.checks.mark(project, path, writer, sha256) is None:
+        if self.checks.mark(project, path, writer, sha256, before) is None:
             return None
         return self.sync(project, changed=[path],
                          message=f"{path}: written by {self.checks.name(writer)}, checks pending")
 
-    @locked
     def sync(self, project, changed=(), extra=None, message=None):
         """Write the markers locally, then push the changed files, anything that
-        couldn't be pushed before, and the markers in one commit."""
+        couldn't be pushed before, and the markers in one commit. The state lock is
+        held only for local work, never while GitHub is called."""
         root = self.workspace(project)
         self.checks.write_local(project, root, extra)
         state = self.checks.state(project)
         waiting = list(dict.fromkeys(list(state.get("unpushed", [])) + list(changed)))
         if not self.publications:
             return {"status": "local"}
+        skipped = {}
+        texts = {}
+        for path in waiting:
+            p = scoped(root, path)
+            try:
+                if p.is_file():
+                    texts[path] = p.read_text("utf-8")
+            except UnicodeDecodeError:
+                # Never sent as a removal: GitHub's copy, if any, stays as it is.
+                skipped[path] = "not a text file; it stays on this computer"
 
         def build(read):
-            files = {}
-            for path in waiting:
-                p = scoped(root, path)
-                try:
-                    files[path] = p.read_text("utf-8") if p.is_file() else None
-                except UnicodeDecodeError:
-                    files[path] = None
-                    skipped[path] = "not a text file; it stays on this computer"
+            files = dict(texts)
             files.update(self.checks.files(project, read, remote=True))
             files.update(extra or {})
             return files
 
-        skipped = {}
         try:
             result = self.publications.push_files(
-                project, build, message or "Update checks status", check_remote=set(waiting),
-                blobs=self.checks.state(project)["blobs"])
+                project, build, message or "Update checks status",
+                check_remote={p: state.get("before", {}).get(p) for p in texts},
+                blobs=state["blobs"])
         except Exception as error:  # Saved locally either way; pushed on the next change.
-            state = self.checks.state(project)
-            state["unpushed"] = waiting[-2000:]
-            state["push"] = {"state": "failed", "error": str(error)[:300], "at": time.time()}
-            self.checks.save(project, state)
+            def failed(state):
+                state["unpushed"] = list(dict.fromkeys(state.get("unpushed", []) + waiting))[-2000:]
+                state["push"] = {"state": "failed", "error": str(error)[:300], "at": time.time()}
+            self.checks.update(project, failed)
             self.store.event(project, "draft_push_failed", {"project": project, "error": str(error)[:300]})
             return {"status": "failed", "error": str(error)}
-        state = self.checks.state(project)
         if result["status"] == "disabled":
-            state["unpushed"] = waiting[-2000:]
-            state["push"] = {"state": "local", "at": time.time()}
-            self.checks.save(project, state)
+            def local(state):
+                state["unpushed"] = list(dict.fromkeys(state.get("unpushed", []) + waiting))[-2000:]
+                state["push"] = {"state": "local", "at": time.time()}
+            self.checks.update(project, local)
             return result
         skipped.update(result.get("skipped", {}))
         conflicts = result.get("conflicts", [])
-        state["unpushed"] = [p for p in waiting if p in conflicts]
-        state["blobs"] = result.get("blobs", state["blobs"])
-        state["remote_folders"] = sorted({i["folder"] for i in state["items"].values()})
-        state["push"] = {"state": "saved" if not conflicts else "conflict", "sha": result.get("sha"),
-                         "url": result.get("url"), "at": time.time(), "skipped": skipped, "conflicts": conflicts}
-        self.checks.save(project, state)
+        pushed = set(result.get("files", []))
+
+        def saved(state):
+            # Writes that came in meanwhile stay waiting; what went up doesn't.
+            state["unpushed"] = [p for p in dict.fromkeys(state.get("unpushed", []) + waiting)
+                                 if p not in pushed and p not in skipped or p in conflicts]
+            for path in pushed:
+                state.get("before", {}).pop(path, None)
+            state["blobs"] = {**state["blobs"], **result.get("blobs", {})}
+            state["remote_folders"] = sorted({i["folder"] for i in state["items"].values()})
+            state["push"] = {"state": "saved" if not conflicts else "conflict", "sha": result.get("sha"),
+                             "url": result.get("url"), "at": time.time(), "skipped": skipped, "conflicts": conflicts}
+        self.checks.update(project, saved)
         return result
+
+    def owner_checked(self, project, paths, note=""):
+        """The owner checked these files by hand (for what an assistant can't check)."""
+        from datetime import datetime, timezone
+
+        items = {i["path"]: i for i in self.checks.pending(project) if i["path"] in paths}
+        if not items:
+            return {"passed": [], "failed": [], "left": []}
+        when = datetime.now(timezone.utc)
+        key = hashlib.sha256(json.dumps(sorted(items)).encode()).hexdigest()[:8]
+        name = f"{REPORTS}/{when.strftime('%Y-%m-%d-%H%M%S')}-owner-{key}.md"
+        lines = [f"# Checked by the owner, {when.strftime('%Y-%m-%d %H:%M UTC')}", "",
+                 "The owner checked these files by hand in HA.", "", "| File | SHA-256 |", "| --- | --- |"]
+        lines += [f"| {cell(p)} | {(i.get('sha256') or 'as on GitHub')[:16]} |" for p, i in sorted(items.items())]
+        lines += ["", "## Note", "", " ".join(str(note or "No note.").split())[:2000], ""]
+        outcome = self.checks.finish(project, {p: i.get("sha256") for p, i in items.items()},
+                                     {p: {"verdict": "pass", "findings": "checked by the owner"} for p in items},
+                                     name, "owner")
+        self.sync(project, extra={name: "\n".join(lines)},
+                  message=f"Checked by the owner: {len(outcome['passed'])} file(s)")
+        return {**outcome, "report": name}
 
 
 def blob_sha(text):
