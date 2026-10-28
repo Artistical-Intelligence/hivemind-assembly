@@ -706,6 +706,8 @@ def parse_response(raw, request_id):
         "artifact_return",
         "session_ready",
         "rollout_result",
+        "picture_descriptions",
+        "check_report",
     ):
         raise ContractError("Unsupported response type")
     return data
