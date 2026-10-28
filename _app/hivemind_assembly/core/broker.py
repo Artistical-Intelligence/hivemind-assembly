@@ -443,7 +443,8 @@ class Broker:
             if tool == "write_file" and not str(request["owner"]).startswith("user."):
                 try:
                     draft = self.drafts.after_write(
-                        task, args["path"], request["owner"], file_hash(scoped(root, args["path"]))
+                        task, args["path"], request["owner"], file_hash(scoped(root, args["path"])),
+                        self.store.get("file_intent", request["id"]).get("before"),
                     )
                     if draft:
                         if args["path"] in draft.get("conflicts", []):
