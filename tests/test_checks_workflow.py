@@ -356,3 +356,97 @@ def test_project_rules_reach_any_assistant():
     assert text.startswith("# Mine\n\n" + START) and section(text, START, END, RULES) == text
     repo = Path(__file__).parents[1]
     assert RULES in (repo / "AGENTS.md").read_text() and "AGENTS.md" in (repo / "CLAUDE.md").read_text()
+
+
+# ---------------------------------------------------------------- review findings
+def test_a_binary_file_is_never_sent_as_a_removal(project):
+    c, t, epoch, remote, broker = project
+    remote.edit("assets/logo.txt", "the logo on GitHub\n")
+    root = broker.workspace(t["id"])
+    (root / "assets").mkdir(parents=True, exist_ok=True)
+    (root / "assets" / "logo.txt").write_bytes(b"\x89PNG\xff\xfe binary")
+    broker.drafts.checks.mark(t["project_id"], "assets/logo.txt", "worker.opus", "x")
+    broker.drafts.sync(t["project_id"], changed=["assets/logo.txt"])
+    assert remote.tree()["assets/logo.txt"] == "the logo on GitHub\n"
+    state = broker.drafts.checks.state(t["project_id"])
+    assert "not a text file" in state["push"]["skipped"]["assets/logo.txt"]
+
+
+def test_a_different_file_already_on_github_is_not_overwritten_by_a_first_push(project):
+    c, t, epoch, remote, broker = project
+    result = write(broker, t, epoch, "README.md", "An assistant's readme\n", "w1")
+    assert remote.tree()["README.md"] == "Original readme"
+    assert result["checks"].startswith("pending: not pushed, because someone changed")
+    # Editing the version GitHub has is fine: it's replaced.
+    root = broker.workspace(t["id"])
+    (root / "notes.md").write_text("v1\n")
+    remote.edit("notes.md", "v1\n")
+    import hashlib
+
+    write(broker, t, epoch, "notes.md", "v2\n", "w2", expected=hashlib.sha256(b"v1\n").hexdigest())
+    assert remote.tree()["notes.md"] == "v2\n"
+
+
+def test_a_pass_does_not_clear_a_file_github_has_another_version_of(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "src/sum.c", "one\n", "w1")
+    remote.edit("src/sum.c", "someone else's fix\n")
+    write(broker, t, epoch, "src/sum.c", "two\n", "w2", expected=broker_hash(broker, t, "src/sum.c", "one\n"))
+    team = team_for(c, broker, Checker({}, ROUTES))
+    outcome = asyncio.run(team.independent.run(t["project_id"]))
+    assert outcome["left"] == ["src/sum.c"] and not outcome["passed"]
+    assert "GitHub has a different version" in remote.tree()["src/STATUS.md"]
+    assert [r["item"] for r in parse_ledger(remote.tree()[LEDGER])] == ["src/sum.c"]
+
+
+def test_a_bad_row_written_elsewhere_is_ignored_and_pushing_goes_on(project):
+    c, t, epoch, remote, broker = project
+    remote.edit(LEDGER, "| Item | Folder | Waiting for |\n| --- | --- | --- |\n"
+                        "| ../../evil.md | ../../evil | x |\n| `docs/x.md` | `docs` | y |\n")
+    write(broker, t, epoch, "a.c", "int a;\n", "w1")
+    write(broker, t, epoch, "b.c", "int b;\n", "w2")
+    assert remote.tree()["b.c"] == "int b;\n"
+    pending = {i["path"]: i for i in broker.drafts.checks.pending(t["project_id"])}
+    assert "../../evil.md" not in pending and pending["docs/x.md"]["folder"] == "docs"
+
+
+def test_files_written_outside_ha_are_checked_from_github(project):
+    c, t, epoch, remote, broker = project
+    remote.edit("docs/x.md", "# Notes\n\nWritten in ChatGPT.\n")
+    remote.edit(LEDGER, "| Item | Folder | Waiting for |\n| --- | --- | --- |\n| docs/x.md | docs | check |\n")
+    write(broker, t, epoch, "a.c", "int a;\n", "w1")
+    checker = Checker({}, ROUTES)
+    team = team_for(c, broker, checker)
+    assert team.independent.who(t["project_id"])
+    outcome = asyncio.run(team.independent.run(t["project_id"]))
+    assert set(outcome["passed"]) == {"a.c", "docs/x.md"}
+    assert any(f["text"].startswith("# Notes") for _, body in checker.calls for f in body["files"])
+    assert parse_ledger(remote.tree()[LEDGER]) == []
+
+
+def test_what_no_assistant_can_check_the_owner_can_mark_checked(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "big.txt", "x" * 100_001, "w1")
+    team = team_for(c, broker, Checker({}, ROUTES))
+    outcome = asyncio.run(team.independent.run(t["project_id"]))
+    assert outcome["left"] == ["big.txt"]
+    assert "mark it checked on the Projects page" in broker.drafts.checks.pending(t["project_id"])[0]["note"]
+    done = broker.drafts.owner_checked(t["project_id"], ["big.txt"], "Read it all.")
+    assert done["passed"] == ["big.txt"] and "Read it all." in remote.tree()[done["report"]]
+    assert not broker.drafts.checks.pending(t["project_id"])
+
+
+def test_a_file_marked_during_a_check_keeps_its_marker(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "a.c", "int a;\n", "w1")
+    checker = Checker({}, ROUTES)
+    team = team_for(c, broker, checker)
+    original = checker.exchange
+
+    async def meanwhile(route, message):
+        broker.drafts.checks.mark(t["project_id"], "b.c", "worker.opus", "y")
+        return await original(route, message)
+
+    checker.exchange = meanwhile
+    asyncio.run(team.independent.run(t["project_id"]))
+    assert [i["path"] for i in broker.drafts.checks.pending(t["project_id"])] == ["b.c"]
