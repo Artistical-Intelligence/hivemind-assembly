@@ -1,5 +1,5 @@
 {
-  "version": "0.34.1",
+  "version": "0.35.0",
   "requested_product_complete": false,
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -197,14 +197,43 @@
     "retention_days": 14
   },
   "automated_tests": {
-    "passed": 1026,
-    "skipped": 42,
+    "passed": 1030,
+    "skipped": 43,
     "failed": 0,
-    "elapsed_seconds": 682.92,
+    "elapsed_seconds": 751.91,
     "host": "GitHub Linux Python 3.12",
-    "scope": "Full regression at commit 93c1c22, run 40736659843. Windows: 995 passed/73 skipped in 1498.93s. Local Linux with Chromium and the real meaning-search model: 1056 passed/12 skipped. No live native-model acceptance inferred."
+    "scope": "Full regression at commit 0a1a5e4, run 40760091331. Windows: 999 passed/74 skipped in 1547.10s. Local Linux with Chromium, Tesseract and the real meaning-search model: 1061 passed/12 skipped. No live native-model acceptance inferred."
   },
   "evidence": [
+    {
+      "id": "hosted-ci-0a1a5e4",
+      "date": "2026-10-28",
+      "commit": "0a1a5e4488a8ec4006c177b6fb3ef5dcbb5448dd",
+      "runs": [
+        40760091331
+      ],
+      "host": "GitHub Linux and Windows",
+      "live_model_inference": false,
+      "summary": "All four jobs passed at 0a1a5e4: Linux 1030 passed/43 skipped (751.91s); Windows 999 passed/74 skipped (1547.10s); the Chromium browser fixture; Windows package install, update and restore. Excel workbooks were tested with generated .xlsx/.xlsm files; scanned-page reading with Tesseract stood in for on Windows (its install by winget wasn't run there)."
+    },
+    {
+      "id": "local-suite-0a1a5e4",
+      "date": "2026-10-28",
+      "commit": "0a1a5e4488a8ec4006c177b6fb3ef5dcbb5448dd",
+      "runs": [],
+      "host": "Linux x86-64 local (Python 3.12, Playwright Chromium, Tesseract 5.3.4)",
+      "live_model_inference": false,
+      "summary": "Full local suite: 1061 passed/12 skipped (1269 s) with WORKBENCH_TEST_CHROME and the real meaning-search model, including a real Tesseract read of a generated scanned PDF page."
+    },
+    {
+      "id": "reference-import-live-2026-10-28",
+      "date": "2026-10-28",
+      "commit": "0a1a5e4488a8ec4006c177b6fb3ef5dcbb5448dd",
+      "runs": [],
+      "host": "Linux x86-64 local; GitHub over this session's Git sign-in",
+      "live_model_inference": false,
+      "summary": "HA's GitHub import of the owner's private reference repository (its commit 0da1a55): 3,163 documents imported, 0 failed, in 103.9 s; 483 skipped with reasons, none of them spreadsheets now. Its one Excel workbook became 34 sections with 33 tables and no gaps; its 6 PDFs have text on every page (0 scanned pages). Counts only."
+    },
     {
       "id": "hosted-ci-93c1c22",
       "date": "2026-10-28",
