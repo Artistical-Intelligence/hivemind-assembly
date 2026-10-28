@@ -853,3 +853,27 @@ def test_a_large_file_changed_on_github_after_its_check_waits_for_its_own(projec
     asyncio.run(team_for(c, broker, checker).independent.run(t["project_id"]))
     assert "CHECKS PENDING: data.json" in remote.tree()[STATUS]
     assert "data.json" in {i["path"] for i in broker.drafts.checks.pending(t["project_id"])}
+
+
+def test_ha_replacing_its_own_large_file_is_not_called_someone_elses_change(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "data.json", "[1]\n", "w1")
+    real_git = remote.git
+    state = {"fail": False}
+
+    def large(owner, name, method, endpoint, data=None):
+        if state["fail"] and method == "GET" and endpoint.startswith("contents/data.json?"):
+            state["fail"] = False
+            raise GitHubError(502)
+        reply = real_git(owner, name, method, endpoint, data)
+        if method == "GET" and endpoint.startswith("contents/data.json?"):
+            return {**reply, "encoding": "none", "content": ""}
+        return reply
+
+    remote.git = large
+    state["fail"] = True
+    write(broker, t, epoch, "data.json", "[1, 2]\n", "w2", expected=broker_hash(broker, t, "data.json", "[1]\n"))
+    assert remote.tree()["data.json"] == "[1]\n"  # That push failed.
+    asyncio.run(team_for(c, broker, Checker({}, ROUTES)).independent.run(t["project_id"]))
+    assert remote.tree()["data.json"] == "[1, 2]\n"
+    assert not broker.drafts.checks.pending(t["project_id"]) and STATUS not in remote.tree()
