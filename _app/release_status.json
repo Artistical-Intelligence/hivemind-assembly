@@ -1,5 +1,5 @@
 {
-  "version": "0.32.0",
+  "version": "0.33.0",
   "requested_product_complete": false,
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -44,7 +44,10 @@
     "project_reconstruction": "Source-known Stop 3 suite at 0c475a2: x86-64 utility with four recovered regions and original pack; AArch64 original reconstructed as complete x86-64 program with cross-ABI function checks; game state/frame/audio target with original rendering. Thirteen incorrect alternatives rejected, eight only by whole-program composition/replay. Composed utility ran natively on x86-64 Linux with identical output. Worker path restored a regressed source from its verified snapshot and passed protected linux_project acceptance. Local full suite 805 passed/18 skipped. No model inference.",
     "ghidra_project_plan": "Fresh pinned installations (Ghidra 12.1.4, REA 6.7.0, Hermes c0015464f0f4) passed all foundation checks including project_plan: actual Ghidra context_callgraph pages of the compiled utility (30 functions) planned and composed with pack and runtime functions on original code. Linux x86-64 local host and hosted Windows run 39650087898. No model inference.",
     "github_ci_0_25": "Implementation 0c475a2 passed all four jobs in run 39650550445 (Windows contracts after one rerun of a native compile timeout in test_native_compiled_reconstruction): Linux 807 passed/18 skipped (650.98s); Windows 788 passed/37 skipped (1233.12s); fifteen native Windows checks (29.27s); ten Chromium checks (106.54s); Windows package install/update/restore. Hosted Windows foundations run 39650087898 passed including project_plan.",
-    "game_play_testing": "Version 0.26.0 adds deterministic game play-testing. Stepped play matched program.replay streams, exit status, input consumption and instruction counts on x86-64 and AArch64 builds with 1-, 2- and 64-byte feeds, and function-entry coverage on the existing game target; faults, clock reads, rdtsc, event limits, per-tick freezes, total budgets, cancellation and out-of-order snapshot restores were exercised. On the source-known Coin cavern example the scripted route and the floor-gap quirk passed as regressions (quirk classified as original behavior); seeded differential exploration found the platform-edge divergence, shrinking reduced it to at most ten inputs and confirmed it on fresh engines; after that fix exploration found the spike freeze; after both fixes a 200-step exploration found nothing and pinned game_play checks passed, having reported divergence and freeze before. Cancelled and bounded runs are inconclusive, never a pass. A native lane plays real Godot 4 projects and Linux SDL2 programs through in-process adapters with fixed frame steps, virtual clocks, seeded operating-system randomness (including Rust GDExtensions) and HA-only input, after the owner enables trusted native execution; determinism is probed by launching each side twice. dev/check_real_games.py played Godot's Dodge the Creeps demo and its godot-rust port, Ubuntu's Chromium B.S.U. (C++) against a rebuild and a planted defect, and sokoban-rs (Rust) against a planted defect; see the real-games evidence entry. Worker operations ran through Broker.execute with PNG task artifacts and fixture upload bindings; a real Chromium run exercised the dashboard panel. No signed-in model played a game; no hardware timing is claimed."
+    "game_play_testing": "Version 0.26.0 adds deterministic game play-testing. Stepped play matched program.replay streams, exit status, input consumption and instruction counts on x86-64 and AArch64 builds with 1-, 2- and 64-byte feeds, and function-entry coverage on the existing game target; faults, clock reads, rdtsc, event limits, per-tick freezes, total budgets, cancellation and out-of-order snapshot restores were exercised. On the source-known Coin cavern example the scripted route and the floor-gap quirk passed as regressions (quirk classified as original behavior); seeded differential exploration found the platform-edge divergence, shrinking reduced it to at most ten inputs and confirmed it on fresh engines; after that fix exploration found the spike freeze; after both fixes a 200-step exploration found nothing and pinned game_play checks passed, having reported divergence and freeze before. Cancelled and bounded runs are inconclusive, never a pass. A native lane plays real Godot 4 projects and Linux SDL2 programs through in-process adapters with fixed frame steps, virtual clocks, seeded operating-system randomness (including Rust GDExtensions) and HA-only input, after the owner enables trusted native execution; determinism is probed by launching each side twice. dev/check_real_games.py played Godot's Dodge the Creeps demo and its godot-rust port, Ubuntu's Chromium B.S.U. (C++) against a rebuild and a planted defect, and sokoban-rs (Rust) against a planted defect; see the real-games evidence entry. Worker operations ran through Broker.execute with PNG task artifacts and fixture upload bindings; a real Chromium run exercised the dashboard panel. No signed-in model played a game; no hardware timing is claimed.",
+    "large_files_backup": "Version 0.33.0: folder backups put files over GitHub's 100 MiB limit in the repository's large-files release, as assets named with the first 12 characters of the file's SHA-256 (numbered parts of about 1.9 GiB from 2 GiB up), list them in LARGE_FILES.json with earlier versions, and add PowerShell and Python restore scripts. Checked with lowered limits against a stand-in release API and a local Git remote: single assets and parts, byte-identical restores (the token is dropped on the redirect to storage), new assets for a changed file with the old ones kept, re-uploads only of missing or wrong-size assets, files waiting without a sign-in, a file growing past the limit and Git LFS turned off moving to release assets, restore scripts refusing paths outside their folder, and Git LFS with a local remote. Nothing was uploaded to GitHub itself.",
+    "repository_visibility": "Assistants may create public repositories; Settings, GitHub, New repositories are: Private / Public applies when neither the owner nor the assistant says, and the activity log records who chose. A visibility change made on GitHub is followed with a latest-wins record, saving continues, and the project and activity log say so; folder backups record the visibility seen on each upload. Identity, ID, write access and not-archived checks are unchanged and a replacement repository is never adopted. Checked with stand-ins only.",
+    "reference_material": "Word files split at Heading 1-3 into sections with Markdown tables, pictures as separate images with captions or alt text (a picture never marks a document partly read or blocks a task), and links per section; whole folders and GitHub repositories imported with every skipped file and its reason, categories from front matter or folder names, replacement on re-import, Update from GitHub and an optional schedule; links aren't followed and HA's own data is skipped; permission changes apply to every copy at once. SQLite FTS5 ranked search, lookup by title and other names, and five assistant tools limited to the project's categories, with grants covering every source an answer uses. Vector search not added (see the live import evidence). Tool use and picture descriptions were checked with fixture responses, not live assistants."
   },
   "native_live_acceptance": {
     "validated_routes": 0,
@@ -57,7 +60,8 @@
     "Extend bounded x86-64/AArch64 function and static/dynamic Linux application lanes to broader Windows/game/graphics effects and target-level equivalence.",
     "Resolve any provider-specific adapter gaps identified by signed-in account validation; current ambiguous controls remain blocked.",
     "Extend MCP onboarding where provider-specific requires additional integration; standard HTTP OAuth setup is implemented, with live account consent and tunnel authorization still acceptance gates.",
-    "Game play-testing beyond the current lanes: Windows and macOS native adapters, exported Godot binaries, other engines, pointer, touch and controller input, native audio capture, dynamic ELF stepping and measured learned navigation skills."
+    "Game play-testing beyond the current lanes: Windows and macOS native adapters, exported Godot binaries, other engines, pointer, touch and controller input, native audio capture, dynamic ELF stepping and measured learned navigation skills.",
+    "Import old Office formats (.doc, .xls, .ppt), spreadsheets, slides and text in scanned PDF pages; they are listed as skipped or as gaps."
   ],
   "remaining_acceptance": [
     "Live GitHub browser registration/device authorization and all five exact native routes.",
@@ -67,7 +71,9 @@
     "Run the managed native workflow through HA using a live authorized account with a configured spending boundary; review representative Linux/Windows target recipes and retained artifacts.",
     "Run the Stop 3 suite through a live native team with Ghidra-produced plans; broader application targets beyond the fixed suite remain separate scope.",
     "Measure native learning gains on the HumanEval-Decompile holdout once live routes exist.",
-    "Play-test the Coin cavern example and a real game through a live native worker route (describe_game, play_game, test_game) with frame attachments, and retain the evidence."
+    "Play-test the Coin cavern example and a real game through a live native worker route (describe_game, play_game, test_game) with frame attachments, and retain the evidence.",
+    "Back up a real folder with a file over 100 MiB to GitHub as release assets (and once with Git LFS), restore it with both scripts, and follow a visibility change made on GitHub; so far only stand-ins and local Git remotes.",
+    "Use the reference tools and the adviser's picture descriptions with signed-in assistants; so far only fixture responses."
   ],
   "model_api_inference": false,
   "paid_overage": false,
@@ -191,14 +197,43 @@
     "retention_days": 14
   },
   "automated_tests": {
-    "passed": 915,
-    "skipped": 20,
+    "passed": 1017,
+    "skipped": 41,
     "failed": 0,
-    "elapsed_seconds": 620.13,
+    "elapsed_seconds": 875.02,
     "host": "GitHub Linux Python 3.12",
-    "scope": "Full regression at commit 7c35caa, run 39808320013. Windows: 887 passed/48 skipped in 1241.11s. No live native-model acceptance inferred."
+    "scope": "Full regression at commit 9e2cc54, run 40593247172. Windows: 986 passed/72 skipped in 1382.46s. Local Linux with Chromium: 1046 passed/12 skipped, 20 dashboard browser tests. No live native-model acceptance inferred."
   },
   "evidence": [
+    {
+      "id": "reference-import-live-2026-10-27",
+      "date": "2026-10-27",
+      "commit": "d762a7f696c16e1c5013d43c959591395ada00d1",
+      "runs": [],
+      "host": "Linux x86-64 local; GitHub over this session's Git sign-in, not HA's GitHub connection",
+      "live_model_inference": false,
+      "summary": "HA's GitHub import of the owner's private reference repository (its commit bf3e723): 2,367 documents imported and 0 failed in 46.2 s, 422 skipped with their reasons (7 archives, 328 binary files, 85 pictures no document shows, 1 spreadsheet, Git's records); 73,301 sections, 1,289 tables, 104 pictures. The Word textbook became 3,270 sections with 487 tables and 7,874 links (4,349 inside the book resolved) and no gaps; it has no embedded pictures. Lookup by a heading found it; importing again said Already up to date with GitHub in 1.5 s. On 20 plain-language questions an expected section came first for 11 and in the top 3 for 15; a second search with the material's own terms found 4 of the 5 misses. Counts only: none of the repository's content is recorded here."
+    },
+    {
+      "id": "hosted-ci-9e2cc54",
+      "date": "2026-10-27",
+      "commit": "9e2cc549045fabb7e28445e1675f661226c6f1f1",
+      "runs": [
+        40593247172
+      ],
+      "host": "GitHub Linux and Windows",
+      "live_model_inference": false,
+      "summary": "All four jobs passed at 9e2cc54: Linux 1017 passed/41 skipped (875.02s); Windows 986 passed/72 skipped (1382.46s), including both PowerShell restore tests in Windows PowerShell, Git LFS with a local remote, restore path checks with links, and the reference-material permission test that deletes the imported folder; fifteen native Windows checks; the Chromium browser fixture; Windows package install, update and restore. Large files, visibility changes and GitHub imports ran against stand-ins and local Git remotes only."
+    },
+    {
+      "id": "local-suite-9e2cc54",
+      "date": "2026-10-27",
+      "commit": "9e2cc549045fabb7e28445e1675f661226c6f1f1",
+      "runs": [],
+      "host": "Linux x86-64 local (Python 3.12, Playwright Chromium)",
+      "live_model_inference": false,
+      "summary": "Full local suite: 1046 passed/12 skipped (1087 s) with WORKBENCH_TEST_CHROME set, including 20 Chromium dashboard tests, and the DOM fixture. Large files as release assets, both restore scripts, Git LFS, visibility following and GitHub imports ran against a stand-in release API and local Git remotes only. The PowerShell restore tests skip here (no PowerShell); they ran in Windows PowerShell in the hosted run."
+    },
     {
       "id": "hosted-ci-7c35caa",
       "date": "2026-10-22",
