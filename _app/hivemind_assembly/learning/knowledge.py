@@ -208,6 +208,18 @@ class Knowledge:
         db.execute("DELETE FROM knowledge_vector_sources WHERE source=?", (key,))
 
     # ---------------------------------------------------------------- import
+    def mark_checks_pending(self, source, pending):
+        """Flag a document its repository marks as not yet independently checked."""
+        row = self.store.rows("SELECT extraction FROM sources WHERE id=?", (source,))
+        if not row:
+            return
+        extraction = json.loads(row[0]["extraction"] or "{}")
+        if bool(extraction.get("checks_pending")) == bool(pending):
+            return
+        extraction["checks_pending"] = bool(pending)
+        with self.store.tx() as db:
+            db.execute("UPDATE sources SET extraction=? WHERE id=?", (canonical(extraction), source))
+
     def waiting_for_ocr(self, sources):
         """Whether any of these documents has scanned pages that Tesseract, now installed, can read."""
         if not sources or not documents.tesseract():
@@ -493,6 +505,16 @@ class Knowledge:
                 "score": round(score, 3),
             }
             hits.append(hit)
+        if hits:
+            # Drafts their repository still marks "checks pending" say so.
+            drafts = {r["id"] for r in self.store.rows(
+                "SELECT id FROM sources WHERE id IN (SELECT value FROM json_each(?)) "
+                "AND json_extract(extraction,'$.checks_pending')=1",
+                (json.dumps(sorted({h["source"] for h in hits})),),
+            )}
+            for hit in hits:
+                if hit["source"] in drafts:
+                    hit["checks_pending"] = True
         return hits
 
     def _with_meaning(self, query, allowed, found, fetch):
