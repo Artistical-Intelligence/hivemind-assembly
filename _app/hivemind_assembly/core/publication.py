@@ -417,7 +417,9 @@ class Publications:
         before any review. build(read) returns {path: text, or None to remove it};
         read(path) gives the file's text on GitHub now, so marker files merge with
         what others wrote there. Files in check_remote aren't overwritten when someone
-        changed them on GitHub since HA last pushed them. Never forced; the usual
+        changed them on GitHub: check_remote maps each to the SHA-256 the file had before
+        the assistant changed it, and GitHub's copy is replaced only when it is that
+        version, or what HA pushed last. Assistants' files are never removed. Never forced; the usual
         filters for passwords, keys, protected data and private reference text apply."""
         if not self.enabled(project):
             return {"status": "disabled", "reason": "No verified repository, or automatic saving is off"}
@@ -469,11 +471,13 @@ class Publications:
                     skipped[path] = str(error)
                     continue
                 if path in check_remote:
-                    read(path)
+                    remote_text = read(path)
                     remote = seen[path][1]
-                    if remote and path in blobs and remote not in (blobs[path], blob_sha(text)):
-                        conflicts.append(path)
-                        continue
+                    if remote_text is not None and remote not in (blobs.get(path), blob_sha(text)):
+                        before = check_remote.get(path)
+                        if before is None or hashlib.sha256(remote_text.encode("utf-8")).hexdigest() != before:
+                            conflicts.append(path)
+                            continue
                 entries.append({"path": path, "mode": "100644", "type": "blob", "content": text})
             if not entries:
                 return {"status": "unchanged", "sha": head, "skipped": skipped, "conflicts": conflicts}
@@ -500,7 +504,8 @@ class Publications:
                     sha = commit["sha"]
             if client.head(row["owner"], row["name"], branch) != sha:
                 raise Conflict("GitHub's branch moved while saving; HA will try again")
-            pushed = [p for p, t in files.items() if p not in skipped and p not in conflicts]
+            sent = {e["path"] for e in entries} | ({first["path"]} if head is None and first else set())
+            pushed = [p for p in files if p in sent]
             for path in pushed:
                 if files[path] is None:
                     blobs.pop(path, None)
@@ -517,6 +522,30 @@ class Publications:
                 "url": f"https://github.com/{row['owner']}/{row['name']}/commit/{sha}",
                 "blobs": blobs,
             }
+
+    def read_text(self, project, path):
+        """A text file as it is on GitHub now, or None (no repository, or no such file)."""
+        if not self.enabled(project):
+            return None
+        with self.repositories.lock:
+            row = self.repositories._row(project)
+            self.repositories._identity(row)
+            client = self.repositories.client
+            repo = client.lookup(row["owner"], row["name"])
+            self.repositories._validate(row, repo)
+            head = client.head(row["owner"], row["name"], repo.get("default_branch", "main"))
+            if head is None:
+                return None
+            try:
+                data = client.git(row["owner"], row["name"], "GET",
+                                  "contents/" + quote(path, safe="/") + "?ref=" + quote(head, safe=""))
+            except Blocked as error:
+                if getattr(error, "status", None) == 404:
+                    return None
+                raise
+            if data.get("type") != "file" or data.get("encoding") != "base64":
+                return None
+            return base64.b64decode(data.get("content", "")).decode("utf-8")
 
     def uncertain(self, operation):
         return self._load("publication_intent", operation) is not None
