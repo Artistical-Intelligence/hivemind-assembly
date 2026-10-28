@@ -94,7 +94,7 @@ def managed(path):
 def safe_path(path):
     """A plain relative path inside the repository (rows written by others can be anything)."""
     p = PurePosixPath(path)
-    return bool(path) and not p.is_absolute() and "\\" not in path and ":" not in path and ".." not in p.parts \
+    return bool(path) and path not in (".", "./") and not p.is_absolute() and "\\" not in path and ":" not in path and ".." not in p.parts \
         and not any(part.startswith(".") for part in p.parts) and len(path) <= 500
 
 
@@ -207,6 +207,7 @@ class Checks:
             "recent": state["checked"][:20],
             "push": state["push"],
             "last_run": state.get("last_run"),
+            "kept_local": state.get("kept_local", {}),
         }
 
     def name(self, route):
@@ -301,7 +302,7 @@ class Checks:
             if item.get("sha256") not in (None, sha):
                 item.update(state="pending", note="check again: the file changed after it was given to the checker")
                 left.append(path)
-            elif result and result["verdict"] == "pass" and path in state.get("unpushed", []):
+            elif result and result["verdict"] == "pass" and path in state.get("conflicts", []):
                 # GitHub has another version of it (changed there); that one isn't checked.
                 item.update(state="pending", note=f"this copy passed (see {report}), but GitHub has a different "
                             "version someone changed there; reconcile the two, then check again")
@@ -485,12 +486,29 @@ class Drafts:
         return self.sync(project, changed=[path],
                          message=f"{path}: written by {self.checks.name(writer)}, checks pending")
 
+    def report_text(self, path, text):
+        """A check report as it may go to GitHub: if it quotes private reference text or
+        something like a key, GitHub gets a short version; the full one stays here."""
+        try:
+            self.publications._safe_text(path, text.encode("utf-8"))
+            return text
+        except Exception as error:
+            head = text.split("## Findings", 1)[0].rstrip()
+            return (head + "\n\n## Findings\n\nThe findings are kept only in the project's folder on the "
+                    f"owner's computer: they can't go to GitHub ({error}).\n")
+
     def sync(self, project, changed=(), extra=None, message=None):
         """Write the markers locally, then push the changed files, anything that
-        couldn't be pushed before, and the markers in one commit. The state lock is
-        held only for local work, never while GitHub is called."""
+        couldn't be pushed before, check reports not yet on GitHub and the markers in
+        one commit. The state lock is held only for local work, never while GitHub is
+        called."""
         root = self.workspace(project)
         self.checks.write_local(project, root, extra)
+        if extra:
+            # Queued first: a report always goes up with (or before) its markers' removal.
+            def queue(state):
+                state.setdefault("unpushed_extra", {}).update(extra)
+            self.checks.update(project, queue)
         state = self.checks.state(project)
         waiting = list(dict.fromkeys(list(state.get("unpushed", [])) + list(changed)))
         if not self.publications:
@@ -504,48 +522,56 @@ class Drafts:
                     texts[path] = p.read_text("utf-8")
             except UnicodeDecodeError:
                 # Never sent as a removal: GitHub's copy, if any, stays as it is.
-                skipped[path] = "not a text file; it stays on this computer"
+                skipped[path] = "not a text file"
+        reports = {path: self.report_text(path, text) for path, text in state.get("unpushed_extra", {}).items()}
 
         def build(read):
             files = dict(texts)
             files.update(self.checks.files(project, read, remote=True))
-            files.update(extra or {})
+            files.update(reports)
             return files
+
+        def keep(state, status, **push):
+            state["unpushed"] = list(dict.fromkeys(state.get("unpushed", []) + waiting))[-2000:]
+            state["push"] = {"state": status, "at": time.time(), **push}
 
         try:
             result = self.publications.push_files(
                 project, build, message or "Update checks status",
                 check_remote={p: state.get("before", {}).get(p) for p in texts},
-                blobs=state["blobs"])
-        except Exception as error:  # Saved locally either way; pushed on the next change.
-            def failed(state):
-                state["unpushed"] = list(dict.fromkeys(state.get("unpushed", []) + waiting))[-2000:]
-                state["push"] = {"state": "failed", "error": str(error)[:300], "at": time.time()}
-            self.checks.update(project, failed)
+                blobs=state["blobs"], required=set(reports))
+        except Exception as error:  # Saved locally either way; pushed with the next change.
+            self.checks.update(project, lambda state: keep(state, "failed", error=str(error)[:300]))
             self.store.event(project, "draft_push_failed", {"project": project, "error": str(error)[:300]})
-            return {"status": "failed", "error": str(error)}
-        if result["status"] == "disabled":
-            def local(state):
-                state["unpushed"] = list(dict.fromkeys(state.get("unpushed", []) + waiting))[-2000:]
-                state["push"] = {"state": "local", "at": time.time()}
-            self.checks.update(project, local)
-            return result
+            return {"status": "failed", "error": str(error), "skipped": skipped}
+        if result["status"] in ("disabled", "refused"):
+            self.checks.update(project, lambda state: keep(
+                state, "local" if result["status"] == "disabled" else "failed", error=result.get("reason", "")))
+            return {**result, "skipped": {**skipped, **result.get("skipped", {})}}
         skipped.update(result.get("skipped", {}))
         conflicts = result.get("conflicts", [])
         pushed = set(result.get("files", []))
+        removed = {folder_of(p) for p in result.get("removed", []) if PurePosixPath(p).name == STATUS}
 
         def saved(state):
-            # Writes that came in meanwhile stay waiting; what went up doesn't.
+            # Writes that came in meanwhile stay waiting; what went up doesn't. Files the
+            # filter keeps off GitHub stay on this computer and say so.
             state["unpushed"] = [p for p in dict.fromkeys(state.get("unpushed", []) + waiting)
                                  if p not in pushed and p not in skipped or p in conflicts]
+            state["conflicts"] = sorted((set(state.get("conflicts", [])) - pushed) | set(conflicts))
+            local = {**state.get("kept_local", {}), **{p: r for p, r in skipped.items() if p in waiting}}
+            state["kept_local"] = {p: r for p, r in local.items() if p not in pushed}
             for path in pushed:
                 state.get("before", {}).pop(path, None)
+                state.get("unpushed_extra", {}).pop(path, None)
             state["blobs"] = {**state["blobs"], **result.get("blobs", {})}
-            state["remote_folders"] = sorted({i["folder"] for i in state["items"].values()})
+            # A folder is forgotten only once its STATUS.md is gone from GitHub.
+            state["remote_folders"] = sorted(
+                (set(state.get("remote_folders", [])) - removed) | {i["folder"] for i in state["items"].values()})
             state["push"] = {"state": "saved" if not conflicts else "conflict", "sha": result.get("sha"),
                              "url": result.get("url"), "at": time.time(), "skipped": skipped, "conflicts": conflicts}
         self.checks.update(project, saved)
-        return result
+        return {**result, "skipped": skipped}
 
     def owner_checked(self, project, paths, note=""):
         """The owner checked these files by hand (for what an assistant can't check)."""
