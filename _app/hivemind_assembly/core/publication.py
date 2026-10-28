@@ -473,7 +473,12 @@ class Publications:
                     skipped[path] = str(error)
                     continue
                 if path in check_remote:
-                    remote_text = read(path)
+                    try:
+                        remote_text = read(path)
+                    except Exception:
+                        # A folder, or a file too large to compare, there now: not overwritten.
+                        conflicts.append(path)
+                        continue
                     remote = seen[path][1]
                     if remote_text is not None and remote not in (blobs.get(path), blob_sha(text)):
                         before = check_remote.get(path)
