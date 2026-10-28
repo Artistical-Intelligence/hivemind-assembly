@@ -4,6 +4,8 @@ from pathlib import Path
 
 # Never register HA's Chrome helper into the real browser profile during tests.
 os.environ["HA_SKIP_HELPER_REGISTRATION"] = "1"
+# Tests attach their own meaning index; none downloads the model in the background.
+os.environ["HA_MEANING_SEARCH"] = "0"
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "_app"))
 import pytest
