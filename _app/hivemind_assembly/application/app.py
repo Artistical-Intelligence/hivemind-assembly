@@ -353,6 +353,9 @@ class Application:
                 await asyncio.sleep(1)
             else:
                 raise Blocked("HA's connection didn't start within 3 minutes. Check this computer's internet connection.")
+        except asyncio.CancelledError:
+            auto.report(provider, "manual", "Connection setup was interrupted. Select Create HA MCP to retry.")
+            raise
         except Exception as exc:
             auto.report(provider, "manual", str(exc) or type(exc).__name__)
             return
