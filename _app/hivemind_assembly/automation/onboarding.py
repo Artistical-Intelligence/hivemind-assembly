@@ -15,6 +15,7 @@ from hivemind_assembly.core.common import (
     canonical,
     uid,
 )
+from .native import DeliveryPending
 from .policy import Availability, Window, validate_config
 from .providers import CONTRACTS, discover, conversation_url
 
@@ -273,6 +274,7 @@ class NativeSetup:
             )
 
     async def run(self, route):
+        unconfirmed = 0
         while True:
             try:
                 result = await self.step(route)
@@ -285,6 +287,20 @@ class NativeSetup:
                     self.team.block_allowance(error.route or route, str(error))
                 result = self.save(
                     route, stage="waiting_quota", instruction=str(error)
+                )
+            except DeliveryPending as error:
+                # Each exchange observes the existing send for up to 30 seconds.
+                # Bound automatic retries; never recreate or resend the request.
+                unconfirmed += 1
+                if unconfirmed >= 3:
+                    await self.snapshot(route, force=True)
+                    return self.save(
+                        route, stage="attention",
+                        instruction="The existing request could not be confirmed after three checks. "
+                        "Its saved state is retained and it has not been resent. Open Show tab to inspect the conversation.",
+                    )
+                result = self.save(
+                    route, stage="waiting_delivery", instruction=str(error)
                 )
             except Retryable as error:
                 result = self.save(
