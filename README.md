@@ -1192,6 +1192,7 @@ explicit runtime contract, not proof of arbitrary Windows application equivalenc
 
 | Evidence | Commit | Runs | Host | Model inference |
 | --- | --- | --- | --- | --- |
+| workflow-context-0.37.0 (2026-10-29) | `512802e` | local | local Linux | no |
 | hosted-ci-a9813a0 (2026-10-28) | `a9813a0` | [40780070811](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/40780070811) | GitHub Linux and Windows | no |
 | local-suite-85974a3 (2026-10-28) | `a9813a0` | local | Linux x86-64 local (Python 3.12, Playwright Chromium, Tesseract 5.3.4) | no |
 | checks-workflow-reviews-2026-10-28 (2026-10-28) | `a9813a0` | local | Linux x86-64 local | no |
@@ -1222,6 +1223,7 @@ explicit runtime contract, not proof of arbitrary Windows application equivalenc
 | ghidra-project-plan (2026-10-21) | `5a35215` | 39650087898 (log removed) | Fresh Linux x86-64 install and hosted Windows | no |
 | baseline-suite-cc17bf1 (2026-10-21) | `cc17bf1` | 39632598272 (log removed) | GitHub Linux and Windows | no |
 
+- **workflow-context-0.37.0** (`512802e`): Version 0.37.0: evidence-based local resume, checks-first scheduling, focused briefs and model-requested fresh chats passed the complete local suite: 826 passed, 333 skipped. Focused native workflow/session tests passed 66 cases; independent review passed, including crash replay, changed files after reset and owner setting changes during renewal. Source permissions, exact native identity, existing writer/operation recovery, learning and independent/root acceptance remain required. Clear requests fall back to new chats; no service clearing action or signed-in native reset was verified. No new operational performance log. Hosted Windows/Linux/browser/package and release checks remain separate gates.
 - **hosted-ci-a9813a0** (`a9813a0`): All four jobs passed at a9813a0: Linux 1075 passed/43 skipped (871.71s); Windows 1044 passed/74 skipped (1805.48s); the Chromium browser fixture; Windows package install, update and restore. Push early, check later was tested with stand-ins for GitHub and the assistants only.
 - **local-suite-85974a3** (`a9813a0`): Full local suite at 85974a3 (a9813a0 changes only test encodings and the gate script's decoding): 1106 passed/12 skipped (1127 s) with WORKBENCH_TEST_CHROME and the real meaning-search model.
 - **checks-workflow-reviews-2026-10-28** (`a9813a0`): Push early, check later was checked by nine independent reviews, each a separate Claude session with a fresh context that saw only the request, the code and earlier reports (checks/2026-10-28-push-early-review-1.md to -9.md). Reviews 1-7 failed and their findings were fixed with tests; review 8 passed with minor fail-safe findings, whose follow-ups review 9 passed. Not established: a live check by a signed-in ChatGPT of a Claude-written file, or draft pushes to a real GitHub repository.
