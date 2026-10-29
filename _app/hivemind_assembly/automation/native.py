@@ -22,14 +22,48 @@ def marker_pattern(marker):
     return re.compile(r"(?:^|\s)" + re.escape(marker) + r"(?:\s|$)")
 
 
+# Provider selectors may match a message wrapper and its nested bubble. Keep the
+# outer matching node once, in DOM order; never merge separate sibling messages.
+# Use the same message boundaries for delivery, replies and restart recovery.
+MESSAGE_NODES = """const messageNodes = selector => {
+    const nodes = [...document.querySelectorAll(selector)];
+    return nodes.filter(e => !nodes.some(parent => parent !== e && parent.contains(e)));
+};
+"""
+REQUEST_ECHO = """({users, marker}) => {
+""" + MESSAGE_NODES + """
+return messageNodes(users).filter(e => e.innerText.split(/\\s+/).includes(marker))
+    .map(e => e.innerText);
+}"""
+
+
+async def request_echo(page, users, marker):
+    texts = await page.evaluate(REQUEST_ECHO, {"users": users, "marker": marker})
+    if len(texts) > 1:
+        raise Blocked("Duplicate request marker in separate messages; delivery quarantined")
+    return texts[0] if texts else None
+
+
+async def wait_request_echo(page, users, marker, timeout=30):
+    deadline = time.monotonic() + timeout
+    while True:
+        text = await request_echo(page, users, marker)
+        if text is not None:
+            return text
+        if time.monotonic() >= deadline:
+            raise Retryable("Request acknowledgement pending; checking the existing send without resending")
+        await asyncio.sleep(min(0.5, max(0, deadline - time.monotonic())))
+
+
 # The assistant replies after one request, by DOM turn order between that user turn and
 # the next one; a reply that is only a rendered code block yields its code, fenced.
 REPLIES = """({users, assistants, marker}) => {
-const u=[...document.querySelectorAll(users)];
+""" + MESSAGE_NODES + """
+const u=messageNodes(users);
 const hit=u.filter(e=>e.innerText.split(/\\s+/).includes(marker));
 if(hit.length!==1) return [];
 const start=hit[0], next=u[u.indexOf(start)+1];
-return [...document.querySelectorAll(assistants)].filter(e=>
+return messageNodes(assistants).filter(e=>
     !!(start.compareDocumentPosition(e)&Node.DOCUMENT_POSITION_FOLLOWING) &&
     (!next || !!(e.compareDocumentPosition(next)&Node.DOCUMENT_POSITION_FOLLOWING)))
     .map(e=>{
@@ -408,20 +442,16 @@ class NativeBrowser:
                 envelope = (
                     marker + "\n" + canonical({"request_id": message["id"], **payload})
                 )
-                users = page.locator(s["user_messages"])
-                # Whole-token match: one request ID may be a prefix of another.
-                echoes = users.filter(has_text=marker_pattern(marker))
-                exists = await echoes.count()
+                # Count logical messages, not all matching wrapper/bubble nodes.
+                delivered = await request_echo(page, s["user_messages"], marker)
+                exists = delivered is not None
                 state = message["state"]
-                if exists > 1:
-                    raise Blocked("Duplicate request marker; delivery quarantined")
                 if (
                     state in ("dispatching", "delivery_uncertain", "received", "processing")
                     and not exists
                 ):
-                    raise Blocked(
-                        "Prior delivery uncertain; request will not be resent automatically"
-                    )
+                    delivered = await wait_request_echo(page, s["user_messages"], marker)
+                    exists = True
                 if not exists:
                     if state != "prepared":
                         raise Blocked("Message has no safe dispatch state")
@@ -455,11 +485,19 @@ class NativeBrowser:
                             )
                         else:
                             await page.locator(s["send"]).click()
-                        await echoes.wait_for(state="visible", timeout=30000)
+                    except asyncio.CancelledError:
+                        self.controller.message_state(message["id"], "delivery_uncertain")
+                        raise
+                    except Exception:
+                        # A click/tool timeout can happen after submission. Observe
+                        # the result of this exact intent; never dispatch a second time.
+                        self.controller.message_state(message["id"], "delivery_uncertain")
+                    try:
+                        delivered = await wait_request_echo(page, s["user_messages"], marker)
                     except BaseException:
                         self.controller.message_state(message["id"], "delivery_uncertain")
                         raise
-                delivered = (await echoes.inner_text()).replace("\r\n", "\n")
+                delivered = delivered.replace("\r\n", "\n")
                 if envelope not in delivered:
                     self.controller.message_state(message["id"], "delivery_uncertain")
                     raise Blocked(
@@ -525,7 +563,8 @@ class NativeBrowser:
                 )
             completed_here = await page.evaluate(
                 """({users, assistants, complete, marker}) => {
-                const us=[...document.querySelectorAll(users)];
+                """ + MESSAGE_NODES + """
+                const us=messageNodes(users);
                 const hit=us.filter(e=>e.innerText.split(/\\s+/).includes(marker));
                 if(hit.length!==1)return false;
                 const start=hit[0], next=us[us.indexOf(start)+1];
