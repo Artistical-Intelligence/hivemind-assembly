@@ -164,3 +164,47 @@ def test_reset_rejects_native_identity_change(store):
     with pytest.raises(Blocked, match="native identity"):
         asyncio.run(reset_context(team, task, team.flow(task["id"]), task["owner"], {}, request()))
     assert "context_reset_resume" not in team.flow(task["id"])
+
+
+def test_committed_renewal_replay_does_not_overwrite_changed_owner_model(store, tmp_path):
+    from copy import deepcopy
+    from hivemind_assembly.automation.native import NativeBrowser
+    from hivemind_assembly.automation.sessions import Sessions
+    from hivemind_assembly.core.common import digest
+
+    team, task = setup_team(store)
+    route = task["owner"]
+    identity = "reset_" + digest({"task": task["id"], "route": route,
+                                 "request": request()["request_id"]})[:32]
+    old = deepcopy(team.config["routes"][route])
+    old["conversation_url"] = "https://example.invalid/committed-replacement"
+    store.put("session_commit", identity, {"route": route, "binding": old,
+                                           "previous": team.config["routes"][route]["conversation_url"]})
+    native = NativeBrowser(team.config, store.root, team.controller)
+    config_path = tmp_path / "owner-settings.json"
+    team.sessions = Sessions(native, config_path)
+    team.config["routes"][route]["model"] = "Owner selected another exact model"
+    current = deepcopy(team.config)
+    with pytest.raises(Blocked, match="configured native identity"):
+        asyncio.run(reset_context(team, task, team.flow(task["id"]), route, {}, request()))
+    assert team.config == current
+    assert not config_path.exists()
+    assert not store.rows("SELECT id FROM records WHERE kind='context_reset'")
+
+
+def test_retained_reset_intent_checks_current_settings_before_renewal(store):
+    from hivemind_assembly.core.common import digest
+
+    team, task = setup_team(store)
+    route = task["owner"]
+    identity = "reset_" + digest({"task": task["id"], "route": route,
+                                 "request": request()["request_id"]})[:32]
+    binding = {k: team.config["routes"][route].get(k) for k in
+               ("provider", "profile", "account_label", "model", "mode", "effort")}
+    store.put("context_reset", identity, {"route": route, "binding": binding,
+                                          "knowledge_scope": team.scopes.fingerprint(task["id"])})
+    team.config["routes"][route]["effort"] = "Owner changed effort"
+    with pytest.raises(Blocked, match="configured native identity"):
+        asyncio.run(reset_context(team, task, team.flow(task["id"]), route, {}, request()))
+    assert not team.sessions.calls
+    assert team.config["routes"][route]["effort"] == "Owner changed effort"
