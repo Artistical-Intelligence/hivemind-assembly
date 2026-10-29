@@ -143,3 +143,24 @@ newly reviewed helper:
 | --- | --- |
 | `tests/native_fixtures.py` | `8f3afe04bd10df0918a17988c6b6c9d761758516e33f6d732627816fd62892d6` |
 | `tests/test_workflow_reconciliation.py` | `cf1322df4d1c3bcf094f7df051588cf6135ab75e7aa9912678e0e905e4baee81` |
+
+## Portable exact-byte test fixtures addendum
+
+**Result: PASS.** Reviewed the two test-only writes in
+`tests/test_workflow_reconciliation.py`, identified by the integration owner as
+candidate `62799677c766a702d9cc93192525f193812a9bec`. Both now use
+`write_bytes(b"int a = 2;\n")` where the test subsequently asserts an exact
+decoded LF string or an exact raw-byte SHA-256. This avoids Windows text-mode
+newline translation while preserving the intended checks. The reviewer also
+inspected the other writes and hash/content assertions in the three newly added
+test modules and found no further equivalent mismatch.
+
+Independent rerun of the complete reconciliation module: **10 passed in 2.38
+seconds**. No runtime behavior was changed. Windows-hosted execution remains a
+separate gate; a Linux fixture pass is not represented as a Windows run.
+
+This final approved hash supersedes the earlier reconciliation-test hashes:
+
+| File | SHA-256 |
+| --- | --- |
+| `tests/test_workflow_reconciliation.py` | `30c90c0296172d9011dda13dc3902e29ed2a689d5642757f0f722e926ccc0e93` |

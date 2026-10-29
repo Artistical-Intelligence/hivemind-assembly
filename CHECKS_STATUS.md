@@ -1,7 +1,5 @@
 # Checks status
 
-Work pushed before independent review.
+Nothing is waiting for a check. Missing markers alone do not prove approval; compare current files with the retained check evidence.
 
-| Item | Folder | Waiting for |
-| --- | --- | --- |
-| tests/test_workflow_reconciliation.py | tests | Workflow update: regression tests and independent review |
+Workflow/context source, evidence and fixture approval: [2026-10-29 independent review](checks/2026-10-29-workflow-context-review.md).
