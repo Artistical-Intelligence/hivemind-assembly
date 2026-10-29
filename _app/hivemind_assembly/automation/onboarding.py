@@ -66,7 +66,7 @@ class NativeSetup:
 
     async def snapshot(self, route, force=False):
         """Keep a picture of the assistant's tab, so the owner can see what HA sees."""
-        page = self.pages.get(route)
+        page = getattr(self.sessions, "setup_pages", {}).get(route) or self.pages.get(route)
         if page is None or page.is_closed():
             return
         if not force and time.time() - self.snapshots.get(route, 0) < 60:
@@ -83,7 +83,7 @@ class NativeSetup:
 
     async def show(self, route):
         """Bring the assistant's tab to the front (and its window), if HA has one open."""
-        page = self.pages.get(route)
+        page = getattr(self.sessions, "setup_pages", {}).get(route) or self.pages.get(route)
         if page is None or page.is_closed():
             page = getattr(self.browser, "pages", {}).get(route)
         if page is None or page.is_closed():
@@ -259,6 +259,7 @@ class NativeSetup:
                     instruction="Session acceptance waits for sufficient allowance under the 24-hour polling policy.",
                 )
             if not (persistent and self.sessions.accepted(route)):
+                self.save(route, stage="ready_for_session", instruction="Checking the saved setup conversation; unresolved requests are never resent.")
                 await self.sessions.renew("session_setup", route)
                 self.pages[route] = self.browser.pages[route]
             # A durable session commit can precede a process crash. Publish
