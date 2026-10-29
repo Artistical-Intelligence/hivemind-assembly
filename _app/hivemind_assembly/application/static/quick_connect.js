@@ -188,3 +188,46 @@
   poll();
   window.renderQuickConnect = render;
 })();
+
+// Debugging uses its own endpoint, approvals and session-only tab grants.
+(() => {
+  const el = id => document.getElementById(id);
+  let enabled = false, address = '';
+  function renderDebug(state) {
+    enabled = state.routes.length > 0;
+    if (!el('debug-routes').children.length) {
+      for (const route of state.available_routes) {
+        const label = document.createElement('label');label.className = 'check';
+        const input = document.createElement('input');input.type = 'checkbox';input.value = route;input.checked = !enabled || state.routes.includes(route);
+        label.append(input, document.createTextNode(route));el('debug-routes').append(label);
+      }
+    }
+    for (const input of el('debug-routes').querySelectorAll('input')) {
+      input.disabled = enabled;
+      if (enabled) input.checked = state.routes.includes(input.value);
+    }
+    if (address !== state.endpoint || !enabled) {el('debug-code').textContent = '';el('debug-code').hidden = true;}
+    address = state.endpoint;el('debug-address').value = address;
+    el('debug-stop').disabled = !enabled;
+    el('debug-code-show').disabled = state.state !== 'ready';
+    const progress = Object.entries(state.setup.progress || {}).map(([p,v]) => p+': '+v.message);
+    const contacts = Object.entries(state.services || {}).filter(([,v])=>v.last_tool_at || v.tools_listed_at || v.authorized).map(([p,v]) => p+(v.last_tool_at ? ': debugging tool used.' : v.tools_listed_at ? ': debugging tools discovered.' : ': approved; waiting for contact.'));
+    el('debug-status').textContent = [enabled ? state.message || 'Starting debugging…' : 'Debugging is off.',...progress,...contacts].join(' ');
+  }
+  async function refreshDebug() {try {renderDebug(await api('debug/status',{}));} catch(e) {notice(e.message,true);}}
+  async function startDebug(provider) {
+    try {
+      const routes = [...el('debug-routes').querySelectorAll('input:checked')].map(e=>e.value);
+      renderDebug(await api('debug/start',{routes}));
+      if (provider) renderDebug(await api('debug/connect',{provider}));
+    } catch(e) {notice(e.message,true);}
+  }
+  el('debug-chatgpt').onclick = ()=>startDebug('ChatGPT');
+  el('debug-claude').onclick = ()=>startDebug('Claude');
+  el('debug-start').onclick = ()=>startDebug();
+  el('debug-stop').onclick = async()=>{try {renderDebug(await api('debug/stop',{}));}catch(e){notice(e.message,true);}};
+  el('debug-copy').onclick = async()=>{try {await navigator.clipboard.writeText(address);notice('Debugging address copied.');}catch(e){notice(e.message,true);}};
+  el('debug-code-show').onclick = async()=>{try {const result=await api('debug/pairing',{});el('debug-code').textContent=result.pairing_code;el('debug-code').hidden=false;}catch(e){notice(e.message,true);}};
+  refreshDebug();
+  setInterval(()=>{if(el('connections').classList.contains('active'))refreshDebug();},5000);
+})();
