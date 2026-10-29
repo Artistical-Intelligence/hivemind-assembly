@@ -31,7 +31,7 @@ def test_checked_local_drift_reopens_and_checks_local_not_old_remote(project):
     assert c.store.task(t["id"])["brief_id"] is None
     pending = broker.drafts.checks.pending(t["project_id"])[0]
     assert not pending.get("outside")
-    assert MARK in (root / "src/STATUS.md").read_text()
+    assert MARK in (root / "src/STATUS.md").read_text(encoding="utf-8")
     assert "int a = 1" in remote.tree()["src/a.c"]  # Do not publish an external edit automatically.
     checker = Checker({}, ROUTES)
     team.sessions.checker = checker
@@ -66,13 +66,13 @@ def test_missing_checked_file_stays_pending_without_repeated_revision_bumps(proj
 def test_local_markers_are_adopted_before_rewrite(project):
     _, t, _, _, broker = project
     root = broker.workspace(t["id"])
-    (root / "outside.txt").write_text("local draft")
-    (root / STATUS).write_text(f"{MARK} outside.txt — owner requests review\n")
+    (root / "outside.txt").write_text("local draft", encoding="utf-8")
+    (root / STATUS).write_text(f"{MARK} outside.txt — owner requests review\n", encoding="utf-8")
     result = broker.drafts.reconcile(t["project_id"])
     assert result["pending"] == 1
     item = broker.drafts.checks.pending(t["project_id"])[0]
     assert item["path"] == "outside.txt" and not item.get("outside")
-    assert "outside.txt" in (root / LEDGER).read_text()
+    assert "outside.txt" in (root / LEDGER).read_text(encoding="utf-8")
 
 
 def test_missing_report_reopens_without_erasing_history(project):
@@ -127,18 +127,18 @@ def test_legacy_remote_check_history_remains_remote_after_upgrade(project):
 def test_checked_local_discovery_does_not_become_remote_history(project):
     c, t, _, _, broker = project
     root = broker.workspace(t["id"])
-    (root / "local.txt").write_text("first")
-    (root / STATUS).write_text(f"{MARK} local.txt — review\n")
+    (root / "local.txt").write_text("first", encoding="utf-8")
+    (root / STATUS).write_text(f"{MARK} local.txt — review\n", encoding="utf-8")
     broker.drafts.reconcile(t["project_id"])
     team = team_for(c, broker, Checker({}, ROUTES))
     assert asyncio.run(team.independent.run(t["project_id"]))["passed"] == ["local.txt"]
-    (root / "local.txt").write_text("second")
+    (root / "local.txt").write_text("second", encoding="utf-8")
     assert broker.drafts.reconcile(t["project_id"])["changed"] == ["local.txt"]
 
 
 def test_direct_acceptance_rechecks_changed_file_even_without_scheduler(project):
     c, t, _, _, broker, _ = checked_file(project)
-    (broker.workspace(t["id"]) / "src/a.c").write_text("int a = 3;\n")
+    (broker.workspace(t["id"]) / "src/a.c").write_text("int a = 3;\n", encoding="utf-8")
     with pytest.raises(Blocked, match="independent check"):
         Acceptance(c, broker).evaluate(c.store.task(t["id"]), {"result_operations": ["w1"]})
     assert broker.drafts.checks.pending(t["project_id"])[0]["path"] == "src/a.c"
@@ -152,16 +152,16 @@ def test_fixture_approval_persists_evidence_and_does_not_reopen_on_reconcile(pro
     c, t, epoch, remote, broker = project
     write(broker, t, epoch, "src/fixture.c", "int fixture = 1;\n", "fixture-write")
     root = broker.workspace(t["id"])
-    assert MARK in (root / "src" / STATUS).read_text()
+    assert MARK in (root / "src" / STATUS).read_text(encoding="utf-8")
     outcome = pass_checks(broker, t["project_id"])
     assert outcome == {"passed": ["src/fixture.c"], "failed": [], "left": []}
     report = broker.drafts.checks.state(t["project_id"])["checked"][0]["report"]
     assert (root / report).is_file()
-    assert "not live provider evidence" in (root / report).read_text()
-    assert remote.tree()[report] == (root / report).read_text()
+    assert "not live provider evidence" in (root / report).read_text(encoding="utf-8")
+    assert remote.tree()[report] == (root / report).read_text(encoding="utf-8")
     assert not (root / "src" / STATUS).exists()
     assert "src/STATUS.md" not in remote.tree()
-    assert parse_ledger((root / LEDGER).read_text()) == []
+    assert parse_ledger((root / LEDGER).read_text(encoding="utf-8")) == []
     assert parse_ledger(remote.tree()[LEDGER]) == []
     revision = c.store.project(t["project_id"])["revision"]
     for _ in range(2):
