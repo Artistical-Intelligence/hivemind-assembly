@@ -42,6 +42,10 @@ class NativeSignIn:
                 self.states.pop(provider, None)
                 self.profiles[provider] = identity
             if page is None or page.is_closed():
+                task = self.tasks.pop(provider, None)
+                if task is not None:
+                    task.cancel()
+                    await asyncio.gather(task, return_exceptions=True)
                 page = await self.browser.service_page(profile, CONTRACTS[provider]["new_url"], hosts)
                 self.pages[provider] = page
             await page.bring_to_front()
