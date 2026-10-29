@@ -44,7 +44,7 @@ Every assistant working in this repository (Claude, ChatGPT or any other) follow
 1. Commit and push every file you create or change right away, before any review.
 2. Mark what isn't checked yet: add a line `CHECKS PENDING: <file> — <what still needs checking>`
    to STATUS.md in the file's folder, and a row to CHECKS_STATUS.md at the top of the repository
-   (item, folder, waiting for). No marker means checked.
+   (item, folder, waiting for). Missing markers alone do not prove a file was checked.
 3. A check is done by a different assistant session than the one that wrote the file (another
    provider when possible, otherwise a fresh conversation). The checker gets only the files and
    their sources, and writes a report under checks/ that stays in the repository.
@@ -53,6 +53,17 @@ Every assistant working in this repository (Claude, ChatGPT or any other) follow
    keep the marker and say in STATUS.md what failed or what is left.
 5. Never put anything with a pending marker into a release, the main deliverable or any other
    published output.
-6. When you pick up this repository, read CHECKS_STATUS.md and QUEUE.md first: finish pending
-   checks, then start new work.
+6. When you pick up this repository, reconcile CHECKS_STATUS.md and QUEUE.md with current files,
+   their hashes and check reports: finish pending checks before starting more work. Preserve
+   completed work; a changed file must be checked again. Failed checks permit focused repairs.
+7. Give each worker explicit output ownership. HA's project writer lease and broker own edits
+   and saves; assistants outside HA must likewise use one integration/saving owner. Save drafts
+   immediately with pending markers; never wait for an entire batch or acceptance check.
+8. Brief each worker with the current task, source/revision references, necessary dependencies,
+   edit scope and completion criteria. Retrieve additional evidence as needed; do not replace
+   required reading with a summary or repeat unrelated conversation history.
+9. Validate the combined deliverable against its existing whole-project checks before completion;
+   passing child tasks alone is insufficient. Reuse required checks without duplicate reviews.
+10. Do not add operational performance records for these practices. Existing correctness evidence,
+    recovery journals and learning evaluations remain required.
 <!-- checks-workflow:end -->
