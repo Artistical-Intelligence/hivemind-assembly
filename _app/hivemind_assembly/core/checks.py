@@ -78,8 +78,8 @@ POINTER = "Read AGENTS.md first: it has this repository's rules, including push 
 
 LEDGER_HEAD = """# Checks status
 
-Files pushed before an independent check. No row here (and no STATUS.md line in the
-file's folder) means checked. Reports of finished checks are in checks/.
+Files pushed before an independent check. Missing rows or STATUS.md lines alone
+do not prove a check; verify current file evidence against the reports in checks/.
 
 | Item | Folder | Waiting for |
 | --- | --- | --- |"""
