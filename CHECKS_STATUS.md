@@ -1,5 +1,8 @@
 # Checks status
 
-Nothing is waiting for a check. Missing markers alone do not prove approval; compare current files with the retained check evidence.
+Work pushed before independent review.
 
-Workflow/context source, evidence and fixture approval: [2026-10-29 independent review](checks/2026-10-29-workflow-context-review.md).
+| Item | Folder | Waiting for |
+| --- | --- | --- |
+| AGENTS.md | . | Workflow update: regression tests and independent review |
+| _app/hivemind_assembly/automation/prompts.py | _app/hivemind_assembly/automation | Workflow update: regression tests and independent review |
