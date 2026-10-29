@@ -13,7 +13,7 @@
   };
   const controls = root => all(root, 'button,[role=button],[role=menuitem],a[role=menuitem]')
     .filter(el => !el.disabled && el.getAttribute('aria-disabled') !== 'true' &&
-      !(el.closest('form') && (el.type === 'submit' || el.getAttribute('type') === 'submit')));
+      !((el.form || el.closest('form')) && (el.type === 'submit' || el.getAttribute('type') === 'submit')));
   let clicked = new Set();
   let tries = new Map();
   let attempts = 0;
