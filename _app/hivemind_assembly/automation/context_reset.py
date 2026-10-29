@@ -67,7 +67,8 @@ async def reset_context(team, task, flow, route, payload, response):
                "knowledge_scope": context, "requested_method": method,
                "effective_method": "new_chat", "clear_supported": False,
                "fallback": "clear is not verified; using a fresh chat" if method == "clear" else None,
-               "reason": reason, "handoff": handoff, "phase": flow["phase"]}
+               "reason": reason, "handoff": handoff, "phase": flow["phase"],
+               "revision": team.store.project(task["project_id"])["revision"]}
     with team.store.tx() as db:
         team.controller._fence(db, task["id"], task["owner"], task["epoch"])
         team.store.put("context_reset", identity, request, db)
