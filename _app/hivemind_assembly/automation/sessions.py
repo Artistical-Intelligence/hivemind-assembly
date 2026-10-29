@@ -94,7 +94,7 @@ class Sessions:
         incomplete = False
         try:
             for index, url in enumerate(urls[:24], 1):
-                self.report(route, f"Checking saved setup chat {index} of {min(len(urls), 24)}; recovery is limited to {RECOVERY_SECONDS} seconds.")
+                self.report(route, f"Checking saved setup chat {index} of {min(len(urls), 24)}; search budget is {RECOVERY_SECONDS} seconds.")
                 page = await context.new_page()
                 opened.append(page)
                 try:
@@ -121,12 +121,13 @@ class Sessions:
             self.browser.service_pages.add(keep)
             return keep
         finally:
-            for page in opened:
-                if page is not keep:
-                    try:
-                        await asyncio.wait_for(page.close(), timeout=3)
-                    except Exception as error:
-                        self.store.event(key, "session_recovery_cleanup_pending", {"route": route, "reason": type(error).__name__})
+            async def close_probe(page):
+                try:
+                    await asyncio.wait_for(page.close(), timeout=3)
+                except Exception as error:
+                    self.store.event(key, "session_recovery_cleanup_pending", {"route": route, "reason": type(error).__name__})
+            # One shared cleanup interval, not three extra seconds per history tab.
+            await asyncio.gather(*(close_probe(page) for page in opened if page is not keep))
 
     def pending(self, route):
         return self.store.rows(
@@ -389,6 +390,7 @@ class Sessions:
                         }
                 self.report(route, "Waiting to verify the setup conversation model and account." if self.browser.dispatch_lock(route).locked() else "Verifying the setup conversation model and account.")
                 async with self.browser.dispatch_lock(route):
+                    self.report(route, "Verifying the setup conversation model and account.")
                     discovered = await discover(page, clone.config["routes"][route])
                 if discovered["missing"]:
                     raise Blocked(
