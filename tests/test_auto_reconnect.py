@@ -57,10 +57,12 @@ CALLBACK = """<!doctype html><script>
 
 
 @pytest.mark.skipif(not os.environ.get("WORKBENCH_TEST_CHROME"), reason="needs Chromium")
-def test_reconnect_replaces_the_old_connector_and_approves_on_has_page(tmp_path):
+@pytest.mark.parametrize("name,scope", [("Hivemind Assembly", "ha.projects"), ("HA Debugging", "ha.debug")])
+def test_reconnect_replaces_the_old_connector_and_approves_on_has_page(tmp_path, name, scope):
     from playwright.async_api import async_playwright
 
-    gateway = Gateway(Rpc(lambda t, a: {"projects": []}, "1.0"))
+    from hivemind_assembly.integrations.debug_mcp import build_debug_server
+    gateway = Gateway(Rpc(lambda t, a: {}, "1.0", scope=scope, server_factory=build_debug_server if scope == "ha.debug" else None))
     gateway.auth.activate(ORIGIN)
     threading.Thread(target=gateway.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
     quick = SimpleNamespace(gateway=gateway, status=lambda: {"state": "ready", "endpoint": ORIGIN + "/mcp"})
@@ -73,7 +75,7 @@ def test_reconnect_replaces_the_old_connector_and_approves_on_has_page(tmp_path)
 
             async def provider(route):
                 path = route.request.url.split("chatgpt.com", 1)[1]
-                body = PLUGINS if path.startswith("/plugins") else CALLBACK
+                body = PLUGINS.replace("Hivemind Assembly", name).replace("ha.projects", scope) if path.startswith("/plugins") else CALLBACK
                 await route.fulfill(status=200, content_type="text/html", body=body)
 
             async def ha(route):
@@ -103,9 +105,10 @@ def test_reconnect_replaces_the_old_connector_and_approves_on_has_page(tmp_path)
 
             auto = AutoReconnect(
                 tmp_path, SimpleNamespace(service_page=service_page),
-                lambda p: chrome_helper.details(quick, p),
+                lambda p: {**chrome_helper.details(quick, p), "name": name},
                 lambda p, url, flow: chrome_helper.pair(quick, p, url, flow),
                 lambda: {"worker.astra": {"provider": "openai", "profile": "openai", "allowed_hosts": ["chatgpt.com"]}},
+                name=name,
             )
             auto.save(["ChatGPT"])
             results = await auto.run_all()
