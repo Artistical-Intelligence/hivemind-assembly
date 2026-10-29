@@ -38,7 +38,9 @@ async def reset_context(team, task, flow, route, payload, response):
     if observation is None or not observation.eligible():
         raise AllowanceUnavailable("Context reset requires verified sufficient allowance")
     # These facts describe the implemented runtime, not speculative UI actions.
-    request = {"request_id": response["request_id"], "route": route,
+    binding = {k: team.config["routes"][route].get(k) for k in
+               ("provider", "profile", "account_label", "model", "mode", "effort")}
+    request = {"request_id": response["request_id"], "route": route, "binding": binding,
                "knowledge_scope": context, "requested_method": method,
                "effective_method": "new_chat", "clear_supported": False,
                "fallback": "clear is not verified; using a fresh chat" if method == "clear" else None,
@@ -52,6 +54,8 @@ async def reset_context(team, task, flow, route, payload, response):
     if team.scopes.fingerprint(task["id"]) != context:
         raise Blocked("Knowledge permissions changed during context renewal; rebrief required")
     cfg = team.config["routes"][route]
+    if any(cfg.get(k) != value for k, value in binding.items()):
+        raise Blocked("Context renewal changed the configured native identity")
     team.store.put("session_knowledge_scope", digest({"route": route,
                    "conversation": cfg.get("conversation_url")}),
                    {"context": context, "task": task["id"]})
