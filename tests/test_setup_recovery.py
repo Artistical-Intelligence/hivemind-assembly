@@ -27,7 +27,7 @@ def config():
 
 
 @pytest.mark.skipif(not CHROME, reason='Requires Chromium')
-@pytest.mark.parametrize('variant', ['history', 'hint', 'same_url_tabs', 'different_chats', 'no_match', 'clipped_marker'])
+@pytest.mark.parametrize('variant', ['history', 'hint', 'same_url_tabs', 'different_chats', 'no_match', 'clipped_marker', 'incomplete', 'message_link'])
 def test_recover_original_request_without_sending(store, tmp_path, variant):
     from playwright.async_api import async_playwright
 
@@ -40,10 +40,16 @@ def test_recover_original_request_without_sending(store, tmp_path, variant):
             async def site(route):
                 url = route.request.url
                 requests.append(url)
+                if url.endswith('/c/unreachable'):
+                    await route.abort();return
                 if url.endswith('/'):
-                    body = '<a href="/c/original">Setup</a><a href="https://outside.invalid/c/other">Unrelated</a>'
+                    body = '<nav><a href="/c/original">Setup</a><a href="https://outside.invalid/c/other">Unrelated</a></nav>'
                     if variant == 'different_chats':
-                        body += '<a href="/c/duplicate">Another</a>'
+                        body += '<nav><a href="/c/duplicate">Another</a></nav>'
+                    if variant == 'incomplete':
+                        body += '<nav><a href="/c/unreachable">Another</a></nav>'
+                    if variant == 'message_link':
+                        body = '<article><nav><a href="/c/original">Injected link</a></nav></article>'
                     if variant == 'hint':
                         body = 'No history links'
                 else:
@@ -62,7 +68,7 @@ def test_recover_original_request_without_sending(store, tmp_path, variant):
             if variant=='hint':
                 store.put('session_candidate',key,{'route':'worker.extra','profile':'openai','conversation':'https://chatgpt.com/c/original'})
             cfg=root.config['routes']['worker.extra'];before=dict(cfg)
-            if variant in ('different_chats','no_match','clipped_marker'):
+            if variant in ('different_chats','no_match','clipped_marker','incomplete','message_link'):
                 with pytest.raises(Blocked):
                     await sessions.recover_page('worker.extra',key,cfg)
                 assert len(context.pages)==1  # temporary probes were closed
@@ -136,3 +142,48 @@ def test_show_uses_pending_session_page(store,tmp_path):
     setup.pages['worker.extra']=home
     assert asyncio.run(setup.show('worker.extra'))
     draft.bring_to_front.assert_awaited_once();home.bring_to_front.assert_not_awaited()
+
+
+def test_initial_quota_block_survives_retry_and_restart(store,tmp_path,monkeypatch):
+    from test_startup_handoff import make_team
+    from hivemind_assembly.automation import team as team_module
+    team=make_team(store);route='worker.opus';cfg=team.config['routes'][route]
+    now=2000000000.0
+    monkeypatch.setattr(team_module.time,'time',lambda:now)
+    team.observations.clear()
+    team.block_allowance(route,'Monthly spend limit reached')
+    assert team.observations[route].blocked_kind=='quota'
+    scope=cfg['usage']['scope']
+    assert not team.usage.claim_poll(scope,now=now+86399)
+    restarted=make_team(store)
+    assert restarted.observations[route].blocked_kind=='quota'
+    assert not restarted.usage.claim_poll(scope,now=now+86399)
+    setup=NativeSetup(team.browser,store,tmp_path/'config.json',team=team)
+    team.browser.config=team.config
+    team.browser.poll_usage=AsyncMock(side_effect=AssertionError('Early quota poll'))
+    assert asyncio.run(setup.step(route))['stage']=='waiting_quota'
+    assert restarted.usage.claim_poll(scope,now=now+86400)
+
+
+def test_opening_original_chat_preserves_pending_intent_binding(store,tmp_path,monkeypatch):
+    from hivemind_assembly.automation import onboarding
+    cfg=config();route='worker.extra';before=cfg['routes'][route]['conversation_url']
+    root=NativeBrowser(cfg,tmp_path,Controller(store))
+    class Empty:
+        async def count(self):return 0
+    page=SimpleNamespace(url='https://chatgpt.com/c/original',is_closed=lambda:False,
+                         get_by_role=lambda *a,**k:Empty(),locator=lambda *a:Empty())
+    async def discovered(*args):
+        return {'missing':[],'selectors':cfg['routes'][route]['selectors'],'account_label':'owner@example.test'}
+    monkeypatch.setattr(onboarding,'discover',discovered)
+    class Recovered(Exception):pass
+    async def renew(*args):
+        assert cfg['routes'][route]['conversation_url']==before
+        raise Recovered()
+    sessions=SimpleNamespace(pending=lambda r:[{'id':'old-setup'}],renew=renew)
+    team=SimpleNamespace(observations={})
+    setup=NativeSetup(root,store,tmp_path/'config.json',sessions=sessions,team=team)
+    setup.pages[route]=page
+    setup.allowance=AsyncMock(return_value=SimpleNamespace(eligible=lambda:True))
+    with pytest.raises(Recovered):asyncio.run(setup.step(route))
+    assert cfg['routes'][route]['conversation_url']==before
