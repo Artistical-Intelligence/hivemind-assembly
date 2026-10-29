@@ -645,7 +645,8 @@ class Application:
                 self.team.observations.pop(route, None)
                 self.browser.deep_checked.pop(route, None)
                 self.native_setup.save(
-                    route, stage="not_started", instruction="Its model changed; setting it up again."
+                    route, stage="not_started", reset_allowance=True,
+                    instruction="Its model changed; setting it up again."
                 )
             validate_config(self.config)
             atomic_write(self.config_path, canonical(self.config))
