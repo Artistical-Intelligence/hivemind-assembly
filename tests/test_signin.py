@@ -29,7 +29,6 @@ def test_repeated_open_reuses_tab_and_monitor(monkeypatch):
         page = Page()
         browser = SimpleNamespace(service_page=AsyncMock(return_value=page))
         signin = NativeSignIn(browser)
-        signin.watch = AsyncMock(side_effect=lambda *args: gate.wait())
         # A real async stand-in keeps the monitor pending.
         async def watch(*args):
             await gate.wait()
@@ -108,7 +107,9 @@ def test_automated_connector_waits_for_signin_then_runs_once(app, monkeypatch):
         async def watch():
             await gate.wait()
             return {'stage': 'signed_in', 'account': 'owner@example.test'}
-        async def open_signin(*args):
+        app.config['routes']['worker.opus']['profile'] = 'custom-claude'
+        async def open_signin(provider, profile, hosts):
+            assert (provider, profile, hosts) == ('claude', 'custom-claude', app.config['routes']['worker.opus']['allowed_hosts'])
             app.native_signin.tasks['claude'] = asyncio.create_task(watch())
         monkeypatch.setattr(app.native_signin, 'open', open_signin)
         started = []
@@ -139,3 +140,71 @@ def test_unconfirmed_signin_never_creates_connector(app, monkeypatch):
         assert app.auto_reconnect.state['Claude']['stage'] == 'manual'
         assert app.auto_reconnect.providers() == []
     app.submit(scenario()).result(5)
+
+
+def test_reopened_tab_and_changed_profile_get_new_watchers():
+    async def scenario():
+        pages = [Page(), Page(), Page()]
+        for page in pages:
+            async def close(p=page):
+                p.closed = True
+            page.close = close
+        browser = SimpleNamespace(service_page=AsyncMock(side_effect=pages))
+        signin = NativeSignIn(browser)
+        watched = []
+        async def watch(provider, page, hosts):
+            watched.append(page)
+            await asyncio.Event().wait()
+        signin.watch = watch
+        await signin.open('claude', 'claude', ['claude.ai'])
+        await asyncio.sleep(0)
+        first = signin.tasks['claude']
+        pages[0].closed = True
+        await signin.open('claude', 'claude', ['claude.ai'])
+        await asyncio.sleep(0)
+        second = signin.tasks['claude']
+        assert first.cancelled() and watched == pages[:2]
+        await signin.open('claude', 'custom-claude', ['claude.ai'])
+        await asyncio.sleep(0)
+        assert second.cancelled() and watched == pages
+        assert pages[1].closed
+        assert browser.service_page.await_args.args[0] == 'custom-claude'
+        await signin.close()
+    asyncio.run(scenario())
+
+
+def test_cancelled_connection_drains_cleanup_and_restores_retry(app):
+    async def scenario():
+        entered, cleaning, release, cleaned = (asyncio.Event() for _ in range(4))
+        async def connect():
+            entered.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cleaning.set()
+                await release.wait()
+                cleaned.set()
+        task = asyncio.create_task(connect())
+        app.provider_connect_futures['Claude'] = task
+        app.auto_reconnect.report('Claude', 'working', 'Creating connector')
+        await entered.wait()
+        stop = asyncio.create_task(app.stop_provider_setup())
+        await cleaning.wait()
+        assert not stop.done() and not cleaned.is_set()
+        release.set(); await stop
+        assert cleaned.is_set() and task.cancelled()
+        assert app.auto_reconnect.state['Claude']['stage'] == 'manual'
+        assert app.provider_connect_futures == {}
+    app.submit(scenario()).result(5)
+
+
+def test_signin_endpoint_uses_configured_profile_and_does_not_create_mcp(app, monkeypatch):
+    app.config['routes']['worker.opus']['profile'] = 'custom-claude'
+    opened = AsyncMock()
+    monkeypatch.setattr(app.native_signin, 'open', opened)
+    create = AsyncMock()
+    monkeypatch.setattr(app, 'connect_provider', create)
+    result = app.post('/api/native/signin', {'provider': 'claude'})
+    assert result['opened']
+    assert opened.await_args.args[:2] == ('claude', 'custom-claude')
+    create.assert_not_awaited()
