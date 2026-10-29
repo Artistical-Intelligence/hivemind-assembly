@@ -93,7 +93,7 @@ def test_external_edit_during_check_cannot_pass_old_bytes(project):
     original = checker.exchange
 
     async def changed(route, message):
-        (broker.workspace(t["id"]) / "a.c").write_text("int a = 2;\n")
+        (broker.workspace(t["id"]) / "a.c").write_bytes(b"int a = 2;\n")
         return await original(route, message)
 
     checker.exchange = changed
