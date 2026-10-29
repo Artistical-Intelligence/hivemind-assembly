@@ -65,7 +65,7 @@ class Sessions:
                 self.browser.validate_url(route, page.url)
             except Blocked:
                 continue
-            for url in await page.locator('a[href]').evaluate_all("nodes => nodes.filter(e => e.getClientRects().length).map(e => e.href)"):
+            for url in await page.locator('nav a[href], aside a[href], [role="navigation"] a[href], #history a[href]').evaluate_all("nodes => nodes.filter(e => e.getClientRects().length && !e.closest('[data-message-author-role], [data-user-message-bubble], [data-testid=\"user-message\"], [data-testid=\"assistant-message\"], article')).map(e => e.href)"):
                 if conversation_url(cfg, url) and url not in urls:
                     urls.append(url)
                 if len(urls) >= 24:
@@ -74,6 +74,7 @@ class Sessions:
                 break
         opened = []
         keep = None
+        incomplete = False
         try:
             for url in urls[:24]:
                 page = await context.new_page()
@@ -81,12 +82,16 @@ class Sessions:
                 try:
                     await page.goto(url, wait_until="domcontentloaded", timeout=15000)
                     if not conversation_url(cfg, page.url):
+                        incomplete = True
                         continue
                     await page.locator(selector).first.wait_for(state="attached", timeout=5000)
                 except Exception:
+                    incomplete = True
                     continue
                 if await request_echo(page, selector, marker) is not None:
                     found.setdefault(page.url, page)
+            if incomplete:
+                raise Blocked("Some recent setup chats could not be checked. Retry setup after they load; no request was resent.")
             if len(found) > 1:
                 raise Blocked("The setup request appears in more than one conversation; no request was resent.")
             if not found:
@@ -100,7 +105,10 @@ class Sessions:
         finally:
             for page in opened:
                 if page is not keep:
-                    await page.close()
+                    try:
+                        await page.close()
+                    except Exception as error:
+                        self.store.event(key, "session_recovery_cleanup_pending", {"route": route, "reason": type(error).__name__})
 
     def pending(self, route):
         return self.store.rows(
