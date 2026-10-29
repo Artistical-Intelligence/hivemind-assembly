@@ -201,6 +201,11 @@ async def dismiss_popups(page, attempts=3, *, check_allowance=False):
         if check_allowance:
             for dialog in await dialogs.all():
                 limit = limit or bool(LIMIT_NOTICE.search(await dialog.inner_text()))
+            if limit:
+                raise AllowanceUnavailable(
+                    "The provider reports a usage or spending limit. HA has not changed spending settings; "
+                    "this account waits for its allowance to reset."
+                )
         await page.keyboard.press("Escape")
         await page.wait_for_timeout(400)
         dialogs = page.locator(MODALS)
@@ -210,11 +215,6 @@ async def dismiss_popups(page, attempts=3, *, check_allowance=False):
         if await buttons.count() >= 1:
             await buttons.first.click(timeout=5000)
             await page.wait_for_timeout(400)
-    if limit:
-        raise AllowanceUnavailable(
-            "The provider reports a usage or spending limit. HA has not changed spending settings; "
-            "this account waits for its allowance to reset."
-        )
     if await page.locator(MODALS).count():
         raise Retryable(
             "A pop-up is covering the page in HA's tab. Close it there and setup continues by itself."
