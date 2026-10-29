@@ -448,6 +448,7 @@ class NativeBrowser:
             # One send at a time per account: the page keeps model and effort per account.
             dispatch = self.dispatch_lock(route)
             await dispatch.acquire()
+            page = None
             try:
                 await self.repair(route)
                 await self.observe(route)
@@ -540,7 +541,18 @@ class NativeBrowser:
                     self.config["routes"][route]["draft_session"] = False
                 self.controller.message_state(message["id"], "received")
             finally:
-                dispatch.release()
+                try:
+                    cfg = self.config["routes"][route]
+                    if page is not None and cfg.get("draft_session"):
+                        from .providers import conversation_url
+
+                        current = self.controller.store.one("SELECT state FROM messages WHERE id=?", (message["id"],))
+                        if current["state"] != "prepared" and conversation_url(cfg, page.url):
+                            self.controller.store.put("session_candidate", message["id"], {
+                                "route": route, "profile": cfg["profile"], "conversation": page.url,
+                            })
+                finally:
+                    dispatch.release()
             self.light.add(route)
             try:
                 return await self.await_reply(route, message, page, s, marker, timeout)
