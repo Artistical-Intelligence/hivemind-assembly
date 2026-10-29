@@ -112,6 +112,7 @@
     const step = d.step !== null && !r.status.ready ? `<span class="muted"> Step ${Math.min(d.step + 1, STEPS.length)} of ${STEPS.length}${esc(forHow(s.since))}</span>` : '';
     const actions = [
       s.tab_open ? `<button data-native-show="${esc(r.id)}">Show tab</button>` : `<button data-native-setup="${esc(r.id)}"${working ? ' disabled' : ''}>${r.status.ready ? 'Set up again' : 'Set up'}</button>`,
+      s.tab_open && !working ? `<button data-native-setup="${esc(r.id)}">${s.stage === 'attention' ? 'Retry setup' : 'Set up again'}</button>` : '',
       s.snapshot ? `<button data-native-snapshot="${esc(r.id)}">What HA sees</button>` : '',
       `<details class="row-more"><summary>More</summary><div class="row-menu"><button data-probe="${esc(r.id)}">Check it works</button><button data-native-renew="${esc(r.id)}">New conversation</button></div></details>`,
     ].join('');
@@ -153,8 +154,14 @@
       : 'Changed here, not in use yet: select Use to switch the assistants.';
     el('setup-use').classList.toggle('primary', !live_);
     // Services: one button each, showing who is signed in.
-    const services = (s.services || []).map(v =>
-      `<button type="button" class="service${v.account ? ' signed' : ''}" data-signin="${esc(v.provider)}"><b>${esc(v.name)}</b><span>${v.account ? esc(v.account) : v.waiting ? 'Sign in now' : 'Open to sign in'}</span></button>`).join('');
+    const services = (s.services || []).map(v => {
+      const status = v.account ? `Signed in: ${v.account}` : v.signin?.stage === 'checking'
+        ? 'Checking sign-in…' : v.signin?.stage === 'attention' ? 'Check sign-in again' : v.waiting ? 'Sign in now' : 'Open to sign in';
+      const mcp = v.mcp || {};
+      return `<span class="service-group"><button type="button" class="service${v.account ? ' signed' : ''}" data-signin="${esc(v.provider)}" title="${esc(v.signin?.message || '')}"><b>${esc(v.name)}</b><span>${esc(status)}</span></button>`
+        + `<button type="button" data-create-mcp="${esc(v.name)}"${mcp.stage === 'working' ? ' disabled' : ''}>${mcp.stage === 'working' ? 'Creating HA MCP…' : 'Create HA MCP'}</button>`
+        + (mcp.message ? `<span class="muted" role="status">${esc(mcp.message)}</span>` : '') + '</span>';
+    }).join('');
     // Rebuilt only when something changed, so a click in progress isn't lost.
     if (el('service-buttons').dataset.sig !== services) {
       el('service-buttons').innerHTML = services;
@@ -230,6 +237,7 @@
     const show = e.target.closest('[data-native-show]');
     const picture = e.target.closest('[data-native-snapshot]');
     const signin = e.target.closest('[data-signin]');
+    const mcp = e.target.closest('[data-create-mcp]');
     const id = e.target.closest('button')?.id;
     try {
       if (show) {
@@ -243,9 +251,15 @@
         view.querySelector('p').textContent = 'What HA saw in this tab' + (r.taken ? ' at ' + new Date(r.taken * 1000).toLocaleTimeString() : '') + '.';
         view.showModal();
       }
+      if (mcp) {
+        await api('quick/connect', {provider: mcp.dataset.createMcp});
+        notice('Creating HA’s MCP connector in ' + mcp.dataset.createMcp + '. Sign in if asked; HA continues automatically.');
+        refresh();
+      }
       if (signin) {
         await api('native/signin', {provider: signin.dataset.signin});
-        notice('Opened ' + (PROVIDER[signin.dataset.signin] || signin.dataset.signin) + ' in Chrome. Sign in there if it asks.');
+        notice('Opened ' + (PROVIDER[signin.dataset.signin] || signin.dataset.signin) + ' in Chrome. HA is checking your sign-in; sign in there if asked.');
+        refresh();
       }
       if (id === 'setup-use') {
         const preset = last?.assistant_setups?.presets?.[chosen];
