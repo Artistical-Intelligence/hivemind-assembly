@@ -275,6 +275,7 @@ class Checks:
             if path in state["items"]:
                 state["items"][path].update(state="checking", note=f"being checked by {self.name(checker)}",
                                             checker=checker, started=time.time())
+                state["items"][path].pop("needs_recheck", None)
         self.save(project, state)
 
     @locked
@@ -369,7 +370,7 @@ class Checks:
             item.update(path=path, folder=folder_of(path), writer=item.get("writer", "outside"),
                         writer_provider=item.get("writer_provider"), sha256=current,
                         since=item.get("since", time.time()), state="pending",
-                        evidence_unavailable=unavailable)
+                        evidence_unavailable=unavailable, needs_recheck=True)
             item["note"] = (
                 "cannot verify: the local file is missing or unreadable" if unavailable else
                 "check again: local bytes changed since the retained evidence" if drift and previous else
@@ -409,7 +410,10 @@ class Checks:
             result = results.get(path)
             if item is None:
                 continue
-            if item.get("evidence_unavailable"):
+            if item.get("needs_recheck"):
+                item.update(state="pending", note="check again: evidence changed during the previous check")
+                left.append(path)
+            elif item.get("evidence_unavailable"):
                 item.update(state="pending", note="check again: the local file is missing or unreadable")
                 left.append(path)
             elif item.get("sha256") not in (None, sha):
