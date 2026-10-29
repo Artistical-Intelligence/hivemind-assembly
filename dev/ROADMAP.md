@@ -1,6 +1,6 @@
 # Hivemind Assembly roadmap
 
-Current version: 0.36.0. This roadmap lists only work that is still open; what is
+Current version: 0.37.1. This roadmap lists only work that is still open; what is
 already implemented is described in [README](../README.md) and
 [ARCHITECTURE](ARCHITECTURE.md). Implementation, automated verification and live
 account acceptance are separate. Successful fixtures do not establish unattended
