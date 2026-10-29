@@ -182,7 +182,7 @@ def test_debug_dashboard_connection_code_and_stop(server, app, monkeypatch):
         browser = pw.chromium.launch(executable_path=CHROME, args=["--no-sandbox"])
         page = browser.new_page();errors=[];page.on("pageerror", lambda e: errors.append(str(e)))
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
-        page.locator('[data-tab="connections"]').click()
+        page.locator('[data-tab="settings"]').click()
         expect(page.locator('#debug-routes input')).to_have_count(len(app.config["routes"]))
         page.locator('#debug-card summary').click()
         page.locator('#debug-start').click()
@@ -194,3 +194,25 @@ def test_debug_dashboard_connection_code_and_stop(server, app, monkeypatch):
         expect(page.locator('#debug-code')).to_be_hidden()
         assert not errors and not app.connections.settings()["enabled"]
         browser.close()
+
+
+def test_stop_cancels_admitted_operation_and_start_waits(app, debug, monkeypatch):
+    entered = threading.Event()
+    cancelled = threading.Event()
+    async def operation(tool, args, epoch):
+        entered.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+    monkeypatch.setattr(debug, "_execute", operation)
+    future = app.submit(debug.execute("ha_debug_tab", {"route": ROUTE}, debug.epoch))
+    assert entered.wait(2)
+    original = debug.quick.stop
+    def stop():
+        with pytest.raises(Blocked, match="stopping"):
+            debug.start([ROUTE])
+        return original()
+    monkeypatch.setattr(debug.quick, "stop", stop)
+    debug.stop()
+    assert cancelled.wait(2) and future.cancelled()
