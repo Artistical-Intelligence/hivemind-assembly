@@ -9,6 +9,7 @@ import re
 import threading
 import time
 from urllib.parse import urlsplit
+from typing import Any
 
 from hivemind_assembly.core.common import Blocked, ContractError, Conflict
 from .quick_connect import QuickConnection, Rpc
@@ -40,7 +41,7 @@ def build_debug_server(call):
             raise ToolError(str(exc)) from None
 
     @server.tool()
-    def ha_debug_status() -> dict:
+    def ha_debug_status() -> dict[str, Any]:
         """Read HA version, granted routes, setup stages and active-work counts. No project contents."""
         return invoke("ha_debug_status", {})
 
@@ -55,7 +56,7 @@ def build_debug_server(call):
         return content
 
     @server.tool()
-    def ha_debug_action(route: str, action: str, request_id: str) -> dict:
+    def ha_debug_action(route: str, action: str, request_id: str) -> dict[str, Any]:
         """Show/reload the granted tab, dismiss a recognized non-quota popup, or retry setup. Requires idle assistants. retry_setup may send the normal setup acceptance message and use provider allowance. Reuse request_id to retrieve the original result without repeating the action."""
         return invoke("ha_debug_action", {"route": route, "action": action, "request_id": request_id})
 
