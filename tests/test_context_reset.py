@@ -28,7 +28,7 @@ def setup_team(store):
     team = make_team(store, Native())
     task = store.create_project("Reset", "Inspect")
     team.scopes.select(task["id"], [], team.scopes.catalog()["revision"])
-    team.controller.acquire(task["id"], "worker.extra")
+    team.controller.acquire(task["id"], "worker.opus")
     task = store.task(task["id"])
 
     class Sessions:
