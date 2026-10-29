@@ -107,9 +107,13 @@ def test_restart_replays_target_reset_without_erasing_account_poll(store, reset,
     restarted = NativeTeam(team.controller, team.broker, team.browser, team.config)
     assert (route not in restarted.observations) == cleared
     assert [dict(row) for row in store.rows('SELECT * FROM polls')] == polls
+    assert restarted.poll_interval([route]) == 86400
+    scope = team.config['routes'][route]['usage']['scope']
+    last = next(row['last_attempt'] for row in polls if row['scope'] == scope)
+    assert not restarted.usage.claim_poll(scope, now=last+601, interval=restarted.poll_interval([route]))
+    assert restarted.usage.claim_poll(scope, now=last+86400, interval=restarted.poll_interval([route]))
     if not cleared:
         assert restarted.exhausted(route)
-        assert restarted.poll_interval([route]) == 86400
 
 
 def test_target_change_persists_allowance_reset_and_same_target_retains_quota(app):
