@@ -1,6 +1,6 @@
 # Checks status
 
-Runtime-analysis integration and setup guidance are in progress. Missing markers alone do not prove approval; compare current files with the retained check evidence. Live-provider and broader browser-suite acceptance remain distinct from source approval.
+Runtime-tool acquisition and design guidance are under review. Missing markers alone do not prove approval; compare current files with the retained check evidence. Live-provider and broader browser-suite acceptance remain distinct from source approval.
 
 Workflow/context source, evidence and fixture approval: [2026-10-29 independent review](checks/2026-10-29-workflow-context-review.md).
 
@@ -12,4 +12,4 @@ Sign-in observation, setup retry, automated HA MCP entry point and 0.37.1 eviden
 
 | Item | Folder | Waiting for |
 | --- | --- | --- |
-| Runtime-analysis integration and setup guidance | root, dev, reverse_engineering, tests | Implementation, regression checks and independent source review; Windows live acceptance remains separate |
+| Runtime-tool acquisition and design guidance | root, dev | Independent review of setup preference, source provenance and clarified scope |
