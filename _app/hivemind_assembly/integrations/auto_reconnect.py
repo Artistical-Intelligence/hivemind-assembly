@@ -35,8 +35,9 @@ class Stuck(Exception):
 
 
 class AutoReconnect:
-    def __init__(self, folder, browser, details, pair, routes):
+    def __init__(self, folder, browser, details, pair, routes, name=NAME):
         """details(provider) and pair(provider, page_url, flow) come from the active connection."""
+        self.name = name
         self.settings_path = Path(folder) / "auto_reconnect.json"
         self.browser, self.details, self.pair, self.routes = browser, details, pair, routes
         self.state = {}
@@ -128,10 +129,10 @@ class AutoReconnect:
         await page.wait_for_timeout(900)
 
     async def remove_old(self, provider, page):
-        self.report(provider, "working", "Removing the old " + NAME + " connector.")
+        self.report(provider, "working", "Removing the old " + self.name + " connector.")
         for _ in range(10):
             await self.inject(page)
-            step = await page.evaluate("name => globalThis.__haConnectorManage.removeStep(name)", NAME)
+            step = await page.evaluate("name => globalThis.__haConnectorManage.removeStep(name)", self.name)
             if step["state"] == "done":
                 if not page.url.startswith(SETUP[provider].split("#")[0]):
                     await page.goto(SETUP[provider], wait_until="domcontentloaded")
