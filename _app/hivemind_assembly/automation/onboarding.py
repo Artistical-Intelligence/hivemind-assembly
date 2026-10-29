@@ -51,9 +51,16 @@ class NativeSetup:
                 self.changed[route] = time.time()
         return state
 
+    def display_page(self, route):
+        for pages in (getattr(self.sessions, "setup_pages", {}), self.pages, getattr(self.browser, "pages", {})):
+            page = pages.get(route)
+            if page is not None and not page.is_closed():
+                return page
+        return None
+
     def progress(self, route):
         """Setup status for the dashboard: stage, message, since when, and a tab picture."""
-        page = self.pages.get(route)
+        page = self.display_page(route)
         return {
             **self.status(route),
             "since": self.changed.get(route),
@@ -66,7 +73,7 @@ class NativeSetup:
 
     async def snapshot(self, route, force=False):
         """Keep a picture of the assistant's tab, so the owner can see what HA sees."""
-        page = getattr(self.sessions, "setup_pages", {}).get(route) or self.pages.get(route)
+        page = self.display_page(route)
         if page is None or page.is_closed():
             return
         if not force and time.time() - self.snapshots.get(route, 0) < 60:
@@ -83,7 +90,7 @@ class NativeSetup:
 
     async def show(self, route):
         """Bring the assistant's tab to the front (and its window), if HA has one open."""
-        page = getattr(self.sessions, "setup_pages", {}).get(route) or self.pages.get(route)
+        page = self.display_page(route)
         if page is None or page.is_closed():
             page = getattr(self.browser, "pages", {}).get(route)
         if page is None or page.is_closed():
@@ -213,7 +220,10 @@ class NativeSetup:
                 selectors=discovered["selectors"],
                 account_label=discovered["account_label"],
             )
-            persistent = conversation_url(cfg, page.url)
+            unresolved = bool(getattr(self.sessions, "pending", lambda r: [])(route))
+            # Opening the original chat to recover an unresolved request must not
+            # change the previous binding used to identify its retained intent.
+            persistent = conversation_url(cfg, page.url) and not unresolved
             evidence = None
             if persistent:
                 cfg["conversation_url"] = page.url
