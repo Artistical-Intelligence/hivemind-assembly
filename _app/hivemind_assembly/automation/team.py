@@ -213,7 +213,9 @@ class NativeTeam:
     def poll_interval(self, routes):
         # A target reset invalidates route evidence, not the account's poll hold.
         # Only known active allowance authorizes the shorter polling interval.
-        if any(route not in self.observations or self.exhausted(route) for route in routes):
+        if any(self.exhausted(route) for route in routes) or not any(
+            route in self.observations for route in routes
+        ):
             return self.usage.EXHAUSTED_INTERVAL
         return self.usage.ACTIVE_INTERVAL
 
