@@ -57,7 +57,7 @@ def test_sdk_catalog_and_status(debug):
     async def run():
         async with Client(build_debug_server(debug.call)) as client:
             inventory = await client.list_tools()
-            assert {t.name for t in inventory.tools} == {"ha_debug_status", "ha_debug_tab", "ha_debug_action"}
+            assert {t.name for t in inventory.tools} == {"ha_debug_status", "ha_debug_tab", "ha_debug_screenshot", "ha_debug_action"}
             result = await client.call_tool("ha_debug_status", {})
             assert not result.is_error
             assert result.structured_content["routes"][0]["route"] == ROUTE
