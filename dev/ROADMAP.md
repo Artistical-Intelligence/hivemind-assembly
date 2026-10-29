@@ -104,6 +104,7 @@ the assistants' reference tools); no manual conversion is needed. Still open:
 
 | Evidence | Commit | Runs | Host | Model inference |
 | --- | --- | --- | --- | --- |
+| native-recovery-local-2026-10-29 (2026-10-29) | `cb37d73` | local | local Linux; Chromium 153 fixtures | no |
 | workflow-context-0.37.0 (2026-10-29) | `512802e` | local | local Linux | no |
 | hosted-ci-a9813a0 (2026-10-28) | `a9813a0` | [40780070811](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/40780070811) | GitHub Linux and Windows | no |
 | local-suite-85974a3 (2026-10-28) | `a9813a0` | local | Linux x86-64 local (Python 3.12, Playwright Chromium, Tesseract 5.3.4) | no |
@@ -135,6 +136,7 @@ the assistants' reference tools); no manual conversion is needed. Still open:
 | ghidra-project-plan (2026-10-21) | `5a35215` | 39650087898 (log removed) | Fresh Linux x86-64 install and hosted Windows | no |
 | baseline-suite-cc17bf1 (2026-10-21) | `cc17bf1` | 39632598272 (log removed) | GitHub Linux and Windows | no |
 
+- **native-recovery-local-2026-10-29** (`cb37d73`): Native recovery recognizes nested user/assistant DOM elements as one message, preserves separate-message duplicate rejection and full-envelope verification, reconciles send exceptions without resending, bounds unconfirmed setup delivery checks, and caches recovered drafts only after identity discovery. Independent source review and 48 focused tests passed, including actual Chromium 153 local DOM fixtures. The non-browser non-slow suite passed 694 tests (103 skipped, 374 deselected). A broader browser-enabled run stopped after three failures: two extension serviceworker timeouts also reproduced on the unchanged base; a dashboard retained-result assertion remains under investigation. No signed-in provider acceptance, hosted CI, installer or release verification is claimed.
 - **workflow-context-0.37.0** (`512802e`): Version 0.37.0: evidence-based local resume, checks-first scheduling, focused briefs and model-requested fresh chats passed the complete local suite: 826 passed, 333 skipped. Focused native workflow/session tests passed 66 cases; independent review passed, including crash replay, changed files after reset and owner setting changes during renewal. Source permissions, exact native identity, existing writer/operation recovery, learning and independent/root acceptance remain required. Clear requests fall back to new chats; no service clearing action or signed-in native reset was verified. No new operational performance log. Hosted Windows/Linux/browser/package and release checks remain separate gates.
 - **hosted-ci-a9813a0** (`a9813a0`): All four jobs passed at a9813a0: Linux 1075 passed/43 skipped (871.71s); Windows 1044 passed/74 skipped (1805.48s); the Chromium browser fixture; Windows package install, update and restore. Push early, check later was tested with stand-ins for GitHub and the assistants only.
 - **local-suite-85974a3** (`a9813a0`): Full local suite at 85974a3 (a9813a0 changes only test encodings and the gate script's decoding): 1106 passed/12 skipped (1127 s) with WORKBENCH_TEST_CHROME and the real meaning-search model.
