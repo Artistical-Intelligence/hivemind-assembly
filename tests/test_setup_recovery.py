@@ -103,7 +103,9 @@ def test_usage_dialog_closes_without_changing_spending(check_allowance):
                     await dismiss_popups(page,check_allowance=True)
             else:
                 await dismiss_popups(page)
-            assert await page.locator('#usage').count()==0
+            assert await page.locator('#usage').count()==(1 if check_allowance else 0)
+            if check_allowance:
+                await page.locator('#usage').evaluate('(e) => e.remove()')
             assert not await page.evaluate('Boolean(window.spent)')
             await dismiss_popups(page,check_allowance=True)  # hidden stale dialog ignored
             await browser.close()
@@ -155,7 +157,8 @@ def test_initial_quota_block_survives_retry_and_restart(store,tmp_path,monkeypat
     assert team.observations[route].blocked_kind=='quota'
     scope=cfg['usage']['scope']
     assert not team.usage.claim_poll(scope,now=now+86399)
-    restarted=make_team(store)
+    restarted=team_module.NativeTeam(team.controller,team.broker,team.browser,team.config)
+    assert team.poll_interval([route])==86400
     assert restarted.observations[route].blocked_kind=='quota'
     assert not restarted.usage.claim_poll(scope,now=now+86399)
     setup=NativeSetup(team.browser,store,tmp_path/'config.json',team=team)
@@ -187,3 +190,35 @@ def test_opening_original_chat_preserves_pending_intent_binding(store,tmp_path,m
     setup.allowance=AsyncMock(return_value=SimpleNamespace(eligible=lambda:True))
     with pytest.raises(Recovered):asyncio.run(setup.step(route))
     assert cfg['routes'][route]['conversation_url']==before
+
+
+def test_cancelled_recovery_closes_remaining_tabs_after_one_close_fails(store,tmp_path,monkeypatch):
+    from hivemind_assembly.automation import sessions as module
+    async def run():
+        entered=asyncio.Event()
+        root=NativeBrowser(config(),tmp_path,Controller(store))
+        class Page:
+            def __init__(self,url,wait=False):self.url,self.wait,self.closed=url,wait,False
+            def locator(self,*a):return self
+            @property
+            def first(self):return self
+            async def evaluate_all(self,*a):return ['https://chatgpt.com/c/one','https://chatgpt.com/c/two']
+            async def wait_for(self,**k):pass
+            async def goto(self,url,**k):
+                self.url=url
+                if self.wait:
+                    entered.set();await asyncio.Event().wait()
+            async def close(self):
+                self.closed=True
+                if self.url.endswith('/one'):raise RuntimeError('closed during cleanup')
+        home=Page('https://chatgpt.com/');one=Page('about:blank');two=Page('about:blank',True)
+        context=SimpleNamespace(pages=[home],new_page=AsyncMock(side_effect=[one,two]))
+        root.contexts['openai']=context
+        monkeypatch.setattr(module,'request_echo',AsyncMock(return_value=None))
+        session=Sessions(root,tmp_path/'config.json')
+        task=asyncio.create_task(session.recover_page('worker.extra','pending',config()['routes']['worker.extra']))
+        await entered.wait();task.cancel()
+        with pytest.raises(asyncio.CancelledError):await task
+        assert one.closed and two.closed
+        assert root.service_pages==set()
+    asyncio.run(run())
