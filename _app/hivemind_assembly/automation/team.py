@@ -211,7 +211,9 @@ class NativeTeam:
         return observation.allowance_known and any(w.remaining < 10 for w in observation.windows)
 
     def poll_interval(self, routes):
-        if any(self.exhausted(route) for route in routes):
+        # A target reset invalidates route evidence, not the account's poll hold.
+        # Only known active allowance authorizes the shorter polling interval.
+        if any(route not in self.observations or self.exhausted(route) for route in routes):
             return self.usage.EXHAUSTED_INTERVAL
         return self.usage.ACTIVE_INTERVAL
 
