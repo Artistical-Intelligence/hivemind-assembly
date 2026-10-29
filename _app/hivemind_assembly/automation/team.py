@@ -65,12 +65,20 @@ class NativeTeam:
         self.task_locks = {}
         self.blocking_tasks = set()
         for row in self.store.rows(
-            "SELECT payload FROM records WHERE kind='availability' ORDER BY rowid"
+            "SELECT kind,payload FROM records WHERE kind='availability' OR kind LIKE 'native_setup:%' ORDER BY rowid"
         ):
             x = json.loads(row["payload"])
-            self.observations[x["route"]] = Availability(
-                **{**x, "windows": [Window(**w) for w in x["windows"]]}
-            )
+            if row["kind"] == "availability":
+                self.observations[x["route"]] = Availability(
+                    **{**x, "windows": [Window(**w) for w in x["windows"]]}
+                )
+            elif x.get("reset_allowance") is True or (
+                x.get("stage") == "not_started"
+                and x.get("instruction") == "Its model changed; setting it up again."
+            ):
+                # Replay durable target changes too, including older installs.
+                # Keep account poll timestamps and any later observations intact.
+                self.observations.pop(row["kind"].split(":", 1)[1], None)
 
     @contextmanager
     def learning_budget(self, route, trial, observation):
