@@ -44,6 +44,10 @@ async def request_echo(page, users, marker):
     return texts[0] if texts else None
 
 
+class DeliveryPending(Retryable):
+    """A send exists in the journal but has no observed message acknowledgement."""
+
+
 async def wait_request_echo(page, users, marker, timeout=30):
     deadline = time.monotonic() + timeout
     while True:
@@ -51,7 +55,7 @@ async def wait_request_echo(page, users, marker, timeout=30):
         if text is not None:
             return text
         if time.monotonic() >= deadline:
-            raise Retryable("Request acknowledgement pending; checking the existing send without resending")
+            raise DeliveryPending("Request acknowledgement pending; checking the existing send without resending")
         await asyncio.sleep(min(0.5, max(0, deadline - time.monotonic())))
 
 
