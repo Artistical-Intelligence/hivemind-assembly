@@ -42,7 +42,7 @@ def build_debug_server(call):
 
     @server.tool()
     def ha_debug_status() -> dict[str, Any]:
-        """Read HA version, granted routes, setup stages and active-work counts. No project contents."""
+        """Read HA version, granted routes, setup stages and setup-running flags. Selected assistant diagnostics only."""
         return invoke("ha_debug_status", {})
 
     @server.tool()
@@ -72,6 +72,7 @@ class DebugConnection:
         self.retry_tasks = set()
         self.inflight = set()
         self.epoch = 0
+        self.stopping = False
         self.requests = {}
         self.connect_task = None
         self.auto = None
@@ -97,6 +98,8 @@ class DebugConnection:
         ):
             raise ContractError("Select HA assistant routes for debugging")
         with self.lock:
+            if self.stopping:
+                raise Blocked("Debugging is stopping; wait before starting it again")
             if self.routes and set(routes) != self.routes:
                 raise Blocked("Stop debugging before changing the selected assistants")
             if not self.routes:
@@ -109,6 +112,9 @@ class DebugConnection:
 
     def stop(self):
         with self.lock:
+            if self.stopping:
+                return self.status()
+            self.stopping = True
             self.routes.clear()
             self.epoch += 1
             self.quick.revoke()
@@ -117,7 +123,11 @@ class DebugConnection:
         except concurrent.futures.TimeoutError:
             pass  # access is already revoked; application shutdown must continue
         finally:
-            self.quick.stop()
+            try:
+                self.quick.stop()
+            finally:
+                with self.lock:
+                    self.stopping = False
         return self.status()
 
     async def cancel_owned(self):
