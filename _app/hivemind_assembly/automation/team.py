@@ -125,6 +125,9 @@ class NativeTeam:
 
     def block_allowance(self, route, reason):
         """Retain explicit exhaustion, including before the first usage observation."""
+        # Reservation contention has no provider route and must not exhaust an account.
+        if route not in self.config["routes"]:
+            return
         cfg = self.config["routes"][route]
         scope = cfg.get("usage", {}).get("scope", route)
         now = time.time()
