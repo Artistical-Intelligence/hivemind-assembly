@@ -184,6 +184,11 @@ def test_native_team_file_proof_acceptance_and_learning_loop(store):
 
     class Native:
         async def exchange(self, route, message):
+            response = await self.response(route, message)
+            controller.message_state(message["id"], "validated", json.dumps(response))
+            return response
+
+        async def response(self, route, message):
             body = json.loads(message["payload"])["body"]
             common = {"request_id": message["id"]}
             if "catalog" in body:
@@ -232,6 +237,11 @@ def test_native_team_file_proof_acceptance_and_learning_loop(store):
         config = cfg
 
         async def exchange(self, route, message):
+            response = await self.response(route, message)
+            controller.message_state(message["id"], "validated", json.dumps(response))
+            return response
+
+        async def response(self, route, message):
             body = json.loads(message["payload"])
             checked.append((route, [f["path"] for f in body["files"]]))
             return {"request_id": message["id"], "type": "check_report", "summary": "Bytes match the proof.",

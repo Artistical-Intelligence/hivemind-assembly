@@ -21,3 +21,4 @@ Work pushed before independent review.
 | dev/ROADMAP.md | dev | Workflow update: regression tests and independent review |
 | _app/release_status.json | _app | Workflow update: regression tests and independent review |
 | _app/hivemind_assembly/__init__.py | _app/hivemind_assembly | Workflow update: regression tests and independent review |
+| tests/test_acceptance.py | tests | Workflow update: regression tests and independent review |
