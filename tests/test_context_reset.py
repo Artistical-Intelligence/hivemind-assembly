@@ -126,3 +126,41 @@ def test_reset_is_bounded(store, changes):
 
 def test_native_parser_accepts_identified_reset():
     assert parse_response(json.dumps(request()), request()["request_id"])["type"] == "context_reset"
+
+
+def test_adviser_handoff_is_not_exposed_to_worker(store):
+    team, task = setup_team(store)
+    flow = {**team.flow(task["id"]), "phase": "brief_reading"}
+    with pytest.raises(ContextResetYield):
+        asyncio.run(reset_context(team, task, flow, "adviser.extra",
+                                  {"required_passages": "restricted adviser-only text"}, request()))
+    asyncio.run(team._ask(task, team.flow(task["id"]), task["owner"], {"instruction": "worker scope"}))
+    envelope = team.browser.calls[0][1]
+    assert envelope["context_reset"]["handoff"] is None
+    assert "restricted adviser-only text" not in json.dumps(envelope)
+    assert envelope["body"] == {"instruction": "worker scope"}
+
+
+def test_reset_waits_for_uncertain_project_mutation(store):
+    team, task = setup_team(store)
+    with store.tx() as db:
+        db.execute("INSERT INTO operations VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                   ("uncertain-write", task["id"], task["owner"], task["epoch"], 0,
+                    "write_file", "hash", "{}", "uncertain", None, 0, 0))
+    with pytest.raises(Retryable, match="mutations"):
+        asyncio.run(reset_context(team, task, team.flow(task["id"]), task["owner"], {}, request()))
+    assert not team.sessions.calls
+
+
+def test_reset_rejects_native_identity_change(store):
+    team, task = setup_team(store)
+    renew = team.sessions.renew
+
+    async def changed(*args, **kwargs):
+        await renew(*args, **kwargs)
+        team.config["routes"][task["owner"]]["effort"] = "different"
+
+    team.sessions.renew = changed
+    with pytest.raises(Blocked, match="native identity"):
+        asyncio.run(reset_context(team, task, team.flow(task["id"]), task["owner"], {}, request()))
+    assert "context_reset_resume" not in team.flow(task["id"])
