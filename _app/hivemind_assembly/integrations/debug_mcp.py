@@ -123,7 +123,7 @@ class DebugConnection:
             raise ContractError("Choose ChatGPT or Claude")
         if self.connect_task and not self.connect_task.done():
             return
-        if self.app.assistants_busy() or any(not f.done() for f in self.app.provider_connect_futures.values()):
+        if self.app.assistants_busy() or any(not f.done() for f in [*self.app.provider_connect_futures.values(), *self.app.native_setup_futures.values()]):
             raise Blocked("Wait for assistant work and connection setup before connecting debugging")
 
         def info(p):
@@ -223,7 +223,7 @@ class DebugConnection:
         route = args.get("route")
         self.check(route, epoch)
         cfg = self.app.config["routes"][route]
-        lock = self.app.sessions.dispatch_locks.setdefault(cfg["profile"], asyncio.Lock())
+        lock = self.app.browser.dispatch_locks.setdefault(cfg["profile"], asyncio.Lock())
         # Do not wait behind an ongoing provider operation: inspect status first.
         if lock.locked():
             raise Blocked("This provider is busy; retry inspection when its operation completes")
