@@ -62,5 +62,18 @@ def pass_checks(broker, project, checker="reviewer.high"):
     acceptance directly)."""
     checks = broker.drafts.checks
     items = checks.pending(project)
-    return checks.finish(project, {i["path"]: i["sha256"] for i in items},
-                         {i["path"]: {"verdict": "pass", "findings": "fine"} for i in items}, "checks/test.md", checker)
+    paths = [item["path"] for item in items]
+    report = "checks/test.md"
+    text = "# Fixture check report\n\nMocked approval for automated tests; not live provider evidence.\n\n"
+    text += "\n".join(f"- {item['path']}: pass ({item['sha256']})" for item in items) + "\n"
+    checks.begin(project, paths, checker)
+    outcome = checks.finish(
+        project, {item["path"]: item["sha256"] for item in items},
+        {path: {"verdict": "pass", "findings": "fixture approval"} for path in paths},
+        report, checker, report_text=text,
+        versions={path: checks.state(project).get("blobs", {}).get(path) for path in paths},
+    )
+    # Match the production check lifecycle: persist its report and remove the
+    # approved markers together, so reconciliation can verify the evidence.
+    broker.drafts.sync(project, extra={report: text}, message="Fixture independent check")
+    return outcome
