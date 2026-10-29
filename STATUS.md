@@ -11,3 +11,7 @@ CHECKS PENDING: tests/test_workflow_scheduling.py — Workflow update: regressio
 CHECKS PENDING: AGENTS.md — Workflow update: regression tests and independent review
 CHECKS PENDING: _app/hivemind_assembly/core/acceptance.py — Workflow update: regression tests and independent review
 CHECKS PENDING: _app/hivemind_assembly/application/app.py — Workflow update: regression tests and independent review
+CHECKS PENDING: README.md — Workflow update: regression tests and independent review
+CHECKS PENDING: dev/ROADMAP.md — Workflow update: regression tests and independent review
+CHECKS PENDING: _app/release_status.json — Workflow update: regression tests and independent review
+CHECKS PENDING: _app/hivemind_assembly/__init__.py — Workflow update: regression tests and independent review
