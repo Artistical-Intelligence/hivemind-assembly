@@ -1,1 +1,0 @@
-CHECKS PENDING: native.py, sessions.py, onboarding.py — logical message recognition, uncertain-send reconciliation and bounded setup recovery; tests and independent review pending. Remote saving blocked by automatic approval review.
