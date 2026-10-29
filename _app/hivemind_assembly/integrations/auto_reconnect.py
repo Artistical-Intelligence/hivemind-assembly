@@ -82,7 +82,7 @@ class AutoReconnect:
             try:
                 await self.reconnect(provider)
             except Stuck as exc:
-                self.report(provider, "manual", str(exc) + " You can also connect " + provider + " by hand (Connection details).")
+                self.report(provider, "manual", str(exc) + " The setup tab stays open. You can also connect " + provider + " by hand (Connection details).")
             except Blocked as exc:
                 self.report(provider, "manual", str(exc))
             except Exception as exc:  # browser closed, navigation failed, timeouts
@@ -102,6 +102,8 @@ class AutoReconnect:
         page = await self.browser.service_page(profile, SETUP[provider], hosts)
         context = page.context
         before = set(context.pages)
+        completed = False
+        cancelled = False
         try:
             await page.wait_for_load_state("domcontentloaded")
             if urlsplit(page.url).hostname not in hosts:
@@ -114,12 +116,22 @@ class AutoReconnect:
             approval = await self.approval_page(context, origin)
             await self.approve(provider, approval)
             self.report(provider, "done", "Reconnected. " + provider + " will confirm on its first use.")
+            completed = True
+        except asyncio.CancelledError:
+            cancelled = True
+            raise
         finally:
-            for extra in set(context.pages) - before:
-                if not extra.is_closed():
-                    await extra.close()
-            if not page.is_closed():
-                await page.close()
+            if completed or cancelled:
+                for extra in set(context.pages) - before:
+                    if not extra.is_closed():
+                        await extra.close()
+                if not page.is_closed():
+                    await page.close()
+            elif not page.is_closed():
+                try:
+                    await page.bring_to_front()
+                except Exception:
+                    pass
 
     async def click_marked(self, page):
         target = page.locator("[data-ha-target]")
@@ -146,6 +158,7 @@ class AutoReconnect:
         if page.url != SETUP[provider]:
             await page.goto(SETUP[provider], wait_until="domcontentloaded")
         reset = False
+        note = "Waiting for the connector settings controls."
         deadline = time.monotonic() + 25
         while time.monotonic() < deadline:
             await page.wait_for_timeout(400)
@@ -154,16 +167,23 @@ class AutoReconnect:
                 if not reset:
                     await page.evaluate("globalThis.__haSetupNavigator.reset()")
                     reset = True
-                step = await page.evaluate("globalThis.__haSetupNavigator.step()")
+                step = await page.evaluate("globalThis.__haSetupNavigator.plan()")
             except Exception as exc:
                 if "context" in str(exc).lower() or "navigat" in str(exc).lower():
                     continue  # the page reloaded under us; try again
                 raise
+            note = step.get("note") or note
+            if step["state"] == "click":
+                target = page.locator("[data-ha-navigation-target]")
+                if await target.count() != 1:
+                    raise Stuck("The connector navigation control changed before HA could click it.")
+                # React menus may listen to trusted pointerdown rather than element.click().
+                await target.click(timeout=5000)
             if step["state"] == "ready":
                 return
             if step["state"] == "blocked":
                 raise Stuck(step["note"])
-        raise Stuck("The Add custom connector form didn't open.")
+        raise Stuck("The Add custom connector form did not open. " + note)
 
     async def fill_and_submit(self, provider, page, details):
         # Claude can ask for authentication options after Continue; fill and submit up to three times.
