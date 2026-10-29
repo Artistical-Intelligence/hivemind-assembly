@@ -353,7 +353,8 @@ class Checks:
             # Before origin was recorded in checked history, only remote imports
             # used writer="outside". New local discoveries explicitly record
             # outside=False on completion, so they remain locally verifiable.
-            remote_origin = previous.get("outside", previous.get("writer") == "outside")
+            remote_origin = previous.get(
+                "outside", path not in state["items"] and previous.get("writer") == "outside")
             if not safe_path(path) or managed(path) or remote_origin:
                 continue
             try:
@@ -376,7 +377,7 @@ class Checks:
             item.update(path=path, folder=folder_of(path), writer=item.get("writer", "outside"),
                         writer_provider=item.get("writer_provider"), sha256=current,
                         since=item.get("since", time.time()), state="pending",
-                        evidence_unavailable=unavailable, needs_recheck=True)
+                        evidence_unavailable=unavailable, needs_recheck=True, outside=False)
             item["note"] = (
                 "cannot verify: the local file is missing or unreadable" if unavailable else
                 "check again: local bytes changed since the retained evidence" if drift and previous else
