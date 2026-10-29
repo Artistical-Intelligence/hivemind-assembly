@@ -4,14 +4,16 @@ import base64
 import hashlib
 import io
 import json
-import os
 import sys
 from unittest.mock import AsyncMock
 
 import pytest
 from PIL import Image
 from mcp import Client
-from test_debug_mcp import app, server, debug, ROUTE, CHROME
+import test_debug_mcp
+from test_debug_mcp import ROUTE, CHROME
+
+app, server, debug = test_debug_mcp.app, test_debug_mcp.server, test_debug_mcp.debug
 from hivemind_assembly.core.common import Blocked, ContractError
 from hivemind_assembly.integrations import debug_vision
 from hivemind_assembly.integrations.debug_mcp import build_debug_server
