@@ -155,6 +155,7 @@ def test_reconciliation_rebases_stale_reasoning_before_model_dispatch(store, mon
 
     async def passed(project):
         from native_fixtures import pass_checks
+        team.broker.drafts.checks.begin(project, ["draft.py"], "reviewer.high")
         pass_checks(team.broker, project)
         return {"passed": ["draft.py"], "failed": []}
 
