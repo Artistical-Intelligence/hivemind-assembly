@@ -42,11 +42,14 @@ async def recognize(picture):
     if not program:
         return {'state': 'unavailable', 'message': 'Select Install required tools in HA Settings to add Tesseract. The screenshot is still available for visual review.'}
     flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0) if sys.platform == 'win32' else 0
-    process = await asyncio.create_subprocess_exec(
-        program, 'stdin', 'stdout', '-l', 'eng', '--psm', '11', 'tsv',
-        stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-        env=dict(os.environ, OMP_THREAD_LIMIT='1'), creationflags=flags,
-    )
+    try:
+        process = await asyncio.create_subprocess_exec(
+            program, 'stdin', 'stdout', '-l', 'eng', '--psm', '11', 'tsv',
+            stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            env=dict(os.environ, OMP_THREAD_LIMIT='1'), creationflags=flags,
+        )
+    except OSError:
+        return {'state': 'error', 'message': 'Local OCR could not start. Select Install required tools in HA Settings; the screenshot is still available.'}
     try:
         stdout, _stderr = await asyncio.wait_for(process.communicate(picture), OCR_SECONDS)
         if process.returncode:
