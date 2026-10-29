@@ -204,3 +204,39 @@ reviewed application-test fixture:
 | --- | --- |
 | `tests/test_workflow_reconciliation.py` | `aef0acf67a0bbc970864597dc0ff35fa70a754cefbd79c0ace45430a8356579b` |
 | `tests/test_app.py` | `6467f9d961f1c2a85028a20a3252a6bff38f23350eafa922922d8c4043637667` |
+
+## Monitoring and RE-Wizard mediation instructions addendum
+
+**Result: PASS.** Independently reviewed `AGENTS.md` and
+`_app/hivemind_assembly/automation/prompts.py`, identified by the integration
+owner as candidate `efc4c649ba597b4c0cf428d0813192b5d787b1e9`.
+
+The relationship links are explicitly orientation rather than access grants.
+HA runtime/task agents must retrieve RE-Wizard textbook information through
+authorized mediation, restricted to relevant sections and their existing role,
+project and source/category permissions. Both instruction surfaces explicitly
+prohibit bypass through direct GitHub access, clones, exports, filesystem access
+or whole-book retrieval, even when technically possible. A maintenance title or
+visible URL does not confer permission. Separately explicit owner authorization
+for direct RE-Wizard study or maintenance does not expand an HA task agent's
+mediated access. No whole-textbook URL was added to native prompts.
+
+Monitoring guidance requests concise material updates and existing deterministic
+status/recovery mechanisms while preserving required response protocols and
+service heartbeats. Reset guidance weighs irrelevant context and restoration
+cost, forbids invented token counts and automatic per-task resets, and introduces
+no performance tracking. These edits strengthen instructions; they do not add a
+new technical access-control mechanism or replace the existing knowledge-scope
+and role checks.
+
+Independent focused rerun of knowledge scopes, team and context reset:
+**28 passed in 1.93 seconds**. `git diff --check` passed. No live-provider
+adherence, cross-repository retrieval or new access grant was exercised or
+inferred. No blocking findings remain in these two files.
+
+These approved hashes supersede their earlier manifest entries:
+
+| File | SHA-256 |
+| --- | --- |
+| `AGENTS.md` | `57cd885bbc7302b4b12b0d728c6435bdcc75b94ef2d744aeb46b6f912daf5611` |
+| `_app/hivemind_assembly/automation/prompts.py` | `e1a4573000adfd11fdf5977443aacc5896c73b63eefaf9a35807713604033730` |
