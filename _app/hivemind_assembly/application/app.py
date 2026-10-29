@@ -217,6 +217,7 @@ class Application:
         from hivemind_assembly.automation.signin import NativeSignIn
 
         self.native_signin = NativeSignIn(self.browser)
+        self.provider_connect_futures = {}
         self.shutdown = False
         self.closed = False
         self.learning_lock = threading.Lock()
@@ -332,8 +333,15 @@ class Application:
     async def connect_provider(self, provider):
         """One click: start HA's connection, then add and approve HA in that provider's tab."""
         auto = self.auto_reconnect
-        auto.report(provider, "working", "Starting HA's connection…")
+        auto.report(provider, "working", "Checking sign-in before creating HA's MCP connector…")
         try:
+            provider_id = {"ChatGPT": "openai", "Claude": "claude"}[provider]
+            info = PROVIDERS[provider_id]
+            await self.native_signin.open(provider_id, info["profile"], info["hosts"])
+            signed = await self.native_signin.tasks[provider_id]
+            if signed.get("stage") != "signed_in":
+                raise Blocked(signed.get("message") or "Sign-in could not be confirmed. Connect again to retry.")
+            auto.report(provider, "working", "Starting HA's connection…")
             self.ensure_access()
             self.connection().start()
             for _ in range(180):
@@ -567,6 +575,7 @@ class Application:
                 "name": info["name"],
                 "account": observed.get("account", "") if observed else (accounts.pop() if len(accounts) == 1 else ""),
                 "signin": observed,
+                "mcp": self.auto_reconnect.status()["progress"].get(info["name"], {}),
                 "waiting": observed.get("stage") == "authentication" if observed else any(self.native_setup.status(r).get("stage") == "authentication" for r in routes),
                 "routes": routes,
             })
@@ -849,7 +858,9 @@ class Application:
             provider = data.get("provider")
             if provider not in ("ChatGPT", "Claude"):
                 raise ContractError("Choose ChatGPT or Claude.")
-            self.submit(self.connect_provider(provider))
+            future = self.provider_connect_futures.get(provider)
+            if future is None or future.done():
+                self.provider_connect_futures[provider] = self.submit(self.connect_provider(provider))
             return self.browser_connection_status()
         if path == "/api/quick/reconnect":
             if self.quick.status()["state"] != "ready":
@@ -1991,6 +2002,9 @@ class Application:
         self.mcp_gateway.checks.close()
 
         async def close_runtime():
+            for future in self.provider_connect_futures.values():
+                future.cancel()
+            await asyncio.gather(*(asyncio.wrap_future(f) for f in self.provider_connect_futures.values()), return_exceptions=True)
             await self.native_signin.close()
             await self.connections.oauth.drain()
             for future in self.native_setup_futures.values():
