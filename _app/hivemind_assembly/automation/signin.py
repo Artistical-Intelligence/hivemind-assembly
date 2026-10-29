@@ -12,6 +12,7 @@ class NativeSignIn:
     def __init__(self, browser):
         self.browser = browser
         self.pages = {}
+        self.profiles = {}
         self.tasks = {}
         self.states = {}
         self.locks = {}
@@ -28,6 +29,18 @@ class NativeSignIn:
         async with self.locks.setdefault(provider, asyncio.Lock()):
             # A separate tab keeps account-menu clicks away from active conversations.
             page = self.pages.get(provider)
+            identity = (profile, tuple(sorted(hosts)))
+            if self.profiles.get(provider) != identity:
+                task = self.tasks.pop(provider, None)
+                if task is not None:
+                    task.cancel()
+                    await asyncio.gather(task, return_exceptions=True)
+                if page is not None and not page.is_closed():
+                    await page.close()
+                page = None
+                self.pages.pop(provider, None)
+                self.states.pop(provider, None)
+                self.profiles[provider] = identity
             if page is None or page.is_closed():
                 page = await self.browser.service_page(profile, CONTRACTS[provider]["new_url"], hosts)
                 self.pages[provider] = page
@@ -76,4 +89,5 @@ class NativeSignIn:
         await asyncio.gather(*tasks, return_exceptions=True)
         self.tasks.clear()
         self.pages.clear()
+        self.profiles.clear()
         self.states.clear()
