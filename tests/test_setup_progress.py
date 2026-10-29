@@ -151,3 +151,13 @@ def test_dashboard_shows_actual_phase_and_then_actionable_attention(server, app)
         expect(row).to_contain_text('Open the original conversation. No request was resent.')
         expect(row).not_to_contain_text('Checking saved setup chat')
         browser.close()
+
+
+def test_known_active_peer_keeps_ten_minute_shared_account_cadence(store):
+    team = make_team(store)
+    routes = ['adviser.extra', 'reviewer.high']
+    assert routes[0] in team.observations and routes[1] not in team.observations
+    assert team.poll_interval(routes) == 600
+    team.block_allowance(routes[0], 'Account exhausted')
+    team.observations.pop(routes[1], None)
+    assert team.poll_interval(routes) == 86400
