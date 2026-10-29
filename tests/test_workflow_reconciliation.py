@@ -1,0 +1,98 @@
+"""Resume trusts current evidence, not an old pass or a missing marker."""
+
+import asyncio
+import hashlib
+
+from test_checks_workflow import Checker, ROUTES, project, team_for, write  # noqa: F401
+from hivemind_assembly.core.checks import LEDGER, MARK, STATUS
+
+
+def checked_file(project):
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "src/a.c", "int a = 1;\n", "w1")
+    team = team_for(c, broker, Checker({}, ROUTES))
+    outcome = asyncio.run(team.independent.run(t["project_id"]))
+    assert outcome["passed"] == ["src/a.c"]
+    return c, t, epoch, remote, broker, team
+
+
+def test_checked_local_drift_reopens_and_checks_local_not_old_remote(project):
+    c, t, _, remote, broker, team = checked_file(project)
+    root = broker.workspace(t["id"])
+    before = c.store.project(t["project_id"])["revision"]
+    (root / "src/a.c").write_text("int a = 2;\n")
+    result = broker.drafts.reconcile(t["project_id"])
+    assert result["changed"] == ["src/a.c"]
+    assert c.store.project(t["project_id"])["revision"] == before + 1
+    assert c.store.task(t["id"])["brief_id"] is None
+    pending = broker.drafts.checks.pending(t["project_id"])[0]
+    assert not pending.get("outside")
+    assert MARK in (root / "src/STATUS.md").read_text()
+    assert "int a = 1" in remote.tree()["src/a.c"]  # Do not publish an external edit automatically.
+    checker = Checker({}, ROUTES)
+    team.sessions.checker = checker
+    asyncio.run(team.independent.run(t["project_id"]))
+    assert checker.calls[0][1]["files"][0]["text"] == "int a = 2;\n"
+
+
+def test_only_newest_checked_hash_counts_and_unchanged_resume_is_idempotent(project):
+    c, t, _, _, broker, _ = checked_file(project)
+    checks = broker.drafts.checks
+    state = checks.state(t["project_id"])
+    state["checked"].append({**state["checked"][0], "sha256": "obsolete"})
+    checks.save(t["project_id"], state)
+    revision = c.store.project(t["project_id"])["revision"]
+    assert broker.drafts.reconcile(t["project_id"])["pending"] == 0
+    assert broker.drafts.reconcile(t["project_id"])["pending"] == 0
+    assert c.store.project(t["project_id"])["revision"] == revision
+
+
+def test_missing_checked_file_stays_pending_without_repeated_revision_bumps(project):
+    c, t, _, _, broker, team = checked_file(project)
+    (broker.workspace(t["id"]) / "src/a.c").unlink()
+    result = broker.drafts.reconcile(t["project_id"])
+    assert result["changed"] == ["src/a.c"]
+    revision = c.store.project(t["project_id"])["revision"]
+    assert broker.drafts.reconcile(t["project_id"])["changed"] == []
+    assert c.store.project(t["project_id"])["revision"] == revision
+    outcome = asyncio.run(team.independent.run(t["project_id"]))
+    assert outcome["left"] == ["src/a.c"] and not outcome["passed"]
+
+
+def test_local_markers_are_adopted_before_rewrite(project):
+    _, t, _, _, broker = project
+    root = broker.workspace(t["id"])
+    (root / "outside.txt").write_text("local draft")
+    (root / STATUS).write_text(f"{MARK} outside.txt — owner requests review\n")
+    result = broker.drafts.reconcile(t["project_id"])
+    assert result["pending"] == 1
+    item = broker.drafts.checks.pending(t["project_id"])[0]
+    assert item["path"] == "outside.txt" and not item.get("outside")
+    assert "outside.txt" in (root / LEDGER).read_text()
+
+
+def test_missing_report_reopens_without_erasing_history(project):
+    _, t, _, _, broker, _ = checked_file(project)
+    checks = broker.drafts.checks
+    report = checks.state(t["project_id"])["checked"][0]["report"]
+    (broker.workspace(t["id"]) / report).unlink()
+    result = broker.drafts.reconcile(t["project_id"])
+    assert result["pending"] == 1
+    assert checks.state(t["project_id"])["checked"][0]["report"] == report
+    assert "report is missing" in checks.pending(t["project_id"])[0]["note"]
+
+
+def test_external_edit_during_check_cannot_pass_old_bytes(project):
+    c, t, epoch, _, broker = project
+    write(broker, t, epoch, "a.c", "int a = 1;\n", "w1")
+    checker = Checker({}, ROUTES)
+    original = checker.exchange
+
+    async def changed(route, message):
+        (broker.workspace(t["id"]) / "a.c").write_text("int a = 2;\n")
+        return await original(route, message)
+
+    checker.exchange = changed
+    outcome = asyncio.run(team_for(c, broker, checker).independent.run(t["project_id"]))
+    assert outcome["left"] == ["a.c"] and not outcome["passed"]
+    assert broker.drafts.checks.pending(t["project_id"])[0]["sha256"] == hashlib.sha256(b"int a = 2;\n").hexdigest()
