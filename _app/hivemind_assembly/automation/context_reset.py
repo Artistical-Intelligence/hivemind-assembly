@@ -74,7 +74,7 @@ async def reset_context(team, task, flow, route, payload, response):
         team.store.put("context_reset", identity, request, db)
     # Sessions journals intent, delivery and exact binding, and reconciles a
     # committed identity after a crash without sending another bootstrap.
-    await team.sessions.renew(task["id"], route, identity=identity)
+    await team.sessions.renew(task["id"], route, identity=identity, expected_binding=binding)
     if team.scopes.fingerprint(task["id"]) != context:
         raise Blocked("Knowledge permissions changed during context renewal; rebrief required")
     cfg = team.config["routes"][route]
