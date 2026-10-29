@@ -198,12 +198,14 @@ class Checks:
         state.setdefault("blobs", {})  # What HA last pushed of each file (Git blob IDs).
         return state
 
-    def save(self, project, state):
-        with self.store.tx() as db:
-            db.execute(
-                "INSERT INTO project_checks VALUES(?,?,?) ON CONFLICT(project_id) DO UPDATE SET state=excluded.state,updated=excluded.updated",
-                (project, json.dumps(state, ensure_ascii=False, separators=(",", ":")), time.time()),
-            )
+    def save(self, project, state, db=None):
+        if db is None:
+            with self.store.tx() as transaction:
+                return self.save(project, state, transaction)
+        db.execute(
+            "INSERT INTO project_checks VALUES(?,?,?) ON CONFLICT(project_id) DO UPDATE SET state=excluded.state,updated=excluded.updated",
+            (project, json.dumps(state, ensure_ascii=False, separators=(",", ":")), time.time()),
+        )
 
     def pending(self, project):
         return sorted(self.state(project)["items"].values(), key=lambda i: i["path"])
@@ -387,11 +389,17 @@ class Checks:
                 changed.append(path)
                 state.setdefault("before", {}).setdefault(path, previous.get("sha256"))
         if discovered:
-            self.save(project, state)
-        if changed:
             with self.store.tx() as db:
-                db.execute("UPDATE projects SET revision=revision+1 WHERE id=?", (project,))
-                db.execute("UPDATE tasks SET brief_id=NULL WHERE project_id=?", (project,))
+                if db.execute(
+                    "SELECT o.id FROM operations o JOIN tasks t ON t.id=o.task_id "
+                    "WHERE t.project_id=? AND o.state IN ('running','uncertain','applied') LIMIT 1",
+                    (project,),
+                ).fetchone():
+                    return {"changed": [], "pending": len(self.state(project)["items"]), "deferred": True}
+                self.save(project, state, db)
+                if changed:
+                    db.execute("UPDATE projects SET revision=revision+1 WHERE id=?", (project,))
+                    db.execute("UPDATE tasks SET brief_id=NULL WHERE project_id=?", (project,))
         return {"changed": changed, "discovered": discovered,
                 "pending": len(state["items"]), "deferred": False}
 
@@ -438,7 +446,8 @@ class Checks:
                     # the same push): a version someone changed there meanwhile isn't checked.
                     state.setdefault("clear_versions", {})[path] = {"blob": versions[path], "item": item}
                 state["checked"].insert(0, {"path": path, "sha256": sha, "report": report, "checker": checker,
-                                            "writer": item.get("writer"), "at": time.time()})
+                                            "writer": item.get("writer"), "outside": bool(item.get("outside")),
+                                            "at": time.time()})
                 passed.append(path)
             else:
                 findings = " ".join(str(result.get("findings") or "no reason given").split())[:300]
