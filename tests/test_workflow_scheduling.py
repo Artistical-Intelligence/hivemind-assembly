@@ -96,3 +96,22 @@ def test_deferred_reconciliation_never_accepts_completion(store, monkeypatch):
     monkeypatch.setattr(team.broker.drafts, "reconcile", lambda project: {"deferred": True})
     assert asyncio.run(team.completion_waits(task)) is True
     assert asyncio.run(team.pending_checks_wait(task)) is True
+
+
+def test_unrelated_unresolved_delivery_does_not_allow_new_dispatch(store):
+    team, task = setup_team(store)
+    team.controller.prepare_message(task["id"], "adviser.extra", "https://example.invalid/other", {}, "other-turn")
+    assert asyncio.run(team.pending_checks_wait(task)) is True
+    assert not team.browser.calls
+
+
+def test_retained_tool_batch_drains_before_pending_checks(store, monkeypatch):
+    team, task = setup_team(store)
+    mark(team, task)
+    team.save_flow(task["id"], {**team.flow(task["id"]), "phase": "batch"})
+
+    async def forbidden(project):
+        raise AssertionError("retained batch must drain first")
+
+    monkeypatch.setattr(team.independent, "run", forbidden)
+    assert asyncio.run(team.pending_checks_wait(task)) is False
