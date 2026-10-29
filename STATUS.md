@@ -17,3 +17,4 @@ CHECKS PENDING: _app/release_status.json — Workflow update: regression tests a
 CHECKS PENDING: _app/hivemind_assembly/__init__.py — Workflow update: regression tests and independent review
 CHECKS PENDING: tests/test_acceptance.py — Workflow update: regression tests and independent review
 CHECKS PENDING: tests/test_reconstruction_trial.py — Workflow update: regression tests and independent review
+CHECKS PENDING: _app/hivemind_assembly/automation/sessions.py — Workflow update: regression tests and independent review

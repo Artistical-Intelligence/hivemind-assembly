@@ -23,3 +23,4 @@ Work pushed before independent review.
 | _app/hivemind_assembly/__init__.py | _app/hivemind_assembly | Workflow update: regression tests and independent review |
 | tests/test_acceptance.py | tests | Workflow update: regression tests and independent review |
 | tests/test_reconstruction_trial.py | tests | Workflow update: regression tests and independent review |
+| _app/hivemind_assembly/automation/sessions.py | _app/hivemind_assembly/automation | Workflow update: regression tests and independent review |
