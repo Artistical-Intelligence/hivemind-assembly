@@ -96,3 +96,37 @@ def test_external_edit_during_check_cannot_pass_old_bytes(project):
     outcome = asyncio.run(team_for(c, broker, checker).independent.run(t["project_id"]))
     assert outcome["left"] == ["a.c"] and not outcome["passed"]
     assert broker.drafts.checks.pending(t["project_id"])[0]["sha256"] == hashlib.sha256(b"int a = 2;\n").hexdigest()
+
+
+def test_legacy_remote_check_history_remains_remote_after_upgrade(project):
+    c, t, epoch, remote, broker = project
+    remote.edit("docs/remote.md", "Remote-only source\n")
+    remote.edit(LEDGER, "| Item | Folder | Waiting for |\n| --- | --- | --- |\n"
+                "| docs/remote.md | docs | review |\n")
+    write(broker, t, epoch, "local.c", "int a;\n", "w1")
+    team = team_for(c, broker, Checker({}, ROUTES))
+    outcome = asyncio.run(team.independent.run(t["project_id"]))
+    assert "docs/remote.md" in outcome["passed"]
+    checks = broker.drafts.checks
+    state = checks.state(t["project_id"])
+    for entry in state["checked"]:
+        entry.pop("outside", None)  # Exact legacy shape, before provenance was saved.
+    checks.save(t["project_id"], state)
+    revision = c.store.project(t["project_id"])["revision"]
+    assert broker.drafts.reconcile(t["project_id"])["pending"] == 0
+    assert c.store.project(t["project_id"])["revision"] == revision
+    # Legacy local evidence still detects deletion instead of assuming remote origin.
+    (broker.workspace(t["id"]) / "local.c").unlink()
+    assert broker.drafts.reconcile(t["project_id"])["changed"] == ["local.c"]
+
+
+def test_checked_local_discovery_does_not_become_remote_history(project):
+    c, t, _, _, broker = project
+    root = broker.workspace(t["id"])
+    (root / "local.txt").write_text("first")
+    (root / STATUS).write_text(f"{MARK} local.txt — review\n")
+    broker.drafts.reconcile(t["project_id"])
+    team = team_for(c, broker, Checker({}, ROUTES))
+    assert asyncio.run(team.independent.run(t["project_id"]))["passed"] == ["local.txt"]
+    (root / "local.txt").write_text("second")
+    assert broker.drafts.reconcile(t["project_id"])["changed"] == ["local.txt"]
