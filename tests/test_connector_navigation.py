@@ -60,6 +60,7 @@ def test_real_navigation_opens_pointer_menu_and_form(tmp_path, variant):
     ('<button>Add plugin</button><button>Add plugin</button>', 'More than one'),
     ('<div role="dialog"><button>Add plugin</button></div>', 'Another dialog'),
     ('<form><button type="submit">Add plugin</button></form>', 'Waiting'),
+    ('<form id="f"></form><button form="f">Add plugin</button>', 'Waiting'),
 ])
 def test_navigation_does_not_act_on_ambiguous_overlay_or_submit(tmp_path, body, note):
     from playwright.async_api import async_playwright
