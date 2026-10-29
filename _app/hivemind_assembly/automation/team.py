@@ -1104,6 +1104,10 @@ class NativeTeam:
         flow = self.flow(task_id)
         if flow["phase"] not in ("intent", "brief", "brief_reading", "execute") or flow.get("context_reset_resume"):
             return False
+        # Mutating broker work intentionally returns to intent with its result.
+        # That phase already requests new authority; preserve its operation ID.
+        if flow["phase"] == "intent" and not result.get("changed"):
+            return False
         revision = self.store.project(task["project_id"])["revision"]
         previous = flow.get("intent", {}).get("revision")
         if previous is None and flow.get("brief_id"):
