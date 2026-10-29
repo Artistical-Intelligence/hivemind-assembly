@@ -17,3 +17,7 @@ Setup conversation recovery, durable quota handling and 0.37.2 evidence: [indepe
 Dedicated owner MCP debugging and 0.37.3 evidence: [independent review](checks/2026-10-29-debug-mcp-review.md). Local fixtures do not establish live-provider or remote-tunnel acceptance.
 
 Trusted connector-menu navigation and 0.37.4 evidence: [independent review](checks/2026-10-29-connector-navigation-review.md). Original live-user root cause and live provider acceptance remain unverified.
+
+| Item | Folder | Waiting for |
+| --- | --- | --- |
+| Bounded setup recovery, accurate progress and quota reset restoration | automation, application, tests | Regression checks and independent review |
