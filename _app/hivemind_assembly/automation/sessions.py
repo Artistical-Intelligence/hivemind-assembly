@@ -9,6 +9,7 @@ import base64
 import copy
 import json
 import secrets
+import time
 from pathlib import Path
 from .native import request_echo, NativeBrowser
 from .providers import CONTRACTS, discover, conversation_url, select_preferred_chat
@@ -23,6 +24,9 @@ from hivemind_assembly.core.common import (
 )
 
 
+RECOVERY_SECONDS = 45
+
+
 class Sessions:
     def __init__(self, browser, config_path):
         self.browser, self.store = browser, browser.controller.store
@@ -30,9 +34,22 @@ class Sessions:
         self.locks = {}
         self.drafts = {}
         self.setup_pages = {}
+        self.progress = {}
+
+    def report(self, route, instruction):
+        if self.progress.get(route, {}).get("instruction") != instruction:
+            self.progress[route] = {"instruction": instruction, "since": time.time()}
 
     async def recover_page(self, route, key, cfg):
-        """Find an existing setup request without creating or sending a replacement."""
+        """Bound recovery while retaining uncertain delivery and the original request."""
+        try:
+            async with asyncio.timeout(RECOVERY_SECONDS):
+                return await self._recover_page(route, key, cfg)
+        except TimeoutError:
+            raise Blocked("Saved-chat recovery reached its time limit. Open the original setup conversation in HA's browser, then Retry setup. No request was resent.") from None
+
+    async def _recover_page(self, route, key, cfg):
+        self.report(route, "Checking open tabs for the saved setup request; no request is being resent.")
         context = self.browser.contexts.get(cfg["profile"])
         if context is None:
             await self.browser.service_page(cfg["profile"], CONTRACTS[cfg["provider"]]["new_url"], cfg.get("allowed_hosts"))
@@ -76,7 +93,8 @@ class Sessions:
         keep = None
         incomplete = False
         try:
-            for url in urls[:24]:
+            for index, url in enumerate(urls[:24], 1):
+                self.report(route, f"Checking saved setup chat {index} of {min(len(urls), 24)}; recovery is limited to {RECOVERY_SECONDS} seconds.")
                 page = await context.new_page()
                 opened.append(page)
                 try:
@@ -106,7 +124,7 @@ class Sessions:
             for page in opened:
                 if page is not keep:
                     try:
-                        await page.close()
+                        await asyncio.wait_for(page.close(), timeout=3)
                     except Exception as error:
                         self.store.event(key, "session_recovery_cleanup_pending", {"route": route, "reason": type(error).__name__})
 
@@ -245,6 +263,7 @@ class Sessions:
             ):
                 raise Blocked("Context renewal no longer matches the configured native identity")
 
+        self.report(route, "Preparing or recovering the setup conversation.")
         async with self.locks.setdefault(route, asyncio.Lock()):
             cfg = self.browser.config["routes"][route]
             verify_expected(cfg)
@@ -324,6 +343,8 @@ class Sessions:
                     )
                     page = await self.browser.service_page(cfg["profile"], url, cfg.get("allowed_hosts"))
                 elif message_rows and message_rows[0]["state"] != "prepared":
+                    if self.browser.dispatch_lock(route).locked():
+                        self.report(route, "Waiting for another assistant using this account before checking saved chats.")
                     async with self.browser.dispatch_lock(route):
                         page = await self.recover_page(route, key, cfg)
                     # observe() needs the current page; draft remains true until
@@ -366,6 +387,7 @@ class Sessions:
                             .items()
                             if k not in ("model", "effort")
                         }
+                self.report(route, "Waiting to verify the setup conversation model and account." if self.browser.dispatch_lock(route).locked() else "Verifying the setup conversation model and account.")
                 async with self.browser.dispatch_lock(route):
                     discovered = await discover(page, clone.config["routes"][route])
                 if discovered["missing"]:
@@ -419,6 +441,7 @@ class Sessions:
             if message["state"] == "validated":
                 response = json.loads(message["response"])
             else:
+                self.report(route, "Checking saved delivery and waiting for the setup reply; an uncertain request is never resent.")
                 response = await clone.exchange(
                     route,
                     message,
@@ -432,6 +455,7 @@ class Sessions:
                 raise Blocked(
                     "Native session failed exact attachment byte verification"
                 )
+            self.report(route, "Verifying the returned setup file and exact attachment bytes.")
             returned = path.with_name(return_name)
             if not returned.exists() or file_hash(returned) != file_hash(path):
                 selector = target.get("selectors", {}).get("download")
