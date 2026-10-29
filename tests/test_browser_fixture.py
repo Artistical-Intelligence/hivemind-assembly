@@ -145,3 +145,44 @@ def test_browser_delivery_reconciliation_and_attachment(store, tmp_path, nested)
             await browser.close()
 
     asyncio.run(run())
+
+
+def test_logical_message_and_reply_boundaries():
+    """Run the actual extraction scripts, including the next user's boundary."""
+    from hivemind_assembly.automation.native import REQUEST_ECHO, REPLIES, RESPONSE_COMPLETE
+
+    async def run():
+        from playwright.async_api import async_playwright
+
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch(
+                executable_path=CHROME, headless=True, args=["--no-sandbox"]
+            )
+            page = await browser.new_page()
+            await page.set_content('''
+                <div class="user">WORKBENCH_REQUEST:r-long</div>
+                <div class="assistant">Earlier answer</div>
+                <div class="user" id="request"><div class="user-inner">WORKBENCH_REQUEST:r\n payload</div></div>
+                <div class="assistant"><div class="assistant-inner"><pre><code>{"type":"brief"}</code></pre></div><button class="done">Done</button></div>
+                <div class="user"><div class="user-inner">WORKBENCH_REQUEST:next</div></div>
+                <div class="assistant"><div class="assistant-inner">Later answer</div><button class="done">Done</button></div>
+            ''')
+            args = {"users": ".user, .user-inner", "assistants": ".assistant, .assistant-inner", "marker": "WORKBENCH_REQUEST:r", "complete": ".done"}
+            assert len(await page.evaluate(REQUEST_ECHO, args)) == 1
+            # Outside code text (the Done button) preserves the whole message;
+            # nested assistant selectors must not duplicate the answer.
+            replies = await page.evaluate(REPLIES, args)
+            assert len(replies) == 1
+            assert '"type":"brief"' in replies[0]
+            assert "Earlier answer" not in replies[0] and "Later answer" not in replies[0]
+            assert await page.evaluate(RESPONSE_COMPLETE, args) is True
+            await page.locator(".done").first.evaluate("e=>e.remove()")
+            assert await page.evaluate(RESPONSE_COMPLETE, args) is False
+            assert await page.evaluate(REPLIES, args) == ['```json\n{"type":"brief"}\n```']
+            await page.locator("#request").evaluate("e=>e.after(e.cloneNode(true))")
+            assert len(await page.evaluate(REQUEST_ECHO, args)) == 2
+            assert await page.evaluate(REPLIES, args) == []
+            assert await page.evaluate(RESPONSE_COMPLETE, args) is False
+            await browser.close()
+
+    asyncio.run(run())
