@@ -52,7 +52,7 @@
         return {text: s.instruction || 'Retrying…', tone: 'act', step: 4};
       case 'ready_for_session':
       case 'bound':
-        return {text: 'Found the controls. Starting its own conversation…', step: 4};
+        return {text: s.instruction || 'Checking the setup conversation…', step: 4};
       case 'verified':
         return {text: 'Set up. Checking it is ready…', step: 5};
       case 'attention':
