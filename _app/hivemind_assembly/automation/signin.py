@@ -14,6 +14,7 @@ class NativeSignIn:
         self.pages = {}
         self.tasks = {}
         self.states = {}
+        self.locks = {}
 
     def status(self, provider):
         return dict(self.states.get(provider, {}))
@@ -24,17 +25,18 @@ class NativeSignIn:
         return state
 
     async def open(self, provider, profile, hosts):
-        # A separate tab keeps account-menu clicks away from active conversations.
-        page = self.pages.get(provider)
-        if page is None or page.is_closed():
-            page = await self.browser.service_page(profile, CONTRACTS[provider]["new_url"], hosts)
-            self.pages[provider] = page
-        await page.bring_to_front()
-        task = self.tasks.get(provider)
-        if task is None or task.done():
-            self.save(provider, "checking", message="Checking the signed-in account…")
-            self.tasks[provider] = asyncio.create_task(self.watch(provider, page, hosts))
-        return page
+        async with self.locks.setdefault(provider, asyncio.Lock()):
+            # A separate tab keeps account-menu clicks away from active conversations.
+            page = self.pages.get(provider)
+            if page is None or page.is_closed():
+                page = await self.browser.service_page(profile, CONTRACTS[provider]["new_url"], hosts)
+                self.pages[provider] = page
+            await page.bring_to_front()
+            task = self.tasks.get(provider)
+            if task is None or task.done():
+                self.save(provider, "checking", message="Checking the signed-in account…")
+                self.tasks[provider] = asyncio.create_task(self.watch(provider, page, hosts))
+            return page
 
     async def observe(self, provider, page, hosts):
         parts = urlsplit(page.url)
