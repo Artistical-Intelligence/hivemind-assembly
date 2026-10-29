@@ -214,6 +214,9 @@ class Application:
             self.browser, self.store, self.config_path, self.sessions, self.team
         )
         self.native_setup_futures = {}
+        from hivemind_assembly.automation.signin import NativeSignIn
+
+        self.native_signin = NativeSignIn(self.browser)
         self.shutdown = False
         self.closed = False
         self.learning_lock = threading.Lock()
@@ -558,11 +561,13 @@ class Application:
         for provider, info in PROVIDERS.items():
             routes = [r for r, c in self.config["routes"].items() if c.get("provider") == provider]
             accounts = {self.config["routes"][r].get("account_label") for r in routes} - {"", None}
+            observed = self.native_signin.status(provider)
             out.append({
                 "provider": provider,
                 "name": info["name"],
-                "account": accounts.pop() if len(accounts) == 1 else "",
-                "waiting": any(self.native_setup.status(r).get("stage") == "authentication" for r in routes),
+                "account": observed.get("account", "") if observed else (accounts.pop() if len(accounts) == 1 else ""),
+                "signin": observed,
+                "waiting": observed.get("stage") == "authentication" if observed else any(self.native_setup.status(r).get("stage") == "authentication" for r in routes),
                 "routes": routes,
             })
         return out
@@ -1166,27 +1171,12 @@ class Application:
                 raise Blocked("Pause the running project first; reading the choices switches models in HA's tabs.")
             return self.read_model_choices()
         if path == "/api/native/signin":
-            from hivemind_assembly.automation.providers import CONTRACTS
-
             provider = data.get("provider")
             if provider not in PROVIDERS:
                 raise ContractError("Unknown AI service")
             info = PROVIDERS[provider]
-
-            async def open_tab():
-                # One sign-in covers the whole account: show a tab already open on the
-                # service instead of adding another each time the button is pressed.
-                for page in [*self.browser.service_pages, *self.browser.pages.values()]:
-                    if not page.is_closed() and urlsplit(page.url).hostname in info["hosts"]:
-                        await page.bring_to_front()
-                        return
-                page = await self.browser.service_page(
-                    info["profile"], CONTRACTS[provider]["new_url"], info["hosts"]
-                )
-                await page.bring_to_front()
-
-            self.submit(open_tab()).result(timeout=90)
-            return {"opened": True}
+            self.submit(self.native_signin.open(provider, info["profile"], info["hosts"])).result(timeout=90)
+            return {"opened": True, "signin": self.native_signin.status(provider)}
         if path == "/api/native/show":
             route = data.get("route")
             if route not in self.config["routes"]:
@@ -1637,6 +1627,7 @@ class Application:
                         return_exceptions=True,
                     )
                     self.native_setup_futures.clear()
+                    await self.native_signin.close()
                     await self.browser.close()
                     atomic_write(self.config_path, canonical(cfg))
                     self.config.clear()
@@ -2000,6 +1991,7 @@ class Application:
         self.mcp_gateway.checks.close()
 
         async def close_runtime():
+            await self.native_signin.close()
             await self.connections.oauth.drain()
             for future in self.native_setup_futures.values():
                 future.cancel()
