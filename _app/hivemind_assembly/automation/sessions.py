@@ -10,7 +10,7 @@ import copy
 import json
 import secrets
 from pathlib import Path
-from .native import marker_pattern, NativeBrowser
+from .native import request_echo, NativeBrowser
 from .providers import CONTRACTS, discover, conversation_url, select_preferred_chat
 from hivemind_assembly.core.common import (
     Blocked,
@@ -249,10 +249,10 @@ class Sessions:
                     found = []
                     for page in context.pages if context else []:
                         if conversation_url(cfg, page.url):
-                            loc = page.locator(
-                                cfg["selectors"]["user_messages"]
-                            ).filter(has_text=marker_pattern("WORKBENCH_REQUEST:" + key))
-                            if await loc.count() == 1:
+                            echo = await request_echo(
+                                page, cfg["selectors"]["user_messages"], "WORKBENCH_REQUEST:" + key
+                            )
+                            if echo is not None:
                                 found.append(page)
                     if len(found) != 1:
                         self.drafts.pop(key, None)
