@@ -204,7 +204,7 @@ def test_signin_endpoint_uses_configured_profile_and_does_not_create_mcp(app, mo
     monkeypatch.setattr(app.native_signin, 'open', opened)
     create = AsyncMock()
     monkeypatch.setattr(app, 'connect_provider', create)
-    result = app.post('/api/native/signin', {'provider': 'claude'})
+    result = app.action('/api/native/signin', {'provider': 'claude'})
     assert result['opened']
     assert opened.await_args.args[:2] == ('claude', 'custom-claude')
     create.assert_not_awaited()
