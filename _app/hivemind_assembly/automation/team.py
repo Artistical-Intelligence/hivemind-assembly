@@ -193,11 +193,11 @@ class NativeTeam:
     def exhausted(self, route):
         """Out of usage: a quota block, or a usage limit below what work needs."""
         observation = self.observations.get(route)
-        if observation is None or not observation.allowance_known:
+        if observation is None:
             return False
         if observation.blocked_kind == "quota":
             return True
-        return any(w.remaining < 10 for w in observation.windows)
+        return observation.allowance_known and any(w.remaining < 10 for w in observation.windows)
 
     def poll_interval(self, routes):
         if any(self.exhausted(route) for route in routes):
