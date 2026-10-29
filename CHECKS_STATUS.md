@@ -1,6 +1,6 @@
 # Checks status
 
-The following work is waiting for a source check. Missing markers alone do not prove approval; compare current files with the retained check evidence. Live-provider and broader browser-suite acceptance remain distinct from source approval.
+Nothing is waiting for a source check. Missing markers alone do not prove approval; compare current files with the retained check evidence. Live-provider and broader browser-suite acceptance remain distinct from source approval.
 
 Workflow/context source, evidence and fixture approval: [2026-10-29 independent review](checks/2026-10-29-workflow-context-review.md).
 
@@ -20,6 +20,4 @@ Trusted connector-menu navigation and 0.37.4 evidence: [independent review](chec
 
 Bounded recovery, progress and target-reset restoration: [independent review](checks/2026-10-29-setup-progress-review.md). Live-provider acceptance remains unverified.
 
-| Item | Folder | Waiting for |
-| --- | --- | --- |
-| Owner-enabled MCP screenshot and OCR troubleshooting | integrations, application, static, tests, release evidence | Regression checks and independent review |
+Owner-enabled MCP screenshots and OCR: [independent review](checks/2026-10-29-debug-vision-review.md). Live-provider acceptance remains unverified.
