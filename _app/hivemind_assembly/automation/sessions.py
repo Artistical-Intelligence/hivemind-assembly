@@ -132,7 +132,8 @@ class Sessions:
         isolated=False,
         identity=None,
         target=None,
-        preferences=None
+        preferences=None,
+        expected_binding=None,
     ):
         if (target is not None or preferences is not None) and not isolated:
             raise Blocked(
@@ -152,8 +153,21 @@ class Sessions:
         if target is not None and preferences is not None:
             raise ContractError("Choose a manual target or automatic preferences")
         selection = {"target": target, "preferences": preferences}
+        if expected_binding is not None:
+            fields = {"provider", "profile", "account_label", "model", "mode", "effort"}
+            if not isinstance(expected_binding, dict) or set(expected_binding) != fields or isolated:
+                raise ContractError("Expected native binding requires exact main-route identity fields")
+            expected_binding = dict(expected_binding)
+
+        def verify_expected(candidate):
+            if expected_binding is not None and any(
+                candidate.get(k) != value for k, value in expected_binding.items()
+            ):
+                raise Blocked("Context renewal no longer matches the configured native identity")
+
         async with self.locks.setdefault(route, asyncio.Lock()):
             cfg = self.browser.config["routes"][route]
+            verify_expected(cfg)
             previous = cfg.get("conversation_url", "")
             key = (
                 identity
@@ -166,6 +180,7 @@ class Sessions:
             if committed:
                 result = json.loads(committed[0]["payload"])
                 if not isolated:
+                    verify_expected(result["binding"])
                     cfg.update(result["binding"])
                     atomic_write(self.config_path, canonical(self.browser.config))
                 return result
@@ -371,6 +386,13 @@ class Sessions:
                 "download_sha256": file_hash(returned),
                 "isolated": isolated,
             }
+            if expected_binding is not None:
+                # The owner can change settings while UI verification awaits.
+                # Re-read the current object, including a replaced route dict,
+                # before journaling or applying the replacement binding.
+                cfg = self.browser.config["routes"][route]
+                verify_expected(cfg)
+                verify_expected(target)
             self.store.put("session_commit", key, value)
             if not isolated:
                 cfg.update(target)
