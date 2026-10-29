@@ -360,6 +360,15 @@ class Application:
             auto.save([*auto.providers(), provider])  # keep it connected after restarts
         await auto.run(provider)
 
+    async def stop_provider_setup(self):
+        """Stop connector/sign-in work before closing or replacing its browser."""
+        futures = list(self.provider_connect_futures.values())
+        for future in futures:
+            future.cancel()
+        await asyncio.gather(*(asyncio.wrap_future(f) for f in futures), return_exceptions=True)
+        self.provider_connect_futures.clear()
+        await self.native_signin.close()
+
     def connection(self):
         """The browser connection in use: the permanent address once set up, else the temporary one."""
         return self.permanent if self.permanent.enabled() else self.quick
@@ -928,7 +937,10 @@ class Application:
                 saved["browser"]["mode"] = "your_chrome"
             atomic_write(self.config_path, canonical(saved))
             # Open windows or tabs from the other mode are closed; they reopen in the new place.
-            self.submit(self.browser.close()).result(30)
+            async def change_browser():
+                await self.stop_provider_setup()
+                await self.browser.close()
+            self.submit(change_browser()).result(30)
             return {"mode": mode, "extension_connected": self.browser.relay.connected()}
         if path == "/api/helper/install":
             from hivemind_assembly.integrations import chrome_helper
@@ -1638,7 +1650,7 @@ class Application:
                         return_exceptions=True,
                     )
                     self.native_setup_futures.clear()
-                    await self.native_signin.close()
+                    await self.stop_provider_setup()
                     await self.browser.close()
                     atomic_write(self.config_path, canonical(cfg))
                     self.config.clear()
@@ -2002,10 +2014,7 @@ class Application:
         self.mcp_gateway.checks.close()
 
         async def close_runtime():
-            for future in self.provider_connect_futures.values():
-                future.cancel()
-            await asyncio.gather(*(asyncio.wrap_future(f) for f in self.provider_connect_futures.values()), return_exceptions=True)
-            await self.native_signin.close()
+            await self.stop_provider_setup()
             await self.connections.oauth.drain()
             for future in self.native_setup_futures.values():
                 future.cancel()
