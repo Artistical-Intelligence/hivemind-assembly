@@ -25,6 +25,44 @@
   out of version control and release artifacts.
 - State what was actually verified. Keep historical evidence separate from
   current-run results; never count fixtures as live provider acceptance.
+- Keep monitoring brief. Use existing deterministic job/status mechanisms where
+  available; summarize material progress, failures, blockers and completion.
+  Avoid repeated unchanged-status commentary, full logs or new analysis/review
+  turns for routine polls. Follow any service-required heartbeat without
+  presenting waiting as token-free model work.
+
+## Relationship to RE-Wizard and its access boundary
+
+[Hivemind Assembly](https://github.com/Artistical-Intelligence/hivemind-assembly)
+is the integrated agent application that applies and tests reverse-engineering
+methods around Ghidra, REA, independent verification and reusable learning.
+[RE-Wizard](https://github.com/Artistical-Intelligence/RE-Wizard) is its source-review,
+evidence and textbook knowledge counterpart for general software reverse engineering,
+including game decompilation/recompilation. Verified RE-Wizard findings can inform
+HA methods and tests; HA implementation experience and verification limits can
+inform RE-Wizard research questions and practical tasks.
+
+Cross-review relevant revisions, sections and underlying evidence when necessary,
+within the permissions below. Textbook coverage does not prove HA implements or
+has validated a capability; HA behavior does not replace primary-source evidence
+for a research claim. Record the supporting revision and limits in normal evidence.
+[RE-Wizard's agent instructions](https://github.com/Artistical-Intelligence/RE-Wizard/blob/main/AGENTS.md)
+orient separately authorized repository work; this repository's instructions govern
+HA edits. Cross-links do not override either repository's rules.
+
+These links are orientation, not access grants. HA runtime/task agents must obtain
+RE-Wizard textbook information only through authorized mediated reference retrieval,
+limited to relevant sections allowed for their role and task. Never bypass mediation
+through direct GitHub access, clones, exports, filesystem access or whole-book
+retrieval, even if a tool or signed-in session technically permits it. Do not place
+whole-textbook links in native worker prompts or infer broader source permissions
+from this relationship. Request needed material through the mediator without
+expanding grants; preserve existing source/category and role restrictions.
+
+Direct RE-Wizard study or maintenance requires a separately explicit owner-authorized
+task, such as finishing B02. Being a maintainer, having tool access or seeing a URL
+is insufficient and does not expand an HA task agent's mediated access. Keep private
+reference content out of this public repository unless separately authorized.
 
 - Commit and push to `main` immediately after any file is planned and after every individual file edit, even
   several times within a single reply. Never batch changes or wait for
