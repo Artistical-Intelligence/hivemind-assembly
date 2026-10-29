@@ -305,7 +305,7 @@ class NativeSetup:
             except AllowanceUnavailable as error:
                 if self.team is not None:
                     self.team.block_allowance(error.route or route, str(error))
-                    atomic_write(self.config_path, canonical(self.browser.config))
+                    atomic_write(self.config_path, canonical(self.team.config))
                 result = self.save(
                     route, stage="waiting_quota", instruction=str(error)
                 )
