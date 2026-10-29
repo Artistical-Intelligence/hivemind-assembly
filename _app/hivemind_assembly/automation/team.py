@@ -245,7 +245,8 @@ class NativeTeam:
         # sharing this route. The browser's exchange lock alone starts too late.
         async with self.route_locks.setdefault(route, asyncio.Lock()):
             resume = flow.get("context_reset_resume", {})
-            if resume.get("route") == route and resume.get("knowledge_scope") == self.scopes.fingerprint(task["id"]):
+            if (resume.get("route") == route and not resume.get("requires_rebrief")
+                    and resume.get("knowledge_scope") == self.scopes.fingerprint(task["id"])):
                 payload = resume["payload"]
             response = await self._ask(task, flow, route, payload)
             if response.get("type") == "context_reset":
@@ -1102,16 +1103,19 @@ class NativeTeam:
             return False
         task_id = task["id"]
         flow = self.flow(task_id)
-        if flow["phase"] not in ("intent", "brief", "brief_reading", "execute") or flow.get("context_reset_resume"):
+        if flow["phase"] not in ("intent", "brief", "brief_reading", "execute"):
             return False
+        resume = flow.get("context_reset_resume")
         # Mutating broker work intentionally returns to intent with its result.
         # That phase already requests new authority; preserve its operation ID.
-        if flow["phase"] == "intent" and not result.get("changed"):
+        if flow["phase"] == "intent" and not result.get("changed") and not resume:
             return False
         revision = self.store.project(task["project_id"])["revision"]
         previous = flow.get("intent", {}).get("revision")
         if previous is None and flow.get("brief_id"):
             previous = self.store.get("brief", flow["brief_id"]).get("revision")
+        if previous is None and resume:
+            previous = resume.get("revision")
         if not result.get("changed") and (previous is None or previous == revision):
             return False
         route = "adviser.extra" if flow["phase"] in ("brief", "brief_reading") else task["owner"]
@@ -1133,6 +1137,13 @@ class NativeTeam:
                                         "previous_phase": flow["phase"]},
                      "instruction": "The workspace changed after the retained intent or brief. Declare a fresh bounded step from current evidence; the old brief no longer authorizes execution.",
                  }}
+        if resume:
+            # Keep the completed reset's same-role handoff as evidence, while
+            # removing the old phase payload's authority after workspace drift.
+            fresh["context_reset_resume"] = {
+                **{k: v for k, v in resume.items() if k != "payload"},
+                "requires_rebrief": True, "revision": revision,
+            }
         with self.store.tx() as db:
             db.execute("UPDATE tasks SET brief_id=NULL WHERE id=?", (task_id,))
             self.store.put("flow:" + task_id, uid("flow"), fresh, db)
@@ -1142,7 +1153,7 @@ class NativeTeam:
         """Prioritize each new draft batch without replaying failed checks forever."""
         project, task_id = task["project_id"], task["id"]
         flow = self.flow(task_id)
-        if flow["phase"] in ("tool", "batch") or flow.get("context_reset_resume"):
+        if flow["phase"] in ("tool", "batch"):
             return False
         # Consume retained turns in their original phase/conversation first.
         route = ("adviser.extra" if flow["phase"] in ("brief", "brief_reading", "learning_reflect", "learning_curate")
@@ -1155,6 +1166,9 @@ class NativeTeam:
         if result.get("deferred"):
             return True
         self.rebase_reconciled_flow(task, result)
+        resume = self.flow(task_id).get("context_reset_resume", {})
+        if resume and not resume.get("requires_rebrief"):
+            return False
         if project in self.independent.running:
             return True
         if not self.broker.drafts.checks.pending(project):
