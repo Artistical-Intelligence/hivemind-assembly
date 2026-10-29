@@ -569,6 +569,7 @@ class NativeTeam:
             result = await self.blocking(self.broker.drafts.reconcile, task["project_id"])
             if not result.get("deferred"):
                 self.reconciled_projects.add(task["project_id"])
+                self.rebase_reconciled_flow(task, result)
         # Execution already authorized by a retained brief does not consume a
         # model allowance. Drain it before choosing or promoting a reasoning route.
         if self.host is None and self.config["foundations"].get("hermes_home"):
@@ -1095,6 +1096,44 @@ class NativeTeam:
         return digest([{k: item.get(k) for k in ("path", "sha256", "outside")}
                        for item in self.broker.drafts.checks.pending(project)])
 
+    def rebase_reconciled_flow(self, task, result):
+        """Discard stale reasoning authority only after retained work is drained."""
+        if result.get("deferred"):
+            return False
+        task_id = task["id"]
+        flow = self.flow(task_id)
+        if flow["phase"] not in ("intent", "brief", "brief_reading", "execute") or flow.get("context_reset_resume"):
+            return False
+        revision = self.store.project(task["project_id"])["revision"]
+        previous = flow.get("intent", {}).get("revision")
+        if previous is None and flow.get("brief_id"):
+            previous = self.store.get("brief", flow["brief_id"]).get("revision")
+        if not result.get("changed") and (previous is None or previous == revision):
+            return False
+        route = "adviser.extra" if flow["phase"] in ("brief", "brief_reading") else task["owner"]
+        message = "msg_" + digest({"task": task_id, "flow": flow["seq"],
+                                    "phase": flow["phase"], "route": route})[:32]
+        if self.store.rows(
+            "SELECT id FROM messages WHERE task_id=? AND "
+            "(state NOT IN ('validated','invalid','cancelled') OR (id=? AND state='validated'))",
+            (task_id, message),
+        ) or self.store.rows(
+            "SELECT id FROM operations WHERE task_id=? AND state IN ('running','uncertain','applied')", (task_id,),
+        ):
+            return False
+        fresh = {"seq": flow["seq"] + 1, "phase": "intent",
+                 "knowledge_scope": flow.get("knowledge_scope"),
+                 "last_result": {
+                     "reconciliation": {"changed": result.get("changed", []),
+                                        "revision": revision, "previous_revision": previous,
+                                        "previous_phase": flow["phase"]},
+                     "instruction": "The workspace changed after the retained intent or brief. Declare a fresh bounded step from current evidence; the old brief no longer authorizes execution.",
+                 }}
+        with self.store.tx() as db:
+            db.execute("UPDATE tasks SET brief_id=NULL WHERE id=?", (task_id,))
+            self.store.put("flow:" + task_id, uid("flow"), fresh, db)
+        return True
+
     async def pending_checks_wait(self, task):
         """Prioritize each new draft batch without replaying failed checks forever."""
         project, task_id = task["project_id"], task["id"]
@@ -1116,6 +1155,7 @@ class NativeTeam:
         result = await self.blocking(self.broker.drafts.reconcile, project)
         if result.get("deferred"):
             return True
+        self.rebase_reconciled_flow(task, result)
         if project in self.independent.running:
             return True
         if not self.broker.drafts.checks.pending(project):
@@ -1167,7 +1207,7 @@ class NativeTeam:
         """Nothing with a pending marker is accepted as finished: check it first."""
         checks = self.broker.drafts.checks
         reconciled = await self.blocking(self.broker.drafts.reconcile, task["project_id"])
-        if reconciled.get("deferred"):
+        if reconciled.get("deferred") or task["project_id"] in self.independent.running:
             return True
         if not checks.pending(task["project_id"]):
             return False
