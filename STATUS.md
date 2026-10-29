@@ -1,1 +1,11 @@
 CHECKS PENDING: dev/WORKFLOW_UPDATES.md — Workflow update: regression tests and independent review
+CHECKS PENDING: _app/hivemind_assembly/core/checks.py — Workflow update: regression tests and independent review
+CHECKS PENDING: _app/hivemind_assembly/automation/checking.py — Workflow update: regression tests and independent review
+CHECKS PENDING: tests/test_workflow_reconciliation.py — Workflow update: regression tests and independent review
+CHECKS PENDING: _app/hivemind_assembly/automation/context_reset.py — Workflow update: regression tests and independent review
+CHECKS PENDING: _app/hivemind_assembly/automation/native.py — Workflow update: regression tests and independent review
+CHECKS PENDING: _app/hivemind_assembly/automation/prompts.py — Workflow update: regression tests and independent review
+CHECKS PENDING: _app/hivemind_assembly/automation/team.py — Workflow update: regression tests and independent review
+CHECKS PENDING: _app/hivemind_assembly/automation/sessions.py — Workflow update: regression tests and independent review
+CHECKS PENDING: tests/test_context_reset.py — Workflow update: regression tests and independent review
+CHECKS PENDING: tests/test_workflow_scheduling.py — Workflow update: regression tests and independent review
