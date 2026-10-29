@@ -3,8 +3,12 @@
 import asyncio
 import hashlib
 
+import pytest
+
 from test_checks_workflow import Checker, ROUTES, project, team_for, write  # noqa: F401
+from hivemind_assembly.core.acceptance import Acceptance
 from hivemind_assembly.core.checks import LEDGER, MARK, STATUS
+from hivemind_assembly.core.common import Blocked
 
 
 def checked_file(project):
@@ -130,3 +134,12 @@ def test_checked_local_discovery_does_not_become_remote_history(project):
     assert asyncio.run(team.independent.run(t["project_id"]))["passed"] == ["local.txt"]
     (root / "local.txt").write_text("second")
     assert broker.drafts.reconcile(t["project_id"])["changed"] == ["local.txt"]
+
+
+def test_direct_acceptance_rechecks_changed_file_even_without_scheduler(project):
+    c, t, _, _, broker, _ = checked_file(project)
+    (broker.workspace(t["id"]) / "src/a.c").write_text("int a = 3;\n")
+    with pytest.raises(Blocked, match="pending"):
+        Acceptance(c, broker).evaluate(c.store.task(t["id"]), {"result_operations": ["w1"]})
+    assert broker.drafts.checks.pending(t["project_id"])[0]["path"] == "src/a.c"
+    assert not c.store.rows("SELECT id FROM records WHERE kind='acceptance_result'")
