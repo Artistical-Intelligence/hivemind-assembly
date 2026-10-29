@@ -29,6 +29,78 @@ class Sessions:
         self.config_path = Path(config_path)
         self.locks = {}
         self.drafts = {}
+        self.setup_pages = {}
+
+    async def recover_page(self, route, key, cfg):
+        """Find an existing setup request without creating or sending a replacement."""
+        context = self.browser.contexts.get(cfg["profile"])
+        if context is None:
+            await self.browser.service_page(cfg["profile"], CONTRACTS[cfg["provider"]]["new_url"], cfg.get("allowed_hosts"))
+            context = self.browser.contexts.get(cfg["profile"])
+        if context is None:
+            raise Blocked("Open the original setup conversation in HA's browser, then Retry setup. No request was resent.")
+        marker = "WORKBENCH_REQUEST:" + key
+        selector = cfg["selectors"]["user_messages"]
+        found = {}
+        pages = list(context.pages)
+        for page in pages:
+            if conversation_url(cfg, page.url) and await request_echo(page, selector, marker) is not None:
+                found.setdefault(page.url, page)
+        if len(found) > 1:
+            raise Blocked("The setup request appears in more than one conversation; no request was resent.")
+        if found:
+            return next(iter(found.values()))
+        # A navigation observed during an uncertain send is a recovery hint only.
+        # It never establishes delivery or authorizes another send.
+        urls = []
+        hints = self.store.rows("SELECT payload FROM records WHERE kind='session_candidate' AND id=?", (key,))
+        if hints:
+            hint = json.loads(hints[0]["payload"])
+            if hint.get("route") == route and hint.get("profile") == cfg["profile"] and conversation_url(cfg, hint.get("conversation", "")):
+                urls.append(hint["conversation"])
+        # Older installs did not retain the URL. Inspect only bounded visible
+        # provider history links, and only extract matches for this exact request.
+        for page in pages:
+            try:
+                self.browser.validate_url(route, page.url)
+            except Blocked:
+                continue
+            for url in await page.locator('a[href]').evaluate_all("nodes => nodes.filter(e => e.getClientRects().length).map(e => e.href)"):
+                if conversation_url(cfg, url) and url not in urls:
+                    urls.append(url)
+                if len(urls) >= 24:
+                    break
+            if len(urls) >= 24:
+                break
+        opened = []
+        keep = None
+        try:
+            for url in urls[:24]:
+                page = await context.new_page()
+                opened.append(page)
+                try:
+                    await page.goto(url, wait_until="domcontentloaded", timeout=15000)
+                    if not conversation_url(cfg, page.url):
+                        continue
+                    await page.locator(selector).first.wait_for(state="attached", timeout=5000)
+                except Exception:
+                    continue
+                if await request_echo(page, selector, marker) is not None:
+                    found.setdefault(page.url, page)
+            if len(found) > 1:
+                raise Blocked("The setup request appears in more than one conversation; no request was resent.")
+            if not found:
+                raise Blocked(
+                    "The original setup chat is not among HA's open or recent chats. "
+                    "Open that conversation in HA's browser, then Retry setup. No request was resent."
+                )
+            keep = next(iter(found.values()))
+            self.browser.service_pages.add(keep)
+            return keep
+        finally:
+            for page in opened:
+                if page is not keep:
+                    await page.close()
 
     def pending(self, route):
         return self.store.rows(
@@ -235,6 +307,7 @@ class Sessions:
                 )
                 clone.contexts = self.browser.contexts
                 clone.profile_locks = self.browser.profile_locks
+                clone.dispatch_locks = self.browser.dispatch_locks
                 clone.playwright = self.browser.playwright
                 if binding:
                     url = json.loads(binding[0]["payload"])["conversation"]
@@ -243,22 +316,8 @@ class Sessions:
                     )
                     page = await self.browser.service_page(cfg["profile"], url, cfg.get("allowed_hosts"))
                 elif message_rows and message_rows[0]["state"] != "prepared":
-                    # Search existing visible provider pages for the exact echo.
-                    context = self.browser.contexts.get(cfg["profile"])
-                    found = []
-                    for page in context.pages if context else []:
-                        if conversation_url(cfg, page.url):
-                            echo = await request_echo(
-                                page, cfg["selectors"]["user_messages"], "WORKBENCH_REQUEST:" + key
-                            )
-                            if echo is not None:
-                                found.append(page)
-                    if len(found) != 1:
-                        self.drafts.pop(key, None)
-                        raise Blocked(
-                            "New-session delivery uncertain; no duplicate bootstrap will be sent"
-                        )
-                    page = found[0]
+                    async with self.browser.dispatch_lock(route):
+                        page = await self.recover_page(route, key, cfg)
                     # observe() needs the current page; draft remains true until
                     # exchange verifies the complete echoed payload.
                     clone.config["routes"][route]["conversation_url"] = page.url
@@ -267,6 +326,7 @@ class Sessions:
                         cfg["profile"], CONTRACTS[cfg["provider"]]["new_url"], cfg.get("allowed_hosts")
                     )
                 clone.pages[route] = page
+                self.setup_pages[route] = page
                 chosen = self.store.rows(
                     "SELECT payload FROM records WHERE kind='session_model_selection' AND id=?",
                     (key,),
@@ -298,7 +358,8 @@ class Sessions:
                             .items()
                             if k not in ("model", "effort")
                         }
-                discovered = await discover(page, clone.config["routes"][route])
+                async with self.browser.dispatch_lock(route):
+                    discovered = await discover(page, clone.config["routes"][route])
                 if discovered["missing"]:
                     raise Blocked(
                         "New session identity controls unavailable: "
@@ -417,6 +478,7 @@ class Sessions:
                 self.browser.profile_locks,
             )
             clone.playwright = self.browser.playwright
+            clone.dispatch_locks = self.browser.dispatch_locks
             self.drafts[identity] = clone
         return clone
 
