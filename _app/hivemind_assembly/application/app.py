@@ -964,7 +964,7 @@ class Application:
         if path == "/api/debug/status":
             return self.debugging.status()
         if path == "/api/debug/start":
-            return self.debugging.start(data.get("routes"))
+            return self.debugging.start(data.get("routes"), screenshots=data.get("screenshots", False))
         if path == "/api/debug/stop":
             return self.debugging.stop()
         if path == "/api/debug/pairing":
