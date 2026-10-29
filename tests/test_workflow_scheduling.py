@@ -1,6 +1,8 @@
 """Pending checks gate new native work, while retained work and repairs can finish."""
 import asyncio
 
+import pytest
+
 from test_context_reset import setup_team
 
 
@@ -98,8 +100,9 @@ def test_deferred_reconciliation_never_accepts_completion(store, monkeypatch):
     assert asyncio.run(team.pending_checks_wait(task)) is True
 
 
-def test_unrelated_unresolved_delivery_does_not_allow_new_dispatch(store):
+def test_unrelated_unresolved_delivery_blocks_dispatch_when_checks_pending(store):
     team, task = setup_team(store)
+    mark(team, task)
     team.controller.prepare_message(task["id"], "adviser.extra", "https://example.invalid/other", {}, "other-turn")
     assert asyncio.run(team.pending_checks_wait(task)) is True
     assert not team.browser.calls
@@ -115,3 +118,74 @@ def test_retained_tool_batch_drains_before_pending_checks(store, monkeypatch):
 
     monkeypatch.setattr(team.independent, "run", forbidden)
     assert asyncio.run(team.pending_checks_wait(task)) is False
+
+
+def test_completion_waits_for_running_checker_finalization_without_pending_rows(store):
+    team, task = setup_team(store)
+    team.independent.running.add(task["project_id"])
+    assert not team.broker.drafts.checks.pending(task["project_id"])
+    assert asyncio.run(team.completion_waits(task)) is True
+
+
+def test_no_pending_checks_preserve_ordinary_flow_scheduling(store):
+    team, task = setup_team(store)
+    team.controller.prepare_message(task["id"], "adviser.extra", "https://example.invalid/other", {}, "prior-turn")
+    assert not team.broker.drafts.checks.pending(task["project_id"])
+    assert asyncio.run(team.pending_checks_wait(task)) is False
+
+
+@pytest.mark.parametrize("phase", ["brief", "execute"])
+def test_reconciliation_rebases_stale_reasoning_before_model_dispatch(store, monkeypatch, phase):
+    team, task = setup_team(store)
+    intent = {"revision": 0, "goal": "Old step", "method": "Old method"}
+    bid = team.controller.brief(task["id"], intent,
+                                {"procedure": "Read", "acceptance": "Observed evidence"},
+                                {"critical_gaps": []}, [])
+    flow = {**team.flow(task["id"]), "phase": phase, "intent": intent}
+    if phase == "execute":
+        flow["brief_id"] = bid
+    team.save_flow(task["id"], flow)
+    mark(team, task)
+    (team.broker.drafts.workspace(task["project_id"]) / "draft.py").write_text("external change")
+    seen = []
+
+    async def ask(current, fresh, route, payload):
+        seen.append((fresh.copy(), payload))
+        return {"type": "step_intent", "intent": {"goal": "Fresh bounded step", "method": "Read current bytes"}}
+
+    async def passed(project):
+        from native_fixtures import pass_checks
+        pass_checks(team.broker, project)
+        return {"passed": ["draft.py"], "failed": []}
+
+    monkeypatch.setattr(team, "ask", ask)
+    monkeypatch.setattr(team.independent, "run", passed)
+    asyncio.run(team.tick(task["id"]))
+    assert len(seen) == 1
+    assert seen[0][0]["phase"] == "intent"
+    assert "brief_id" not in seen[0][0] and "intent" not in seen[0][0]
+    assert seen[0][1]["last_result"]["reconciliation"]["changed"] == ["draft.py"]
+    assert team.flow(task["id"])["intent"]["revision"] == 1
+    assert store.task(task["id"])["brief_id"] is None
+
+
+@pytest.mark.parametrize("retained", ["delivery", "reset", "operation", "batch"])
+def test_reconciliation_rebase_preserves_retained_work(store, retained):
+    team, task = setup_team(store)
+    flow = {**team.flow(task["id"]), "phase": "execute", "intent": {"revision": 0}}
+    if retained == "reset":
+        flow["context_reset_resume"] = {"route": task["owner"], "payload": {"brief": "retained"}}
+    if retained == "batch":
+        flow["phase"] = "batch"
+    team.save_flow(task["id"], flow)
+    if retained == "delivery":
+        team.controller.prepare_message(task["id"], task["owner"], "https://example.invalid/old", {}, "uncertain-native")
+    if retained == "operation":
+        with store.tx() as db:
+            db.execute("INSERT INTO operations VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                       ("uncertain", task["id"], task["owner"], task["epoch"], 0,
+                        "write_file", "hash", "{}", "uncertain", None, 0, 0))
+    with store.tx() as db:
+        db.execute("UPDATE projects SET revision=1 WHERE id=?", (task["project_id"],))
+    assert team.rebase_reconciled_flow(task, {"changed": ["draft.py"]}) is False
+    assert team.flow(task["id"]) == flow
