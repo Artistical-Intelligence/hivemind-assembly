@@ -108,6 +108,9 @@ class Acceptance:
         # Push early, check later: work still marked "checks pending" isn't a deliverable.
         from .checks import Checks
 
+        reconciled = self.broker.drafts.reconcile(task["project_id"])
+        if reconciled.get("deferred"):
+            raise Blocked("Project operations must settle before reconciling acceptance evidence")
         Checks(self.store).gate(task["project_id"], "accepting the project as finished")
         # A stable proposal ID makes a crash after validation safe to resume.
         proposal = "proposal_" + digest(
