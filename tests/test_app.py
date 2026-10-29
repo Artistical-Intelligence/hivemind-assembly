@@ -376,7 +376,7 @@ def test_errors_do_not_echo_host_paths_or_internals(server, app, monkeypatch, tm
 
 def test_first_run_reports_foundations_and_loads_them_after_install(app, monkeypatch, tmp_path):
     import time
-    from hivemind_assembly.application import setup
+    from hivemind_assembly.application import prerequisites, setup
 
     status = app.status()["foundations"]
     assert status["ready"] is False and not status["installing"]
@@ -394,6 +394,10 @@ def test_first_run_reports_foundations_and_loads_them_after_install(app, monkeyp
         Path(config_path).write_text(json.dumps(config))
         return {"verification": {"passed": True}}
 
+    # This fixture exercises installation progress and loading the saved paths.
+    # Keep Windows preflight version probes inside the mocked setup boundary;
+    # tests/test_prerequisites.py covers Node/JDK and tool availability behavior.
+    monkeypatch.setattr(prerequisites, "missing", lambda extra=(): [])
     monkeypatch.setattr(setup, "install_foundations", fake_install)
     monkeypatch.setattr(app, "install_optional_tools", lambda progress=None: {"github_cli": "ready"})
     app.action("/api/setup", {})
