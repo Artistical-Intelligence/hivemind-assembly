@@ -31,6 +31,17 @@
   turns for routine polls. Follow any service-required heartbeat without
   presenting waiting as token-free model work.
 
+## Setup UX preference
+
+- Prefer prefilled setup links and completed provider forms for known names,
+  endpoints, callback URLs, settings and the full permissions required by the
+  requested task. Reuse confirmed values and verify that the provider accepted
+  them. Continue authorized setup automatically; ask for user action only when
+  a step actually requires it. Keep credentials in the provider or secure local
+  credential flow, and provide a clear manual fallback when automatic setup
+  cannot be verified. The owner explicitly prefers this pattern in HA and other
+  integrations.
+
 ## Relationship to RE-Wizard and its access boundary
 
 [Hivemind Assembly](https://github.com/Artistical-Intelligence/hivemind-assembly)
