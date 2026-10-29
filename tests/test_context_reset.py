@@ -41,7 +41,7 @@ def setup_team(store):
         def pending(self, route):
             return store.rows("SELECT id FROM messages WHERE route=? AND state NOT IN ('validated','invalid','cancelled')", (route,))
 
-        async def renew(self, task, route, identity=None):
+        async def renew(self, task, route, identity=None, expected_binding=None):
             if identity not in self.committed:
                 self.calls.append(identity)
                 self.committed.add(identity)
@@ -208,3 +208,96 @@ def test_retained_reset_intent_checks_current_settings_before_renewal(store):
         asyncio.run(reset_context(team, task, team.flow(task["id"]), route, {}, request()))
     assert not team.sessions.calls
     assert team.config["routes"][route]["effort"] == "Owner changed effort"
+
+
+@pytest.mark.parametrize("replace_route", [False, True])
+def test_owner_change_during_reset_ui_verification_never_commits_old_binding(store, tmp_path, replace_route):
+    import base64
+    from copy import deepcopy
+    from pathlib import Path
+    from hivemind_assembly.automation.native import NativeBrowser
+    from hivemind_assembly.automation.sessions import Sessions
+    from hivemind_assembly.core.common import digest
+
+    team, task = setup_team(store)
+    route = task["owner"]
+    identity = "reset_" + digest({"task": task["id"], "route": route,
+                                 "request": request()["request_id"]})[:32]
+    native = NativeBrowser(team.config, store.root, team.controller)
+    config_path = tmp_path / "settings.json"
+    team.sessions = Sessions(native, config_path)
+    ready, release = asyncio.Event(), asyncio.Event()
+
+    class Clone:
+        config = deepcopy(team.config)
+        pages = {route: object()}
+        config["routes"][route]["conversation_url"] = "https://claude.ai/chat/reset-verified"
+        config["routes"][route]["selectors"]["download"] = "a[download]"
+
+        async def exchange(self, requested_route, message, attachments):
+            self.canary = Path(attachments[0]["path"]).read_bytes()
+            ready.set()
+            await release.wait()
+            response = {"request_id": message["id"], "type": "session_ready",
+                        "attachment_base64": base64.b64encode(self.canary).decode()}
+            team.controller.message_state(message["id"], "validated", json.dumps(response))
+            return response
+
+        async def download(self, requested_route, selector, destination, expected_sha256, filename=None):
+            Path(destination).write_bytes(self.canary)
+
+        async def observe(self, requested_route):
+            return {"conversation": self.config["routes"][route]["conversation_url"]}
+
+    team.sessions.drafts[identity] = Clone()
+    old_url = team.config["routes"][route]["conversation_url"]
+
+    async def run():
+        work = asyncio.create_task(reset_context(team, task, team.flow(task["id"]), route, {}, request()))
+        await ready.wait()
+        if replace_route:
+            team.config["routes"][route] = dict(team.config["routes"][route])
+        team.config["routes"][route]["model"] = "New owner choice during UI verification"
+        release.set()
+        with pytest.raises(Blocked, match="configured native identity"):
+            await work
+
+    asyncio.run(run())
+    assert team.config["routes"][route]["model"] == "New owner choice during UI verification"
+    assert team.config["routes"][route]["conversation_url"] == old_url
+    assert not config_path.exists()
+    assert not store.rows("SELECT id FROM records WHERE kind='session_commit' AND id=?", (identity,))
+    assert "context_reset_resume" not in team.flow(task["id"])
+
+
+def test_expected_binding_is_rechecked_after_waiting_for_session_lock(store, tmp_path):
+    from copy import deepcopy
+    from hivemind_assembly.automation.native import NativeBrowser
+    from hivemind_assembly.automation.sessions import Sessions
+
+    team, task = setup_team(store)
+    route = task["owner"]
+    old = deepcopy(team.config["routes"][route])
+    expected = {k: old.get(k) for k in ("provider", "profile", "account_label", "model", "mode", "effort")}
+    store.put("session_commit", "reset-lock", {"route": route, "binding": old, "previous": old["conversation_url"]})
+    sessions = Sessions(NativeBrowser(team.config, store.root, team.controller), tmp_path / "settings.json")
+
+    async def run():
+        lock = sessions.locks.setdefault(route, asyncio.Lock())
+        await lock.acquire()
+        started = asyncio.Event()
+
+        async def renew():
+            started.set()
+            await sessions.renew(task["id"], route, identity="reset-lock", expected_binding=expected)
+
+        work = asyncio.create_task(renew())
+        await started.wait()
+        team.config["routes"][route]["effort"] = "Changed while waiting"
+        lock.release()
+        with pytest.raises(Blocked, match="configured native identity"):
+            await work
+
+    asyncio.run(run())
+    assert team.config["routes"][route]["effort"] == "Changed while waiting"
+    assert not (tmp_path / "settings.json").exists()
