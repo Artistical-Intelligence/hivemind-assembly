@@ -399,7 +399,7 @@ class NativeTeam:
                 "clear_supported": False,
                 "clear_fallback": "new_chat",
                 "handoff": (
-                    {k: v for k, v in flow["context_reset_resume"].items() if k != "payload"}
+                    {k: v for k, v in flow["context_reset_resume"].items() if k not in ("payload", "binding")}
                     if flow.get("context_reset_resume", {}).get("route") == route
                     and flow["context_reset_resume"].get("knowledge_scope") == context else None
                 ),
@@ -1079,12 +1079,15 @@ class NativeTeam:
     def workflow_packet(self, task, flow):
         pending = self.broker.drafts.checks.pending(task["project_id"])
         repair = self.store.rows("SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1", ("check_repair:" + task["id"],))
+        repair = json.loads(repair[0]["payload"]).get("outcome", {}) if repair and pending else {}
+        repair = {key: value[:20] if isinstance(value, list) else str(value)[:500]
+                  for key, value in repair.items()}
         return {
             "phase": flow["phase"], "writer": task["owner"], "saver": "broker",
             "pending_count": len(pending),
-            "pending": [{k: item[k] for k in ("path", "sha256", "writer", "reason", "report") if k in item}
+            "pending": [{k: str(item[k])[:500] for k in ("path", "sha256", "writer", "state", "note", "report") if k in item}
                         for item in pending[:20]],
-            "repair": json.loads(repair[0]["payload"]).get("outcome") if repair and pending else None,
+            "repair": repair or None,
             "instruction": "Resolve the current bounded step or named repair; the broker saves and marks every write. Independent checks precede unrelated new work.",
         }
 
