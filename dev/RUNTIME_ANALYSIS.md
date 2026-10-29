@@ -19,13 +19,24 @@ features exceed the shared interface.
 
 ## Relationship to earlier integration work
 
+The owner's older idea of combining whole applications such as Ghidra, Hopper
+and Binary Ninja is not a current requirement. The exact abandonment discussion
+was not recovered; do not invent its reasons. Later design decisions preserve
+complete Ghidra/REA and add selected capabilities. Documentation collected for
+other tools does not authorize reviving that whole-application merger.
+
+Evaluate each runtime connection against a specific investigation workflow.
+Do not add overlapping engines merely because they were downloaded. Broader
+runtime implementation is paused while this scope is clarified; the acquired
+packages and explicitly requested exoproc fix remain independent work products.
+
 | Layer | Role |
 | --- | --- |
 | Hivemind Assembly | One application, project state, setup, orchestration, evidence, verification and reusable learning |
 | Ghidra and REA | Existing static analysis, decompilation, P-code and program structure |
 | Runtime analysis | Process discovery, live instrumentation, memory observations, native debugging, recording and replay |
 | Reconstruction and testing | Existing build/compare loop; runtime observations become evidence and reproducible test inputs |
-| Other planned specialists | decomp-toolkit, objdiff, platform recompilers and emulators remain part of the broader design, without claiming they are implemented merely by naming them |
+| Earlier research and tool ideas | Historical proposals and documentation are references; they do not automatically become implementation requirements |
 
 The useful shared object is an investigation: a pinned program/build, process
 identity, module mapping, addresses, observations, traces and artifacts. Preserve
