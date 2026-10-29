@@ -209,7 +209,8 @@ class HTTPError(ValueError):
 class Auth:
     """Single-owner OAuth for one tunnel address; keys stay in process memory."""
 
-    def __init__(self):
+    def __init__(self, scope="ha.projects"):
+        self.scope = scope
         self.lock = threading.RLock()
         self.origin = ""
         self.records = {}
@@ -322,8 +323,8 @@ class Auth:
             resource = p.get("resource") or self.origin + "/mcp"
             if resource != self.origin + "/mcp":
                 raise HTTPError("Invalid resource.")
-            scopes = p.get("scope", SCOPE).split()
-            if "ha.projects" not in scopes or set(scopes) - {"ha.projects", "offline_access"}:
+            scopes = p.get("scope", self.scope + " offline_access").split()
+            if self.scope not in scopes or set(scopes) - {self.scope, "offline_access"}:
                 raise HTTPError("Invalid scopes.")
             if len(p.get("state", "")) > 2048:
                 raise HTTPError("Invalid state.")
@@ -435,7 +436,7 @@ class Auth:
                 not grant
                 or grant["origin"] != self.origin
                 or grant["resource"] != self.origin + "/mcp"
-                or "ha.projects" not in grant["scope"].split()
+                or self.scope not in grant["scope"].split()
             ):
                 raise HTTPError("Authorization required.", 401)
             self.limit("mcp", 240)
@@ -445,10 +446,12 @@ class Auth:
 class Rpc:
     """JSON MCP over HTTP using the same tool definitions as HA's stdio bridge."""
 
-    def __init__(self, call, version="", instructions=""):
+    def __init__(self, call, version="", instructions="", *, server_factory=None, scope="ha.projects", approval=None):
         from .mcp import build_server
 
-        self.server = build_server(call)
+        self.server = (server_factory or build_server)(call)
+        self.scope = scope
+        self.approval = approval
         self.version = version
         self.instructions = instructions or self.server.instructions or ""
         self.tools = [
@@ -489,7 +492,7 @@ class Rpc:
             result = {
                 "protocolVersion": version if version in PROTOCOLS else PROTOCOLS[0],
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "Hivemind Assembly", "version": self.version},
+                "serverInfo": {"name": self.server.name, "version": self.version},
                 "instructions": self.instructions,
             }
         elif method == "ping":
@@ -522,7 +525,7 @@ class Gateway(ThreadingHTTPServer):
 
     def __init__(self, rpc):
         self.rpc = rpc
-        self.auth = Auth()
+        self.auth = Auth(getattr(rpc, "scope", "ha.projects"))
         self.slots = threading.BoundedSemaphore(12)
         super().__init__(("127.0.0.1", 0), GatewayHandler)
 
@@ -631,7 +634,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 return self.respond(200, {
                     "resource": origin + "/mcp",
                     "authorization_servers": [origin],
-                    "scopes_supported": SCOPE.split(),
+                    "scopes_supported": [auth.scope, "offline_access"],
                     "bearer_methods_supported": ["header"],
                 })
             if path == "/.well-known/oauth-authorization-server":
@@ -643,7 +646,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     "response_types_supported": ["code"],
                     "grant_types_supported": ["authorization_code", "refresh_token"],
                     "token_endpoint_auth_methods_supported": ["none", "client_secret_post", "client_secret_basic"],
-                    "scopes_supported": SCOPE.split(),
+                    "scopes_supported": [auth.scope, "offline_access"],
                     "code_challenge_methods_supported": ["S256"],
                     "authorization_response_iss_parameter_supported": True,
                 })
@@ -655,7 +658,10 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     raise HTTPError("Repeated authorization parameters.")
                 flow = auth.begin({k: v[0] for k, v in values.items()})
                 callback = values["redirect_uri"][0]
-                page = APPROVAL_PAGE.replace("CLIENT", html.escape(provider_for_redirect(callback))).replace("FLOW", html.escape(flow))
+                page = APPROVAL_PAGE
+                if getattr(self.server.rpc, "approval", None):
+                    page = page.replace("use the projects you shared in HA's Connections page. Nothing else on this computer is shared.", html.escape(self.server.rpc.approval))
+                page = page.replace("CLIENT", html.escape(provider_for_redirect(callback))).replace("FLOW", html.escape(flow))
                 return self.respond(200, page, {
                     "Referrer-Policy": "same-origin",
                     "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' " + callback + "; frame-ancestors 'none'; base-uri 'none'",
@@ -718,7 +724,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
 class QuickConnection:
     """Owns the gateway and the cloudflared process; local work survives tunnel loss."""
 
-    def __init__(self, root, call, version="", installer=install_binary, enabled=lambda: True):
+    def __init__(self, root, call, version="", installer=install_binary, enabled=lambda: True, rpc_factory=None):
+        self.rpc_factory = rpc_factory or (lambda: Rpc(call, version))
         self.folder = Path(root) / "private" / "quick-tunnel"
         self.call, self.version, self.installer, self.enabled = call, version, installer, enabled
         self.lock = threading.RLock()
@@ -797,7 +804,7 @@ class QuickConnection:
                 self.download = None
             if self.stop_event.is_set():
                 return
-            gateway = Gateway(Rpc(self.call, self.version))
+            gateway = Gateway(self.rpc_factory())
             self.gateway = gateway
             threading.Thread(target=gateway.serve_forever, kwargs={"poll_interval": 0.2}, daemon=True).start()
             self.folder.mkdir(parents=True, exist_ok=True)
