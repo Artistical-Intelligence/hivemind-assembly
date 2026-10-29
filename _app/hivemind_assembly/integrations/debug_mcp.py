@@ -69,6 +69,7 @@ class DebugConnection:
         self.routes = set()
         self.identities = {}
         self.retry_tasks = set()
+        self.inflight = set()
         self.epoch = 0
         self.requests = {}
         self.connect_task = None
@@ -112,12 +113,14 @@ class DebugConnection:
             self.quick.revoke()
         try:
             self.app.submit(self.cancel_owned()).result(timeout=10)
+        except concurrent.futures.TimeoutError:
+            pass  # access is already revoked; application shutdown must continue
         finally:
             self.quick.stop()
         return self.status()
 
     async def cancel_owned(self):
-        tasks = [t for t in [self.connect_task, *self.retry_tasks] if t and not t.done()]
+        tasks = [t for t in [self.connect_task, *self.retry_tasks, *self.inflight] if t and not t.done()]
         for task in tasks:
             task.cancel()
         if tasks:
@@ -179,7 +182,7 @@ class DebugConnection:
 
     def identity(self, route):
         cfg = self.app.config["routes"].get(route, {})
-        return tuple(cfg.get(k) for k in ("provider", "profile", "account_label", "model", "mode", "effort")) + (self.app.config.get("browser", {}).get("mode"),)
+        return tuple(cfg.get(k) for k in ("provider", "profile", "account_label", "model", "mode", "effort")) + (tuple(cfg.get("allowed_hosts", [])), self.app.config.get("browser", {}).get("mode"))
 
     def check(self, route=None, epoch=None):
         with self.lock:
@@ -232,6 +235,14 @@ class DebugConnection:
         return page
 
     async def execute(self, tool, args, epoch):
+        task = asyncio.current_task()
+        self.inflight.add(task)
+        try:
+            return await self._execute(tool, args, epoch)
+        finally:
+            self.inflight.discard(task)
+
+    async def _execute(self, tool, args, epoch):
         self.check(epoch=epoch)
         if tool == "ha_debug_status":
             return {"version": self.version, "routes": [{
