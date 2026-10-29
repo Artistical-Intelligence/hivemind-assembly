@@ -1096,7 +1096,7 @@ class NativeTeam:
         """Prioritize each new draft batch without replaying failed checks forever."""
         project, task_id = task["project_id"], task["id"]
         flow = self.flow(task_id)
-        if flow["phase"] in ("tool", "batch"):
+        if flow["phase"] in ("tool", "batch") or flow.get("context_reset_resume"):
             return False
         # Consume retained turns in their original phase/conversation first.
         route = ("adviser.extra" if flow["phase"] in ("brief", "brief_reading", "learning_reflect", "learning_curate")
@@ -1109,7 +1109,7 @@ class NativeTeam:
             "SELECT m.id FROM messages m JOIN tasks t ON t.id=m.task_id "
             "WHERE t.project_id=? AND m.state NOT IN ('validated','invalid','cancelled')", (project,),
         ):
-            return False
+            return True
         result = await self.blocking(self.broker.drafts.reconcile, project)
         if result.get("deferred"):
             return True
