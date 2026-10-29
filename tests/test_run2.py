@@ -68,6 +68,9 @@ def test_raw_model_reply_survives_missing_request_id(store, tmp_path, complete):
             return User()
 
         async def evaluate(self, *a):
+            from hivemind_assembly.automation.native import REQUEST_ECHO
+            if a[0] == REQUEST_ECHO:
+                return [envelope]
             if "document.querySelectorAll(complete)" in a[0]:
                 return complete
             return ["Malformed model reply with no request ID"]
