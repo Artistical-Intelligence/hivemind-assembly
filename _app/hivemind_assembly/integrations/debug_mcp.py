@@ -316,6 +316,7 @@ class DebugConnection:
                 verify()
                 if await page.locator('input[type=password]').count():
                     raise Blocked("Sign-in fields appeared; finish sign-in locally")
+                verify()  # Last await is complete; fence the exact response handoff.
                 return {"route": route, "host": urlsplit(url).hostname, "observed": observed,
                         "image_kind": "real provider viewport; visible conversation content included",
                         "width": width, "height": height, "viewport": size,
