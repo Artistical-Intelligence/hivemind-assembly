@@ -1147,11 +1147,6 @@ class NativeTeam:
                                     "phase": flow["phase"], "route": route})[:32]
         if self.store.rows("SELECT id FROM messages WHERE id=? AND state NOT IN ('invalid','cancelled')", (message,)):
             return False
-        if self.store.rows(
-            "SELECT m.id FROM messages m JOIN tasks t ON t.id=m.task_id "
-            "WHERE t.project_id=? AND m.state NOT IN ('validated','invalid','cancelled')", (project,),
-        ):
-            return True
         result = await self.blocking(self.broker.drafts.reconcile, project)
         if result.get("deferred"):
             return True
@@ -1160,6 +1155,11 @@ class NativeTeam:
             return True
         if not self.broker.drafts.checks.pending(project):
             return False
+        if self.store.rows(
+            "SELECT m.id FROM messages m JOIN tasks t ON t.id=m.task_id "
+            "WHERE t.project_id=? AND m.state NOT IN ('validated','invalid','cancelled')", (project,),
+        ):
+            return True
         repair = self.store.rows("SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1", ("check_repair:" + task_id,))
         if repair and json.loads(repair[0]["payload"]).get("fingerprint") == self.pending_fingerprint(project):
             return False
