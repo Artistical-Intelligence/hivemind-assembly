@@ -94,3 +94,52 @@ evidence update:
 | `README.md` | `6791ed0b570557df24a544ec119ac59279b52351e96182d936b65df0c39ba98b` |
 | `_app/release_status.json` | `fcec60477d488cc1642a0ba048465a15d53cb7bb5b4e079b3973e789b9709a10` |
 | `dev/ROADMAP.md` | `6e4da984fba3c894c6ff21639a24a4b0967fe7583682cb182dcd3a0d598e8132` |
+
+## Test-fixture evidence persistence addendum
+
+**Result: PASS — two test-only changes approved.** Reviewed
+`tests/native_fixtures.py` and the added regression in
+`tests/test_workflow_reconciliation.py`, identified by the integration owner as
+candidate `89ce43c83075559603a8da4179fc345eafa0f9c3`. No runtime implementation
+was changed for this fix.
+
+The integration owner reports the hosted Linux run at `6ffb293` completed with
+1,115 passes, 43 skips and one failure in
+`test_worker_project_check_retains_snapshot_and_rolls_back`. Inspection confirms
+that its `pass_checks` helper previously called `Checks.finish` without
+persisting the referenced report or clearing on-disk markers. The runtime's
+new reconciliation correctly refused that incomplete fixture evidence. The
+helper now follows the check lifecycle: begin, finish with report text and
+retained remote blob versions, then persist the report and marker removals
+through `Drafts.sync`. It explicitly labels the approval as fixture evidence.
+
+The added regression checks matching local and remote reports, removal of both
+folder and ledger markers, and two unchanged reconciliation passes without a
+revision increment. This corrects the fixture rather than relaxing runtime
+acceptance.
+
+Independent verification after these changes:
+
+- Reconciliation, scheduling and reconstruction-trial modules: **28 passed in 10.64 seconds**.
+- Explicit execution of the hosted-failing project reconstruction test: **one skipped**, because this review environment did not yet provide Clang and LLD.
+- `git diff --check` passed.
+
+At that point the compiler-dependent test still required execution with its
+actual toolchain. This addendum does not claim a full hosted pass, release
+installation or live-provider acceptance.
+
+Subsequent toolchain verification resolves the local compiler-test gap: the
+integration owner supplied portable Clang/LLD 18 and reran the exact previously
+failing project reconstruction test together with reconciliation and scheduling.
+This reviewer inspected the completed retained run log: **28 passed in 16.96
+seconds**, with no skips or failures. This is actual compiled/emulated fixture
+execution, not live model inference. The full hosted suite and release gates
+remain separate.
+
+The following hash supersedes the prior reconciliation-test hash and adds the
+newly reviewed helper:
+
+| File | SHA-256 |
+| --- | --- |
+| `tests/native_fixtures.py` | `8f3afe04bd10df0918a17988c6b6c9d761758516e33f6d732627816fd62892d6` |
+| `tests/test_workflow_reconciliation.py` | `cf1322df4d1c3bcf094f7df051588cf6135ab75e7aa9912678e0e905e4baee81` |
