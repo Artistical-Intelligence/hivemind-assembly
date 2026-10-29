@@ -699,6 +699,11 @@ class NativeTeam:
                     )
                 return
         chosen = UsagePolicy.choose(self.observations, task["owner"])
+        if flow.get("context_reset_resume"):
+            # Renewing context never authorizes a model/role switch. Finish the
+            # retained phase on the existing owner or wait for its allowance.
+            observation = self.observations.get(task["owner"])
+            chosen = task["owner"] if observation is not None and observation.eligible() else None
         if retained_response and task["owner"]:
             chosen = task["owner"]
         if chosen is None:
@@ -1073,7 +1078,7 @@ class NativeTeam:
 
     def workflow_packet(self, task, flow):
         pending = self.broker.drafts.checks.pending(task["project_id"])
-        repair = self.store.rows("SELECT payload FROM records WHERE kind='check_repair' AND id=?", (task["id"],))
+        repair = self.store.rows("SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1", ("check_repair:" + task["id"],))
         return {
             "phase": flow["phase"], "writer": task["owner"], "saver": "broker",
             "pending_count": len(pending),
@@ -1112,12 +1117,12 @@ class NativeTeam:
             return True
         if not self.broker.drafts.checks.pending(project):
             return False
-        repair = self.store.rows("SELECT payload FROM records WHERE kind='check_repair' AND id=?", (task_id,))
+        repair = self.store.rows("SELECT payload FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 1", ("check_repair:" + task_id,))
         if repair and json.loads(repair[0]["payload"]).get("fingerprint") == self.pending_fingerprint(project):
             return False
         outcome = await self.run_checks(task)
         if outcome.get("failed"):
-            self.store.put("check_repair", task_id, {"fingerprint": self.pending_fingerprint(project),
+            self.store.put("check_repair:" + task_id, uid("repair"), {"fingerprint": self.pending_fingerprint(project),
                                                       "outcome": self.check_brief(outcome)})
             return False
         if outcome.get("status") == "running":
@@ -1170,7 +1175,7 @@ class NativeTeam:
         if outcome.get("status") == "running":
             return True
         if outcome.get("failed"):
-            self.store.put("check_repair", task["id"], {"fingerprint": self.pending_fingerprint(task["project_id"]),
+            self.store.put("check_repair:" + task["id"], uid("repair"), {"fingerprint": self.pending_fingerprint(task["project_id"]),
                                                         "outcome": self.check_brief(outcome)})
         flow = self.flow(task["id"])
         flow.update(seq=flow["seq"] + 1, phase="intent", last_result={
