@@ -1,0 +1,148 @@
+{
+  "purpose": "Map locally reviewed checkpoints to GitHub connector imports. Each imported file tree was checked against the corresponding local tree and matched exactly. Commit IDs differ because the connector supplies commit metadata.",
+  "base": "5faf95f0f6d874e25f830cea7c1529704b40cdf8",
+  "local_head": "e4257592012368fd95c97617b53a77247cb4e708",
+  "imported_head": "bb70958babfc6e8813924417a2b0d279dc269886",
+  "commits": [
+    {
+      "local": "26d353d827d13f096ff87181247abaaf5b8e905a",
+      "github": "cac1580ab21a79085fb885bab0195e022463a38e",
+      "tree": "8be69d450edd02473fb4a6eaf578d28421756d4f"
+    },
+    {
+      "local": "e7a1062dce9b7c3db6acb6747fbde98dc7a9ef89",
+      "github": "d662e98ed562a17aedaef3a3b6e00f39c1fcc096",
+      "tree": "8fcc6f7fae02aff2c279f3dff94ae41ec10c5358"
+    },
+    {
+      "local": "8887c6240c093933188b75530507f9c4c8333eb8",
+      "github": "66b1d8ed481c8f54aba3e5810aa90da0753fe007",
+      "tree": "e8c1d233bb9c4183fa454c99aa9c8e8bceb18ec7"
+    },
+    {
+      "local": "876c7bb9c33fcfe46759c01b28e7865713739af2",
+      "github": "3e385c88e7444cfb7c21977cb81689c9fe5f15ea",
+      "tree": "304b345c4876cf550b53d415c513721764738f2d"
+    },
+    {
+      "local": "2779c67277735f246e292b642bea57c4bed791ba",
+      "github": "f328f69988496c47fdefed7a953f3419937ba202",
+      "tree": "560eb439de3946e27f98571b878d7b605189bf26"
+    },
+    {
+      "local": "3c43572b5395628f06feb8d29b3434d1019d3ad7",
+      "github": "c2077969bc7f87e08c92598d1be7b206e00cd573",
+      "tree": "d7a52d6e7abf534c2c78b409f532583bf9193586"
+    },
+    {
+      "local": "671c939eb7a161031423bcce3703b4ab31752806",
+      "github": "e656732876e54d6c826268ef6ee8e04c0de2cffd",
+      "tree": "28864c5599151fde20946d1e49185de7b0f8af98"
+    },
+    {
+      "local": "756d1a52810849085d06bb2a25aea6d074d6843d",
+      "github": "7e1db0f613fada7cd33a7f3b8941a6b5392e629e",
+      "tree": "f5762db8df107c2f23d46e0adb05cfcb574a04b5"
+    },
+    {
+      "local": "b8a4a3039f48a0c11a0cfb0bd66369a8a4377c63",
+      "github": "8a3b485bae766fb8077377b35e5b8a6c8925a508",
+      "tree": "a179644db76019a0deaf5b90792634e63954b4d7"
+    },
+    {
+      "local": "2a7328c09a38341501df5c613220dc6370bad87e",
+      "github": "95ac93e6e30a9df59b4c6ff2d90b84e6e7a75c5c",
+      "tree": "07b8b305c5ce2fd4ead43fb7a430480d5a4652b1"
+    },
+    {
+      "local": "f44bf9b6f26833c39e5f55f430fa7b7af68bdbd0",
+      "github": "00c0ba651e0b2657b4f041933b88718973dc608a",
+      "tree": "525b6ab4988023c002fa91bd0bf68b448e3b68a7"
+    },
+    {
+      "local": "eef10bd73d7a6077978bb30ed7ddbd1d5597f03d",
+      "github": "eb9da05236b3e32a61146df1e405828c08729431",
+      "tree": "5c40af3138e51d67c190bb09d7c8ba9fe3e56015"
+    },
+    {
+      "local": "5d80015228bbd1ce5798ac948874330d213dd587",
+      "github": "463d9379a511aae0c17bc84755ea966befd1a991",
+      "tree": "d9c357457f9867a61c56e505de6d7b3619431bc7"
+    },
+    {
+      "local": "0592bdbdcc9cefbfaf0042e089962c10155cd369",
+      "github": "b61ca867dd684465d7015b09a3537ee94b3cc9de",
+      "tree": "ad15f03532803ebf5b39a2eaa1985e200771b135"
+    },
+    {
+      "local": "fe64f1c125087198d5703a59ff63aa7c6df58a34",
+      "github": "58b63419bc4ef9a236d6a9336ee6bc569c3053af",
+      "tree": "eede02a6b109a17377241230ee0f588a6d740eb0"
+    },
+    {
+      "local": "cb37d733b1514ba93b476b788c1ad08235c40f3b",
+      "github": "e4e6c223c7a3848d98062bdfe15ce8f278284b59",
+      "tree": "c64fc66326cc85d0654c0511b78dc724716fc0a6"
+    },
+    {
+      "local": "214fda5dbb22f100f8227c74e594ed4df0cd660b",
+      "github": "d11e1b811e71779a18abe9e3e1ebd7f60d7e54c2",
+      "tree": "5639559342f449632cf92c8ec98b71b8f43da9c7"
+    },
+    {
+      "local": "4246b99a58726a3a9fce34f8e3561295e23d083d",
+      "github": "f060182dc88828490f11b4830101e4beb438a5cc",
+      "tree": "a5ac81296e672b03742110fcf1c956a4ea71b63b"
+    },
+    {
+      "local": "afb4cc166ac238fc6ae6483aa5396fe46766ac16",
+      "github": "634474eec3ce09555121770efe3d9bae12ab8591",
+      "tree": "bd6a7b3647e354bcdad0e3f18c486d2895dccb45"
+    },
+    {
+      "local": "982951680926e7a002595125f15e93929c1c174e",
+      "github": "0f22820e069d37175e59edf4ba098212b06371ce",
+      "tree": "b9eaf27f7d206fdae70244984c32638239e7294f"
+    },
+    {
+      "local": "8bd999667271d0707459d8ed6f23340f6a643aed",
+      "github": "be75ef33c82ca30649b47ecc09b2d727788a6d64",
+      "tree": "5691416d266f8cf6a0e93d5caedc136b04a4bac3"
+    },
+    {
+      "local": "5a53c5f279959ee14fa6cea4a89832f969801169",
+      "github": "9bbedb7fce38e7aae17c91785697940d3c7cb089",
+      "tree": "77a902541266bd83703bc4f6f0e5c9588c5e2fd9"
+    },
+    {
+      "local": "70cb3444b6ea58e633f539fffd0db7dd0994388f",
+      "github": "be25f3429b0d4f255b65ff0b25dcfa73e779373c",
+      "tree": "777ed4b7ad3b4251980d523c67cf76f66a205041"
+    },
+    {
+      "local": "fa5e73bfe7f1e289c4a8d66486abe7e3cecfc153",
+      "github": "517a24ed8f37fb9042e958b0fa807d5de9bd97a4",
+      "tree": "818a1cfb7b3bb4ea8f6501b876a31504ab60639f"
+    },
+    {
+      "local": "df526cab4334569c0b8cfa802c0b21fce212112e",
+      "github": "a91981ac531901e66ee2253554cbb58f608b2d39",
+      "tree": "9180b2df1ac92b636032a6ba613572bf2026cec8"
+    },
+    {
+      "local": "b4c2e84158ae394602d01b3593eb800be1e21051",
+      "github": "a4ca80773d51a2a98009f48e85c7bbec570618f4",
+      "tree": "0b5ef3739aa290e73a7fb4c5fc66115c17d96f02"
+    },
+    {
+      "local": "a1f3bc8170a18d4e72e923da95e4ebe3d16123f3",
+      "github": "e3ed1c1d5d99ea4e39f59bf3a11653b28e0a2c12",
+      "tree": "e8337766f537d68ed0ba58af679c80aa2d9efff8"
+    },
+    {
+      "local": "e4257592012368fd95c97617b53a77247cb4e708",
+      "github": "bb70958babfc6e8813924417a2b0d279dc269886",
+      "tree": "42b1d06ab5f006e62b25d19611ec96ad10f699c3"
+    }
+  ]
+}
