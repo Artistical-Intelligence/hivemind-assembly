@@ -1,5 +1,5 @@
 {
-  "version": "0.37.0",
+  "version": "0.37.1",
   "requested_product_complete": false,
   "current_checks": {
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
@@ -207,6 +207,15 @@
     "scope": "Full regression at commit a9813a0, run 40780070811. Windows: 1044 passed/74 skipped in 1805.48s. Local Linux with Chromium, Tesseract and the real meaning-search model: 1106 passed/12 skipped. No live native-model acceptance inferred."
   },
   "evidence": [
+    {
+      "id": "signin-mcp-0.37.1",
+      "date": "2026-10-29",
+      "commit": "ec4312098d6d6ec8a0a8716ddc08a5cf8104a1ff",
+      "runs": [],
+      "host": "Local Linux and Chromium fixtures; independent source review",
+      "live_model_inference": false,
+      "summary": "Version 0.37.1 separates observed provider sign-in from model/session readiness, monitors the opened account tab, provides retry for stopped setups, and exposes automated HA MCP connector creation on the assistants page. Connector creation waits for confirmed sign-in in the configured profile. Native bindings, session acceptance and sharing controls remain separate. Independent review passed 14 focused sign-in/connector tests and the changed dashboard case; a subsequent hover-help regression passed after repair. Integration dashboard run: 28 passed, 4 skipped, 1 deselected, with the sole hover-help failure repaired and both affected dashboard cases passing. The broader non-browser non-slow run was incomplete: automatic approval review blocked further access after detecting unsolicited Microsoft telemetry. No pass is claimed for that run or for live provider sign-in/connector creation. Hosted CI and Windows packaging are separate gates."
+    },
     {
       "id": "native-recovery-local-2026-10-29",
       "date": "2026-10-29",
