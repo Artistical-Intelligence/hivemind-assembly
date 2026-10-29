@@ -179,7 +179,7 @@ def test_reconciliation_rebase_preserves_retained_work(store, retained):
     if retained == "batch":
         flow["phase"] = "batch"
     team.save_flow(task["id"], flow)
-    if retained == "delivery":
+    if retained in ("delivery", "reset"):
         team.controller.prepare_message(task["id"], task["owner"], "https://example.invalid/old", {}, "uncertain-native")
     if retained == "operation":
         with store.tx() as db:
@@ -190,3 +190,47 @@ def test_reconciliation_rebase_preserves_retained_work(store, retained):
         db.execute("UPDATE projects SET revision=1 WHERE id=?", (task["project_id"],))
     assert team.rebase_reconciled_flow(task, {"changed": ["draft.py"]}) is False
     assert team.flow(task["id"]) == flow
+
+
+def test_completed_execute_reset_rebriefs_after_drift_without_losing_handoff(store, monkeypatch):
+    import json
+    from hivemind_assembly.automation.context_reset import ContextResetYield, reset_context
+    from test_context_reset import request
+
+    team, task = setup_team(store)
+    intent = {"revision": 0, "goal": "Old step", "method": "Read"}
+    bid = team.controller.brief(task["id"], intent,
+                                {"procedure": "Read", "acceptance": "Evidence"},
+                                {"critical_gaps": []}, [])
+    flow = {**team.flow(task["id"]), "phase": "execute", "intent": intent, "brief_id": bid}
+    with pytest.raises(ContextResetYield):
+        asyncio.run(reset_context(team, task, flow, task["owner"],
+                                  {"brief": store.get("brief", bid)}, request()))
+    mark(team, task)
+    (team.broker.drafts.workspace(task["project_id"]) / "draft.py").write_text("changed while resetting")
+    seen = []
+
+    async def exchange(route, message):
+        seen.append(json.loads(message["payload"]))
+        response = {"request_id": message["id"], "type": "step_intent",
+                    "intent": {"goal": "Fresh step", "method": "Read current bytes"}}
+        team.controller.message_state(message["id"], "validated", json.dumps(response))
+        return response
+
+    async def passed(project):
+        from native_fixtures import pass_checks
+        team.broker.drafts.checks.begin(project, ["draft.py"], "reviewer.high")
+        pass_checks(team.broker, project)
+        return {"passed": ["draft.py"], "failed": []}
+
+    monkeypatch.setattr(team.browser, "exchange", exchange)
+    monkeypatch.setattr(team.independent, "run", passed)
+    asyncio.run(team.tick(task["id"]))
+    assert len(seen) == 1
+    assert "brief" not in seen[0]["body"]
+    assert seen[0]["body"]["last_result"]["reconciliation"]["revision"] == 1
+    assert seen[0]["context_reset"]["handoff"]["handoff"] == request()["handoff"]
+    assert seen[0]["context_reset"]["handoff"]["requires_rebrief"] is True
+    assert team.flow(task["id"])["phase"] == "brief"
+    assert team.flow(task["id"])["intent"]["revision"] == 1
+    assert "context_reset_resume" not in team.flow(task["id"])
