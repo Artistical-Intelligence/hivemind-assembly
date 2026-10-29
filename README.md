@@ -423,6 +423,21 @@ their pinned checks before the root resumes final integration. Project leases
 serialize shared-workspace writers. Graph publication and controller handoff
 are reconciled after interruption.
 
+On resume, HA compares known local files with retained check hashes and reports.
+Changed or missing evidence reopens the check; a missing pending marker does not
+prove approval. Pending checks take priority over new work, while failed checks
+allow focused repairs. Existing writer leases, immediate draft saves and pinned
+whole-project acceptance remain in use. These changes add no performance log.
+
+Workers and advisers can request a fresh chat when irrelevant accumulated context
+makes continuing wasteful or confusing. HA preserves a short, role-specific
+handoff and the current task payload, and keeps the configured provider, account,
+model, mode, effort and source permissions. Unresolved deliveries and mutations
+must be reconciled first. A request to clear context currently uses a new chat:
+no provider's clearing action is verified yet. HA does not delete conversations
+or reset after every task; its existing turn-limit renewal remains a fallback.
+These paths have fixture coverage, not signed-in provider acceptance.
+
 ACE-derived reflection and curation run through the native adviser. SkillOpt
 applies bounded procedure patches; its validation gate supplements protected
 correctness and timing checks. Shinka selects parents from measured candidate
