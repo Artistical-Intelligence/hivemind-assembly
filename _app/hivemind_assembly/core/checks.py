@@ -29,7 +29,7 @@ import threading
 import time
 from pathlib import PurePosixPath
 
-from .common import Blocked, atomic_write, scoped
+from .common import Blocked, ContractError, atomic_write, file_hash, scoped
 
 MARK = "CHECKS PENDING:"
 STATUS = "STATUS.md"
@@ -51,7 +51,7 @@ Every assistant working in this repository (Claude, ChatGPT or any other) follow
 1. Commit and push every file you create or change right away, before any review.
 2. Mark what isn't checked yet: add a line `CHECKS PENDING: <file> — <what still needs checking>`
    to STATUS.md in the file's folder, and a row to CHECKS_STATUS.md at the top of the repository
-   (item, folder, waiting for). No marker means checked.
+   (item, folder, waiting for). Missing markers alone do not prove a file was checked.
 3. A check is done by a different assistant session than the one that wrote the file (another
    provider when possible, otherwise a fresh conversation). The checker gets only the files and
    their sources, and writes a report under checks/ that stays in the repository.
@@ -60,8 +60,19 @@ Every assistant working in this repository (Claude, ChatGPT or any other) follow
    keep the marker and say in STATUS.md what failed or what is left.
 5. Never put anything with a pending marker into a release, the main deliverable or any other
    published output.
-6. When you pick up this repository, read CHECKS_STATUS.md and QUEUE.md first: finish pending
-   checks, then start new work."""
+6. When you pick up this repository, reconcile CHECKS_STATUS.md and QUEUE.md with current files,
+   their hashes and check reports: finish pending checks before starting more work. Preserve
+   completed work; a changed file must be checked again. Failed checks permit focused repairs.
+7. Give each worker explicit output ownership. HA's project writer lease and broker own edits
+   and saves; assistants outside HA must likewise use one integration/saving owner. Save drafts
+   immediately with pending markers; never wait for an entire batch or acceptance check.
+8. Brief each worker with the current task, source/revision references, necessary dependencies,
+   edit scope and completion criteria. Retrieve additional evidence as needed; do not replace
+   required reading with a summary or repeat unrelated conversation history.
+9. Validate the combined deliverable against its existing whole-project checks before completion;
+   passing child tasks alone is insufficient. Reuse required checks without duplicate reviews.
+10. Do not add operational performance records for these practices. Existing correctness evidence,
+    recovery journals and learning evaluations remain required."""
 
 POINTER = "Read AGENTS.md first: it has this repository's rules, including push early, check later."
 
@@ -289,6 +300,101 @@ class Checks:
         return changed
 
     @locked
+    def reconcile_local(self, project, root):
+        """Compare retained evidence with current local files; never infer a pass from markers.
+
+        Inspect known pending paths, the newest retained check per path (history is bounded),
+        and explicit local marker entries. This is not a full scan of every source file or
+        an audit of unmarked remote edits. Keep remote-only pending items remote-only.
+        """
+        state = self.state(project)
+        # A broker operation may have replaced bytes but not yet journaled its final hash.
+        if self.store.rows(
+            "SELECT o.id FROM operations o JOIN tasks t ON t.id=o.task_id "
+            "WHERE t.project_id=? AND o.state IN ('running','uncertain','applied') LIMIT 1",
+            (project,),
+        ):
+            return {"changed": [], "pending": len(state["items"]), "deferred": True}
+        latest = {}
+        for item in state["checked"]:
+            latest.setdefault(item["path"], item)
+        candidates = dict(latest)
+        candidates.update(state["items"])
+        markers = {}
+        ledger = scoped(root, LEDGER)
+        if ledger.is_file():
+            for row in parse_ledger(ledger.read_text("utf-8")):
+                path = row["item"].strip().strip("`").strip()
+                if safe_path(path) and not managed(path):
+                    markers[path] = row["waiting"] or "independent check"
+        # Only marker files are enumerated; source contents are never scanned wholesale.
+        for marker in root.rglob(STATUS):
+            if marker.is_symlink():
+                continue
+            rel = marker.relative_to(root).as_posix()
+            if not safe_path(rel):
+                continue
+            for line in marker.read_text("utf-8").splitlines():
+                if not line.startswith(MARK):
+                    continue
+                name, _, note = line[len(MARK):].strip().partition(" — ")
+                name = name.strip().strip("`")
+                folder = folder_of(rel)
+                path = f"{folder}/{name}" if folder else name
+                if safe_path(path) and not managed(path):
+                    markers[path] = note or "independent check"
+        for path in markers:
+            candidates.setdefault(path, {})
+        changed, discovered = [], []
+        for path, previous in candidates.items():
+            if not safe_path(path) or managed(path) or previous.get("outside"):
+                continue
+            try:
+                current = file_hash(scoped(root, path))
+                unavailable = False
+            except (OSError, ContractError):
+                current, unavailable = None, True
+            pending = state["items"].get(path)
+            drift = previous.get("sha256") != current or bool(previous.get("evidence_unavailable")) != unavailable
+            missing_report = False
+            if path in latest and not pending:
+                report = latest[path].get("report")
+                try:
+                    missing_report = not report or not scoped(root, report).is_file()
+                except ContractError:
+                    missing_report = True
+            if not drift and not missing_report and (pending or path not in markers):
+                continue
+            item = dict(pending or {})
+            item.update(path=path, folder=folder_of(path), writer=item.get("writer", "outside"),
+                        writer_provider=item.get("writer_provider"), sha256=current,
+                        since=item.get("since", time.time()), state="pending",
+                        evidence_unavailable=unavailable)
+            item["note"] = (
+                "cannot verify: the local file is missing or unreadable" if unavailable else
+                "check again: local bytes changed since the retained evidence" if drift and previous else
+                "check again: the retained check report is missing" if missing_report else
+                markers.get(path, "independent check")
+            )
+            state["items"][path] = item
+            # Never let an old pass remove freshly discovered pending markers.
+            for key in ("clear_local", "clear_remote"):
+                state[key] = [p for p in state.get(key, []) if p != path]
+            state.get("clear_versions", {}).pop(path, None)
+            discovered.append(path)
+            if drift:
+                changed.append(path)
+                state.setdefault("before", {}).setdefault(path, previous.get("sha256"))
+        if discovered:
+            self.save(project, state)
+        if changed:
+            with self.store.tx() as db:
+                db.execute("UPDATE projects SET revision=revision+1 WHERE id=?", (project,))
+                db.execute("UPDATE tasks SET brief_id=NULL WHERE project_id=?", (project,))
+        return {"changed": changed, "discovered": discovered,
+                "pending": len(state["items"]), "deferred": False}
+
+    @locked
     def finish(self, project, checked, results, report, checker, report_text=None, versions=None):
         """Record a finished check. checked: {path: sha256 it was given}; results:
         {path: {"verdict": "pass"|"fail", "findings": text}}. Returns what passed and failed.
@@ -303,7 +409,10 @@ class Checks:
             result = results.get(path)
             if item is None:
                 continue
-            if item.get("sha256") not in (None, sha):
+            if item.get("evidence_unavailable"):
+                item.update(state="pending", note="check again: the local file is missing or unreadable")
+                left.append(path)
+            elif item.get("sha256") not in (None, sha):
                 item.update(state="pending", note="check again: the file changed after it was given to the checker")
                 left.append(path)
             elif result and result["verdict"] == "pass" and path in state.get("conflicts", []):
@@ -506,6 +615,13 @@ class Drafts:
             return None
         return self.sync(project, changed=[path],
                          message=f"{path}: written by {self.checks.name(writer)}, checks pending")
+
+    def reconcile(self, project):
+        result = self.checks.reconcile_local(project, self.workspace(project))
+        if result.get("discovered"):
+            # Publish reopened markers immediately; do not automatically publish external file edits.
+            self.sync(project, message="Reconcile saved checks with current workspace evidence")
+        return result
 
     def report_text(self, path, text):
         """A check report as it may go to GitHub: if it quotes private reference text or
