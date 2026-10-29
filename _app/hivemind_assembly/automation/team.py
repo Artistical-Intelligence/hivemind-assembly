@@ -124,15 +124,24 @@ class NativeTeam:
         return "binding" if isinstance(error, Blocked) else "transport"
 
     def block_allowance(self, route, reason):
-        if route in self.observations:
-            observed = replace(
-                self.observations[route],
-                ready=False,
-                blocked=reason,
-                blocked_kind="quota",
+        """Retain explicit exhaustion, including before the first usage observation."""
+        cfg = self.config["routes"][route]
+        scope = cfg.get("usage", {}).get("scope", route)
+        now = time.time()
+        with self.store.tx() as db:
+            db.execute(
+                "INSERT INTO polls VALUES(?,?) ON CONFLICT(scope) DO UPDATE SET last_attempt=excluded.last_attempt",
+                (scope, now),
             )
-            self.observations[route] = observed
-            self.store.put("availability", uid("usage"), asdict(observed))
+            for peer, other in self.config["routes"].items():
+                if other.get("usage", {}).get("scope", peer) != scope:
+                    continue
+                observed = replace(
+                    self.observations.get(peer, Availability(route=peer)),
+                    ready=False, observed=now, blocked=reason, blocked_kind="quota",
+                )
+                self.observations[peer] = observed
+                self.store.put("availability", uid("usage"), asdict(observed), db)
 
     async def refresh_readiness(self, route):
         """Retry native identity after setup/sign-in, retaining the quota timestamp.
