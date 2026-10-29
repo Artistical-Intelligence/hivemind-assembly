@@ -2,7 +2,6 @@
   "schema_version": 1,
   "scope": "Official acquisitions for evaluation; not a list of implemented HA integrations.",
   "architecture_decision": "Retain complete Ghidra/REA/Hermes. Do not revive the abandoned Ghidra/Hopper/Binary Ninja application merger.",
-  "downloads_executed": false,
   "live_windows_validation": false,
   "exoproc_upstream": {
     "repository": "https://github.com/w0ldan/exoproc",
@@ -213,7 +212,7 @@
       "status": "downloaded",
       "upstream_digest_verified": false,
       "download_completed_at": "2026-10-29T15:09:55.703048Z",
-      "collection": "open-source"
+      "collection": "source-available-private-use"
     },
     {
       "project": "frida",
@@ -333,6 +332,8 @@
   "notes": [
     "WinDbg x64 is an unchanged member of the official bundle.",
     "Cheat Engine acquired as source, not an installed native application.",
-    "Downloaded bytes and SHA-256 do not constitute Authenticode or execution validation."
-  ]
+    "Downloaded bytes and SHA-256 do not constitute Authenticode or execution validation.",
+    "Artifact hashes, sizes, retrieval times, download status, upstream-digest checks, bundle extraction and exoproc history/patch status are retained claims from the acquisition session; this manifest review did not independently inspect the acquired bytes, extracted package, or local exoproc fork."
+  ],
+  "downloaded_artifacts_executed": false
 }
