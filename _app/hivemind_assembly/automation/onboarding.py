@@ -145,6 +145,15 @@ class NativeSetup:
         async with self.locks.setdefault(route, asyncio.Lock()):
             cfg = self.browser.config["routes"][route]
             profile = cfg["profile"]
+            usage = cfg.setdefault("usage", {})
+            if not usage.get("url") and CONTRACTS[cfg["provider"]].get("usage_url"):
+                usage["url"] = CONTRACTS[cfg["provider"]]["usage_url"]
+                usage["discover_progressbars"] = True
+            held = self.team.observations.get(route) if self.team is not None else None
+            if held is not None and held.blocked_kind == "quota":
+                observation = await self.allowance(route, cfg)
+                if observation is None or not observation.eligible():
+                    return self.save(route, stage="waiting_quota", instruction="Provider usage limit reached. HA waits for the daily allowance recheck; spending settings are unchanged.")
             page = self.pages.get(route)
             if page is None or page.is_closed():
                 owner = self.signing_in.get(profile)
@@ -296,6 +305,7 @@ class NativeSetup:
             except AllowanceUnavailable as error:
                 if self.team is not None:
                     self.team.block_allowance(error.route or route, str(error))
+                    atomic_write(self.config_path, canonical(self.browser.config))
                 result = self.save(
                     route, stage="waiting_quota", instruction=str(error)
                 )
