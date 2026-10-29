@@ -14,6 +14,4 @@ Inherited runtime guidance and provenance records: [independent review](checks/2
 
 Setup conversation recovery, durable quota handling and 0.37.2 evidence: [independent review](checks/2026-10-29-setup-recovery-review.md). Local fixtures do not establish live-provider acceptance.
 
-| Item | Folder | Waiting for |
-| --- | --- | --- |
-| Dedicated MCP debugging connection | integrations, application, tests | Implementation, regression checks and independent review |
+Dedicated owner MCP debugging and 0.37.3 evidence: [independent review](checks/2026-10-29-debug-mcp-review.md). Local fixtures do not establish live-provider or remote-tunnel acceptance.
