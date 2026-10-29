@@ -143,3 +143,28 @@ def test_direct_acceptance_rechecks_changed_file_even_without_scheduler(project)
         Acceptance(c, broker).evaluate(c.store.task(t["id"]), {"result_operations": ["w1"]})
     assert broker.drafts.checks.pending(t["project_id"])[0]["path"] == "src/a.c"
     assert not c.store.rows("SELECT id FROM records WHERE kind='acceptance_result'")
+
+
+def test_fixture_approval_persists_evidence_and_does_not_reopen_on_reconcile(project):
+    from native_fixtures import pass_checks
+    from hivemind_assembly.core.checks import parse_ledger
+
+    c, t, epoch, remote, broker = project
+    write(broker, t, epoch, "src/fixture.c", "int fixture = 1;\n", "fixture-write")
+    root = broker.workspace(t["id"])
+    assert MARK in (root / "src" / STATUS).read_text()
+    outcome = pass_checks(broker, t["project_id"])
+    assert outcome == {"passed": ["src/fixture.c"], "failed": [], "left": []}
+    report = broker.drafts.checks.state(t["project_id"])["checked"][0]["report"]
+    assert (root / report).is_file()
+    assert "not live provider evidence" in (root / report).read_text()
+    assert remote.tree()[report] == (root / report).read_text()
+    assert not (root / "src" / STATUS).exists()
+    assert "src/STATUS.md" not in remote.tree()
+    assert parse_ledger((root / LEDGER).read_text()) == []
+    assert parse_ledger(remote.tree()[LEDGER]) == []
+    revision = c.store.project(t["project_id"])["revision"]
+    for _ in range(2):
+        result = broker.drafts.reconcile(t["project_id"])
+        assert result["pending"] == 0 and result["changed"] == []
+    assert c.store.project(t["project_id"])["revision"] == revision
