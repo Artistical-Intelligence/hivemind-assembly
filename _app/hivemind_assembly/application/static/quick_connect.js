@@ -227,7 +227,7 @@
   el('debug-start').onclick = ()=>startDebug();
   el('debug-stop').onclick = async()=>{try {renderDebug(await api('debug/stop',{}));}catch(e){notice(e.message,true);}};
   el('debug-copy').onclick = async()=>{try {await navigator.clipboard.writeText(address);notice('Debugging address copied.');}catch(e){notice(e.message,true);}};
-  el('debug-code-show').onclick = async()=>{try {const result=await api('debug/pairing',{});el('debug-code').textContent=result.pairing_code;el('debug-code').hidden=false;}catch(e){notice(e.message,true);}};
+  el('debug-code-show').onclick = async()=>{try {const result=await api('debug/pairing',{});el('debug-code').textContent=result.code;el('debug-code').hidden=false;}catch(e){notice(e.message,true);}};
   refreshDebug();
   setInterval(()=>{if(el('connections').classList.contains('active'))refreshDebug();},5000);
 })();
