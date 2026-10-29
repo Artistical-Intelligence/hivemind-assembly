@@ -236,7 +236,6 @@ class Sessions:
                 clone.contexts = self.browser.contexts
                 clone.profile_locks = self.browser.profile_locks
                 clone.playwright = self.browser.playwright
-                self.drafts[key] = clone
                 if binding:
                     url = json.loads(binding[0]["payload"])["conversation"]
                     clone.config["routes"][route].update(
@@ -314,6 +313,10 @@ class Sessions:
                     and discovered["account_label"] != cfg["account_label"]
                 ):
                     raise Blocked("New session changed account")
+                # Cache only after recovery and identity discovery succeed. A
+                # failed recovery must not leave a half-initialized draft that
+                # bypasses those checks on the next setup attempt.
+                self.drafts[key] = clone
             target = clone.config["routes"][route]
             canary = canonical(
                 {
