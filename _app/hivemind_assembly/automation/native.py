@@ -84,6 +84,18 @@ return messageNodes(assistants).filter(e=>
 }"""
 
 
+RESPONSE_COMPLETE = """({users, assistants, complete, marker}) => {
+                """ + MESSAGE_NODES + """
+                const us=messageNodes(users);
+                const hit=us.filter(e=>e.innerText.split(/\\s+/).includes(marker));
+                if(hit.length!==1)return false;
+                const start=hit[0], next=us[us.indexOf(start)+1];
+                const after=e=>(start.compareDocumentPosition(e)&Node.DOCUMENT_POSITION_FOLLOWING) &&
+                    (!next||(e.compareDocumentPosition(next)&Node.DOCUMENT_POSITION_FOLLOWING));
+                return [...document.querySelectorAll(complete)].some(e=>e.getClientRects().length && after(e));
+            }"""
+
+
 class NativeBrowser:
     def __init__(self, config, root, controller):
         self.config = config
@@ -566,16 +578,7 @@ class NativeBrowser:
                     },
                 )
             completed_here = await page.evaluate(
-                """({users, assistants, complete, marker}) => {
-                """ + MESSAGE_NODES + """
-                const us=messageNodes(users);
-                const hit=us.filter(e=>e.innerText.split(/\\s+/).includes(marker));
-                if(hit.length!==1)return false;
-                const start=hit[0], next=us[us.indexOf(start)+1];
-                const after=e=>(start.compareDocumentPosition(e)&Node.DOCUMENT_POSITION_FOLLOWING) &&
-                    (!next||(e.compareDocumentPosition(next)&Node.DOCUMENT_POSITION_FOLLOWING));
-                return [...document.querySelectorAll(complete)].some(e=>e.getClientRects().length && after(e));
-            }""",
+                RESPONSE_COMPLETE,
                 {
                     "users": s["user_messages"],
                     "assistants": s["assistant_messages"],
