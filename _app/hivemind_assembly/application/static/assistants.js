@@ -159,7 +159,7 @@
         ? 'Checking sign-in…' : v.signin?.stage === 'attention' ? 'Check sign-in again' : v.waiting ? 'Sign in now' : 'Open to sign in';
       const mcp = v.mcp || {};
       return `<span class="service-group"><button type="button" class="service${v.account ? ' signed' : ''}" data-signin="${esc(v.provider)}" title="${esc(v.signin?.message || '')}"><b>${esc(v.name)}</b><span>${esc(status)}</span></button>`
-        + `<button type="button" data-create-mcp="${esc(v.name)}"${mcp.stage === 'working' ? ' disabled' : ''}>${mcp.stage === 'working' ? 'Creating HA MCP…' : 'Create HA MCP'}</button>`
+        + `<button type="button" data-create-mcp="${esc(v.name)}" title="Create and approve HA’s MCP connector in ${esc(v.name)}. Uses the project access configured in Connections; if none is configured, enables access to all HA projects."${mcp.stage === 'working' ? ' disabled' : ''}>${mcp.stage === 'working' ? 'Creating HA MCP…' : 'Create HA MCP'}</button>`
         + (mcp.message ? `<span class="muted" role="status">${esc(mcp.message)}</span>` : '') + '</span>';
     }).join('');
     // Rebuilt only when something changed, so a click in progress isn't lost.
