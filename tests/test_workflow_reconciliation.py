@@ -139,7 +139,7 @@ def test_checked_local_discovery_does_not_become_remote_history(project):
 def test_direct_acceptance_rechecks_changed_file_even_without_scheduler(project):
     c, t, _, _, broker, _ = checked_file(project)
     (broker.workspace(t["id"]) / "src/a.c").write_text("int a = 3;\n")
-    with pytest.raises(Blocked, match="pending"):
+    with pytest.raises(Blocked, match="independent check"):
         Acceptance(c, broker).evaluate(c.store.task(t["id"]), {"result_operations": ["w1"]})
     assert broker.drafts.checks.pending(t["project_id"])[0]["path"] == "src/a.c"
     assert not c.store.rows("SELECT id FROM records WHERE kind='acceptance_result'")
