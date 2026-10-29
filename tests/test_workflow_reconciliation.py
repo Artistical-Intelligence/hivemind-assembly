@@ -24,7 +24,7 @@ def test_checked_local_drift_reopens_and_checks_local_not_old_remote(project):
     c, t, _, remote, broker, team = checked_file(project)
     root = broker.workspace(t["id"])
     before = c.store.project(t["project_id"])["revision"]
-    (root / "src/a.c").write_text("int a = 2;\n")
+    (root / "src/a.c").write_bytes(b"int a = 2;\n")
     result = broker.drafts.reconcile(t["project_id"])
     assert result["changed"] == ["src/a.c"]
     assert c.store.project(t["project_id"])["revision"] == before + 1
