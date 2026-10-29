@@ -7,7 +7,7 @@ controls stop admission and preserve the last verified binding.
 
 import re
 from urllib.parse import urlsplit
-from hivemind_assembly.core.common import Blocked, Retryable
+from hivemind_assembly.core.common import Blocked, Retryable, AllowanceUnavailable
 
 
 # Selectors checked against the live pages on 2026-10-27 (see surfaces.py); the older
@@ -185,24 +185,36 @@ async def select_preferred_chat(page, cfg, preferences):
     )
 
 
-MODALS = '[role="dialog"][aria-modal="true"], [role="alertdialog"], dialog[open], [class*="dialog-overlay"][data-state="open"]'
-# Only buttons that close an announcement; never ones that change settings or accept terms.
-CLOSE_NAMES = re.compile(r"^(close|dismiss|not now|maybe later|got it|skip|no thanks)$", re.I)
+MODALS = '[role="dialog"]:visible, [role="alertdialog"]:visible, dialog[open]:visible, [class*="dialog-overlay"][data-state="open"]:visible'
+# Dismiss only; never Save, Upgrade, Increase or Remove limit.
+CLOSE_NAMES = re.compile(r"^(close|dismiss|cancel|not now|maybe later|got it|skip|no thanks)$", re.I)
+LIMIT_NOTICE = re.compile(r"(?:you[’']ve|you have) reached your (?:monthly spend|weekly|usage) limit", re.I)
 
 
-async def dismiss_popups(page, attempts=3):
-    """Close announcement pop-ups that cover the page, or ask the owner to."""
+async def dismiss_popups(page, attempts=3, *, check_allowance=False):
+    """Close visible notices; retain an explicit usage limit before dismissing it."""
+    limit = False
     for _ in range(attempts):
-        if not await page.locator(MODALS).count():
-            return
+        dialogs = page.locator(MODALS)
+        if not await dialogs.count():
+            break
+        if check_allowance:
+            for dialog in await dialogs.all():
+                limit = limit or bool(LIMIT_NOTICE.search(await dialog.inner_text()))
         await page.keyboard.press("Escape")
         await page.wait_for_timeout(400)
-        if not await page.locator(MODALS).count():
-            return
-        buttons = page.locator('[role="dialog"], [role="alertdialog"], dialog[open]').get_by_role("button", name=CLOSE_NAMES)
-        if await buttons.count() >= 1 and await buttons.first.is_visible():
+        dialogs = page.locator(MODALS)
+        if not await dialogs.count():
+            break
+        buttons = dialogs.get_by_role("button", name=CLOSE_NAMES).filter(visible=True)
+        if await buttons.count() >= 1:
             await buttons.first.click(timeout=5000)
             await page.wait_for_timeout(400)
+    if limit:
+        raise AllowanceUnavailable(
+            "The provider reports a usage or spending limit. HA has not changed spending settings; "
+            "this account waits for its allowance to reset."
+        )
     if await page.locator(MODALS).count():
         raise Retryable(
             "A pop-up is covering the page in HA's tab. Close it there and setup continues by itself."
@@ -210,7 +222,7 @@ async def dismiss_popups(page, attempts=3):
 
 
 async def discover(page, cfg):
-    await dismiss_popups(page)
+    await dismiss_popups(page, check_allowance=True)
     contract = CONTRACTS[cfg["provider"]]
     from .surfaces import detect
 
