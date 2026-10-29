@@ -51,6 +51,11 @@ def test_unfinished_trial_requires_repair_and_continues_after_checkpoint(app):
         index = 0
 
         async def exchange(self, route, message):
+            response = await self.response(route, message)
+            team.controller.message_state(message["id"], "validated", json.dumps(response))
+            return response
+
+        async def response(self, route, message):
             nonlocal expected_hash
             body = json.loads(message["payload"])["body"]
             common = {"request_id": message["id"]}
