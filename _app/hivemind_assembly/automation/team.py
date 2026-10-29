@@ -19,6 +19,7 @@ from hivemind_assembly.core.common import (
     WaitingForSignIn,
 )
 
+from .context_reset import ContextResetYield, reset_context
 from .prompts import PROTOCOL, ROLE_PROMPTS, TOOL_SCHEMAS  # noqa: F401 (compatibility exports)
 
 
@@ -45,7 +46,7 @@ class NativeTeam:
 
         # Push early, check later: a different assistant checks what was written.
         self.independent = IndependentChecks(self)
-        self.resume_checked = set()  # Projects whose pending checks ran since they were picked up.
+        self.reconciled_projects = set()
         self.host = None
         self.sessions = None
         self.learning_trials = None
@@ -243,7 +244,17 @@ class NativeTeam:
         # Scope binding and delivery must be atomic with respect to other tasks
         # sharing this route. The browser's exchange lock alone starts too late.
         async with self.route_locks.setdefault(route, asyncio.Lock()):
-            return await self._ask(task, flow, route, payload)
+            resume = flow.get("context_reset_resume", {})
+            if resume.get("route") == route and resume.get("knowledge_scope") == self.scopes.fingerprint(task["id"]):
+                payload = resume["payload"]
+            response = await self._ask(task, flow, route, payload)
+            if response.get("type") == "context_reset":
+                await reset_context(self, task, flow, route, payload, response)
+            elif resume.get("route") == route:
+                # A substantive response ends the consecutive-reset guard. This
+                # mutation becomes durable with the normal phase transition.
+                flow.pop("context_reset_resume", None)
+            return response
 
     async def _ask(self, task, flow, route, payload):
         classification = flow["phase"] == "classify"
@@ -380,6 +391,19 @@ class NativeTeam:
                 "SELECT id,tool,state FROM operations WHERE task_id=? ORDER BY created DESC LIMIT 12",
                 (task["id"],),
             ),
+            "workflow": self.workflow_packet(task, flow),
+            "context_reset": {
+                "allowed": flow["phase"] in ("intent", "execute", "brief", "brief_reading", "recovery")
+                    and flow.get("context_reset_resume", {}).get("route") != route,
+                "methods": ["auto", "new_chat", "clear"],
+                "clear_supported": False,
+                "clear_fallback": "new_chat",
+                "handoff": (
+                    {k: v for k, v in flow["context_reset_resume"].items() if k != "payload"}
+                    if flow.get("context_reset_resume", {}).get("route") == route
+                    and flow["context_reset_resume"].get("knowledge_scope") == context else None
+                ),
+            },
             "body": payload,
             "attachments": [
                 {"name": Path(a["path"]).name, "sha256": a["sha256"]}
@@ -515,7 +539,10 @@ class NativeTeam:
 
     async def tick(self, task_id):
         async with self.task_locks.setdefault(task_id, asyncio.Lock()):
-            await self._tick(task_id)
+            try:
+                await self._tick(task_id)
+            except ContextResetYield:
+                return
 
     async def blocking(self, function, *args):
         # Cancelling the coroutine must not detach a thread still using the
@@ -538,11 +565,10 @@ class NativeTeam:
         if self.goals.missing_acceptance(task_id):
             self.store.state(task_id, "waiting_setup", ACCEPTANCE_REQUIRED)
             return
-        if task["project_id"] not in self.resume_checked and self.broker.drafts.checks.pending(task["project_id"]):
-            # Picking a project up again: its pending checks come before new work.
-            self.resume_checked.add(task["project_id"])
-            await self.run_checks(task)
-            task = self.store.task(task_id)
+        if task["project_id"] not in self.reconciled_projects:
+            result = self.broker.drafts.reconcile(task["project_id"])
+            if not result.get("deferred"):
+                self.reconciled_projects.add(task["project_id"])
         # Execution already authorized by a retained brief does not consume a
         # model allowance. Drain it before choosing or promoting a reasoning route.
         if self.host is None and self.config["foundations"].get("hermes_home"):
@@ -614,6 +640,8 @@ class NativeTeam:
             with self.store.tx() as db:
                 db.execute("UPDATE tasks SET brief_id=NULL WHERE id=?", (task_id,))
         if scope["selected"] and await self.execute_retained(task):
+            return
+        if await self.pending_checks_wait(task):
             return
         flow = self.flow(task_id)
         if (
@@ -1043,9 +1071,66 @@ class NativeTeam:
         flow["seq"] += 1
         self.save_flow(task_id, flow, task["owner"], task["epoch"])
 
+    def workflow_packet(self, task, flow):
+        pending = self.broker.drafts.checks.pending(task["project_id"])
+        repair = self.store.rows("SELECT payload FROM records WHERE kind='check_repair' AND id=?", (task["id"],))
+        return {
+            "phase": flow["phase"], "writer": task["owner"], "saver": "broker",
+            "pending_count": len(pending),
+            "pending": [{k: item[k] for k in ("path", "sha256", "writer", "reason", "report") if k in item}
+                        for item in pending[:20]],
+            "repair": json.loads(repair[0]["payload"]).get("outcome") if repair and pending else None,
+            "instruction": "Resolve the current bounded step or named repair; the broker saves and marks every write. Independent checks precede unrelated new work.",
+        }
+
+    def pending_fingerprint(self, project):
+        return digest([{k: item.get(k) for k in ("path", "sha256", "outside")}
+                       for item in self.broker.drafts.checks.pending(project)])
+
+    async def pending_checks_wait(self, task):
+        """Prioritize each new draft batch without replaying failed checks forever."""
+        project, task_id = task["project_id"], task["id"]
+        flow = self.flow(task_id)
+        if flow["phase"] in ("tool", "batch"):
+            return False
+        # Consume retained turns in their original phase/conversation first.
+        route = ("adviser.extra" if flow["phase"] in ("brief", "brief_reading", "learning_reflect", "learning_curate")
+                 else "reviewer.high" if flow["phase"] == "recovery" else task["owner"])
+        message = "msg_" + digest({"task": task_id, "flow": flow["seq"],
+                                    "phase": flow["phase"], "route": route})[:32]
+        if self.store.rows("SELECT id FROM messages WHERE id=? AND state NOT IN ('invalid','cancelled')", (message,)):
+            return False
+        if self.store.rows(
+            "SELECT m.id FROM messages m JOIN tasks t ON t.id=m.task_id "
+            "WHERE t.project_id=? AND m.state NOT IN ('validated','invalid','cancelled')", (project,),
+        ):
+            return False
+        result = self.broker.drafts.reconcile(project)
+        if result.get("deferred"):
+            return True
+        if project in self.independent.running:
+            return True
+        if not self.broker.drafts.checks.pending(project):
+            return False
+        repair = self.store.rows("SELECT payload FROM records WHERE kind='check_repair' AND id=?", (task_id,))
+        if repair and json.loads(repair[0]["payload"]).get("fingerprint") == self.pending_fingerprint(project):
+            return False
+        outcome = await self.run_checks(task)
+        if outcome.get("failed"):
+            self.store.put("check_repair", task_id, {"fingerprint": self.pending_fingerprint(project),
+                                                      "outcome": self.check_brief(outcome)})
+            return False
+        if outcome.get("status") == "running":
+            return True
+        if self.broker.drafts.checks.pending(project):
+            self.store.state(task_id, "waiting_dependency", "Independent checks pending: " +
+                             (outcome.get("waiting") or outcome.get("error") or "checker has not finished"))
+            return True
+        return False
+
     @staticmethod
     def check_brief(outcome):
-        return {k: outcome.get(k) for k in ("passed", "failed", "left", "reports", "waiting", "error") if outcome.get(k)}
+        return {k: outcome.get(k) for k in ("passed", "failed", "left", "reports", "waiting", "error", "status") if outcome.get(k)}
 
     async def run_checks(self, task, steer=True):
         """Check this project's pending files now. Failures go back to the writer."""
@@ -1061,7 +1146,7 @@ class NativeTeam:
             (task["id"],),
         ):
             flow = self.flow(task["id"])
-            if flow["phase"] in ("intent", "execute"):
+            if flow["phase"] not in ("tool", "batch"):
                 flow.update(seq=flow["seq"] + 1, phase="intent", last_result={
                     "independent_check": self.check_brief(outcome),
                     "instruction": "An independent check failed these files. Its report under checks/ (named in "
@@ -1073,12 +1158,20 @@ class NativeTeam:
     async def completion_waits(self, task):
         """Nothing with a pending marker is accepted as finished: check it first."""
         checks = self.broker.drafts.checks
+        reconciled = self.broker.drafts.reconcile(task["project_id"])
+        if reconciled.get("deferred"):
+            return True
         if not checks.pending(task["project_id"]):
             return False
         outcome = await self.run_checks(task, steer=False)
         left = checks.pending(task["project_id"])
         if not left:
             return False
+        if outcome.get("status") == "running":
+            return True
+        if outcome.get("failed"):
+            self.store.put("check_repair", task["id"], {"fingerprint": self.pending_fingerprint(task["project_id"]),
+                                                        "outcome": self.check_brief(outcome)})
         flow = self.flow(task["id"])
         flow.update(seq=flow["seq"] + 1, phase="intent", last_result={
             "completion_waiting": f"{len(left)} file{'s' if len(left) != 1 else ''} still wait for an independent check",
