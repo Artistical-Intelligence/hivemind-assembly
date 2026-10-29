@@ -566,7 +566,7 @@ class NativeTeam:
             self.store.state(task_id, "waiting_setup", ACCEPTANCE_REQUIRED)
             return
         if task["project_id"] not in self.reconciled_projects:
-            result = self.broker.drafts.reconcile(task["project_id"])
+            result = await self.blocking(self.broker.drafts.reconcile, task["project_id"])
             if not result.get("deferred"):
                 self.reconciled_projects.add(task["project_id"])
         # Execution already authorized by a retained brief does not consume a
@@ -1105,7 +1105,7 @@ class NativeTeam:
             "WHERE t.project_id=? AND m.state NOT IN ('validated','invalid','cancelled')", (project,),
         ):
             return False
-        result = self.broker.drafts.reconcile(project)
+        result = await self.blocking(self.broker.drafts.reconcile, project)
         if result.get("deferred"):
             return True
         if project in self.independent.running:
@@ -1123,7 +1123,7 @@ class NativeTeam:
         if outcome.get("status") == "running":
             return True
         if self.broker.drafts.checks.pending(project):
-            self.store.state(task_id, "waiting_dependency", "Independent checks pending: " +
+            self.store.state(task_id, "waiting_quota", "Independent checks pending: " +
                              (outcome.get("waiting") or outcome.get("error") or "checker has not finished"))
             return True
         return False
@@ -1158,7 +1158,7 @@ class NativeTeam:
     async def completion_waits(self, task):
         """Nothing with a pending marker is accepted as finished: check it first."""
         checks = self.broker.drafts.checks
-        reconciled = self.broker.drafts.reconcile(task["project_id"])
+        reconciled = await self.blocking(self.broker.drafts.reconcile, task["project_id"])
         if reconciled.get("deferred"):
             return True
         if not checks.pending(task["project_id"]):
