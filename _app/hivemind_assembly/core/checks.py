@@ -7,7 +7,7 @@ once, before any review, and marked as not yet checked:
   waiting for>";
 - CHECKS_STATUS.md at the top of the repository gets a row (item, folder, waiting for).
 
-No marker means checked. A check is done by a different assistant session than the
+Missing markers alone do not prove a check. A check is done by a different assistant session than the
 writer (another provider when one is signed in, always a fresh conversation), which
 sees only the files and their sources. Its report stays under checks/ as evidence;
 the markers of what passed are removed in the same commit. A failed or interrupted
@@ -350,7 +350,11 @@ class Checks:
             candidates.setdefault(path, {})
         changed, discovered = [], []
         for path, previous in candidates.items():
-            if not safe_path(path) or managed(path) or previous.get("outside"):
+            # Before origin was recorded in checked history, only remote imports
+            # used writer="outside". New local discoveries explicitly record
+            # outside=False on completion, so they remain locally verifiable.
+            remote_origin = previous.get("outside", previous.get("writer") == "outside")
+            if not safe_path(path) or managed(path) or remote_origin:
                 continue
             try:
                 current = file_hash(scoped(root, path))
