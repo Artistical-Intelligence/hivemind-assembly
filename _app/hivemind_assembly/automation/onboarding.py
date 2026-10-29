@@ -61,9 +61,12 @@ class NativeSetup:
     def progress(self, route):
         """Setup status for the dashboard: stage, message, since when, and a tab picture."""
         page = self.display_page(route)
+        state = self.status(route)
+        progress = getattr(self.sessions, "progress", {}).get(route, {}) if state.get("stage") == "ready_for_session" else {}
         return {
-            **self.status(route),
+            **state,
             "since": self.changed.get(route),
+            **progress,
             "tab_open": bool(page is not None and not page.is_closed()),
             "snapshot": self.snapshots.get(route),
         }
