@@ -202,15 +202,7 @@ async def dismiss_popups(page, attempts=3, *, check_allowance=False):
             for dialog in await dialogs.all():
                 limit = limit or bool(LIMIT_NOTICE.search(await dialog.inner_text()))
             if limit:
-                # A failed dismissal must never erase the positive limit evidence.
-                try:
-                    buttons = dialogs.get_by_role("button", name=CLOSE_NAMES).filter(visible=True)
-                    if await buttons.count():
-                        await buttons.first.click(timeout=5000)
-                    else:
-                        await page.keyboard.press("Escape")
-                except Exception:
-                    pass
+                # Return evidence before any dismiss click can be cancelled.
                 raise AllowanceUnavailable(
                     "The provider reports a usage or spending limit. HA has not changed spending settings; "
                     "this account waits for its allowance to reset."
