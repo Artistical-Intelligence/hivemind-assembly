@@ -370,7 +370,7 @@ class Application:
             if not future.done():
                 future.cancel()
                 self.auto_reconnect.report(provider, "manual", "Connection setup stopped because the browser changed or HA closed. Select Create HA MCP to retry.")
-        await asyncio.gather(*(asyncio.wrap_future(f) for f in futures), return_exceptions=True)
+        await asyncio.gather(*futures, return_exceptions=True)
         self.provider_connect_futures.clear()
         await self.native_signin.close()
 
@@ -872,9 +872,11 @@ class Application:
             provider = data.get("provider")
             if provider not in ("ChatGPT", "Claude"):
                 raise ContractError("Choose ChatGPT or Claude.")
-            future = self.provider_connect_futures.get(provider)
-            if future is None or future.done():
-                self.provider_connect_futures[provider] = self.submit(self.connect_provider(provider))
+            async def start_connection():
+                future = self.provider_connect_futures.get(provider)
+                if future is None or future.done():
+                    self.provider_connect_futures[provider] = asyncio.create_task(self.connect_provider(provider))
+            self.submit(start_connection()).result(timeout=5)
             return self.browser_connection_status()
         if path == "/api/quick/reconnect":
             if self.quick.status()["state"] != "ready":
