@@ -180,3 +180,36 @@ def test_dashboard_explicit_screenshot_choice(server,app,monkeypatch):
         page.locator('#debug-stop').click();expect(choice).to_be_enabled()
         assert not app.debugging.visual
         browser.close()
+
+
+def test_ocr_launch_failure_returns_actionable_result(monkeypatch):
+    monkeypatch.setattr(debug_vision,'tesseract',lambda:'missing-fixture')
+    monkeypatch.setattr(asyncio,'create_subprocess_exec',AsyncMock(side_effect=FileNotFoundError()))
+    assert asyncio.run(debug_vision.recognize(b'picture'))['state']=='error'
+
+
+@pytest.mark.parametrize('change',['navigation','identity','grant'])
+def test_final_screenshot_await_cannot_bypass_scope_fence(app,visual,change):
+    class Page:
+        url='https://chatgpt.com/'
+        main_frame=object()
+        count_calls=0
+        evaluate=AsyncMock(return_value={'width':640,'height':480})
+        screenshot=AsyncMock(return_value=b'fixture-jpeg')
+        def is_closed(self):return False
+        def on(self,event,callback):self.callback=callback
+        def remove_listener(self,*args):pass
+        def locator(self,*args):return self
+        async def count(self):
+            self.count_calls+=1
+            if self.count_calls==2:
+                if change=='navigation':
+                    self.url='https://chatgpt.com/settings';self.callback(self.main_frame)
+                elif change=='identity':app.config['routes'][ROUTE]['model']='Changed'
+                else:visual.visual=False
+            return 0
+    page=Page();app.browser.pages[ROUTE]=page
+    try:
+        with pytest.raises(Blocked):
+            visual.call('ha_debug_screenshot',{'route':ROUTE,'ocr':False})
+    finally:app.browser.pages.pop(ROUTE,None)
