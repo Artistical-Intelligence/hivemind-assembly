@@ -15,7 +15,8 @@ upload.onchange=()=>attached.textContent=upload.files[0].name;
 send.onclick=()=>{let raw=compose.value;let p=JSON.parse(raw.split('\\n').slice(1).join('\\n'));let u=document.createElement('div');u.className='user';u.textContent=raw;messages.append(u);let a=document.createElement('div');a.className='assistant';a.textContent=JSON.stringify({request_id:p.request_id,type:'brief',brief:{procedure:'fixture',acceptance:'fixture'}});messages.append(a);done.hidden=false;compose.value='';};</script>"""
 
 
-def test_browser_delivery_reconciliation_and_attachment(store, tmp_path):
+@pytest.mark.parametrize("nested", [False, True])
+def test_browser_delivery_reconciliation_and_attachment(store, tmp_path, nested):
     async def run():
         from playwright.async_api import async_playwright
 
@@ -25,9 +26,13 @@ def test_browser_delivery_reconciliation_and_attachment(store, tmp_path):
             )
             context = await browser.new_context()
             page = await context.new_page()
+            html = HTML
+            if nested:
+                html = html.replace("messages.append(u);", "let inner=document.createElement('div'); inner.className='user-inner'; inner.textContent=u.textContent; u.textContent=''; u.append(inner); messages.append(u);")
+                html = html.replace("messages.append(a);", "let answer=document.createElement('div'); answer.className='assistant-inner'; answer.textContent=a.textContent; a.textContent=''; a.append(answer); messages.append(a);")
             await page.route(
                 "https://fixture.invalid/chat/1",
-                lambda route: route.fulfill(body=HTML, content_type="text/html"),
+                lambda route: route.fulfill(body=html, content_type="text/html"),
             )
             await page.goto("https://fixture.invalid/chat/1")
             selectors = {
@@ -44,7 +49,7 @@ def test_browser_delivery_reconciliation_and_attachment(store, tmp_path):
                     "attachment_ready": "attached",
                 }.items()
             }
-            selectors.update(user_messages=".user", assistant_messages=".assistant")
+            selectors.update(user_messages=".user, .user-inner", assistant_messages=".assistant, .assistant-inner")
             cfg = {
                 "routes": {
                     "worker.opus": {
@@ -83,6 +88,11 @@ def test_browser_delivery_reconciliation_and_attachment(store, tmp_path):
             m = store.one("SELECT * FROM messages WHERE id=?", (m["id"],))
             await native.exchange("worker.opus", m, timeout=10)
             assert await page.locator(".user").count() == 1
+            # Separate messages remain ambiguous even when they have identical text.
+            await page.locator(".user").evaluate("e=>e.after(e.cloneNode(true))")
+            with pytest.raises(Blocked, match="separate messages"):
+                await native.exchange("worker.opus", m, timeout=10)
+            await page.locator(".user").last.evaluate("e=>e.remove()")
             # A visible marker alone must not certify delivery of a clipped payload.
             await page.locator(".user").evaluate(
                 "e=>e.textContent=e.textContent.split('\\n')[0]"
