@@ -164,3 +164,43 @@ This final approved hash supersedes the earlier reconciliation-test hashes:
 | File | SHA-256 |
 | --- | --- |
 | `tests/test_workflow_reconciliation.py` | `30c90c0296172d9011dda13dc3902e29ed2a689d5642757f0f722e926ccc0e93` |
+
+## Windows fixture encoding and setup isolation addendum
+
+**Result: PASS — two test-only changes approved.** Reviewed candidate
+`8c7ad5b2a0476689ebd0e2407dc26a12cd300153`, as identified by the integration
+owner. The changes affect only `tests/test_workflow_reconciliation.py` and
+`tests/test_app.py`; runtime code and assertion strength are unchanged.
+
+This reviewer inspected the downloaded Windows JUnit results from hosted run
+`40821771661`. Its main suite reports **1,083 passed, 74 skipped and three
+failures**, with no errors. Two reconciliation fixtures wrote an em dash using
+the Windows default encoding; the runtime correctly attempted UTF-8 decoding
+and rejected byte `0x97`. Those fixtures now explicitly use UTF-8 for all text
+I/O, matching the application contract. The exact-byte writes approved above
+remain exact byte writes. Inspection of the other newly added context-reset
+and scheduling tests found no further equivalent encoding mismatch: scheduling
+writes contain ASCII and reset attachments are handled as bytes.
+
+The third Windows failure was the mocked first-run installation test observing
+installation still in progress at its existing five-second deadline. The test
+already substituted foundation and optional-tool installers, but real Windows
+prerequisite probes still ran before the fake installer. The fixture now also
+substitutes `prerequisites.missing` with an empty result. This completes the
+mocked setup boundary while retaining the original timeout and all progress,
+readiness and saved-path assertions. Dedicated prerequisite tests remain
+unchanged and continue to cover availability and version behavior.
+
+Independent combined rerun of reconciliation, application and prerequisite
+tests: **54 passed in 9.40 seconds**. Source approval and the targeted fixture
+gate pass. This Linux rerun does not establish that the updated Windows hosted
+suite, complete release pipeline, installation or live-provider acceptance has
+passed; those remain separate gates.
+
+These approved hashes supersede the prior reconciliation-test hash and add the
+reviewed application-test fixture:
+
+| File | SHA-256 |
+| --- | --- |
+| `tests/test_workflow_reconciliation.py` | `aef0acf67a0bbc970864597dc0ff35fa70a754cefbd79c0ace45430a8356579b` |
+| `tests/test_app.py` | `6467f9d961f1c2a85028a20a3252a6bff38f23350eafa922922d8c4043637667` |
