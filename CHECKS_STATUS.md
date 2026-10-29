@@ -11,3 +11,7 @@ Native recovery source, focused browser fixtures and evidence documents: [2026-1
 Sign-in observation, setup retry, automated HA MCP entry point and 0.37.1 evidence: [independent review](checks/2026-10-29-signin-mcp-review.md). The report records exact file hashes, completed checks, the blocked broader run, and live-provider limitations.
 
 Inherited runtime guidance and provenance records: [independent review](checks/2026-10-29-runtime-provenance-review.md), with acquisition-byte and live-Windows limitations.
+
+| Item | Folder | Waiting for |
+| --- | --- | --- |
+| Recover setup chats and recognize usage dialogs | automation, application, tests | Regression tests and independent review |
