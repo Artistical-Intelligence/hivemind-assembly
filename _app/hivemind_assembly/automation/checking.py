@@ -176,6 +176,11 @@ class IndependentChecks:
         self.running.add(project)
         outcome = {"passed": [], "failed": [], "left": [], "reports": [], "waiting": None}
         try:
+            reconciliation = await self.team.blocking(self.drafts.reconcile, project)
+            if reconciliation.get("deferred"):
+                outcome["waiting"] = "Reconcile the pending workspace operation before checking its files."
+                outcome["left"] = [i["path"] for i in self.checks.pending(project)]
+                return outcome
             if self.checks.stale(project):
                 await self.team.blocking(self.drafts.sync, project, (), None, "Checks stopped when HA stopped")
             groups = {}
@@ -249,6 +254,12 @@ class IndependentChecks:
         results = self.results(response, paths)
         name = report_name(key)
         text = self.report(project, route, writer, batch, results, response.get("summary", ""), sources)
+        # An editor outside HA can change files without updating our pending-item hashes.
+        # Compare bytes again before accepting the checker response for its older snapshot.
+        reconciliation = await self.team.blocking(self.drafts.reconcile, project)
+        if reconciliation.get("deferred"):
+            self.checks.interrupt(project, paths, "workspace operation still unresolved")
+            raise ContractError("Reconcile the pending workspace operation before accepting this check")
         outcome = self.checks.finish(project, {f["path"]: f["sha256"] for f in batch}, results, name, route,
                                      report_text=text,
                                      versions={f["path"]: blob_sha(f["text"]) for f in batch})
