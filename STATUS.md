@@ -10,3 +10,4 @@ CHECKS PENDING: tests/test_context_reset.py — Workflow update: regression test
 CHECKS PENDING: tests/test_workflow_scheduling.py — Workflow update: regression tests and independent review
 CHECKS PENDING: AGENTS.md — Workflow update: regression tests and independent review
 CHECKS PENDING: _app/hivemind_assembly/core/acceptance.py — Workflow update: regression tests and independent review
+CHECKS PENDING: _app/hivemind_assembly/application/app.py — Workflow update: regression tests and independent review

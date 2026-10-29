@@ -16,3 +16,4 @@ Work pushed before independent review.
 | tests/test_workflow_scheduling.py | tests | Workflow update: regression tests and independent review |
 | AGENTS.md | . | Workflow update: regression tests and independent review |
 | _app/hivemind_assembly/core/acceptance.py | _app/hivemind_assembly/core | Workflow update: regression tests and independent review |
+| _app/hivemind_assembly/application/app.py | _app/hivemind_assembly/application | Workflow update: regression tests and independent review |

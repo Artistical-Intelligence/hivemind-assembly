@@ -1511,7 +1511,7 @@ class Application:
                     self.team.goals.control(task, "resume")
                 self.broker.cancel.setdefault(task, threading.Event()).clear()
                 # Resuming: pending independent checks run before new work.
-                self.team.resume_checked.discard(t["project_id"])
+                self.team.reconciled_projects.discard(t["project_id"])
                 self.store.state(task, "queued")
             return self.store.task(task)
         if path == "/api/import-target":
