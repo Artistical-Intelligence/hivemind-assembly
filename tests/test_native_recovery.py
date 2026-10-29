@@ -1,8 +1,6 @@
 """Recovery-state regressions; browser DOM coverage lives in test_browser_fixture."""
 
 import asyncio
-import json
-
 import pytest
 
 from hivemind_assembly.automation import native as module
@@ -135,3 +133,64 @@ def test_request_echo_rejects_separate_messages():
 
     with pytest.raises(Blocked, match="separate messages"):
         asyncio.run(module.request_echo(Page(), ".user", "marker"))
+
+
+def test_restart_rediscovery_after_duplicate_scan_failure(store, tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from hivemind_assembly.automation import sessions as session_module
+
+    route, key = "worker.extra", "recovery_request"
+    controller = Controller(store)
+    task = store.create_project("restart", "test")
+    config = {"routes": {route: {
+        "provider": "openai", "profile": "openai", "account_label": "tester",
+        "conversation_url": "https://chatgpt.com/c/old", "allowed_hosts": ["chatgpt.com"],
+        "model": "GPT-6", "mode": "Chat", "effort": "Extra High",
+        "selectors": {"user_messages": ".user"},
+    }}}
+    root = NativeBrowser(config, tmp_path, controller)
+    controller.prepare_message(task["id"], route, "https://chatgpt.com/", {"test": "canary"}, key)
+    controller.message_state(key, "delivery_uncertain")
+
+    class Page:
+        url = "https://chatgpt.com/c/recovered"
+        echoes = ["WORKBENCH_REQUEST:" + key] * 2
+        scans = 0
+
+        async def evaluate(self, script, args):
+            assert script == module.REQUEST_ECHO
+            self.scans += 1
+            return self.echoes
+
+    page = Page()
+    root.contexts["openai"] = SimpleNamespace(pages=[page])
+
+    class Recovered(Exception):
+        pass
+
+    class Clone(NativeBrowser):
+        async def exchange(self, route, message, attachments):
+            assert self.pages[route] is page
+            assert self.config["routes"][route]["conversation_url"] == page.url
+            assert message["state"] == "delivery_uncertain"
+            raise Recovered()
+
+    async def discover(page, config):
+        return {"missing": [], "selectors": config["selectors"], "account_label": config["account_label"]}
+
+    monkeypatch.setattr(session_module, "NativeBrowser", Clone)
+    monkeypatch.setattr(session_module, "discover", discover)
+    sessions = session_module.Sessions(root, tmp_path / "config.json")
+
+    async def run():
+        with pytest.raises(Blocked, match="separate messages"):
+            await sessions.renew(task["id"], route, identity=key)
+        assert key not in sessions.drafts
+        page.echoes = page.echoes[:1]
+        with pytest.raises(Recovered):
+            await sessions.renew(task["id"], route, identity=key)
+        assert page.scans == 2
+        assert sessions.drafts[key].pages[route] is page
+        assert store.one("SELECT state FROM messages WHERE id=?", (key,))["state"] == "delivery_uncertain"
+
+    asyncio.run(run())
