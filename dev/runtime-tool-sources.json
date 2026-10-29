@@ -286,7 +286,8 @@
       "filename": "windbg-1.2610.1001.0-x64.msix",
       "bytes": 404832537,
       "sha256": "959c4ec033e2d00f7ed75646e4d352cc7cff6de33f494fd5dccb83819fe64e7a",
-      "collection": "microsoft"
+      "collection": "microsoft",
+      "extracted_at": "2026-10-29T15:12:34.480824+00:00"
     },
     {
       "name": "ttd",
