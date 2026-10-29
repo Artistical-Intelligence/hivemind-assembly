@@ -206,6 +206,8 @@
       input.disabled = enabled;
       if (enabled) input.checked = state.routes.includes(input.value);
     }
+    el('debug-screenshots').disabled = enabled;
+    if (enabled) el('debug-screenshots').checked = !!state.screenshots_enabled;
     if (address !== state.endpoint || !enabled) {el('debug-code').textContent = '';el('debug-code').hidden = true;}
     address = state.endpoint;el('debug-address').value = address;
     el('debug-stop').disabled = !enabled;
@@ -218,7 +220,7 @@
   async function startDebug(provider) {
     try {
       const routes = [...el('debug-routes').querySelectorAll('input:checked')].map(e=>e.value);
-      renderDebug(await api('debug/start',{routes}));
+      renderDebug(await api('debug/start',{routes,screenshots:el('debug-screenshots').checked}));
       if (provider) renderDebug(await api('debug/connect',{provider}));
     } catch(e) {notice(e.message,true);}
   }
