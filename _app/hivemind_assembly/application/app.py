@@ -214,6 +214,9 @@ class Application:
             self.browser, self.store, self.config_path, self.sessions, self.team
         )
         self.native_setup_futures = {}
+        from hivemind_assembly.integrations.debug_mcp import DebugConnection
+
+        self.debugging = DebugConnection(self, __version__)
         from hivemind_assembly.automation.signin import NativeSignIn
 
         self.native_signin = NativeSignIn(self.browser)
@@ -365,6 +368,7 @@ class Application:
 
     async def stop_provider_setup(self):
         """Stop connector/sign-in work before closing or replacing its browser."""
+        await self.debugging.cancel_connect()
         futures = list(self.provider_connect_futures.values())
         for provider, future in self.provider_connect_futures.items():
             if not future.done():
@@ -402,6 +406,7 @@ class Application:
             "github": {**self.github_auth.status(), **self.config.get("github", {})},
             "hosted_tests": self.hosted_tests.listing(),
             "connections": self.connections.settings(),
+            "debugging": self.debugging.status(),
             "mcp_authorizations": self.connections.oauth.status(),
             "tunnel": self.tunnel.status(),
             "quick_connect": self.browser_connection_status(),
@@ -955,6 +960,18 @@ class Application:
             result = chrome_helper.register_native_host(self.store.root)
             result["opened"] = chrome_helper.open_extensions_page() if data.get("open") else False
             return result
+        if path == "/api/debug/status":
+            return self.debugging.status()
+        if path == "/api/debug/start":
+            return self.debugging.start(data.get("routes"))
+        if path == "/api/debug/stop":
+            return self.debugging.stop()
+        if path == "/api/debug/pairing":
+            self.debugging.check()
+            return self.debugging.quick.pairing()
+        if path == "/api/debug/connect":
+            self.submit(self.debugging.connect(data.get("provider"))).result(timeout=10)
+            return self.debugging.status()
         if path == "/api/mcp/local-apps":
             return self.connections.install_local_apps()
         if path == "/api/mcp/settings":
@@ -2005,6 +2022,7 @@ class Application:
         if self.closed:
             return
         self.tunnel.close()
+        self.debugging.stop()
         self.quick.close()
         self.folder_backups.close()
         self.knowledge_collections.close()
