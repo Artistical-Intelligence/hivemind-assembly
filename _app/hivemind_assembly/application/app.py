@@ -336,8 +336,8 @@ class Application:
         auto.report(provider, "working", "Checking sign-in before creating HA's MCP connector…")
         try:
             provider_id = {"ChatGPT": "openai", "Claude": "claude"}[provider]
-            info = PROVIDERS[provider_id]
-            await self.native_signin.open(provider_id, info["profile"], info["hosts"])
+            profile, hosts = auto.profile(provider)
+            await self.native_signin.open(provider_id, profile, hosts)
             signed = await self.native_signin.tasks[provider_id]
             if signed.get("stage") != "signed_in":
                 raise Blocked(signed.get("message") or "Sign-in could not be confirmed. Connect again to retry.")
@@ -363,8 +363,10 @@ class Application:
     async def stop_provider_setup(self):
         """Stop connector/sign-in work before closing or replacing its browser."""
         futures = list(self.provider_connect_futures.values())
-        for future in futures:
-            future.cancel()
+        for provider, future in self.provider_connect_futures.items():
+            if not future.done():
+                future.cancel()
+                self.auto_reconnect.report(provider, "manual", "Connection setup stopped because the browser changed or HA closed. Select Create HA MCP to retry.")
         await asyncio.gather(*(asyncio.wrap_future(f) for f in futures), return_exceptions=True)
         self.provider_connect_futures.clear()
         await self.native_signin.close()
@@ -1198,7 +1200,11 @@ class Application:
             if provider not in PROVIDERS:
                 raise ContractError("Unknown AI service")
             info = PROVIDERS[provider]
-            self.submit(self.native_signin.open(provider, info["profile"], info["hosts"])).result(timeout=90)
+            try:
+                profile, hosts = self.auto_reconnect.profile(info["name"])
+            except Blocked:
+                profile, hosts = info["profile"], info["hosts"]
+            self.submit(self.native_signin.open(provider, profile, hosts)).result(timeout=90)
             return {"opened": True, "signin": self.native_signin.status(provider)}
         if path == "/api/native/show":
             route = data.get("route")
