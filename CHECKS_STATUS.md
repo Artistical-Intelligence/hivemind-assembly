@@ -12,6 +12,4 @@ Sign-in observation, setup retry, automated HA MCP entry point and 0.37.1 eviden
 
 Inherited runtime guidance and provenance records: [independent review](checks/2026-10-29-runtime-provenance-review.md), with acquisition-byte and live-Windows limitations.
 
-| Item | Folder | Waiting for |
-| --- | --- | --- |
-| Recover setup chats and recognize usage dialogs | automation, application, tests | Regression tests and independent review |
+Setup conversation recovery, durable quota handling and 0.37.2 evidence: [independent review](checks/2026-10-29-setup-recovery-review.md). Local fixtures do not establish live-provider acceptance.
