@@ -1,6 +1,6 @@
 # Checks status
 
-Nothing is waiting for a source check. Missing markers alone do not prove approval; compare current files with the retained check evidence. Live-provider and broader browser-suite acceptance remain distinct from source approval.
+The rows below are waiting for a source check. Compare current files with the retained check evidence. Live-provider and broader browser-suite acceptance remain distinct from source approval.
 
 Workflow/context source, evidence and fixture approval: [2026-10-29 independent review](checks/2026-10-29-workflow-context-review.md).
 
@@ -21,3 +21,4 @@ Trusted connector-menu navigation and 0.37.4 evidence: [independent review](chec
 | Item | Folder | Waiting for |
 | --- | --- | --- |
 | Bounded setup recovery, accurate progress and quota reset restoration | automation, application, tests | Regression checks and independent review |
+| Setup-progress release evidence | README, _app, dev | Evidence checks and independent review |
