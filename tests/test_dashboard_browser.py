@@ -538,10 +538,30 @@ def test_assistants_page_sign_in_setups_and_model_lists(server, app, monkeypatch
         page.goto(f"http://127.0.0.1:{server.server_port}/#{app.token}")
         page.locator('[data-tab="routes"]').click()
         # One sign-in button per service, on the top row.
-        expect(page.locator("#service-buttons button")).to_have_count(2)
+        expect(page.locator("#service-buttons [data-signin]")).to_have_count(2)
+        expect(page.locator("#service-buttons [data-create-mcp]")).to_have_count(2)
         page.locator('[data-signin="claude"]').click()
         expect(page.locator("#notice")).to_contain_text("Opened Claude in Chrome")
         assert opened == ["claude"]
+        # Sign-in is visible even while native model/session setup has failed.
+        app.native_signin.save("claude", "signed_in", "owner@example.test")
+        app.native_setup.save("worker.opus", stage="attention", instruction="Model menu timed out")
+        app.native_setup.pages["worker.opus"] = Tab()
+        page.evaluate("refresh()")
+        expect(page.locator('[data-signin="claude"]')).to_contain_text("Signed in: owner@example.test")
+        expect(page.locator('[data-native-setup="worker.opus"]')).to_have_text("Retry setup")
+        expect(page.locator('[data-native-show="worker.opus"]')).to_be_visible()
+        # The MCP action uses the actual API; stub external browser work only.
+        connected = []
+        async def connect(provider):
+            connected.append(provider)
+            app.auto_reconnect.report(provider, "done", "Connector created; waiting for first use.")
+        monkeypatch.setattr(app, "connect_provider", connect)
+        page.locator('[data-create-mcp="Claude"]').click()
+        expect(page.locator("#notice")).to_contain_text("Creating HA’s MCP connector in Claude")
+        page.evaluate("refresh()")
+        expect(page.locator("#service-buttons")).to_contain_text("Connector created; waiting for first use.")
+        assert connected == ["Claude"]
         # One row per assistant, with the setup already defined saved as Default.
         expect(page.locator("#role-rows th")).to_have_text(["Adviser", "Reviewer", "Worker 1", "Worker 2", "Worker 3"])
         expect(page.locator("#setup-name")).to_have_value("Default")
