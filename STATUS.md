@@ -1,0 +1,1 @@
+CHECKS PENDING: HA integration — unified setup, automation, remote access and packaged foundations; source review, regression checks and live-provider/Windows acceptance remain separate. No new release is approved by this marker.
