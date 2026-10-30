@@ -12,8 +12,11 @@ from hivemind_assembly.core.common import Blocked, ContractError, canonical, dig
 
 class HermesBoard:
     def __init__(self, root):
-        from .state_engine.hermes_cli import kanban_db
-        from .state_engine.hermes_cli.kanban_db_connect import connect
+        from .hermes import state_home
+
+        with state_home(root):
+            from .state_engine.hermes_cli import kanban_db
+            from .state_engine.hermes_cli.kanban_db_connect import connect
 
         self.api, self.connect = kanban_db, connect
         self.path = Path(root) / "hermes-kanban.sqlite3"
