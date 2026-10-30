@@ -1,0 +1,106 @@
+name: Integrate HA state engine
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'dev/ingest_state_engine.py'
+      - '.github/workflows/ingest-state-engine.yml'
+permissions:
+  contents: read
+concurrency:
+  group: ha-state-ingestion
+  cancel-in-progress: false
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Retrieve and verify pinned source (do not execute upstream installers)
+        shell: python
+        run: |
+          import hashlib, pathlib, urllib.request, zipfile
+          commit = 'c0015464f0f40d52c5702a84cf58e70361f4a04c'
+          path = pathlib.Path('hermes-input.zip')
+          with urllib.request.urlopen('https://codeload.github.com/NousResearch/hermes-agent/zip/' + commit, timeout=120) as response, path.open('wb') as out:
+              total = 0
+              while chunk := response.read(1024 * 1024):
+                  total += len(chunk)
+                  if total > 150 * 1024 * 1024: raise RuntimeError('Oversized archive')
+                  out.write(chunk)
+          if hashlib.sha256(path.read_bytes()).hexdigest() != 'f8d78409cfcfbf3dacf9e49830a1af2cfd8ae45379cc390e3f61a7dcc090c898':
+              raise RuntimeError('Pinned source hash mismatch')
+          root = pathlib.Path('input-source').resolve(); root.mkdir()
+          with zipfile.ZipFile(path) as z:
+              if sum(i.file_size for i in z.infolist()) > 1024 * 1024 * 1024: raise RuntimeError('Expanded archive too large')
+              for i in z.infolist():
+                  if not (root / i.filename).resolve().is_relative_to(root): raise RuntimeError('Unsafe archive member')
+                  if (i.external_attr >> 16) & 0o170000 == 0o120000: raise RuntimeError('Symlink not permitted')
+              z.extractall(root)
+      - name: Extract only retained storage and task code
+        run: python dev/ingest_state_engine.py input-source/hermes-agent-c0015464f0f40d52c5702a84cf58e70361f4a04c generated/state_engine
+      - name: Check syntax without importing generated code
+        run: python -m compileall -q generated/state_engine
+      - name: Remove compiler cache from source output
+        run: find generated -type d -name __pycache__ -prune -exec rm -rf {} +
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ha-state-engine-${{ github.run_id }}
+          path: generated/state_engine/
+          if-no-files-found: error
+          retention-days: 14
+  retain:
+    needs: extract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/download-artifact@v4
+        with:
+          name: ha-state-engine-${{ github.run_id }}
+          path: staged-state-engine
+      - name: Preserve existing generated files and reject unexplained changes
+        shell: python
+        run: |
+          import hashlib, json, pathlib, shutil
+          target = pathlib.Path('_app/hivemind_assembly/automation/state_engine')
+          if target.exists():
+              manifest = target / 'manifest.json'
+              if not manifest.is_file(): raise RuntimeError('Existing unowned destination; left unchanged')
+              for item in json.loads(manifest.read_text()):
+                  p = target / item['path']
+                  if not p.is_file() or hashlib.sha256(p.read_bytes()).hexdigest() != item['sha256']:
+                      raise RuntimeError('Local state-engine changes require reconciliation')
+          source = pathlib.Path('staged-state-engine')
+          if not (source / 'manifest.json').is_file() or not (source / 'STATUS.md').is_file(): raise RuntimeError('Incomplete generated input')
+          for p in source.rglob('*'):
+              if p.is_file():
+                  dst = target / p.relative_to(source)
+                  dst.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copyfile(p, dst)
+      - name: Retain each generated source file immediately; never force push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'HA source integration'
+          git config user.email '193562052+Artistical-Intelligence@users.noreply.github.com'
+          target='_app/hivemind_assembly/automation/state_engine'
+          git add "$target/STATUS.md"
+          if ! git diff --cached --quiet; then
+            git commit -m 'Mark integrated state engine pending independent checks'
+            git push origin HEAD:main
+          fi
+          while IFS= read -r -d '' path; do
+            git add -- "$path"
+            if ! git diff --cached --quiet; then
+              git commit -m "Retain integrated HA state source: ${path##*/}"
+              git push origin HEAD:main
+            fi
+          done < <(find "$target" -type f -print0 | sort -z)
