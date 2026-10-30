@@ -1,6 +1,10 @@
 # Checks status
 
-Nothing is waiting for a source check. Missing markers alone do not prove approval; compare current files with the retained check evidence. Live-provider and broader browser-suite acceptance remain distinct from source approval.
+Unified HA implementation is in progress. Missing markers alone do not prove approval; compare current files with retained check evidence. Live-provider and Windows acceptance remain distinct from source approval.
+
+| Item | Folder | Waiting for |
+| --- | --- | --- |
+| Unified setup, automation, remote access and packaged foundations | root, application, automation, integrations, dev, tests | Implementation, regression checks, independent source review and separate live acceptance; no release approved |
 
 Workflow/context source, evidence and fixture approval: [2026-10-29 independent review](checks/2026-10-29-workflow-context-review.md).
 
