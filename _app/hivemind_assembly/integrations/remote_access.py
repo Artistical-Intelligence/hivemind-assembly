@@ -70,14 +70,38 @@ class RemoteAccess:
         self.upstream = None
         self.state = {"version": 1, "enabled": False, "gateway_port": None,
                       "origin": None, "devices": [], "transport": "unchecked"}
+        self.settings_error = False
         if self.path.exists():
-            saved = json.loads(self.path.read_text(encoding="utf-8"))
-            if saved.get("version") != 1 or not isinstance(saved.get("devices"), list):
-                raise Blocked("Remote access settings need recovery; existing data was left unchanged")
-            self.state.update(saved)
-            self.state["transport"] = "unchecked"
+            try:
+                saved = json.loads(self.path.read_text(encoding="utf-8"))
+                if (not isinstance(saved, dict) or saved.get("version") != 1 or
+                        type(saved.get("enabled")) is not bool or
+                        not isinstance(saved.get("devices"), list) or
+                        len(saved["devices"]) > 32 or
+                        saved.get("gateway_port") is not None and
+                        (type(saved["gateway_port"]) is not int or not 0 < saved["gateway_port"] < 65536)):
+                    raise ValueError("Invalid retained remote settings")
+                for device in saved["devices"]:
+                    if (not isinstance(device, dict) or
+                            not re.fullmatch(r"[a-f0-9]{24}", device.get("id", "")) or
+                            not re.fullmatch(r"[a-f0-9]{64}", device.get("hash", "")) or
+                            not isinstance(device.get("label"), str) or
+                            not 1 <= len(device["label"]) <= 80 or
+                            not isinstance(device.get("created"), (float, int)) or
+                            not isinstance(device.get("expires"), (float, int))):
+                        raise ValueError("Invalid retained device")
+                origin = saved.get("origin")
+                if origin is not None and not re.fullmatch(r"https://[a-z0-9][a-z0-9.-]*\.ts\.net:8443", origin):
+                    raise ValueError("Invalid retained network identity")
+                self.state.update(saved)
+                self.state["transport"] = "unchecked"
+            except (ValueError, OSError, TypeError, KeyError):
+                self.settings_error = True
+                self.state["transport"] = "settings_need_recovery"
 
     def save(self):
+        if self.settings_error:
+            raise Blocked("Remote settings need recovery; the original file was preserved. Local HA remains available.")
         self.folder.mkdir(parents=True, exist_ok=True)
         if os.name != "nt":
             self.folder.chmod(0o700)
@@ -117,6 +141,8 @@ class RemoteAccess:
 
     def check(self):
         """Explicit, active check; never called by a dashboard poll."""
+        if self.settings_error:
+            raise Blocked("Remote settings need recovery; no network settings were changed")
         status = self.cli_json(["status", "--json"])
         if status.get("BackendState") != "Running":
             self.state["transport"] = "needs_sign_in"
@@ -178,17 +204,24 @@ class RemoteAccess:
             return self.check()
 
     def disable(self):
+        # Revoke locally before calling a possibly unavailable network service.
         with self.lock:
+            self.state["enabled"] = False
+            self.state["devices"] = []
+            self.state["transport"] = "disabled"
+            self.save()
+        try:
             config = self.cli_json(["serve", "status", "--json"])
             current = self.mapping(config)
             if current and current != self.proxy_url():
                 raise Blocked("The remote mapping no longer belongs to HA. No other application's mapping was removed.")
             if current:
                 self.runner(["serve", f"--https={HTTPS_PORT}", "off"])
-            self.state["enabled"] = False
-            self.state["devices"] = []
-            self.state["transport"] = "disabled"
-            self.save()
+        except (Blocked, OSError):
+            with self.lock:
+                self.state["transport"] = "disabled_cleanup_pending"
+                self.save()
+            return self.snapshot()
         self.close()
         return self.snapshot()
 
@@ -251,6 +284,8 @@ class RemoteAccess:
 
             def handle_request(self):
                 self.connection.settimeout(40)
+                if not remote.state["enabled"]:
+                    return self.reject(403)
                 origin = remote.state.get("origin")
                 allowed_hosts = {urlsplit(origin or "").netloc,
                                  f"127.0.0.1:{self.server.server_port}"}
