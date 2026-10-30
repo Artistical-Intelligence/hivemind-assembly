@@ -119,7 +119,7 @@ class BrowserActions:
                         if not permitted:
                             await route.abort()
                             return
-                    await route.continue_()
+                    await route.fallback()
                 await page.route('**/*', guard)
 
             page = await self.browser.service_page(profile, url, {urlsplit(origin).hostname}, prepare=prepare)
@@ -156,7 +156,8 @@ class BrowserActions:
                 snapshot = secrets.token_hex(16)
                 session.update(snapshot=snapshot, handles=handles)
                 return {'session': data['session'], 'snapshot': snapshot,
-                        'text': scrub_url_credentials(text), 'origin': session['origin']}
+                        'text': scrub_url_credentials(text), 'origin': session['origin'],
+                        'controls': [{'ref': ref, 'tag': ident['tag'], 'label': ident['label'] or ident['name'] or ident['text'] or ident['id'] or ident['tag']} for ref, (_, ident) in handles.items()]}
             if not session['snapshot'] or data.get('snapshot') != session['snapshot']:
                 raise Blocked('Read the page again before acting; the saved snapshot is stale')
             ref = str(data.get('ref', ''))
@@ -176,7 +177,10 @@ class BrowserActions:
                 value = data.get('value')
                 if not isinstance(value, str) or len(value) > 4000 or '\x00' in value:
                     raise ContractError('Use a non-secret setup value of at most 4000 characters')
-                await element.fill(value, timeout=15000)
+                if identity["tag"] == "SELECT":
+                    await element.select_option(label=value, timeout=15000)
+                else:
+                    await element.fill(value, timeout=15000)
             else:
                 await element.click(timeout=15000)
             return {'session': data['session'], 'outcome': 'dispatched',
