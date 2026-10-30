@@ -597,7 +597,7 @@ class NativeTeam:
                 self.rebase_reconciled_flow(task, result)
         # Execution already authorized by a retained brief does not consume a
         # model allowance. Drain it before choosing or promoting a reasoning route.
-        if self.host is None and self.config["foundations"].get("hermes_home"):
+        if self.host is None:  # Built-in storage; legacy external path is not required.
             self.host = HermesHost(
                 self.config["foundations"].get("hermes_home"), self.store.root
             )
