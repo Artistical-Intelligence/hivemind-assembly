@@ -220,6 +220,11 @@ class Application:
         from hivemind_assembly.automation.signin import NativeSignIn
 
         self.native_signin = NativeSignIn(self.browser)
+        from hivemind_assembly.automation.browser_actions import BrowserActions
+        from hivemind_assembly.integrations.remote_access import RemoteAccess
+
+        self.browser_actions = BrowserActions(self.browser, self.store.root)
+        self.remote_access = RemoteAccess(self.store.root, self.token)
         self.provider_connect_futures = {}
         self.shutdown = False
         self.closed = False
@@ -402,6 +407,12 @@ class Application:
         return {
             "version": __version__,
             "application": "Hivemind Assembly",
+            "experience": {
+                "state_engine": (APP_ROOT / "hivemind_assembly/automation/state_engine/hermes_state.py").is_file(),
+                "automation": self.browser_actions.status(),
+                "remote": self.remote_access.snapshot(),
+                "profiles": sorted({route["profile"] for route in self.config["routes"].values()}),
+            },
             "domain": self.broker.domain.id,
             "github": {**self.github_auth.status(), **self.config.get("github", {})},
             "hosted_tests": self.hosted_tests.listing(),
@@ -723,6 +734,7 @@ class Application:
             name: bool(configured.get(name)) and Path(configured[name]).exists()
             for name in ("ghidra_home", "rea_home", "hermes_home")
         }
+        present["hermes_home"] = (APP_ROOT / "hivemind_assembly/automation/state_engine/hermes_state.py").is_file()
         installing = any(
             job["name"] == "Install pinned foundations" and job["status"] == "running"
             for job in self.background.values()
@@ -795,6 +807,15 @@ class Application:
             return self._action(path, data)
 
     def _action(self, path, data):
+        if path == "/api/automation/command":
+            return self.submit(self.browser_actions.run(data)).result(timeout=45)
+        if path in ("/api/remote/check", "/api/remote/enable", "/api/remote/disable"):
+            operation = path.rsplit("/", 1)[1]
+            return self.background_job("HA private remote access", getattr(self.remote_access, operation))
+        if path == "/api/remote/pair":
+            return self.remote_access.pair(data.get("label", ""), data.get("days", 30))
+        if path == "/api/remote/revoke":
+            return self.remote_access.revoke(data.get("device", ""))
         if path == "/api/learning/settings":
             from hivemind_assembly.learning.policy import validate as validate_learning
 
@@ -2022,6 +2043,7 @@ class Application:
     def close(self):
         if self.closed:
             return
+        self.remote_access.close()
         self.tunnel.close()
         self.debugging.stop()
         self.quick.close()
@@ -2130,6 +2152,7 @@ def make_server(app, port=0):
             files = {
                 "/": ("index.html", "text/html; charset=utf-8"),
                 "/app.js": ("app.js", "text/javascript"),
+                "/unified.js": ("unified.js", "text/javascript"),
                 "/assistants.js": ("assistants.js", "text/javascript"),
                 "/native_captures.js": ("native_captures.js", "text/javascript"),
                 "/knowledge.js": ("knowledge.js", "text/javascript"),
@@ -2239,6 +2262,7 @@ def make_server(app, port=0):
                 )
 
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    app.remote_access.bind(server.server_port)
     private = app.store.root / "private"
     private.mkdir(parents=True, exist_ok=True)
     atomic_write(
