@@ -1,17 +1,13 @@
-"""Integration with an actual pinned Hermes checkout, not a replacement scheduler."""
+"""Integration with HA's extracted, real storage/task engine; no external checkout."""
 
 import os
 import pytest
 from hivemind_assembly.automation.hermes_board import HermesBoard
 
-pytestmark = pytest.mark.skipif(
-    not os.environ.get("HA_TEST_HERMES"),
-    reason="Set HA_TEST_HERMES to the pinned complete Hermes checkout",
-)
+# The retained scheduling implementation now runs in ordinary offline tests.
 
 
 def test_dependency_plan_restart_and_claims(store, monkeypatch):
-    monkeypatch.syspath_prepend(os.environ["HA_TEST_HERMES"])
     board = HermesBoard(store.root)
     root = store.create_project("dependency", "Integrate recovered components")
     assert board.claim(root)
