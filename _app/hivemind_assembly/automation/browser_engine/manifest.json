@@ -46,7 +46,7 @@
   ],
   "generated": {
     "__init__.py": "0701d728ae53c2f5c6f0ced1c235a3d58936f68699466345823e3c11e93994b0",
-    "browser_scripts.json": "85ed64da45493f01f8feb07befd8fd4374744335d3aed31f93a577ff0d73e180",
+    "browser_scripts.json": "3aff029c49f020983a90370719f5f9932d833ccc2c2b4ec1c90f7258eff24b84",
     "outcomes.py": "50e6a27f160441b12558e6980d84dc54735c969f8be1c4d5b4144d26b07b751c",
     "redaction.py": "b5903dd9141ba194795ff6324c26c33e381d480be31926335822e0183df541c0"
   }
