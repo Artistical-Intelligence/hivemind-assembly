@@ -120,7 +120,7 @@ def install_foundations(root, config_path, progress=None):
     ghidra = PINS["ghidra"]
     archive = destination / "ghidra-pinned.zip"
     installed = destination / ghidra["folder"]
-    for name, label, weight in (("hermes", "Downloading Hermes", 60), ("rea", "Downloading REA", 20)):
+    for name, label, weight in (("rea", "Preparing analysis commands", 20),):
         if not (destination / (name + "-" + PINS[name]["commit"][:12])).exists():
             progress.expect(label, weight)
     if not installed.exists():
@@ -135,11 +135,11 @@ def install_foundations(root, config_path, progress=None):
     if not shutil.which("node") or not shutil.which("npm"):
         raise Blocked("Install Node.js 24 LTS, then retry foundation setup")
     # Separate immutable checkouts preserve full native entry points and upstream history.
-    for name in ("hermes", "rea"):
+    for name in ("rea",):  # HA sessions/tasks are embedded, not downloaded.
         pin = PINS[name]
         path = destination / (name + "-" + pin["commit"][:12])
         if not path.exists():
-            progress.begin("Downloading Hermes" if name == "hermes" else "Downloading REA")
+            progress.begin("Preparing analysis commands")
             checked(["git", "clone", pin["url"], str(path)])
         head = checked(["git", "-C", str(path), "rev-parse", "HEAD"])
         if head != pin["commit"]:
@@ -199,7 +199,7 @@ def install_foundations(root, config_path, progress=None):
     checked(argv)
     cfg = json.loads(Path(config_path).read_text())
     cfg["foundations"].update(
-        hermes_home=str(destination / ("hermes-" + PINS["hermes"]["commit"][:12])),
+        # Preserve any legacy source path in settings; it is no longer imported.
         rea_home=str(rea_package),
         ghidra_home=str(installed),
     )
@@ -214,7 +214,7 @@ def install_foundations(root, config_path, progress=None):
     return {
         "verification": verification,
         "installed": [
-            "Hermes full source",
+            "HA built-in sessions and tasks",
             "REA full source and package",
             "Ghidra complete distribution",
         ],
