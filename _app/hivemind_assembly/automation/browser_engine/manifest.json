@@ -1,0 +1,53 @@
+{
+  "compiler": "Version 5.8.3",
+  "sources": [
+    {
+      "project": "opencli",
+      "revision": "97dc0cd5214b9602bcda78d7422f231ee8a803e9",
+      "path": "LICENSE",
+      "sha256": "0210b8b66cf00358242cb921ba2be3a46dfe0190159b1b952388a3880ce1ff54"
+    },
+    {
+      "project": "opencli",
+      "revision": "97dc0cd5214b9602bcda78d7422f231ee8a803e9",
+      "path": "src/browser/dom-snapshot.ts",
+      "sha256": "df0ffdcf1ab0f198e3005eb1dd7ed878d8e0539e4efdcd00fb2491045985f4e3"
+    },
+    {
+      "project": "opencli",
+      "revision": "97dc0cd5214b9602bcda78d7422f231ee8a803e9",
+      "path": "src/browser/compound.ts",
+      "sha256": "3494dbb724b4a256910f9c6a660f46f3574c9a51ee98b6c386e2b13345c5f386"
+    },
+    {
+      "project": "opencli",
+      "revision": "97dc0cd5214b9602bcda78d7422f231ee8a803e9",
+      "path": "src/browser/dom-helpers.ts",
+      "sha256": "a54939ba5796ebcacad0cc60f6c04c29897d9238706494122c04588f035153c7"
+    },
+    {
+      "project": "agent-reach",
+      "revision": "14c213405669414492bda0f8d52cc6531d062c45",
+      "path": "LICENSE",
+      "sha256": "e94c131ac1c2f78cfd8f7e69da354c0ff58e4e54071697703d56856c036de402"
+    },
+    {
+      "project": "agent-reach",
+      "revision": "14c213405669414492bda0f8d52cc6531d062c45",
+      "path": "agent_reach/runtime/result.py",
+      "sha256": "42668a1529c8f94af93253f47df4a75f5e3bc292411929bf0b91d44c5459667f"
+    },
+    {
+      "project": "agent-reach",
+      "revision": "14c213405669414492bda0f8d52cc6531d062c45",
+      "path": "agent_reach/utils/text.py",
+      "sha256": "e99f4c506c7ac632027cc908dd7d39cf46a61ee6e0e2c919657ece0fb2b27aa1"
+    }
+  ],
+  "generated": {
+    "__init__.py": "0701d728ae53c2f5c6f0ced1c235a3d58936f68699466345823e3c11e93994b0",
+    "browser_scripts.json": "85ed64da45493f01f8feb07befd8fd4374744335d3aed31f93a577ff0d73e180",
+    "outcomes.py": "50e6a27f160441b12558e6980d84dc54735c969f8be1c4d5b4144d26b07b751c",
+    "redaction.py": "b5903dd9141ba194795ff6324c26c33e381d480be31926335822e0183df541c0"
+  }
+}
