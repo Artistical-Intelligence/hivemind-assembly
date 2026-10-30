@@ -62,6 +62,16 @@ class HermesHost:
     def record(self, role, conversation, speaker, text, message_id):
         with self.lock, state_home(self.root):
             session = self.ensure_role(role, conversation)
+            # HA owns one writer per data root. Replayed provider events must not
+            # append the same logical message again after a transport reconnect.
+            existing = self.db._read_one(
+                "SELECT role, content FROM messages WHERE session_id=? AND message_uid=? ORDER BY id DESC LIMIT 1",
+                (session, message_id),
+            ) if message_id else None
+            if existing is not None:
+                if existing["role"] != speaker or self.db._decode_content(existing["content"]) != text:
+                    raise Blocked("A retained message ID was reused for different content")
+                return
             self.db.append_message(session, speaker, text, message_uid=message_id)
 
     def close(self):
