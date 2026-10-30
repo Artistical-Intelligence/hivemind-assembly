@@ -57,6 +57,8 @@ snapshot = snapshot.replace('data-opencli-ref', 'data-ha-ref').replace('__opencl
 snapshot = snapshot.replace("location.href", "location.origin + location.pathname")
 snapshot = snapshot.replace("if (u.origin === location.origin) val = u.pathname + u.search + u.hash;", "val = u.origin === location.origin ? u.pathname : u.origin + u.pathname;")
 snapshot = snapshot.replace("  return lines.join('\\n');", "  return lines.join('\\n').slice(0, 131072);")
+snapshot = snapshot.replace('  function getDirectText(el) {', "  function getDirectText(el) {\n    if (['INPUT','TEXTAREA','SELECT','OPTION'].includes(el.tagName) || el.isContentEditable) return '';")
+snapshot = snapshot.replace('      const compound = compoundInfoOf(el);', '      const compound = null; // HA never reads private current form values.')
 result['snapshot'] = snapshot
 result['source'] = {'project': 'jackwener/OpenCLI', 'commit': '97dc0cd5214b9602bcda78d7422f231ee8a803e9', 'license': 'Apache-2.0'}
 result['modifications'] = ['HA ref namespace', 'no field values or compound sidecar', 'no query/fragment in URLs', 'bounded tree and output', 'no iframe traversal', 'existing HA browser lifecycle']
