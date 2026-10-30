@@ -12,19 +12,22 @@ from hivemind_assembly.core.common import Blocked, ContractError, canonical, dig
 
 class HermesBoard:
     def __init__(self, root):
-        from hermes_cli import kanban_db
-        from hermes_cli.kanban_db_connect import connect
+        from .state_engine.hermes_cli import kanban_db
+        from .state_engine.hermes_cli.kanban_db_connect import connect
 
         self.api, self.connect = kanban_db, connect
         self.path = Path(root) / "hermes-kanban.sqlite3"
 
     @contextmanager
     def connection(self):
-        conn = self.connect(self.path)
-        try:
-            yield conn
-        finally:
-            conn.close()
+        from .hermes import state_home
+
+        with state_home(self.path.parent):
+            conn = self.connect(self.path)
+            try:
+                yield conn
+            finally:
+                conn.close()
 
     def register(self, conn, task, parents=()):
         return self.api.create_task(
@@ -69,7 +72,7 @@ class HermesBoard:
                 fire_lifecycle_hook=False,
             ):
                 raise Blocked(
-                    "Hermes did not accept task completion; dependencies remain"
+                    "HA did not accept task completion; dependencies remain"
                 )
             self.api.recompute_ready(conn)
 
