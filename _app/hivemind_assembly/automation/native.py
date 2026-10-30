@@ -183,7 +183,7 @@ class NativeBrowser:
         async with self.profile_locks.setdefault(profile, asyncio.Lock()):
             return await self._page(route)
 
-    async def service_page(self, profile, url, allowed_hosts=None):
+    async def service_page(self, profile, url, allowed_hosts=None, *, prepare=None):
         """Dedicated visible profile for owner-requested account setup."""
         profile = identifier(profile)
         parts = urlsplit(url)
@@ -220,6 +220,8 @@ class NativeBrowser:
             blank = [p for p in context.pages if p.url == "about:blank" and p not in claimed]
             page = blank[0] if blank else await context.new_page()
             self.service_pages.add(page)
+            if prepare is not None:
+                await prepare(page)
             await page.goto(url, wait_until="domcontentloaded")
             return page
 
