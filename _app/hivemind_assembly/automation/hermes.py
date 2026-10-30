@@ -1,48 +1,69 @@
+"""HA-owned session storage; legacy class and database names remain compatible."""
+from contextlib import contextmanager
 from pathlib import Path
-import sys
+from threading import RLock
+
 from hivemind_assembly.core.common import Blocked, digest
 
 
-class HermesHost:
-    """Native session host and dependency scheduling using unmodified Hermes modules.
+@contextmanager
+def state_home(root):
+    """Scope helper files to this HA installation, never ~/.hermes or a profile."""
+    from .state_engine.hermes_constants import (
+        set_hermes_home_override,
+        reset_hermes_home_override,
+    )
 
-    Model API clients are never instantiated. The native team state machine is
-    a transport extension; Hermes owns the task graph, claims and retained sessions.
+    token = set_hermes_home_override(Path(root) / "private" / "state-engine")
+    try:
+        yield
+    finally:
+        reset_hermes_home_override(token)
+
+
+class HermesHost:
+    """Built-in HA sessions and task graph derived from the retained MIT source.
+
+    ``source`` is retained only for settings/caller compatibility. An external
+    checkout is never imported, modified or needed. Existing database names and
+    session identities are deliberately unchanged.
     """
 
     def __init__(self, source, state_root):
-        if not source or not (Path(source) / "hermes_state.py").is_file():
-            raise Blocked(
-                "Pinned complete Hermes source is required for native team hosting"
-            )
-        sys.path.insert(0, str(Path(source).resolve()))
-        try:
-            from hermes_state import SessionDB
-
-            self.db = SessionDB(Path(state_root) / "hermes-sessions.sqlite3")
-        except Exception as e:
-            raise Blocked("Hermes session host unavailable: " + str(e)) from e
-        from .hermes_board import HermesBoard
-
-        self.board = HermesBoard(state_root)
+        self.root = Path(state_root)
+        self.lock = RLock()
         self.sessions = {}
+        try:
+            with state_home(self.root):
+                from .state_engine.hermes_state import SessionDB
+                from .hermes_board import HermesBoard
+
+                self.db = SessionDB(self.root / "hermes-sessions.sqlite3")
+                try:
+                    self.board = HermesBoard(self.root)
+                except Exception:
+                    self.db.close()
+                    raise
+        except Exception as error:
+            raise Blocked("HA session storage is unavailable: " + str(error)) from error
 
     def ensure_role(self, role, conversation):
-        session = (
-            "workbench-" + digest({"role": role, "conversation": conversation})[:24]
-        )
-        if session not in self.sessions:
-            self.db.create_session(
-                session,
-                "workbench-native",
-                model_config={"route": role, "inference_transport": "native_browser"},
-            )
-            self.sessions[session] = True
+        session = "workbench-" + digest({"role": role, "conversation": conversation})[:24]
+        with self.lock, state_home(self.root):
+            if session not in self.sessions:
+                self.db.create_session(
+                    session,
+                    "workbench-native",
+                    model_config={"route": role, "inference_transport": "native_browser"},
+                )
+                self.sessions[session] = True
         return session
 
     def record(self, role, conversation, speaker, text, message_id):
-        session = self.ensure_role(role, conversation)
-        self.db.append_message(session, speaker, text, message_uid=message_id)
+        with self.lock, state_home(self.root):
+            session = self.ensure_role(role, conversation)
+            self.db.append_message(session, speaker, text, message_uid=message_id)
 
     def close(self):
-        self.db.close()
+        with self.lock, state_home(self.root):
+            self.db.close()
