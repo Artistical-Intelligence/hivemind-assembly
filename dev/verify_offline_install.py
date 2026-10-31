@@ -10,6 +10,15 @@ import threading
 import zipfile
 
 
+def preservation_fixture(data_root):
+    """Create only the test-owned file; fresh state need not have a private folder."""
+    canary = Path(data_root) / 'private/offline-preservation-canary.txt'
+    canary.parent.mkdir(parents=True, exist_ok=True)
+    with canary.open('x', encoding='utf-8') as stream:
+        stream.write('retained-local-owner-data')
+    return canary
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--app-root', type=Path, required=True)
@@ -67,9 +76,8 @@ def main():
     from hivemind_assembly.application.app import Application, make_server
     from hivemind_assembly.learning.vectors import VectorIndex
     app = Application(data_root)
-    canary = data_root / 'private/offline-preservation-canary.txt'
-    canary.write_text('retained-local-owner-data', encoding='utf-8')
     try:
+        canary = preservation_fixture(data_root)
         def prepare():
             result = app.builtins.run('prepare')
             if result['state'] != 'ready':
