@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "date": "2026-10-31",
+  "kind": "implementation_test_evidence_not_independent_review",
+  "production_release_approved": false,
+  "live_hosted_account_acceptance": false,
+  "live_model_inference": false,
+  "native_execution_and_editing": {
+    "application_commit": "8a6329de79fe1f7c74b1cab560a620cd96ccc532",
+    "run_id": 41237500804,
+    "helper_build_commit": "9b03df2014d0b314ca9869d3cc4f24e2b62ceac0",
+    "helper_build_run": 41234564595,
+    "windows": {
+      "passed": 79,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "artifact_id": 13055803767,
+      "artifact_sha256": "56c10736ba9b5c33acce2d65b47fad69af5557f2cc3a2f80a3986f1fd512c8e5",
+      "junit_sha256": "c53c689e133070404f91b6bc4098abf108d94f76812f4e6f921a7ab31b010d73"
+    },
+    "linux": {
+      "passed": 79,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "artifact_id": 13055609019,
+      "artifact_sha256": "456a5883c9bfb26296a3ccf3f15c636751600628e31454d77cc8538b34427e3f",
+      "junit_sha256": "5de3eea7495557367624bbfdb287d5c09dc75aa84c42f104d9686f01a78c136a"
+    },
+    "coverage": [
+      "Actual helper output, nonzero exit, cancellation and timeout",
+      "Malformed response rejection, bounded transport and no automatic replay",
+      "Owned component authentication and tamper rejection",
+      "Actual one-file add/update patch planning and line-ending preservation",
+      "Refusal of rename, delete, multiple files and linked paths",
+      "File hash, writer lease, cancellation and revision fences",
+      "Existing uncertain-write receipt reconciliation"
+    ]
+  },
+  "offline_windows": {
+    "application_commit": "cc02d1cbfa1b5b2ae9c450b883dc0ede38537138",
+    "run_id": 41238262130,
+    "job_id": 124646510617,
+    "job_conclusion": "success",
+    "component_build_commit": "7b844e33032157430e74689adda6af839adb659e",
+    "component_build_run": 41234152198,
+    "evidence_artifact_id": 13056776471,
+    "evidence_artifact_sha256": "a69a43124e46228724e11e2e8955cb00df781a9f5a82f10bd1267f2fc3c40729",
+    "acceptance_input_artifact_id": 13056484258,
+    "acceptance_input_artifact_bytes": 2298723608,
+    "acceptance_input_artifact_sha256": "3004f7b3ee18e46340d4b834b32c02ad60b97337b3544033c717360c8431c5d5",
+    "artifact_retention_until": "2026-11-14",
+    "inventory_entries_verified": 725,
+    "component_count": 8,
+    "passed_groups": [
+      "network_boundary_probe",
+      "local_payload_integrity",
+      "built_in_preparation_and_foundations",
+      "actual_execution_route",
+      "local_search_model",
+      "bundled_browser_and_ha_interface",
+      "restart_preserves_configuration"
+    ],
+    "actual_foundation_checks": [
+      "compiler_runtime",
+      "arm64_program",
+      "qiling_runtime",
+      "linked_functions",
+      "ghidra",
+      "rea",
+      "project_plan",
+      "hermes"
+    ],
+    "boundary": "Fresh Windows CI data root. Program-scoped outbound firewall rules covered packaged executables; localhost and the CI runner were not globally disconnected. The dashboard made zero nonlocal requests in the browser test.",
+    "not_claimed": [
+      "Clean installation or upgrade on the owner's actual desktop",
+      "T3 Connect hosted-account interoperability",
+      "Tailscale control from a genuinely remote device",
+      "Live signed-in model execution",
+      "Independent source review",
+      "A production release"
+    ]
+  },
+  "local_regression": {
+    "environment": "Isolated Linux working copy with the actual retained native helper",
+    "passed": 950,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 72,
+    "slow_tests_deselected": 374,
+    "limitation": "This is the local working-tree regression tier, not a claim that the complete hosted cross-platform suite passed. The focused tiers overlap and must not be added together as unique test coverage."
+  },
+  "review_status": "All applicable pending-source-review markers remain. This record preserves observed test results, not independent approval."
+}
