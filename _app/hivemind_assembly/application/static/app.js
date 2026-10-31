@@ -13,14 +13,22 @@ function badge(status){status=String(status||'');return `<span class="badge ${/w
 function taskHTML(t,controls=true){return `<div class="task"><h3>${esc(t.objective)}</h3>${badge(t.status)}<p>${esc(t.owner?'Working: '+t.owner:'No assistant working on it')} · step ${t.step}</p>${t.blocker?`<p>${esc(t.blocker)}</p>`:''}${controls?`<div class="actions">${['pause','resume','cancel'].map(a=>`<button data-task="${esc(t.id)}" data-action="${a}">${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>`:''}</div>`}
 function duration(sec){if(sec==null)return '';if(sec<60)return 'under a minute';const m=Math.round(sec/60);return m<60?`about ${m} min`:`about ${Math.floor(m/60)} h ${m%60} min`}
 function megabytes(n){return (n/1048576).toFixed(n<10485760?1:0)+' MB'}
-function renderSetup(s){const f=s.foundations||{},p=f.progress,ready=s.routes.filter(r=>r.status.ready).length;
+function installationSummary(s){
+const install=s.experience?.installation||{}, f=s.foundations||{};
+const busy=Boolean(install.busy||['preparing','checking','repairing'].includes(install.state)||f.installing||Object.values(s.jobs||{}).some(j=>j.status==='running'&&String(j.name).startsWith('HA installation')));
+const damaged=Boolean(install.packages?.error)||['failed','needs_attention'].includes(install.state);
+const ready=install.state==='ready'&&!busy&&!damaged;
+const text=damaged?'HA needs attention — see Installation checks.':busy?'Preparing or checking HA…':ready?'Local HA capabilities checked.':install.state==='interrupted'?'Resume Prepare HA; completed work is retained.':f.ready?'HA is configured. Select Check installation to verify it.':'Select Prepare HA in Settings.';
+return {ready,busy,text};
+}
+function renderSetup(s){const f=s.foundations||{},p=f.progress,ready=s.routes.filter(r=>r.status.ready).length,local=installationSummary(s);
 const step=(id,done,text)=>{$(id).textContent=text;$(id).parentElement.classList.toggle('done',done)};
-step('#gs-tools',!!f.ready,f.ready?'Tools installed.':f.installing?'Installing the tools'+(p?` (${Math.floor(p.percent)}%)`:'')+'.':f.restart_needed?'Tools installed. Close and reopen HA to finish.':'Install the tools HA uses.');
+step('#gs-tools',local.ready,local.text);
 step('#gs-assistants',ready>0,ready?`${ready} of ${s.routes.length} AI assistants ready.`:'Sign in to the AI assistants.');
 step('#gs-project',s.projects.length>0,s.projects.length?'Project created.':'Create a project, or try an example first.');
-$('#getting-started').hidden=!!(f.ready&&ready&&s.projects.length);
-$('#tools-status').textContent=f.ready?'All tools are installed.':f.restart_needed?'Installation finished. Close and reopen HA to load the new tools.':f.installing?'':'Not installed yet. The download is large, and Windows may ask for permission.';
-$('#install').disabled=!!f.installing;$('#install').classList.toggle('primary',!f.ready);$('#setup-progress').hidden=!f.installing;
+$('#getting-started').hidden=!!(local.ready&&ready&&s.projects.length);
+$('#tools-status').textContent=local.text;
+$('#install').disabled=local.busy;$('#verify-foundations').disabled=local.busy;$('#setup-progress').hidden=!f.installing;
 if(f.installing){const bar=$('#setup-progress-bar');if(p)bar.value=p.percent;else bar.removeAttribute('value');
 let t=p?.label?`Step ${p.step} of ${p.steps}: ${p.label}`:'Starting';
 if(p?.download)t+=p.download.total_bytes?` (${megabytes(p.download.done_bytes)} of ${megabytes(p.download.total_bytes)})`:` (${megabytes(p.download.done_bytes)})`;

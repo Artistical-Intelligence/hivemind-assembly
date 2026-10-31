@@ -130,9 +130,9 @@
     q('ha-connect-devices').innerHTML=(hosted.devices || []).map(device=>`<p>${safe(device.label)} <button data-hosted-revoke="${safe(device.id)}" title="Revoke this hosted device without changing the private-network devices.">Revoke</button></p>`).join('');
     q('ha-install-state').textContent=install.message || ({not_checked:'Ready to prepare or check your installation.',preparing:'Preparing the included capabilities…',checking:'Checking local capabilities…',repairing:'Preserving changed files and restoring approved packages…',interrupted:'Setup was interrupted. Prepared files were retained; choose Prepare HA to resume.'}[install.state] || '');
     q('ha-install-checks').innerHTML=Object.entries(install.checks || {}).map(([name,result])=>`<p><strong>${safe(name.replaceAll('_',' '))}</strong>: ${result.passed ? 'Passed' : 'Needs attention'}${result.reason ? ' — '+safe(result.reason) : ''}</p>`).join('');
-    const installationJob=Object.values(state.jobs || {}).some(job=>job.status==='running' && String(job.name).startsWith('HA installation'));
-    for (const action of ['prepare','check','repair']) q('ha-'+action).disabled=Boolean(install.busy || installationJob);
-    q('ha-capabilities').innerHTML = `<div><strong>Sessions and tasks</strong><p>${x.state_engine ? 'Built into HA' : 'Needs attention'}</p></div><div><strong>Browser automation</strong><p>${x.automation?.available ? 'Built into HA' : 'Needs attention'}</p></div><div><strong>Analysis</strong><p>${state.foundations?.ready ? 'Configured' : 'Run analysis setup below'}</p></div>`;
+    const installation=installationSummary(state);
+    for (const action of ['prepare','check','repair']) q('ha-'+action).disabled=installation.busy;
+    q('ha-capabilities').innerHTML = `<div><strong>Sessions and tasks</strong><p>${x.state_engine ? 'Built into HA' : 'Needs attention'}</p></div><div><strong>Browser automation</strong><p>${x.automation?.available ? 'Built into HA' : 'Needs attention'}</p></div><div><strong>Analysis</strong><p>${safe(installation.text)}</p></div>`;
     const profiles=x.profiles || [], selected=q('ha-auto-profile').value;
     const key=JSON.stringify(profiles);
     if (q('ha-auto-profile').dataset.profiles !== key) {
