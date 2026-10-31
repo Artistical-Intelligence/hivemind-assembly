@@ -7,6 +7,7 @@ never causes replay through another runner: the outcome may already have effects
 from __future__ import annotations
 
 import base64
+from contextlib import suppress
 import binascii
 import json
 import math
@@ -43,7 +44,8 @@ def kill_tree(proc):
 class ExecutionClient:
     def __init__(self, command):
         # Only application composition supplies this command, never a tool payload.
-        if not command or not all(isinstance(x, str) and x and '\x00' not in x for x in command):
+        if (not isinstance(command, (list, tuple)) or not command
+                or not all(isinstance(x, str) and x and '\x00' not in x for x in command)):
             raise ContractError('Invalid internal runtime command')
         self.command = tuple(command)
 
@@ -204,5 +206,8 @@ class ExecutionClient:
                 proc.wait(timeout=5)
             reader.join(timeout=1)
             writer.join(timeout=1)
-            proc.stdout.close()
-            proc.stdin.close()
+            # A dead Windows pipe can fail while close() flushes buffered data.
+            # Never replace the operation's uncertain outcome with cleanup noise.
+            for stream in (proc.stdout, proc.stdin):
+                with suppress(OSError, ValueError):
+                    stream.close()
