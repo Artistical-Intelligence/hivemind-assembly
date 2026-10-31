@@ -78,7 +78,7 @@ def original_jdk(work, originals):
     if os.name == 'nt':
         with zipfile.ZipFile(archive) as z:
             for member in z.infolist():
-                if not (output / member.filename).resolve().is_relative_to(output):
+                if not (output / member.filename).resolve().is_relative_to(output.resolve()):
                     raise RuntimeError('Unsafe JDK archive path')
             z.extractall(output)
     else:
@@ -179,7 +179,7 @@ def build(destination, *, include_ghidra=False):
             provenance = download(pin['url'], archive, pin['sha256'])
             with zipfile.ZipFile(archive) as z:
                 for item in z.infolist():
-                    if not (work / item.filename).resolve().is_relative_to(work):
+                    if not (work / item.filename).resolve().is_relative_to(work.resolve()):
                         raise RuntimeError('Unsafe Ghidra distribution member')
                 z.extractall(work)
                 if os.name != 'nt':
