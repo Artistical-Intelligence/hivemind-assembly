@@ -8,7 +8,28 @@ on:
 permissions:
   contents: read
 jobs:
+  windows-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.15.0'
+      - name: Install the donor's required cross compiler
+        run: sudo apt-get update && sudo apt-get install -y g++-mingw-w64-x86-64
+      - name: Build the exact Windows safety helper from source
+        run: python dev/build_owned_analysis.py "$RUNNER_TEMP/ha-native-helper" --native-only
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HA-analysis-native-${{ github.sha }}
+          path: ${{ runner.temp }}/ha-native-helper/
+          retention-days: 14
+          if-no-files-found: error
   analysis:
+    needs: windows-native
     strategy:
       fail-fast: false
       matrix:
@@ -25,9 +46,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: HA-analysis-native-${{ github.sha }}
+          path: ${{ runner.temp }}/ha-native-helper
       - name: Compile the pinned internal analysis runtime
         run: |
-          python dev/build_owned_analysis.py "${{ runner.temp }}/ha-components"
+          python dev/build_owned_analysis.py "${{ runner.temp }}/ha-components" --native-input "${{ runner.temp }}/ha-native-helper"
         env:
           DO_NOT_TRACK: '1'
           TURBO_TELEMETRY_DISABLED: '1'
@@ -58,26 +83,5 @@ jobs:
         with:
           name: HA-offline-wheels-Windows-${{ github.sha }}
           path: ${{ runner.temp }}/ha-wheels/
-          retention-days: 14
-          if-no-files-found: error
-  linux-check-inputs:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-      - name: Preserve missing local-check dependencies for the isolated workbench
-        shell: bash
-        run: |
-          mkdir -p "$RUNNER_TEMP/ha-check-wheels"
-          python -m pip download --only-binary=:all: --find-links _app/bootstrap/wheels --dest "$RUNNER_TEMP/ha-check-wheels" pefile==2024.8.26 pypcode==4.0.1 unicorn==2.1.4 z3-solver==5.3.1.0 qiling==1.4.6 speakeasy-emulator==2.0.0b9 mcp==2.3.0 keyring==25.6.0 onnxruntime==1.31.1
-      - uses: actions/upload-artifact@v4
-        with:
-          name: HA-local-check-wheels-Linux-${{ github.sha }}
-          path: ${{ runner.temp }}/ha-check-wheels/
           retention-days: 14
           if-no-files-found: error
