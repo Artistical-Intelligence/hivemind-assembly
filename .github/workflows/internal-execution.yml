@@ -1,0 +1,38 @@
+name: Build HA internal execution
+on:
+  push:
+    paths:
+      - '.github/workflows/internal-execution.yml'
+      - 'dev/build_internal_execution.py'
+      - 'dev/internal_execution_main.rs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  engine:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Select the donor's pinned Rust toolchain
+        run: rustup toolchain install 1.95.0 --profile minimal
+      - name: Build the selected runtime and retain its offline source dependencies
+        shell: bash
+        env:
+          RUSTUP_TOOLCHAIN: '1.95.0'
+        run: python dev/build_internal_execution.py "$RUNNER_TEMP/ha-execution"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HA-execution-${{ runner.os }}-${{ github.sha }}
+          path: ${{ runner.temp }}/ha-execution/
+          retention-days: 14
+          if-no-files-found: error
