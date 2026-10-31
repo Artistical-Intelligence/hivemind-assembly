@@ -9,6 +9,9 @@
     <h2>Your HA installation</h2>
     <p>Setup, browser actions, and remote control stay here. Your existing projects, accounts, and histories are retained.</p>
     <div id="ha-capabilities" class="grid"></div>
+    <div class="row"><button id="ha-prepare" class="primary" title="Prepare HA's included capabilities from its retained local packages. No upstream installer is run.">Prepare HA</button><button id="ha-check" title="Verify built-in package integrity and exercise the local analysis fixtures.">Check installation</button><button id="ha-repair" title="Preserve changed or damaged copies and restore the approved local packages.">Repair installation</button></div>
+    <p id="ha-install-state" role="status" aria-live="polite"></p>
+    <details><summary>Installation checks</summary><div id="ha-install-checks"></div><p class="muted">File integrity, local fixture checks, account sign-in and real remote-device acceptance are different checks.</p></details>
     <details><summary>Browser automation</summary>
       <p>Use an existing HA browser profile. Credential and verification fields are completed directly in the website.</p>
       <label>Browser profile <select id="ha-auto-profile"></select></label>
@@ -34,6 +37,14 @@
       <p>Tailscale still requires its supported local network service and account sign-in. Remote pairing is HA-owned and can be revoked below. A configured address is not proof of a successful remote-device test.</p>
     </details>`;
 
+  for (const action of ['prepare','check','repair']) q('ha-'+action).onclick=async()=>{
+    try {
+      for (const key of ['prepare','check','repair']) q('ha-'+key).disabled=true;
+      await api('capabilities/'+action,{});
+      notice('HA is working on its built-in capabilities. Existing files and settings are retained.');
+      await refresh();
+    } catch(error) { notice(error.message,true); }
+  };
   const message = (text, bad=false) => { q('ha-auto-state').textContent = text; q('ha-auto-state').style.fontWeight = bad ? 'bold' : 'normal'; };
   const execute = async action => {
     if (pending) return;
@@ -83,7 +94,11 @@
     try { await api('remote/revoke',{device:id}); await refresh(); } catch(err){ notice(err.message,true); }
   };
   window.renderCapabilities = state => {
-    const x=state.experience || {}, remote=x.remote || {};
+    const x=state.experience || {}, remote=x.remote || {}, install=x.installation || {};
+    q('ha-install-state').textContent=install.message || ({not_checked:'Ready to prepare or check your installation.',preparing:'Preparing the included capabilities…',checking:'Checking local capabilities…',repairing:'Preserving changed files and restoring approved packages…',interrupted:'Setup was interrupted. Prepared files were retained; choose Prepare HA to resume.'}[install.state] || '');
+    q('ha-install-checks').innerHTML=Object.entries(install.checks || {}).map(([name,result])=>`<p><strong>${safe(name.replaceAll('_',' '))}</strong>: ${result.passed ? 'Passed' : 'Needs attention'}${result.reason ? ' — '+safe(result.reason) : ''}</p>`).join('');
+    const installationJob=Object.values(state.jobs || {}).some(job=>job.status==='running' && String(job.name).startsWith('HA installation'));
+    for (const action of ['prepare','check','repair']) q('ha-'+action).disabled=Boolean(install.busy || installationJob);
     q('ha-capabilities').innerHTML = `<div><strong>Sessions and tasks</strong><p>${x.state_engine ? 'Built into HA' : 'Needs attention'}</p></div><div><strong>Browser automation</strong><p>${x.automation?.available ? 'Built into HA' : 'Needs attention'}</p></div><div><strong>Analysis</strong><p>${state.foundations?.ready ? 'Configured' : 'Run analysis setup below'}</p></div>`;
     const profiles=x.profiles || [], selected=q('ha-auto-profile').value;
     const key=JSON.stringify(profiles);

@@ -94,6 +94,9 @@ class Application:
             saved_config["active_preset"] = "Default"
             atomic_write(self.config_path, canonical(saved_config))
         self.config = validate_config(saved_config)
+        from .capabilities import BuiltinCapabilities
+        self.builtins = BuiltinCapabilities(self.store.root, self.config_path, self.config)
+        self.builtins.activate()
         self.controller = Controller(self.store)
         self.controller.recover()
         with self.store.tx() as db:
@@ -410,6 +413,7 @@ class Application:
             "experience": {
                 "state_engine": (APP_ROOT / "hivemind_assembly/automation/state_engine/hermes_state.py").is_file(),
                 "automation": self.browser_actions.status(),
+                "installation": self.builtins.snapshot(),
                 "remote": self.remote_access.snapshot(),
                 "profiles": sorted({route["profile"] for route in self.config["routes"].values()}),
             },
@@ -807,6 +811,19 @@ class Application:
             return self._action(path, data)
 
     def _action(self, path, data):
+        if path in ("/api/capabilities/prepare", "/api/capabilities/check", "/api/capabilities/repair"):
+            if data:
+                raise ContractError("Built-in preparation takes no arbitrary paths or commands")
+            if any(not future.done() for future in self.team.active.values()):
+                raise Blocked("Pause active work before changing or checking the built-in runtimes")
+            if self.builtins.snapshot()["busy"] or any(
+                job["status"] == "running" and job["name"].startswith("HA installation")
+                for job in self.background.values()
+            ):
+                raise Blocked("HA is already working on its installation")
+            operation = path.rsplit("/", 1)[1]
+            return self.background_job("HA installation — " + operation,
+                                       lambda publish: self.builtins.run(operation, publish), progress=True)
         if path == "/api/automation/command":
             return self.submit(self.browser_actions.run(data)).result(timeout=45)
         if path in ("/api/remote/check", "/api/remote/enable", "/api/remote/disable"):
@@ -1794,26 +1811,16 @@ class Application:
                 from .prerequisites import missing
 
                 progress = SetupProgress(publish)
-                # Plan the optional downloads too, so the percentage covers the whole step.
-                try:
-                    if os.name == "nt" and "gh" in missing(extra=("gh",)):
-                        progress.expect("Installing the GitHub CLI", 15)
-                    if os.name == "nt" and "tesseract" in missing(extra=("tesseract",)):
-                        progress.expect("Installing Tesseract (reads scanned PDF pages)", 50)
-                except Blocked:
-                    pass
-                if not self.tunnel.status()["installed"]:
-                    progress.expect("Installing the MCP tunnel client", 15)
-                if not self.quick.installed():
-                    progress.expect("Installing the browser connection tunnel", 40)
                 result = install_foundations(self.store.root, self.config_path, progress=progress)
                 # Load the new paths in place so specialists can use them
                 # without restarting HA.
                 saved = json.loads(Path(self.config_path).read_text())
                 self.config["foundations"].update(saved.get("foundations", {}))
-                # Optional downloads in the same step, so setup is one action.
-                # Their failures are reported without undoing the core tools.
-                result["optional"] = self.install_optional_tools(progress)
+                # Optional account/network features are configured separately by
+                # the HA setup flow; preparing local capabilities never downloads
+                # a donor installer or modifies a network/account configuration.
+                from .components import Components
+                self.builtins.components = Components(self.store.root)
                 progress.finish()
                 return result
 

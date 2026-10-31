@@ -215,6 +215,8 @@ class Components:
     def prepare(self, names=None, *, repair=False):
         """Install only trusted bundled bytes; retain altered/older copies."""
         with self.lock:
+            if repair and self.state_error:
+                self._recover_state()
             self._require_healthy()
             selected = list(self.entries) if names is None else list(names)
             if not selected or any(name not in self.entries for name in selected):
@@ -316,11 +318,47 @@ class Components:
             stage.rename(target)
         self._verify(target, name, entry)
 
+    def _recover_state(self):
+        """Explicit repair preserves damaged metadata and authenticates retained objects."""
+        if self.catalogue_error:
+            raise Blocked(self.catalogue_error)
+        for path in (self.root, self.root / 'objects', self.root / 'archives', self.root / 'preserved'):
+            if path.is_symlink() or (path.exists() and not path.is_dir()):
+                raise Blocked('HA component storage must not be redirected')
+        self.root.mkdir(parents=True, exist_ok=True)
+        owner = InstanceLock(self.root)
+        try:
+            try:
+                current = _active_state(_read_json(self.path))
+            except (OSError, ValueError, TypeError, KeyError):
+                current = None
+            if current is None:
+                if self.path.exists() or self.path.is_symlink():
+                    preserved = self.root / 'preserved'
+                    preserved.mkdir(exist_ok=True)
+                    self.path.rename(preserved / ('active-' + secrets.token_hex(12) + '.json'))
+                current = {}
+                for name, entry in self.entries.items():
+                    try:
+                        self._verify(self.root / 'objects' / entry['sha256'], name, entry)
+                    except (OSError, ValueError, KeyError, zipfile.BadZipFile):
+                        continue
+                    current[name] = {'sha256': entry['sha256'], 'version': entry['version']}
+                atomic_write(self.path, canonical({'schema': 1, 'active': current}))
+            self.active = current
+            self.state_error = None
+        finally:
+            owner.close()
+
     def effective_foundations(self, original):
+        self._require_healthy()
         result = dict(original)
         mapping = {'analysis': 'rea_home', 'node': 'node_executable', 'jdk': 'java_home', 'ghidra': 'ghidra_home', 'compiler': 'c_compiler'}
         for name, setting in mapping.items():
             if name not in self.active or name not in self.entries:
+                value = result.get(setting)
+                if isinstance(value, str) and value and Path(value).resolve().is_relative_to(self.root.resolve()):
+                    raise Blocked('A configured owned runtime has no approved active package')
                 continue
             component = self.resolve(name)
             result[setting] = str(component.entrypoint if name in ('node', 'compiler') else component.home)
