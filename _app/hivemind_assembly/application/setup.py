@@ -107,118 +107,54 @@ def checked(argv, cwd=None):
 
 
 def install_foundations(root, config_path, progress=None):
-    root = Path(root)
-    destination = root / "foundations"
-    destination.mkdir(exist_ok=True)
-    from .prerequisites import install_missing, missing, WEIGHTS
+    """Prepare built-in analysis from HA's approved local packages.
 
+    No Git clone, npm install, registry resolution, donor setup hook or unrelated
+    provider registration is performed. Existing installations and settings are
+    retained; a complete release supplies all four required offline packages.
+    """
+    from .components import Components
+
+    root = Path(root)
     progress = progress or SetupProgress()
-    # Plan every step first so the overall percentage is meaningful from the start.
-    if os.name == "nt":
-        for name in missing():
-            progress.expect(f"Installing {WEIGHTS[name][0]}", WEIGHTS[name][1])
-    ghidra = PINS["ghidra"]
-    archive = destination / "ghidra-pinned.zip"
-    installed = destination / ghidra["folder"]
-    for name, label, weight in (("rea", "Preparing analysis commands", 20),):
-        if not (destination / (name + "-" + PINS[name]["commit"][:12])).exists():
-            progress.expect(label, weight)
-    if not installed.exists():
-        if not archive.exists():
-            progress.expect("Downloading Ghidra", 480)
-        progress.expect("Unpacking Ghidra", 60)
-    progress.expect("Installing the REA package", 30)
-    progress.expect("Checking the installed tools", 15)
-    prerequisites = install_missing(progress=progress)
-    if not shutil.which("git"):
-        raise Blocked("Install Git for Windows, then retry foundation setup")
-    if not shutil.which("node") or not shutil.which("npm"):
-        raise Blocked("Install Node.js 24 LTS, then retry foundation setup")
-    # Separate immutable checkouts preserve full native entry points and upstream history.
-    for name in ("rea",):  # HA sessions/tasks are embedded, not downloaded.
-        pin = PINS[name]
-        path = destination / (name + "-" + pin["commit"][:12])
-        if not path.exists():
-            progress.begin("Preparing analysis commands")
-            checked(["git", "clone", pin["url"], str(path)])
-        head = checked(["git", "-C", str(path), "rev-parse", "HEAD"])
-        if head != pin["commit"]:
-            if checked(["git", "-C", str(path), "status", "--porcelain"]):
-                raise Blocked("Foundation checkout has local changes; preserving it")
-            checked(["git", "-C", str(path), "fetch", "origin", pin["commit"]])
-            checked(["git", "-C", str(path), "checkout", "--detach", pin["commit"]])
-        if checked(["git", "-C", str(path), "rev-parse", "HEAD"]) != pin["commit"]:
-            raise ContractError("Foundation revision mismatch")
-    if not installed.exists():
-        if not archive.exists() or file_hash(archive) != ghidra["sha256"]:
-            temporary = archive.with_suffix(".download")
-            progress.begin("Downloading Ghidra", 480)
-            urllib.request.urlretrieve(
-                ghidra["url"],
-                temporary,
-                reporthook=lambda blocks, size, total: progress.download(blocks * size, total),
-            )
-            if file_hash(temporary) != ghidra["sha256"]:
-                temporary.unlink()
-                raise ContractError("Ghidra archive hash mismatch")
-            os.replace(temporary, archive)
-        progress.begin("Unpacking Ghidra", 60)
-        stage = destination / "ghidra-staging"
-        stage.mkdir(exist_ok=True)
-        with zipfile.ZipFile(archive) as z:
-            for member in z.infolist():
-                p = (stage / member.filename).resolve()
-                if not p.is_relative_to(stage.resolve()):
-                    raise ContractError("Unsafe archive member")
-            z.extractall(stage)
-            if os.name != "nt":
-                for member in z.infolist():
-                    mode = (member.external_attr >> 16) & 0o777
-                    if mode and (stage / member.filename).is_file():
-                        (stage / member.filename).chmod(mode)
-        os.replace(stage / ghidra["folder"], installed)
-        stage.rmdir()
-    rea_package = destination / "rea-package"
-    rea_package.mkdir(exist_ok=True)
-    npm = shutil.which("npm")
-    prefix = [npm]
-    if os.name == "nt":
-        npm_cli = Path(npm).parent / "node_modules/npm/bin/npm-cli.js"
-        if not npm_cli.exists():
-            raise Blocked("Cannot locate the installed Node.js npm CLI")
-        prefix = [shutil.which("node"), str(npm_cli)]
-    argv = [
-        *prefix,
-        "install",
-        "--prefix",
-        str(rea_package),
-        "--omit=optional",
-        "rea-agents@" + PINS["rea"]["npm_version"],
-    ]
-    progress.begin("Installing the REA package", 30)
-    checked(argv)
-    cfg = json.loads(Path(config_path).read_text())
-    cfg["foundations"].update(
-        # Preserve any legacy source path in settings; it is no longer imported.
-        rea_home=str(rea_package),
-        ghidra_home=str(installed),
-    )
+    components = Components(root)
+    required = ("node", "jdk", "analysis", "ghidra")
+    missing = [name for name in required if name not in components.entries]
+    if missing:
+        raise Blocked(
+            "This HA copy does not include its complete built-in analysis package. "
+            "Use the complete HA installation or restore its retained component archives. "
+            "No external installer was run and existing tools were left unchanged."
+        )
+    selected = [*required]
+    for name in ("compiler", "tunnel", "connect", "execution"):
+        if name in components.entries:
+            selected.append(name)
+    for name in selected:
+        progress.expect("Preparing " + components.entries[name].get("label", name), 20)
+    progress.expect("Checking HA's capabilities", 15)
+    for name in selected:
+        progress.begin("Preparing " + components.entries[name].get("label", name), 20)
+        components.prepare([name])
+    cfg = json.loads(Path(config_path).read_text(encoding="utf-8"))
+    # Keep the previous settings before adopting internally owned paths. This
+    # recovery copy contains no login credentials and is never a release input.
+    previous = root / "private" / "setup" / "before-owned-components.json"
+    if not previous.exists():
+        previous.parent.mkdir(parents=True, exist_ok=True)
+        atomic_write(previous, canonical({"foundations": cfg.get("foundations", {})}))
+    cfg["foundations"] = components.effective_foundations(cfg.get("foundations", {}))
     atomic_write(config_path, canonical(cfg))
-    atomic_write(destination / "pins.json", canonical(PINS))
     from .verification import verify_foundations
 
-    progress.begin("Checking the installed tools", 15)
-    verification = verify_foundations(
-        root / "private" / "verification", cfg["foundations"]
-    )
+    progress.begin("Checking HA's capabilities", 15)
+    verification = verify_foundations(root / "private" / "verification", cfg["foundations"])
+    progress.finish()
     return {
         "verification": verification,
-        "installed": [
-            "HA built-in sessions and tasks",
-            "REA full source and package",
-            "Ghidra complete distribution",
-        ],
-        "restart_required": True,
-        "prerequisites": prerequisites,
-        "remaining": "Native sign-in, exact route calibration and live acceptance",
+        "installed": ["HA sessions and tasks", "HA analysis", "HA native runtimes"],
+        "restart_required": False,
+        "network_used": False,
+        "components": components.snapshot(),
+        "remaining": "Account sign-in and any explicitly reported live acceptance checks",
     }
