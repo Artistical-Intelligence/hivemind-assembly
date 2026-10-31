@@ -213,18 +213,37 @@ class Broker:
                 old = file_hash(p) if p.exists() else None
                 if args.get("expected_hash") != old:
                     raise Conflict("File changed since proposal")
-                if ("text" in args) == ("artifact" in args):
-                    raise ContractError("Supply exactly one of text or artifact")
-                data = (
-                    args.get("text")
-                    if "text" in args
-                    else self.artifacts.read(
-                        args["artifact"],
-                        "worker",
-                        self.store.task(task)["project_id"],
-                        task=task,
-                    )
-                )
+                if sum(key in args for key in ("text", "artifact", "patch")) != 1:
+                    raise ContractError("Supply exactly one of text, artifact or patch")
+                if "patch" in args:
+                    from .patching import patch_target, plan_file_patch
+
+                    if patch_target(root, args["path"]) != p:
+                        raise Blocked("Patch target changed")
+                    if p.exists() and p.stat().st_size > 2_000_000:
+                        raise Blocked("Original file exceeds patch limit")
+                    original = None
+                    if p.exists():
+                        with p.open("r", encoding="utf-8", newline="") as stream:
+                            original = stream.read(2_000_001)
+                    engine = self.jobs.runtime() if self.jobs.runtime is not None else None
+                    data = plan_file_patch(engine, args["path"], args["patch"], original, root, cancel)
+                    if cancel.is_set():
+                        raise Blocked("Task cancelled during patch planning")
+                    if (patch_target(root, args["path"]) != p
+                            or (file_hash(p) if p.exists() else None) != old):
+                        raise Conflict("File changed during patch planning")
+                    with self.store.tx() as db:
+                        self.controller._fence(db, task, request["owner"], request["epoch"])
+                        revision = db.execute("SELECT revision FROM projects WHERE id=?",
+                                              (self.store.task(task)["project_id"],)).fetchone()[0]
+                        if revision != request["revision"]:
+                            raise Conflict("Project changed during patch planning")
+                elif "text" in args:
+                    data = args["text"]
+                else:
+                    data = self.artifacts.read(args["artifact"], "worker",
+                                               self.store.task(task)["project_id"], task=task)
                 if not isinstance(data, (str, bytes)):
                     raise ContractError("File contents must be text or artifact bytes")
                 if len(data.encode() if isinstance(data, str) else data) > 2_000_000:

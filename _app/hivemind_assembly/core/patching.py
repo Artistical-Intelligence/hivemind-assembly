@@ -35,6 +35,16 @@ def patch_path(name):
     return name
 
 
+def patch_target(root, name):
+    """Do not let an alias, junction or symbolic link redirect an editing request."""
+    target = root.resolve()
+    for part in patch_path(name).split('/'):
+        target = target / part
+        if target.is_symlink() or (hasattr(target, 'is_junction') and target.is_junction()):
+            raise Blocked('Linked paths cannot be patched')
+    return target
+
+
 def plan_file_patch(engine, name, patch, original, cwd, cancel=None, timeout=20):
     name = patch_path(name)
     if not isinstance(patch, str) or not patch or len(patch.encode('utf-8')) > FILE_LIMIT:

@@ -165,8 +165,9 @@ TOOL_SCHEMAS = {
     "write_file": {
         "path": "relative file",
         "expected_hash": "sha256 or null for new file",
-        "text": "full text contents; omit when artifact is supplied",
+        "text": "full text contents; supply exactly one of text, artifact or patch",
         "artifact": "optional project artifact ID supplying binary or text bytes",
+        "patch": "optional *** Begin Patch / *** End Patch text for exactly this one file; add/update only, no rename/delete; requires HA's prepared internal editor; retains expected_hash and ordinary write recovery",
     },
     "plan_reconstruction": {
         "graph_path": "JSON array of all contiguous program_context callgraph pages for one unchanged program revision; groups mutual recursion and lists external dependencies"
