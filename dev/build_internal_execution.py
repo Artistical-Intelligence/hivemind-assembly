@@ -139,7 +139,8 @@ def build(destination, local_source=None):
         (work / '.cargo').mkdir(exist_ok=True)
         (work / '.cargo/config.toml').write_text(cargo_config)
         out = destination / ('HA-execution-rebuild-' + result['platform'] + '.zip')
-        with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED) as z:
+        # Cargo registry archives may deliberately retain Unix-epoch mtimes.
+        with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED, strict_timestamps=False) as z:
             for path in sorted(work.rglob('*')):
                 if path.is_file() and 'target' not in path.relative_to(work).parts:
                     z.write(path,path.relative_to(work).as_posix())
