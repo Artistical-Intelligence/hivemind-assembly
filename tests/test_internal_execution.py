@@ -164,3 +164,44 @@ def test_compiled_timeout(compiled, tmp_path):
         timeout=0.5)
     assert result['status'] == 'timeout'
     assert result['elapsed'] < 10
+
+
+@pytest.mark.parametrize('mode', ['ok', 'exit'])
+def test_pipe_close_error_never_masks_operation_outcome(fake, tmp_path, monkeypatch, mode):
+    """Reproduce the Windows dead-pipe flush error on every host platform."""
+    from hivemind_assembly.core import execution
+    original = execution.subprocess.Popen
+
+    class FailingClose:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def __getattr__(self, name):
+            return getattr(self.stream, name)
+
+        def close(self):
+            try:
+                self.stream.close()
+            finally:
+                raise OSError(22, 'simulated dead Windows pipe')
+
+    def spawn(*args, **kwargs):
+        process = original(*args, **kwargs)
+        process.stdin = FailingClose(process.stdin)
+        return process
+
+    monkeypatch.setattr(execution.subprocess, 'Popen', spawn)
+    jobs = Jobs(runtime=lambda: fake)
+    monkeypatch.setattr(jobs, '_run_native', lambda *args: pytest.fail('must not replay'))
+    if mode == 'exit':
+        with pytest.raises(Blocked, match='reconcile'):
+            jobs.run('close-error', [mode], tmp_path)
+        assert (tmp_path / 'effect.txt').read_text() == 'once'
+    else:
+        assert jobs.run('close-error', [mode], tmp_path)['output'] == 'hello world'
+    assert not jobs.reservations
+
+
+def test_runtime_command_is_not_a_shell_string():
+    with pytest.raises(ContractError, match='runtime command'):
+        ExecutionClient('helper --arbitrary')
