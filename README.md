@@ -2,7 +2,25 @@
 
 A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Current version: 0.37.4. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
-## Start on Windows
+## Unified integration on main — not yet a production release
+
+The current development code brings session/task storage, browser automation,
+local process execution and guarded editing under HA's own setup and settings.
+**Settings → Prepare HA** is the primary preparation path; analysis-only controls
+remain under **Advanced analysis diagnostics**. Existing projects, browser
+choices and histories are retained. Native engines and their required notices
+remain available internally; they do not require separate user-managed products.
+
+The complete offline payload passed a fresh Windows CI installation, source-known
+analysis checks, local search, real helper execution and the bundled dashboard
+with external access blocked for its packaged programs. The exact tested revision
+and limits are recorded below. Independent review and live hosted/private remote
+account acceptance remain open. CI acceptance inputs are not approved release
+installers, and these changes have not replaced an owner's installed copy. The
+standalone RE application remains a separate project; this work does not claim
+that new application has been finished or published.
+
+## Start the released version on Windows
 
 1. Download **Hivemind_Assembly_<version>_Setup.exe** from the [latest release](https://github.com/Artistical-Intelligence/hivemind-assembly/releases/latest) and run it. It installs for your Windows user without administrator rights and adds a Start menu shortcut. The installer is not code-signed, so SmartScreen may warn: choose **More info → Run anyway**. You can choose the installation folder.
 2. The first start installs the bundled Python runtime and the hash-locked Windows dependency set into your user data directory, then opens the dashboard. The first dependency installation needs internet access.
@@ -1198,6 +1216,8 @@ explicit runtime contract, not proof of arbitrary Windows application equivalenc
 
 | Evidence | Commit | Runs | Host | Model inference |
 | --- | --- | --- | --- | --- |
+| owned-runtime-integration-2026-10-31 (2026-10-31) | `8a6329d` | [41237500804](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/41237500804) | GitHub Actions Windows and Linux | no |
+| offline-local-ha-2026-10-31 (2026-10-31) | `cc02d1c` | [41238262130](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/41238262130) | Fresh GitHub Actions Windows data root | no |
 | debug-vision-0.37.4 (2026-10-29) | `2e79299` | local | Local Linux; real Chromium and Tesseract fixtures; independent source review | no |
 | setup-progress-0.37.4 (2026-10-29) | `565ecd6` | local | Local Linux and Chromium fixtures; independent source review | no |
 | connector-navigation-0.37.4 (2026-10-29) | `0122126` | local | Local Linux and Chromium with intercepted provider fixtures; independent source review | no |
@@ -1236,6 +1256,8 @@ explicit runtime contract, not proof of arbitrary Windows application equivalenc
 | ghidra-project-plan (2026-10-21) | `5a35215` | 39650087898 (log removed) | Fresh Linux x86-64 install and hosted Windows | no |
 | baseline-suite-cc17bf1 (2026-10-21) | `cc17bf1` | 39632598272 (log removed) | GitHub Linux and Windows | no |
 
+- **owned-runtime-integration-2026-10-31** (`8a6329d`): Actual retained execution helper exercised through HA clients: 79 passed on Windows and 79 passed on Linux, no skips in this focused tier. Covers process output, nonzero exits, cancellation/timeouts, malformed replies and no replay, actual one-file patch planning, stale file/lease rejection and interrupted-write reconciliation. Native artifacts came from build run 41234564595 at 9b03df2014d0b314ca9869d3cc4f24e2b62ceac0. Independent source review remains pending; this is not hosted-provider acceptance.
+- **offline-local-ha-2026-10-31** (`cc02d1c`): Fresh local-only bootstrap and all seven offline acceptance groups passed. Verified 725 inventory entries, prepared all eight bundled components, ran source-known Ghidra/REA and built-in Hermes checks, compiler/runtime fixtures, owned process execution, 384-dimensional local search, the bundled Chromium HA Settings interface under its unchanged strict CSP, and restart/settings preservation. Program-scoped outbound firewall rules blocked the packaged executables; localhost and the CI runner remained available. Components were built in run 41234152198 at 7b844e33032157430e74689adda6af839adb659e. This is not a clean owner-desktop, real hosted-account, independent source-review or production-release acceptance.
 - **debug-vision-0.37.4** (`2e79299`): Owner-enabled ha_debug_screenshot returns actual selected-provider viewport pixels plus optional local English Tesseract OCR with confidence and word boxes. The session-only screenshot grant is separate from the default control map and discloses visible conversation content; recognized input/account masks are not universal redaction. Read-only capture works while setup holds the account dispatch lock. Grant epochs, exact route identity, provider/authentication scope, page replacement and navigation fences reject stale captures, including changes during the final asynchronous check. OCR is bounded, cancelled processes are reaped, and unavailable or failed OCR still permits image review. Independent source review and 21 focused debugging/vision tests passed with real Chromium and Tesseract on local fixtures; a separate scroll check confirmed viewport capture without scrolling. The combined debugging, connector, setup-progress and application run passed 71 tests. These overlapping results are not a summed unique-test total. No live provider or remote tunnel acceptance is inferred; Windows packaging and full hosted suites are separate gates.
 - **setup-progress-0.37.4** (`565ecd6`): Saved-chat setup recovery has a 45-second search budget and concurrent bounded probe cleanup, leaving uncertain deliveries unchanged and releasing the account dispatch lock on timeout. Dashboard progress identifies saved-chat search, account waiting, reply waiting and file verification; attention messages override prior phases. Startup replays durable model-change resets so an old target quota warning is not restored; poll timestamps remain intact, unknown or exhausted scopes retain daily polling, and a known active shared peer retains ten-minute polling. Independent source review and a focused 74-case regression run passed. The combined setup, recovery, readiness, journal, policy, team, startup and application run passed 118 cases, including 10 new progress/deadline/quota tests and an actual local Chromium dashboard test. Fixtures do not establish the original live-user cause or signed-in provider acceptance. Windows packaging and full hosted suites remain separate gates.
 - **connector-navigation-0.37.4** (`0122126`): Connector navigation plans a single recognized control and uses real Playwright pointer input, repairing a reproduced fixture failure where synthetic element.click() cannot open a pointerdown-driven menu. Accessible names include aria-labelledby; hidden/inert duplicates are ignored, ambiguous controls and all form-associated submit buttons are rejected, and retries are bounded. The extension step() protocol remains compatible. Failed connection setup keeps its provider tab open; a stalled form-navigation step reports the last navigation observation; success and cancellation retain cleanup. Independent source review and 11 new browser/mocked regressions passed. A combined local run of debugging, sign-in, shared sign-in, automatic connector, Chrome helper and navigation tests passed 46 cases. Official OpenAI documentation still describes Plugins, plus, Add custom MCP server. Fixtures do not establish that this was the original live-user root cause, or prove live ChatGPT/Claude acceptance. Windows packaging and full hosted suites are separate gates.
@@ -1276,6 +1298,9 @@ explicit runtime contract, not proof of arbitrary Windows application equivalenc
 
 Still required:
 
+- Independent source review of the unified execution/editing, setup, automation, component packaging and remote-access implementation before release; preserve pending markers until that review.
+- Verify T3 Connect with the owner-authorized real hosted account and Tailscale from a genuinely remote paired device, including revocation and reconnection without duplicate work.
+- Verify the complete offline installation and upgrade on the owner's Windows desktop; the fresh Windows CI test is not that desktop or live-provider acceptance.
 - Live GitHub browser registration/device authorization and all five exact native routes.
 - Unattended real worker/adviser/reviewer/Ghidra/REA artifact, recovery and acceptance loops.
 - Native cross-project learning gains, provider account-wide memory isolation and repeated timing evidence.

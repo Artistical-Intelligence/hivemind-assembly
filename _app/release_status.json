@@ -2,6 +2,7 @@
   "version": "0.37.4",
   "requested_product_complete": false,
   "current_checks": {
+    "unified_local_integration": "2026-10-31: owned process/patch integration passed 79 real-helper tests on each of Windows and Linux. The single HA setup interface and local-only complete installation passed fresh Windows CI acceptance with program-scoped external-network blocking. Exact revisions and component origins are in the evidence entries. Independent review, owner-desktop acceptance and live T3 Connect/Tailscale/provider checks remain open. No production release or model inference is claimed.",
     "capture_comparison": "Owner-pinned raw RGBA8 and interleaved signed PCM comparisons, exact defaults, explicit pixel/channel/peak/RMS tolerances, strict per-program repeatability, shape validation, per-task protected evidence and source checks passed. Independent C/Python sample-indexed pulse replay passed three cases with three repetitions; a one-sample timing mutant failed. Real offscreen EGL readback passed with quantitative RGBA comparisons on this host. Goal-to-native-test-to-fresh-independent-acceptance path passed with fixture responses, not a live model.",
     "capture_preview": "All ten actual Chromium checks passed at 8ca03ab in run 39615843168 (109.953s), including frame creation, protected checks, temporal mutant editing, first-failure inspection, synchronized scrubbing and complete byte downloads. Prior local DOM fixtures also covered emulated stream/file previews and stale-revision labels.",
     "hosted_requests": "Durable exact-commit tag selection, managed workflow validation, optional owner-authorized dispatch, 30-second tracking, lost tag/dispatch responses across restart, bounded run discovery, identity/attempt checks, cancellation, artifact metadata recovery and project-only worker status passed API fixtures. Dashboard submit/retry identity and refresh/cancel controls passed jsdom. No live hosted run was dispatched in this release validation.",
@@ -71,6 +72,9 @@
     "Import old Office formats (.doc, .xls, .ppt), spreadsheets, slides and text in scanned PDF pages; they are listed as skipped or as gaps."
   ],
   "remaining_acceptance": [
+    "Independent source review of the unified execution/editing, setup, automation, component packaging and remote-access implementation before release; preserve pending markers until that review.",
+    "Verify T3 Connect with the owner-authorized real hosted account and Tailscale from a genuinely remote paired device, including revocation and reconnection without duplicate work.",
+    "Verify the complete offline installation and upgrade on the owner's Windows desktop; the fresh Windows CI test is not that desktop or live-provider acceptance.",
     "Live GitHub browser registration/device authorization and all five exact native routes.",
     "Unattended real worker/adviser/reviewer/Ghidra/REA artifact, recovery and acceptance loops.",
     "Native cross-project learning gains, provider account-wide memory isolation and repeated timing evidence.",
@@ -212,6 +216,28 @@
     "scope": "Full regression at commit a9813a0, run 40780070811. Windows: 1044 passed/74 skipped in 1805.48s. Local Linux with Chromium, Tesseract and the real meaning-search model: 1106 passed/12 skipped. No live native-model acceptance inferred."
   },
   "evidence": [
+    {
+      "id": "owned-runtime-integration-2026-10-31",
+      "date": "2026-10-31",
+      "commit": "8a6329de79fe1f7c74b1cab560a620cd96ccc532",
+      "runs": [
+        41237500804
+      ],
+      "host": "GitHub Actions Windows and Linux",
+      "live_model_inference": false,
+      "summary": "Actual retained execution helper exercised through HA clients: 79 passed on Windows and 79 passed on Linux, no skips in this focused tier. Covers process output, nonzero exits, cancellation/timeouts, malformed replies and no replay, actual one-file patch planning, stale file/lease rejection and interrupted-write reconciliation. Native artifacts came from build run 41234564595 at 9b03df2014d0b314ca9869d3cc4f24e2b62ceac0. Independent source review remains pending; this is not hosted-provider acceptance."
+    },
+    {
+      "id": "offline-local-ha-2026-10-31",
+      "date": "2026-10-31",
+      "commit": "cc02d1cbfa1b5b2ae9c450b883dc0ede38537138",
+      "runs": [
+        41238262130
+      ],
+      "host": "Fresh GitHub Actions Windows data root",
+      "live_model_inference": false,
+      "summary": "Fresh local-only bootstrap and all seven offline acceptance groups passed. Verified 725 inventory entries, prepared all eight bundled components, ran source-known Ghidra/REA and built-in Hermes checks, compiler/runtime fixtures, owned process execution, 384-dimensional local search, the bundled Chromium HA Settings interface under its unchanged strict CSP, and restart/settings preservation. Program-scoped outbound firewall rules blocked the packaged executables; localhost and the CI runner remained available. Components were built in run 41234152198 at 7b844e33032157430e74689adda6af839adb659e. This is not a clean owner-desktop, real hosted-account, independent source-review or production-release acceptance."
+    },
     {
       "id": "debug-vision-0.37.4",
       "date": "2026-10-29",
