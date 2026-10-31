@@ -68,7 +68,9 @@ def locked_wheels(lock, folder):
         parts = path.name.split('-')
         if len(parts) < 5:
             continue
-        key = (parts[0].lower(), parts[1])
+        # Older legal wheel names retain dots (for example jaraco.classes).
+        # Normalize both sides identically while retaining exact version/hash checks.
+        key = (re.sub(r'[-_.]+', '_', parts[0]).lower(), parts[1])
         if key not in pins:
             continue
         actual = digest(path)
