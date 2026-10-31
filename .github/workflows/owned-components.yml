@@ -26,7 +26,8 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile the pinned internal analysis runtime
-        run: python dev/build_owned_analysis.py "${{ runner.temp }}/ha-components"
+        run: |
+          python dev/build_owned_analysis.py "${{ runner.temp }}/ha-components"
         env:
           DO_NOT_TRACK: '1'
           TURBO_TELEMETRY_DISABLED: '1'
@@ -47,10 +48,12 @@ jobs:
         with:
           python-version: '3.12'
       - name: Preserve the existing hash-locked Windows dependencies
-        run: python -m pip download --only-binary=:all: --require-hashes --no-deps --find-links _app/bootstrap/wheels -r _app/requirements-windows.lock --dest "${{ runner.temp }}/ha-wheels"
+        run: |
+          python -m pip download --only-binary=:all: --require-hashes --no-deps --find-links _app/bootstrap/wheels -r _app/requirements-windows.lock --dest "${{ runner.temp }}/ha-wheels"
       - name: Retain the lock with the artifacts
         shell: pwsh
-        run: Copy-Item _app/requirements-windows.lock "$env:RUNNER_TEMP/ha-wheels/requirements-windows.lock"
+        run: |
+          Copy-Item _app/requirements-windows.lock "$env:RUNNER_TEMP/ha-wheels/requirements-windows.lock"
       - uses: actions/upload-artifact@v4
         with:
           name: HA-offline-wheels-Windows-${{ github.sha }}
