@@ -102,7 +102,7 @@ def main():
             return {'local_model_loaded': True, 'dimensions': 384}
         check('local_search_model', search_model)
         def dashboard():
-            from playwright.sync_api import sync_playwright
+            from playwright.sync_api import sync_playwright, expect
             server = make_server(app, 0)
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
@@ -124,7 +124,13 @@ def main():
                     page.locator('#ha-prepare').wait_for(state='attached')
                     assert page.locator('#ha-connect-sign-in').count() == 1
                     assert page.locator('#ha-remote-enable').count() == 1
-                    page.wait_for_function("document.getElementById('ha-capabilities').textContent.length > 0")
+                    # Locator assertions work under HA's strict CSP; do not use
+                    # string-evaluating waiters or enable unsafe-eval for a test.
+                    page.locator('[data-tab="settings"]').click()
+                    expect(page.locator("#ha-capabilities")).to_contain_text("Sessions and tasks")
+                    expect(page.locator("#ha-prepare")).to_be_visible()
+                    expect(page.locator("#ha-analysis-advanced")).not_to_have_attribute("open", "")
+                    expect(page.locator("#install")).not_to_be_visible()
                     page.screenshot(path=str(args.report.with_name('offline-dashboard.png')), full_page=True)
                     context.close()
                     browser.close()
