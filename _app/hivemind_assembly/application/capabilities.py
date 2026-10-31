@@ -71,6 +71,25 @@ class BuiltinCapabilities:
             self.state = {**self.state, 'state': 'needs_attention',
                           'message': 'A built-in package failed verification. Use Repair; other HA functions remain available.'}
 
+    def execution_runtime(self):
+        """Resolve only HA-owned, hash-checked code; never search PATH for helpers.
+
+        Source/developer installations without a catalogue keep the legacy runner.
+        A configured but missing or damaged runtime blocks instead of degrading to
+        a different execution path. Resolution performs no installation or network.
+        """
+        from hivemind_assembly.core.execution import ExecutionClient
+
+        components = self.components
+        if components.catalogue_error or components.state_error:
+            raise Blocked('HA runtime inventory needs repair before executing jobs')
+        if 'execution' not in components.entries:
+            if 'execution' in components.active:
+                raise Blocked('The owned execution runtime is missing from this HA package')
+            return None
+        component = components.resolve('execution')
+        return ExecutionClient([str(component.entrypoint)])
+
     def run(self, action, publish=None):
         if action not in ('prepare', 'check', 'repair'):
             raise ContractError('Unknown built-in capability action')
@@ -123,7 +142,9 @@ class BuiltinCapabilities:
             self.state.update(state='checking', checks=checked)
             self._save()
             from .verification import verify_foundations
-            result = verify_foundations(self.root / 'private/verification', self.config.get('foundations', {}))
+            from hivemind_assembly.core.jobs import Jobs
+            result = verify_foundations(self.root / 'private/verification', self.config.get('foundations', {}),
+                                       jobs=Jobs(runtime=self.execution_runtime))
             summary = {name: {'passed': value.get('passed') is True,
                               **({'reason': str(value['reason'])[:500]} if value.get('reason') else {})}
                        for name, value in result.get('checks', {}).items()}

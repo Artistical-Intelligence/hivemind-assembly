@@ -112,6 +112,7 @@ class Application:
             repositories=self.repositories,
             hosted_tests=self.hosted_tests,
         )
+        self.broker.jobs.runtime = self.builtins.execution_runtime
         from .workspace import Workspace
 
         self.workspace = Workspace(self.broker)
