@@ -66,6 +66,11 @@ def windows_chrome_installed():
     )
 
 
+def windows_edge_installed():
+    roots = [os.environ.get(k) for k in ("ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA")]
+    return any((Path(r) / "Microsoft/Edge/Application/msedge.exe").is_file() for r in roots if r)
+
+
 class Application:
     def __init__(self, root):
         self.instance_lock = InstanceLock(root)
@@ -74,20 +79,18 @@ class Application:
         if not self.config_path.exists():
             default_config = json.loads(DEFAULT.read_text())
             if os.name == "nt":
-                # Chrome when it's installed (the owner's browser); Edge otherwise.
-                default_config["browser"]["channel"] = (
-                    "chrome" if windows_chrome_installed() else "msedge"
-                )
+                # Choose a browser only for a new installation. Existing account
+                # profiles and an owner's explicit browser choice never migrate here.
+                if windows_chrome_installed():
+                    default_config["browser"]["channel"] = "chrome"
+                elif windows_edge_installed():
+                    default_config["browser"]["channel"] = "msedge"
+                elif not (APP_ROOT / "bootstrap/offline-required").exists():
+                    default_config["browser"]["channel"] = "msedge"
+                else:
+                    default_config["browser"].pop("channel", None)
             atomic_write(self.config_path, canonical(default_config))
         saved_config = json.loads(self.config_path.read_text())
-        if (
-            os.name == "nt"
-            and saved_config.get("browser", {}).get("channel") == "msedge"
-            and windows_chrome_installed()
-        ):
-            # Earlier versions picked Edge first; use Chrome once it's installed.
-            saved_config["browser"]["channel"] = "chrome"
-            atomic_write(self.config_path, canonical(saved_config))
         if "presets" not in saved_config:
             # The setup the owner has now becomes the "Default" setup they can change.
             saved_config["presets"] = default_presets(saved_config)

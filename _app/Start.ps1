@@ -1,7 +1,8 @@
 param(
     [string]$DataRoot = '',
     [switch]$VerifyOnly,
-    [switch]$NoBrowser
+    [switch]$NoBrowser,
+    [switch]$PrepareOnly
 )
 $ErrorActionPreference = 'Stop'
 $AppRoot = $PSScriptRoot
@@ -46,22 +47,46 @@ if (-not (Test-Path (Join-Path $SitePackages 'pip\__main__.py'))) {
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     [System.IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $AppRoot 'bootstrap\pip-25.0.1-py3-none-any.whl'), $SitePackages)
 }
+$OfflineManifest = Join-Path $AppRoot 'offline-manifest.json'
+$Offline = (Test-Path (Join-Path $AppRoot 'bootstrap\offline-required')) -or (Test-Path $OfflineManifest)
+$OfflineHash = ''
+$OfflineMarker = Join-Path $RuntimeRoot 'runtime-offline.sha256'
+$CheckedOfflineHash = if (Test-Path $OfflineMarker) { (Get-Content $OfflineMarker -Raw).Trim() } else { '' }
+if ($Offline) {
+    if (-not (Test-Path $OfflineManifest)) { throw 'The HA local installation inventory is missing. Restore the complete package; no download was substituted.' }
+    $OfflineHash = (Get-FileHash -Algorithm SHA256 $OfflineManifest).Hash
+    if ($OfflineHash -ne $CheckedOfflineHash) {
+        & $Python (Join-Path $AppRoot 'offline_bootstrap.py') --app-root $AppRoot
+        if ($LASTEXITCODE -ne 0) { throw 'HA local installation files failed verification. Existing data was preserved.' }
+    }
+    $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $AppRoot 'browsers'
+}
 $Requirements = Join-Path $AppRoot 'requirements-windows.lock'
 $DesiredHash = (Get-FileHash -Algorithm SHA256 $Requirements).Hash
 $Marker = Join-Path $RuntimeRoot 'runtime-requirements.sha256'
 $InstalledHash = if (Test-Path $Marker) { (Get-Content $Marker -Raw).Trim() } else { '' }
 if ($DesiredHash -ne $InstalledHash) {
-    Write-Host 'Installing pinned dependencies. This first run requires internet access.'
-    & $Python -m pip install --disable-pip-version-check --only-binary=:all: --require-hashes --no-deps --find-links (Join-Path $AppRoot 'bootstrap\wheels') -r $Requirements
+    $PipArguments = @('--disable-pip-version-check', '--no-cache-dir', '--only-binary=:all:', '--require-hashes', '--no-deps', '--find-links', (Join-Path $AppRoot 'bootstrap\wheels'), '-r', $Requirements)
+    if ($Offline) {
+        Write-Host 'Preparing HA from its verified local package. No dependency downloads are needed.'
+        $PipArguments += '--no-index'
+    } else {
+        Write-Host 'Preparing this developer copy. Missing pinned dependencies require internet access.'
+    }
+    & $Python -m pip --isolated install @PipArguments
     if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed. Existing user data was preserved.' }
     $Edge = Join-Path ${env:ProgramFiles(x86)} 'Microsoft\Edge\Application\msedge.exe'
     $Chrome = Join-Path $env:ProgramFiles 'Google\Chrome\Application\chrome.exe'
-    if (-not (Test-Path $Edge) -and -not (Test-Path $Chrome)) {
+    if (-not $Offline -and -not (Test-Path $Edge) -and -not (Test-Path $Chrome)) {
         & $Python -m playwright install chromium
         if ($LASTEXITCODE -ne 0) { throw 'Browser installation failed. Reopen the launcher to retry.' }
     }
     Set-Content -Path $Marker -Value $DesiredHash
 }
+if ($Offline -and $OfflineHash -ne $CheckedOfflineHash) {
+    Set-Content -Path $OfflineMarker -Value $OfflineHash
+}
+if ($PrepareOnly) { exit 0 }
 if ($VerifyOnly) {
     & $Python (Join-Path $AppRoot 'launch.py') verify --data-dir $DataRoot
 } elseif ($NoBrowser) {

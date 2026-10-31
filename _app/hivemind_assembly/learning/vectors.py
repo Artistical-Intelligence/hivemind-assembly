@@ -215,7 +215,8 @@ class VectorIndex:
         return marker.is_file() and json.loads(marker.read_text(encoding="utf-8")).get("revision") == REVISION
 
     def download(self, progress=None):
-        """Fetch the model files at the pinned revision; each must match its SHA-256."""
+        """Prepare pinned model files locally; offline bundles never fetch a fallback."""
+        from hivemind_assembly.paths import APP_ROOT
         self.folder.mkdir(parents=True, exist_ok=True)
         total = sum(size for _, _, size in FILES.values())
         done = 0
@@ -228,7 +229,14 @@ class VectorIndex:
             digest = hashlib.sha256()
             request = urllib.request.Request(SOURCE.format(revision=REVISION, path=path),
                                              headers={"User-Agent": "Hivemind-Assembly"})
-            with self.opener(request, timeout=120) as response, open(part, "wb") as out:
+            bundled = APP_ROOT / "models" / MODEL_ID / name
+            if bundled.is_file() and not bundled.is_symlink():
+                response = bundled.open("rb")
+            elif (APP_ROOT / "bootstrap" / "offline-required").exists():
+                raise ValueError("HA's local search package needs repair; no download was attempted.")
+            else:
+                response = self.opener(request, timeout=120)
+            with response, open(part, "wb") as out:
                 while True:
                     block = response.read(1 << 20)
                     if not block:
@@ -240,7 +248,7 @@ class VectorIndex:
                         progress(min(99, done * 100 // total))
             if digest.hexdigest() != sha:
                 part.unlink(missing_ok=True)
-                raise ValueError(f"The downloaded {name} doesn't match its SHA-256; it wasn't used.")
+                raise ValueError(f"The prepared {name} doesn't match its SHA-256; it wasn't used.")
             os.replace(part, target)
         (self.folder / "verified.json").write_text(json.dumps({"model": MODEL_ID, "revision": REVISION}), encoding="utf-8")
 

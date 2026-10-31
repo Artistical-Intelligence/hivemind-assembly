@@ -9,6 +9,7 @@ import hashlib
 import json
 from pathlib import Path, PurePosixPath
 import re
+import sys
 
 REQUIRED = frozenset({'node', 'jdk', 'analysis', 'ghidra', 'compiler', 'execution', 'connect', 'tunnel'})
 HASH = re.compile(r'[a-f0-9]{64}\Z')
@@ -76,6 +77,7 @@ def verify(app_root):
         if not path.is_file() or digest(path) != expected:
             raise ValueError('Offline file missing or changed: ' + name)
     # This module imports only the standard library; no model is loaded here.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
     from hivemind_assembly.learning.vectors import FILES, MODEL_ID, REVISION
     if data.get('search_model_revision') != REVISION:
         raise ValueError('Offline search model revision does not match HA')
