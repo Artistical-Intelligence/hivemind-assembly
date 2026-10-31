@@ -30,7 +30,9 @@ def safe_path(value):
     rel = PurePosixPath(value)
     if not rel.parts or rel.is_absolute() or str(rel) != value or '..' in rel.parts:
         raise ValueError('Invalid edit path')
-    if value in PROTECTED or not value.startswith(('_app/', 'tests/', 'dev/')):
+    # README carries the generated release-status evidence. Permit this exact
+    # root document, not agent instructions, review markers or arbitrary roots.
+    if value in PROTECTED or (value != 'README.md' and not value.startswith(('_app/', 'tests/', 'dev/'))):
         raise ValueError('Edit outside the integration implementation scope')
     target = ROOT / value
     if any(part.is_symlink() for part in (target, *target.parents) if part != ROOT.parent):
