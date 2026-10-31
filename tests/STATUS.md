@@ -5,3 +5,6 @@ CHECKS PENDING: test_execution_binding.py — authenticated runtime selection an
 CHECKS PENDING: test_offline_assembly.py — completeness, integrity, no-download fallback and existing account/profile preservation; independent source review.
 CHECKS PENDING: test_runtime_privacy.py — pre-initialization opt-out and native-child enforcement; independent source review. This is not a traffic-capture audit.
 CHECKS PENDING: test_offline_wheel_names.py — dotted/canonical package matching with exact versions and hashes; independent source review.
+CHECKS PENDING: test_offline_acceptance_fixture.py — fresh-state setup without overwriting a retained file; independent source review.
+CHECKS PENDING: test_owned_patching.py — real retained parser, one-file scope, writer authority and uncertain-write recovery on both platforms; independent source review.
+CHECKS PENDING: test_unified_installation_ui.py — one preparation surface and actual readiness-state JavaScript; independent source and browser review.
