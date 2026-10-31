@@ -88,38 +88,58 @@ jobs:
           } finally {
             foreach ($name in $rules) { Remove-NetFirewallRule -Name $name -ErrorAction Continue }
           }
-      - name: Retain the actual offline installation input and its exact provenance
+      - name: Record exact verification and native-component revisions
         if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          out = Path(os.environ['RUNNER_TEMP']) / 'ha-offline-evidence'
+          out.mkdir(exist_ok=True)
+          record = {'commit':os.environ['GITHUB_SHA'], 'component_build_commit':'7b844e33032157430e74689adda6af839adb659e', 'component_build_run':41234152198, 'production_release':False}
+          (out / 'tested-source.json').write_text(json.dumps(record,indent=2)+'\n')
+          PY
+      - name: Retain small acceptance evidence separately
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HA-offline-evidence-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/ha-offline-evidence/*.json
+            ${{ runner.temp }}/ha-offline-evidence/*.png
+            _app/offline-manifest.json
+            ${{ runner.temp }}/ha-offline-assets/asset-provenance.json
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Retain the passing offline installation input
+        if: success()
         shell: bash
         run: |
           python - <<'PY'
           import hashlib, json, os, zipfile
           from pathlib import Path
           out = Path(os.environ['RUNNER_TEMP']) / 'ha-offline-evidence'
-          out.mkdir(exist_ok=True)
-          source = os.environ['GITHUB_SHA']
-          record = {'commit':source, 'component_build_commit':'7b844e33032157430e74689adda6af839adb659e', 'component_build_run':41234152198, 'production_release':False}
-          if Path('_app/offline-manifest.json').is_file():
-              archive = out / 'HA-offline-acceptance-input.zip'
-              with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED, compresslevel=1, strict_timestamps=False) as z:
-                  for root in (Path('_app'), Path('Start_Hivemind_Assembly.cmd'), Path('README.md')):
-                      paths = root.rglob('*') if root.is_dir() else [root]
-                      for p in paths:
-                          if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc':
-                              z.write(p, 'Hivemind_Assembly/' + p.as_posix())
-                  z.writestr('Hivemind_Assembly/ACCEPTANCE_ONLY.txt', 'CI validation input. Independent review and hosted-account acceptance remain required. Not a production release.\n')
-              with archive.open('rb') as f:
-                  record['archive_sha256'] = hashlib.file_digest(f, 'sha256').hexdigest()
+          record = json.loads((out / 'tested-source.json').read_text())
+          archive = out / 'HA-offline-acceptance-input.zip'
+          with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED, compresslevel=1, strict_timestamps=False) as z:
+              for root in (Path('_app'), Path('Start_Hivemind_Assembly.cmd'), Path('README.md')):
+                  paths = root.rglob('*') if root.is_dir() else [root]
+                  for p in paths:
+                      if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc':
+                          z.write(p, 'Hivemind_Assembly/' + p.as_posix())
+              z.writestr('Hivemind_Assembly/ACCEPTANCE_ONLY.txt', 'CI validation input. Independent review and hosted-account acceptance remain required. Not a production release.\n')
+          with archive.open('rb') as f:
+              record['archive_sha256'] = hashlib.file_digest(f, 'sha256').hexdigest()
           (out / 'tested-source.json').write_text(json.dumps(record,indent=2)+'\n')
           PY
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: success()
         with:
           name: HA-offline-recheck-${{ github.sha }}
           path: |
-            ${{ runner.temp }}/ha-offline-evidence/
-            _app/offline-manifest.json
-            ${{ runner.temp }}/ha-offline-assets/asset-provenance.json
+            ${{ runner.temp }}/ha-offline-evidence/HA-offline-acceptance-input.zip
+            ${{ runner.temp }}/ha-offline-evidence/tested-source.json
           retention-days: 14
-          if-no-files-found: warn
+          if-no-files-found: error
           compression-level: 0
