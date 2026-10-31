@@ -81,10 +81,16 @@ strip = true
 ''')
     pty_manifest = (origin / 'utils/pty/Cargo.toml').read_text()
     pty_manifest = re.sub(r'\[dev-dependencies\][\s\S]*?(?=\[target\.)', '', pty_manifest)
+    # The isolated engine must request std explicitly so winapi raw handles
+    # use the same c_void type as Rust's standard-library Windows handles.
+    marker = 'winapi = { version = "0.3.9", features = [\n'
+    if pty_manifest.count(marker) != 1:
+        raise RuntimeError('Pinned Windows process dependency structure changed')
+    pty_manifest = pty_manifest.replace(marker, marker + '    "std",\n')
     (work / 'pty/Cargo.toml').write_text(pty_manifest)
     (work / 'runtime/Cargo.toml').write_text('''[package]
 name = "ha-runtime"
-version.workspace = true
+version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 [dependencies]
@@ -104,6 +110,7 @@ tempfile = "3"
     if (source / 'NOTICE').exists(): shutil.copy2(source / 'NOTICE', work / 'NOTICE')
     (work / 'provenance.json').write_text(json.dumps({'repository': SOURCES['codex'][0], 'revision': SOURCES['codex'][1],
         'patch_sources': provenance, 'process_library': 'codex-rs/utils/pty',
+        'process_manifest_change': 'Explicit winapi std feature for consistent Windows handle types',
         'architecture': 'HA-owned bounded stdin/stdout helper; no network listener, model inference or filesystem patch writes'}, indent=2))
 
 
@@ -122,7 +129,8 @@ def build(destination, local_source=None):
         work.mkdir()
         prepare(source, work)
         env = dict(os.environ, CARGO_TERM_COLOR='never')
-        for command in (['cargo','generate-lockfile'], ['cargo','test','--locked','-p','ha-runtime'],
+        shutil.copy2(ROOT / 'dev/internal_execution.Cargo.lock', work / 'Cargo.lock')
+        for command in (['cargo','test','--locked','-p','ha-runtime'],
                         ['cargo','build','--locked','--release','-p','ha-runtime']):
             subprocess.run(command, cwd=work, env=env, check=True, timeout=1800)
         payload = base / 'payload'
