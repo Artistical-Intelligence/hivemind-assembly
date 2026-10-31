@@ -29,6 +29,27 @@ jobs:
         run: python -m pip install -r _app/requirements.txt pytest
         env:
           PIP_DISABLE_PIP_VERSION_CHECK: '1'
+      - name: Install Linux cross-target compiler and linkers
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld
+          command -v clang
+          command -v ld.lld
+          command -v lld-link
+      - name: Verify Windows compiler and linkers
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $clang = (Get-Command clang -ErrorAction Stop).Source
+          $folder = Split-Path -Parent $clang
+          foreach ($name in @('ld.lld.exe', 'lld-link.exe')) {
+            if (-not (Test-Path (Join-Path $folder $name))) {
+              throw "LLVM installation is incomplete: $name is missing"
+            }
+          }
+          "HA_TEST_CLANG=$clang" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "HA_TEST_LLD=$(Join-Path $folder 'ld.lld.exe')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Run the application regression tier
         run: python -m pytest tests -m "not slow" -q --junitxml=integration-results.xml
         env:
