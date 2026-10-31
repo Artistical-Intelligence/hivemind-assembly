@@ -30,7 +30,14 @@
       <button id="ha-remote-pair" title="Create an expiring link for the named device on your private network.">Pair device</button>
       <div id="ha-pair-result" hidden><p>Open this private link on the named device. It grants control of HA and expires in 30 days. It is not saved in HA's logs.</p><input id="ha-pair-url" readonly aria-label="Private device link"><button id="ha-pair-copy" title="Copy this short-lived display of the private device link; do not share it publicly.">Copy private link</button></div>
       <div id="ha-devices"></div>
-      <p class="muted">Hosted access through T3 Connect remains under integration; the private route does not replace that requested feature.</p>
+      <h3>Hosted link</h3>
+      <p>Reach this same HA host through T3 Connect. Local operation and private-network pairing remain independent.</p>
+      <p id="ha-connect-state" role="status" aria-live="polite"></p>
+      <div class="row"><button id="ha-connect-sign-in" title="Open the supported hosted-service sign-in, with callback and secure challenge already prepared.">Sign in for hosted access</button><button id="ha-connect-enable" title="Link this HA host and start its authorized hosted tunnel; no new agent provider is added.">Enable hosted link</button><button id="ha-connect-reconnect" title="Recover this host's existing managed tunnel without restarting its jobs.">Reconnect hosted link</button><button id="ha-connect-disable" title="Revoke hosted device access locally and unlink this host from the connection service.">Disable hosted link</button></div>
+      <p id="ha-connect-login" hidden><a id="ha-connect-login-link" target="_blank" rel="noopener noreferrer">Continue secure sign-in</a></p>
+      <button id="ha-connect-pair" title="Create a revocable, expiring HA device link over the hosted route.">Pair device using hosted link</button>
+      <div id="ha-connect-devices"></div>
+      <p class="muted">A started tunnel is not a verified connection. HA reports separately when the service has authenticated this host. Model services and their allowances are unchanged.</p>
     </details>
     <details><summary>Implementation and service details</summary>
       <p>HA includes selected Hermes-derived storage/task code, OpenCLI browser-inspection code, and Agent-Reach outcome handling. Their licenses and source records are retained. No independent launch or login-copy step is required for those embedded components.</p>
@@ -84,6 +91,29 @@
       await refresh();
     } catch(e) { notice(e.message,true); }
   };
+  q('ha-connect-sign-in').onclick=async()=>{
+    try {
+      const result=await api('connect/sign-in',{});
+      const url=new URL(result.url);
+      if(url.origin!=='https://app.t3.codes') throw new Error('Unexpected sign-in destination.');
+      q('ha-connect-login-link').href=url.href;q('ha-connect-login').hidden=false;
+      window.open(url.href,'_blank','noopener');await refresh();
+    } catch(error){notice(error.message,true);}
+  };
+  for(const action of ['enable','reconnect','disable']) q('ha-connect-'+action).onclick=async()=>{
+    try{await api('connect/'+action,{});notice('HA is updating its hosted connection. Running work stays on this host.');await refresh();}
+    catch(error){notice(error.message,true);}
+  };
+  q('ha-connect-pair').onclick=async()=>{
+    try{const result=await api('connect/pair',{label:q('ha-device-name').value,days:30});
+      q('ha-pair-url').value=result.url;q('ha-pair-result').hidden=false;
+      setTimeout(()=>{q('ha-pair-url').value='';q('ha-pair-result').hidden=true;},120000);await refresh();
+    }catch(error){notice(error.message,true);}
+  };
+  q('ha-connect-devices').onclick=async event=>{
+    const device=event.target?.dataset?.hostedRevoke;if(!device)return;
+    try{await api('connect/revoke',{device});await refresh();}catch(error){notice(error.message,true);}
+  };
   q('ha-pair-copy').onclick=async()=>{
     try { await navigator.clipboard.writeText(q('ha-pair-url').value); notice('Private device link copied.'); }
     catch { q('ha-pair-url').select(); notice('Select and copy the private link.'); }
@@ -95,6 +125,9 @@
   };
   window.renderCapabilities = state => {
     const x=state.experience || {}, remote=x.remote || {}, install=x.installation || {};
+    const hosted=x.hosted || {};
+    q('ha-connect-state').textContent=(hosted.error || String(hosted.state || 'not connected').replaceAll('_',' '))+(hosted.origin ? ' — '+hosted.origin : '');
+    q('ha-connect-devices').innerHTML=(hosted.devices || []).map(device=>`<p>${safe(device.label)} <button data-hosted-revoke="${safe(device.id)}" title="Revoke this hosted device without changing the private-network devices.">Revoke</button></p>`).join('');
     q('ha-install-state').textContent=install.message || ({not_checked:'Ready to prepare or check your installation.',preparing:'Preparing the included capabilities…',checking:'Checking local capabilities…',repairing:'Preserving changed files and restoring approved packages…',interrupted:'Setup was interrupted. Prepared files were retained; choose Prepare HA to resume.'}[install.state] || '');
     q('ha-install-checks').innerHTML=Object.entries(install.checks || {}).map(([name,result])=>`<p><strong>${safe(name.replaceAll('_',' '))}</strong>: ${result.passed ? 'Passed' : 'Needs attention'}${result.reason ? ' — '+safe(result.reason) : ''}</p>`).join('');
     const installationJob=Object.values(state.jobs || {}).some(job=>job.status==='running' && String(job.name).startsWith('HA installation'));

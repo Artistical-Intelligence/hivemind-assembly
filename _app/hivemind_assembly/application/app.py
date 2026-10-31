@@ -228,6 +228,8 @@ class Application:
 
         self.browser_actions = BrowserActions(self.browser, self.store.root)
         self.remote_access = RemoteAccess(self.store.root, self.token)
+        from hivemind_assembly.integrations.hosted_connect import HostedConnect
+        self.hosted_connect = HostedConnect(self.store.root, self.token)
         self.provider_connect_futures = {}
         self.shutdown = False
         self.closed = False
@@ -415,6 +417,7 @@ class Application:
                 "automation": self.browser_actions.status(),
                 "installation": self.builtins.snapshot(),
                 "remote": self.remote_access.snapshot(),
+                "hosted": self.hosted_connect.snapshot(),
                 "profiles": sorted({route["profile"] for route in self.config["routes"].values()}),
             },
             "domain": self.broker.domain.id,
@@ -826,6 +829,19 @@ class Application:
                                        lambda publish: self.builtins.run(operation, publish), progress=True)
         if path == "/api/automation/command":
             return self.submit(self.browser_actions.run(data)).result(timeout=45)
+        if path == "/api/connect/sign-in":
+            if data:
+                raise ContractError("Hosted sign-in uses HA's pinned public configuration")
+            return self.hosted_connect.start_sign_in()
+        if path in ("/api/connect/enable", "/api/connect/reconnect", "/api/connect/disable"):
+            if data:
+                raise ContractError("Hosted setup takes no arbitrary service URLs or commands")
+            action = {"enable": "connect", "reconnect": "reconnect", "disable": "disconnect"}[path.rsplit("/", 1)[1]]
+            return self.background_job("HA hosted connection", getattr(self.hosted_connect, action))
+        if path == "/api/connect/pair":
+            return self.hosted_connect.pair(data.get("label", ""), data.get("days", 30))
+        if path == "/api/connect/revoke":
+            return self.hosted_connect.gateway.revoke(data.get("device", ""))
         if path in ("/api/remote/check", "/api/remote/enable", "/api/remote/disable"):
             operation = path.rsplit("/", 1)[1]
             return self.background_job("HA private remote access", getattr(self.remote_access, operation))
@@ -2051,6 +2067,7 @@ class Application:
         if self.closed:
             return
         self.remote_access.close()
+        self.hosted_connect.close()
         self.tunnel.close()
         self.debugging.stop()
         self.quick.close()
@@ -2270,6 +2287,7 @@ def make_server(app, port=0):
 
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     app.remote_access.bind(server.server_port)
+    app.hosted_connect.bind(server.server_port)
     private = app.store.root / "private"
     private.mkdir(parents=True, exist_ok=True)
     atomic_write(

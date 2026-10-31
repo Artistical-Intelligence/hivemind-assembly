@@ -59,8 +59,13 @@ def run_tailscale(arguments):
 class RemoteAccess:
     """One local gateway, one owned Serve mapping, separate revocable device keys."""
 
-    def __init__(self, root, owner_token, runner=None):
-        self.folder = Path(root) / "private" / "remote-access"
+    def __init__(self, root, owner_token, runner=None, *, namespace="remote-access", allow_origin=None):
+        if namespace not in ("remote-access", "hosted-access"):
+            raise ContractError("Invalid remote storage namespace")
+        self.allow_origin = allow_origin or (lambda origin: bool(re.fullmatch(r"https://[a-z0-9][a-z0-9.-]*\.ts\.net:8443", origin)))
+        self.protocol_request = None
+        self.authorize_extra = None
+        self.folder = Path(root) / "private" / namespace
         self.path = self.folder / "settings.json"
         self.owner_token = owner_token
         self.runner = runner or run_tailscale
@@ -91,7 +96,7 @@ class RemoteAccess:
                             not isinstance(device.get("expires"), (float, int))):
                         raise ValueError("Invalid retained device")
                 origin = saved.get("origin")
-                if origin is not None and not re.fullmatch(r"https://[a-z0-9][a-z0-9.-]*\.ts\.net:8443", origin):
+                if origin is not None and (not isinstance(origin, str) or not self.allow_origin(origin)):
                     raise ValueError("Invalid retained network identity")
                 self.state.update(saved)
                 self.state["transport"] = "unchecked"
@@ -289,18 +294,48 @@ class RemoteAccess:
                 origin = remote.state.get("origin")
                 allowed_hosts = {urlsplit(origin or "").netloc,
                                  f"127.0.0.1:{self.server.server_port}"}
+                protocol_path = urlsplit(self.path).path in ("/api/t3-connect/health", "/api/t3-connect/mint-credential", "/oauth/token")
+                allowed_origins = (None, origin, "https://app.t3.codes") if protocol_path and remote.protocol_request else (None, origin)
                 if (self.headers.get("Host") not in allowed_hosts or
-                        self.headers.get("Origin") not in (None, origin) or
+                        self.headers.get("Origin") not in allowed_origins or
                         self.headers.get("Transfer-Encoding") or
                         len(self.headers.get_all("Content-Length", [])) > 1):
                     return self.reject(403)
                 if not self.path.startswith("/") or self.path.startswith("//"):
                     return self.reject(400)
                 path = urlsplit(self.path).path
-                if path.startswith("/api/"):
-                    if not remote.authorized(self.headers.get("X-Workbench-Token")):
+                if protocol_path and remote.protocol_request:
+                    try:
+                        size = int(self.headers.get("Content-Length", "0"))
+                        if not 0 <= size <= 512 * 1024:
+                            return self.reject(413)
+                        data = self.rfile.read(size)
+                        if len(data) != size:
+                            return self.reject(400)
+                        answer = remote.protocol_request(path, self.command, self.headers, data)
+                        if answer is None:
+                            return self.reject(404)
+                        code, payload = answer
+                        body = json.dumps(payload).encode()
+                        self.send_response(code)
+                        self.send_header("Content-Type", "application/json")
+                        self.send_header("Content-Length", str(len(body)))
+                        self.send_header("Cache-Control", "no-store")
+                        self.send_header("Referrer-Policy", "no-referrer")
+                        if self.headers.get("Origin") == "https://app.t3.codes":
+                            self.send_header("Access-Control-Allow-Origin", "https://app.t3.codes")
+                            self.send_header("Vary", "Origin")
+                        self.end_headers(); self.wfile.write(body)
+                        return
+                    except (OSError, ValueError, TypeError):
                         return self.reject(403)
-                    if path.startswith("/api/remote/"):
+                if path.startswith("/api/"):
+                    authorized = remote.authorized(self.headers.get("X-Workbench-Token"))
+                    if not authorized and remote.authorize_extra:
+                        authorized = remote.authorize_extra(self.headers, self.command, self.path)
+                    if not authorized:
+                        return self.reject(403)
+                    if path.startswith(("/api/remote/", "/api/connect/")):
                         return self.reject(403)
                 elif self.command != "GET":
                     return self.reject(403)
