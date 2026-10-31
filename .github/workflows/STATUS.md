@@ -4,3 +4,4 @@ CHECKS PENDING: owned-components.yml — source build and offline artifact reten
 CHECKS PENDING: platform-components.yml — offline native runtime package review.
 CHECKS PENDING: internal-execution.yml — compiled-helper build, process lifecycle tests and recovery-archive review.
 CHECKS PENDING: integration-acceptance.yml — cross-target linker prerequisites and Windows/Linux regression evidence review.
+CHECKS PENDING: offline-acceptance.yml — complete local payload, isolated CI firewall lifecycle, real setup checks and evidence retention; independent source review.
