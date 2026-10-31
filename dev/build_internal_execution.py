@@ -39,10 +39,17 @@ def prepare(source, work):
             text = text.replace('use codex_utils_path_uri::PathUri;\n', '').replace('use codex_utils_path_uri::PathUriParseError;\n', '')
             text = remove_function(text, '    pub fn resolve_path(')
             text = remove_function(text, '#[test]\nfn test_hunk_resolve_path_accepts_relative_and_absolute_paths()')
+            # Keep the retained absolute-path parser regression without importing
+            # a donor-only test extension trait that belongs to the removed API.
+            for fixture in ('absolute-delete.py', 'absolute-update.py'):
+                old = 'dir.path().join("' + fixture + '").abs()'
+                if text.count(old) != 1:
+                    raise RuntimeError('Pinned parser test structure changed')
+                text = text.replace(old, 'std::path::absolute(dir.path().join("' + fixture + '")).unwrap()')
         text = '// Adapted for HA: in-memory patch planning; original Apache-2.0 notices retained.\n' + text
         (runtime / name).write_text(text, encoding='utf-8')
         provenance.append({'path': 'codex-rs/apply-patch/src/' + name, 'upstream_sha256': hashlib.sha256(raw).hexdigest(),
-                           'change': 'Remove filesystem URI resolution and its test; HA scopes paths' if name == 'parser.rs' else 'Notice only'})
+                           'change': 'Remove filesystem URI resolution; retain parser test with std::path::absolute; HA scopes paths' if name == 'parser.rs' else 'Notice only'})
     raw = (patch / 'file_update.rs').read_text()
     calculation = raw[raw.index('fn compute_replacements('):raw.index('/// Intended result of a file update')]
     calculation = calculation.replace('fn compute_replacements(', 'pub(crate) fn compute_replacements(', 1)
