@@ -1,0 +1,28 @@
+name: Preserve integration source
+on:
+  push:
+    paths:
+      - '.github/workflows/source-snapshot.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Archive only committed source
+        run: |
+          git archive --format=zip --prefix=Hivemind_Assembly/ HEAD > "$RUNNER_TEMP/HA-source-${GITHUB_SHA}.zip"
+          sha256sum "$RUNNER_TEMP/HA-source-${GITHUB_SHA}.zip" > "$RUNNER_TEMP/HA-source-SHA256.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/HA-source-commit.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HA-integration-source-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/HA-source-*.zip
+            ${{ runner.temp }}/HA-source-SHA256.txt
+            ${{ runner.temp }}/HA-source-commit.txt
+          retention-days: 14
+          if-no-files-found: error
