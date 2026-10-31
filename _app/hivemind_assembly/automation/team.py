@@ -597,11 +597,21 @@ class NativeTeam:
                 self.rebase_reconciled_flow(task, result)
         # Execution already authorized by a retained brief does not consume a
         # model allowance. Drain it before choosing or promoting a reasoning route.
-        if self.host is None:  # Built-in storage; legacy external path is not required.
+        # A validated intent is retained evidence, not new execution. Consume it
+        # without creating a fresh scheduler claim or checking model allowance.
+        # The next execution phase still goes through normal dependency ownership.
+        retained_flow = self.flow(task_id)
+        retained_key = "msg_" + digest({"task": task_id, "flow": retained_flow["seq"],
+                                      "phase": "intent", "route": task["owner"]})[:32]
+        retained_intent = retained_flow["phase"] == "intent" and bool(self.store.rows(
+            "SELECT id FROM messages WHERE id=? AND task_id=? AND state='validated'",
+            (retained_key, task_id),
+        ))
+        if self.host is None and not retained_intent:
             self.host = HermesHost(
                 self.config["foundations"].get("hermes_home"), self.store.root
             )
-        if hasattr(self.host, "board"):
+        if not retained_intent and hasattr(self.host, "board"):
             retained_plan = self.store.rows(
                 "SELECT payload FROM records WHERE kind='hermes_plan' AND id=?",
                 (task_id,),

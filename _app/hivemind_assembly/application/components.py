@@ -318,10 +318,10 @@ class Components:
 
     def effective_foundations(self, original):
         result = dict(original)
-        mapping = {'analysis': 'rea_home', 'node': 'node_executable', 'jdk': 'java_home', 'ghidra': 'ghidra_home'}
+        mapping = {'analysis': 'rea_home', 'node': 'node_executable', 'jdk': 'java_home', 'ghidra': 'ghidra_home', 'compiler': 'c_compiler'}
         for name, setting in mapping.items():
             if name not in self.active or name not in self.entries:
                 continue
             component = self.resolve(name)
-            result[setting] = str(component.entrypoint if name == 'node' else component.home)
+            result[setting] = str(component.entrypoint if name in ('node', 'compiler') else component.home)
         return result

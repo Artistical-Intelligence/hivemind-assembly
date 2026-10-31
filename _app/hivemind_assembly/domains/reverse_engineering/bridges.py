@@ -13,9 +13,10 @@ from hivemind_assembly.core.common import (
 
 
 class GhidraBridge:
-    def __init__(self, home, jobs):
+    def __init__(self, home, jobs, java_home=None):
         self.home = Path(home).resolve() if home else None
         self.jobs = jobs
+        self.java_home = str(Path(java_home).resolve()) if java_home else None
 
     def run(self, root, program, request, binary=None, cancel=None):
         if not self.home:
@@ -51,7 +52,8 @@ class GhidraBridge:
             args += ["-import", str(Path(binary).resolve())]
         else:
             args += ["-process", program, "-noanalysis"]
-        job = self.jobs.run(key, args, root, timeout=600, cancel=cancel)
+        options = {"environment": {"JAVA_HOME": self.java_home}} if self.java_home else {}
+        job = self.jobs.run(key, args, root, timeout=600, cancel=cancel, **options)
         if job["exit_code"] != 0 or not out.exists():
             raise Blocked(
                 "Ghidra did not produce a durable result: " + job["output"][-3000:]
@@ -76,9 +78,11 @@ class GhidraBridge:
 
 
 class ReaBridge:
-    def __init__(self, root, jobs, ghidra_home=None):
+    def __init__(self, root, jobs, ghidra_home=None, node_executable=None, java_home=None):
         self.root = Path(root).resolve() if root else None
         self.ghidra_home = str(Path(ghidra_home).resolve()) if ghidra_home else None
+        self.node_executable = str(Path(node_executable).resolve()) if node_executable else None
+        self.java_home = str(Path(java_home).resolve()) if java_home else None
         self.jobs = jobs
 
     def query(self, target, cwd, args, cancel=None):
@@ -191,8 +195,8 @@ class ReaBridge:
             entry = self.root / "scripts" / "rea.mjs"
         if not entry.exists():
             raise Blocked("Complete REA package not found")
-        node = shutil.which("node")
-        if not node:
+        node = self.node_executable or shutil.which("node")
+        if not node or not Path(node).is_file():
             raise Blocked("Node.js is required by REA")
         argv = [node, str(entry), command, str(target), *args, "--json"]
         options = (
@@ -200,6 +204,8 @@ class ReaBridge:
             if self.ghidra_home
             else {}
         )
+        if self.java_home:
+            options.setdefault("environment", {})["JAVA_HOME"] = self.java_home
         job = self.jobs.run(
             uid("rea"), argv, cwd, timeout=600, cancel=cancel, **options
         )

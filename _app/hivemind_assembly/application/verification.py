@@ -60,7 +60,7 @@ def verify_project_plan(root, foundations, jobs):
     target = project_targets.target("utility", jobs, foundations.get("c_compiler", ""))
     binary = root / "utility"
     binary.write_bytes(target["original"])
-    bridge = GhidraBridge(foundations.get("ghidra_home"), jobs)
+    bridge = GhidraBridge(foundations.get("ghidra_home"), jobs, foundations.get("java_home"))
     project = root / "ghidra"
     bridge.run(project, binary.name, {"action": "inventory", "operation_id": "import"}, binary)
     pages, offset = [], 0
@@ -140,7 +140,7 @@ def verify_foundations(root, foundations, jobs=None):
     save()
     if binary is not None and binary.is_file():
         try:
-            bridge = GhidraBridge(foundations.get("ghidra_home"), jobs)
+            bridge = GhidraBridge(foundations.get("ghidra_home"), jobs, foundations.get("java_home"))
             project = root / "ghidra"
             inventory = bridge.run(
                 project,
@@ -217,7 +217,8 @@ def verify_foundations(root, foundations, jobs=None):
         save()
         try:
             evidence = ReaBridge(
-                foundations.get("rea_home"), jobs, foundations.get("ghidra_home")
+                foundations.get("rea_home"), jobs, foundations.get("ghidra_home"),
+                foundations.get("node_executable"), foundations.get("java_home"),
             ).run("analyze", binary, root, ("--provider", "ghidra"))
             if not evidence.get("evidence"):
                 raise Blocked("REA returned no evidence")

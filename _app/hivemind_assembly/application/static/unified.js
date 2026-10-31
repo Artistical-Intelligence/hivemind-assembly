@@ -13,19 +13,19 @@
       <p>Use an existing HA browser profile. Credential and verification fields are completed directly in the website.</p>
       <label>Browser profile <select id="ha-auto-profile"></select></label>
       <label>Website <input id="ha-auto-url" type="url" placeholder="https://example.com/settings" autocomplete="off"></label>
-      <div class="row"><button id="ha-auto-open">Open setup page</button><button id="ha-auto-read">Read current page</button><button id="ha-auto-close">Close this page</button></div>
+      <div class="row"><button id="ha-auto-open" title="Open the selected setup website in the exact HA browser profile.">Open setup page</button><button id="ha-auto-read" title="Inspect the current page and refresh its available controls without submitting a form.">Read current page</button><button id="ha-auto-close" title="Close only this HA-owned automation page.">Close this page</button></div>
       <label>Field or button <select id="ha-auto-ref"><option value="">Read the page first</option></select></label>
       <label>Non-secret setup value <input id="ha-auto-value" autocomplete="off" maxlength="4000"></label>
-      <div class="row"><button id="ha-auto-fill">Fill selected field</button><button id="ha-auto-click">Click selected button</button></div>
+      <div class="row"><button id="ha-auto-fill" title="Fill the selected non-secret field; credentials stay in the website.">Fill selected field</button><button id="ha-auto-click" title="Click the selected control once. HA will not blindly repeat an uncertain action.">Click selected button</button></div>
       <p id="ha-auto-state" role="status">No automation page is open.</p><pre id="ha-auto-result" style="white-space:pre-wrap;max-height:22rem;overflow:auto"></pre>
     </details>
     <details><summary>Remote control</summary>
       <p>Control this HA installation from your phone or another computer through your private Tailscale network. No browser-debugging port is shared.</p>
       <p id="ha-remote-state" role="status"></p>
-      <div class="row"><button id="ha-remote-check">Check private connection</button><button id="ha-remote-enable">Enable remote access</button><button id="ha-remote-disable">Disable remote access</button></div>
+      <div class="row"><button id="ha-remote-check" title="Check the private network identity and HA mapping without changing another application.">Check private connection</button><button id="ha-remote-enable" title="Share only the authenticated HA dashboard within your private Tailscale network.">Enable remote access</button><button id="ha-remote-disable" title="Revoke paired devices and remove only the mapping owned by HA.">Disable remote access</button></div>
       <label>Device name <input id="ha-device-name" value="My phone" maxlength="80" autocomplete="off"></label>
-      <button id="ha-remote-pair">Pair device</button>
-      <div id="ha-pair-result" hidden><p>Open this private link on the named device. It grants control of HA and expires in 30 days. It is not saved in HA's logs.</p><input id="ha-pair-url" readonly aria-label="Private device link"><button id="ha-pair-copy">Copy private link</button></div>
+      <button id="ha-remote-pair" title="Create an expiring link for the named device on your private network.">Pair device</button>
+      <div id="ha-pair-result" hidden><p>Open this private link on the named device. It grants control of HA and expires in 30 days. It is not saved in HA's logs.</p><input id="ha-pair-url" readonly aria-label="Private device link"><button id="ha-pair-copy" title="Copy this short-lived display of the private device link; do not share it publicly.">Copy private link</button></div>
       <div id="ha-devices"></div>
       <p class="muted">Hosted access through T3 Connect remains under integration; the private route does not replace that requested feature.</p>
     </details>
@@ -94,7 +94,7 @@
     }
     const label={unchecked:'Not checked this session',available:'Private network is available',configured:'Configured — verify by opening HA on your remote device',disabled:'Disabled',needs_sign_in:'Private network sign-in required',needs_attention:'Connection needs attention',account_changed:'Network account changed; automatic switching was blocked',configuring:'Configuring private access'}[remote.state] || 'Not configured';
     q('ha-remote-state').textContent=label+(remote.origin ? ' · '+remote.origin : '');
-    q('ha-devices').innerHTML=(remote.devices||[]).map(d=>`<p>${safe(d.label)} · expires ${safe(new Date(d.expires*1000).toLocaleDateString())} <button data-revoke="${safe(d.id)}">Revoke</button></p>`).join('');
+    q('ha-devices').innerHTML=(remote.devices||[]).map(d=>`<p>${safe(d.label)} · expires ${safe(new Date(d.expires*1000).toLocaleDateString())} <button data-revoke="${safe(d.id)}" title="Revoke this device without changing other paired devices.">Revoke</button></p>`).join('');
     q('ha-remote-pair').disabled=remote.state!=='configured';
   };
 })();

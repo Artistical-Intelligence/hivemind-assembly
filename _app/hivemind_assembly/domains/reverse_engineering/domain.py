@@ -89,7 +89,8 @@ class ReverseEngineeringDomain:
             "propose_annotation",
         }:
             bridge = GhidraBridge(
-                context.config["foundations"].get("ghidra_home"), context.jobs
+                context.config["foundations"].get("ghidra_home"), context.jobs,
+                context.config["foundations"].get("java_home"),
             )
             action = {
                 "inspect_program": "inventory",
@@ -132,6 +133,8 @@ class ReverseEngineeringDomain:
                 context.config["foundations"].get("rea_home"),
                 context.jobs,
                 context.config["foundations"].get("ghidra_home"),
+                context.config["foundations"].get("node_executable"),
+                context.config["foundations"].get("java_home"),
             )
             if tool == "rea_query":
                 return bridge.query(
@@ -305,7 +308,8 @@ class ReverseEngineeringDomain:
             raise ContractError("Not a reconcilable reverse engineering mutation")
         args = json.loads(operation["args"])
         bridge = GhidraBridge(
-            context.config["foundations"].get("ghidra_home"), context.jobs
+            context.config["foundations"].get("ghidra_home"), context.jobs,
+            context.config["foundations"].get("java_home"),
         )
         observed = bridge.run(
             context.workspace.parent / "ghidra",

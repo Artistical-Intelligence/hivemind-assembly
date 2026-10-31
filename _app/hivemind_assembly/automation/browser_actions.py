@@ -36,17 +36,38 @@ class BrowserActions:
         self.browser = browser
         self.path = Path(root) / 'private' / 'automation-receipts.json'
         self.sessions = {}
-        self.receipts = json.loads(self.path.read_text()) if self.path.exists() else {}
+        self.receipts = {}
+        self.receipts_error = False
+        if self.path.exists():
+            try:
+                if self.path.is_symlink() or self.path.stat().st_size > 8 * 1024 * 1024:
+                    raise ValueError("Invalid receipt file")
+                saved = json.loads(self.path.read_text(encoding='utf-8'))
+                if not isinstance(saved, dict) or len(saved) > 1500:
+                    raise ValueError("Invalid receipt inventory")
+                for key, item in saved.items():
+                    if (not re.fullmatch(r'[a-zA-Z0-9_-]{8,100}', key)
+                            or not isinstance(item, dict)
+                            or not re.fullmatch(r'[a-f0-9]{64}', item.get('hash', ''))
+                            or item.get('state') not in ('dispatching', 'uncertain', 'completed')
+                            or item['state'] == 'completed' and not isinstance(item.get('result'), dict)):
+                        raise ValueError("Invalid retained operation")
+                self.receipts = saved
+            except (OSError, ValueError, TypeError, KeyError):
+                self.receipts_error = True
         self.lock = asyncio.Lock()
         self.scripts = json.loads(ENGINE.read_text(encoding='utf-8'))
 
     def status(self):
-        return {'available': True, 'engine': 'built_in',
+        return {'available': not self.receipts_error, 'engine': 'built_in',
+                'state': 'receipts_need_recovery' if self.receipts_error else 'ready',
                 'sessions': [{'id': key, 'profile': value['profile'], 'origin': value['origin'],
                               'open': not value['page'].is_closed()}
                              for key, value in list(self.sessions.items())]}
 
     def save(self):
+        if self.receipts_error:
+            raise Blocked('Browser automation receipts need recovery; their original file was preserved.')
         self.path.parent.mkdir(parents=True, exist_ok=True)
         completed = [key for key, receipt in self.receipts.items() if receipt['state'] == 'completed']
         for key in completed[:-200]:
@@ -63,6 +84,10 @@ class BrowserActions:
             raise ContractError('Choose a configured HA browser profile; no fallback profile is used')
 
     async def run(self, data):
+        if self.receipts_error:
+            raise Blocked('Browser automation receipts need recovery. Other HA capabilities remain available; no uncertain action was repeated.')
+        if not isinstance(data, dict):
+            raise ContractError('A browser command must be an object')
         action = data.get('action')
         if action not in {'open', 'read', 'fill', 'click', 'close'}:
             raise ContractError('Unsupported HA browser action')
