@@ -1,0 +1,161 @@
+name: HA offline installation acceptance
+on:
+  push:
+    paths:
+      - '.github/workflows/offline-acceptance.yml'
+      - 'dev/offline_acceptance_request.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ha-offline-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  shared-inputs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.15.0'
+      - name: Prepare the required source build tools
+        run: sudo apt-get update && sudo apt-get install -y g++-mingw-w64-x86-64
+      - name: Build the source-matched native analysis helper
+        run: python dev/build_owned_analysis.py "$RUNNER_TEMP/ha-offline-inputs/native" --native-only
+      - name: Build the retained remote protocol implementation
+        run: python dev/build_connect_component.py "$RUNNER_TEMP/ha-offline-inputs/connect"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HA-offline-shared-${{ github.sha }}
+          path: ${{ runner.temp }}/ha-offline-inputs/
+          retention-days: 14
+          if-no-files-found: error
+          compression-level: 0
+  windows-installation:
+    needs: shared-inputs
+    runs-on: windows-latest
+    timeout-minutes: 80
+    env:
+      DO_NOT_TRACK: '1'
+      TURBO_TELEMETRY_DISABLED: '1'
+      HA_SKIP_HELPER_REGISTRATION: '1'
+      HA_MEANING_SEARCH: '0'
+      PYTHONNOUSERSITE: '1'
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+      RUSTUP_TOOLCHAIN: '1.95.0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.10'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.15.0'
+      - uses: actions/download-artifact@v4
+        with:
+          name: HA-offline-shared-${{ github.sha }}
+          path: ${{ runner.temp }}/ha-offline-inputs
+      - name: Prepare exact build dependencies
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Rust toolchain unavailable' }
+          python -m pip --isolated install --only-binary=:all: --require-hashes --no-deps --find-links _app/bootstrap/wheels -r _app/requirements-windows.lock
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Python build environment failed' }
+      - name: Build local execution and analysis implementations
+        run: |
+          python dev/build_internal_execution.py "$env:RUNNER_TEMP/ha-offline-components/execution"
+          if ($LASTEXITCODE -ne 0) { throw 'Execution component failed' }
+          python dev/build_owned_analysis.py "$env:RUNNER_TEMP/ha-offline-components/analysis" --native-input "$env:RUNNER_TEMP/ha-offline-inputs/native"
+          if ($LASTEXITCODE -ne 0) { throw 'Analysis component failed' }
+      - name: Preserve original native runtimes
+        run: |
+          python dev/build_platform_components.py "$env:RUNNER_TEMP/ha-offline-components/platform" --ghidra
+          if ($LASTEXITCODE -ne 0) { throw 'Native runtime packaging failed' }
+      - name: Preserve first-launch wheels, browser and local search files
+        run: |
+          python dev/prepare_offline_assets.py "$env:RUNNER_TEMP/ha-offline-assets"
+          if ($LASTEXITCODE -ne 0) { throw 'Offline first-launch assets failed' }
+          python -c "import sys; sys.path.insert(0,'dev'); from build_release import bootstrap; bootstrap()"
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Python bootstrap failed' }
+      - name: Assemble and authenticate the complete local payload
+        run: |
+          python dev/assemble_offline.py --components "$env:RUNNER_TEMP/ha-offline-components" --components "$env:RUNNER_TEMP/ha-offline-inputs/connect" --wheels "$env:RUNNER_TEMP/ha-offline-assets/wheels" --browser "$env:RUNNER_TEMP/ha-offline-assets/browser" --model "$env:RUNNER_TEMP/ha-offline-assets/model"
+          if ($LASTEXITCODE -ne 0) { throw 'Offline assembly failed' }
+      - name: Test fresh setup with outbound access blocked for packaged programs
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_ACTIONS -ne 'true') { throw 'CI-only network test' }
+          $root = Join-Path $env:RUNNER_TEMP 'ha-offline-state'
+          $evidence = Join-Path $env:RUNNER_TEMP 'ha-offline-evidence'
+          if (Test-Path $root) { throw 'The acceptance state directory must be fresh' }
+          New-Item -ItemType Directory -Force $evidence | Out-Null
+          $programsJson = python dev/verify_offline_install.py --app-root _app --data-root $root --programs
+          if ($LASTEXITCODE -ne 0) { throw 'Offline target inventory failed' }
+          $programs = $programsJson | ConvertFrom-Json
+          $group = 'HA-offline-acceptance-' + $env:GITHUB_RUN_ID
+          $rules = @()
+          $external = @('0.0.0.0-126.255.255.255', '128.0.0.0-255.255.255.255', '::2-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
+          try {
+            foreach ($program in $programs) {
+              $name = $group + '-' + $rules.Count
+              New-NetFirewallRule -Name $name -DisplayName $name -Group $group -Direction Outbound -Action Block -Program $program -RemoteAddress $external -Profile Any -ErrorAction Stop | Out-Null
+              $rules += $name
+            }
+            $programsJson | Set-Content -Encoding utf8 (Join-Path $evidence 'blocked-programs.json')
+            $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $PWD '_app/browsers'
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File _app/Start.ps1 -DataRoot $root -PrepareOnly
+            if ($LASTEXITCODE -ne 0) { throw 'Fresh local-only bootstrap failed' }
+            $python = Join-Path $root 'runtime-python312/python.exe'
+            & $python dev/verify_offline_install.py --app-root _app --data-root $root --report (Join-Path $evidence 'offline-acceptance.json')
+            if ($LASTEXITCODE -ne 0) { throw 'Real offline application acceptance failed' }
+          } finally {
+            foreach ($name in $rules) { Remove-NetFirewallRule -Name $name -ErrorAction Continue }
+          }
+      - name: Retain the exact tested offline input, not an approved release
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, zipfile
+          from pathlib import Path
+          out = Path(os.environ['RUNNER_TEMP']) / 'ha-offline-evidence'
+          out.mkdir(exist_ok=True)
+          archive = out / 'HA-offline-acceptance-input.zip'
+          with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED, compresslevel=1, strict_timestamps=False) as z:
+              for root in (Path('_app'), Path('Start_Hivemind_Assembly.cmd'), Path('README.md')):
+                  paths = root.rglob('*') if root.is_dir() else [root]
+                  for p in paths:
+                      if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc':
+                          z.write(p, 'Hivemind_Assembly/' + p.as_posix())
+              z.writestr('Hivemind_Assembly/ACCEPTANCE_ONLY.txt', 'CI validation input. Independent review and hosted-account acceptance remain required. Not a production release.\n')
+          with archive.open('rb') as f:
+              h = hashlib.file_digest(f, 'sha256').hexdigest()
+          (out / 'tested-source.json').write_text(json.dumps({'commit':os.environ['GITHUB_SHA'],'archive_sha256':h,'production_release':False},indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HA-offline-Windows-acceptance-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/ha-offline-evidence/
+            _app/offline-manifest.json
+            ${{ runner.temp }}/ha-offline-assets/asset-provenance.json
+          retention-days: 14
+          if-no-files-found: warn
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HA-offline-component-inputs-${{ github.sha }}
+          path: ${{ runner.temp }}/ha-offline-components/
+          retention-days: 14
+          if-no-files-found: warn
+          compression-level: 0
