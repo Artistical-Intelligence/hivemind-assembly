@@ -130,6 +130,7 @@ class OnnxEmbedder:
         import numpy
         import onnxruntime
 
+        onnxruntime.disable_telemetry_events()
         self.np = numpy
         options = onnxruntime.SessionOptions()
         # Half the processor at most, so Ghidra, builds and the dashboard stay responsive.

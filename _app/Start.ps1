@@ -5,6 +5,8 @@ param(
     [switch]$PrepareOnly
 )
 $ErrorActionPreference = 'Stop'
+# Opt out before any bundled Python process can initialize ONNX Runtime.
+$env:ORT_DISABLE_TELEMETRY = '1'
 $AppRoot = $PSScriptRoot
 if (-not $DataRoot) { $DataRoot = Join-Path $env:LOCALAPPDATA 'UnifiedWorkbench' }
 $DataRoot = [System.IO.Path]::GetFullPath($DataRoot)

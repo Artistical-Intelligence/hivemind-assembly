@@ -39,6 +39,8 @@ class Jobs:
                 "APPDATA",
             )
         }
+        # Never let owned native helpers initialize an upstream telemetry client.
+        env["ORT_DISABLE_TELEMETRY"] = "1"
         if environment:
             if set(environment) - {"GHIDRA_INSTALL_DIR", "JAVA_HOME"}:
                 raise ContractError("Unrecognized native tool environment setting")
