@@ -44,7 +44,7 @@ def relative_path(value: str) -> str:
     if not isinstance(value, str) or not value or len(value) > 1500 or any(c in value for c in ('\\', ':', '\x00')):
         raise ContractError('Invalid component path')
     path = PurePosixPath(value)
-    if path.is_absolute() or str(path) != value or any(
+    if not path.parts or path.is_absolute() or str(path) != value or any(
         p in ('', '.', '..') or p.endswith((' ', '.')) or RESERVED.fullmatch(p)
         for p in path.parts
     ):
@@ -53,7 +53,8 @@ def relative_path(value: str) -> str:
 
 
 def _read_json(path: Path, limit: int = 16 * 1024 * 1024):
-    if path.is_symlink() or path.stat().st_size > limit:
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_size > limit:
         raise ContractError('Component metadata is not a bounded regular file')
     def unique(items):
         result = {}
@@ -64,6 +65,17 @@ def _read_json(path: Path, limit: int = 16 * 1024 * 1024):
         return result
     return json.loads(path.read_text(encoding='utf-8'), object_pairs_hook=unique,
                       parse_constant=lambda _: (_ for _ in ()).throw(ContractError('Invalid metadata number')))
+
+
+def _active_state(state):
+    if not isinstance(state, dict) or state.get('schema') != 1 or not isinstance(state.get('active'), dict):
+        raise ContractError('Unsupported component state')
+    for name, value in state['active'].items():
+        if (not isinstance(name, str) or not NAME.fullmatch(name) or not isinstance(value, dict)
+                or not isinstance(value.get('sha256'), str) or not SHA.fullmatch(value['sha256'])
+                or not isinstance(value.get('version'), str) or not value['version']):
+            raise ContractError('Invalid active component')
+    return state['active']
 
 
 @dataclass(frozen=True)
@@ -94,6 +106,8 @@ class Components:
             if not isinstance(data, dict) or data.get('schema') != 1 or not isinstance(data.get('components'), list):
                 raise ContractError('Unsupported component catalogue')
             for entry in data['components']:
+                if not isinstance(entry, dict) or not isinstance(entry.get('version'), str) or not entry['version']:
+                    raise ContractError('Invalid component catalogue entry')
                 name = entry['component']
                 if not isinstance(name, str) or not NAME.fullmatch(name) or not SHA.fullmatch(entry['sha256']):
                     raise ContractError('Invalid component catalogue entry')
@@ -109,12 +123,7 @@ class Components:
             self.entries = {}
         try:
             state = _read_json(self.path) if self.path.exists() else {'schema': 1, 'active': {}}
-            if not isinstance(state, dict) or state.get('schema') != 1 or not isinstance(state.get('active'), dict):
-                raise ContractError('Unsupported component state')
-            for name, value in state['active'].items():
-                if not NAME.fullmatch(name) or not isinstance(value, dict) or not SHA.fullmatch(value['sha256']):
-                    raise ContractError('Invalid active component')
-            self.active = state['active']
+            self.active = _active_state(state)
         except (OSError, ValueError, KeyError, TypeError):
             self.state_error = 'HA component state needs repair. The original state and stored versions were preserved.'
             self.active = {}
@@ -122,8 +131,9 @@ class Components:
     def _require_healthy(self):
         if self.catalogue_error or self.state_error:
             raise Blocked(self.catalogue_error or self.state_error)
-        if self.root.is_symlink():
-            raise Blocked('HA component storage must not be a symbolic link')
+        for path in (self.root, self.root / 'objects', self.root / 'archives', self.root / 'preserved'):
+            if path.is_symlink() or (path.exists() and not path.is_dir()):
+                raise Blocked('HA component storage must not be redirected or a symbolic link')
 
     def snapshot(self):
         """Passive status: no processes, downloads, repairs or repeated hashing."""
@@ -216,14 +226,12 @@ class Components:
                 # cannot be lost by an older Components instance.
                 if self.path.exists():
                     state = _read_json(self.path)
-                    if not isinstance(state, dict) or state.get('schema') != 1 or not isinstance(state.get('active'), dict):
-                        raise Blocked('Preserved component state requires repair')
-                    self.active = state['active']
+                    self.active = _active_state(state)
                 completed = []
                 for name in selected:
                     entry = self.entries[name]
                     target = self.root / 'objects' / entry['sha256']
-                    if target.exists():
+                    if target.exists() or target.is_symlink():
                         try:
                             self._verify(target, name, entry)
                         except (OSError, ValueError, KeyError, zipfile.BadZipFile):
