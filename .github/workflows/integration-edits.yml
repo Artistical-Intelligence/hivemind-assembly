@@ -1,0 +1,57 @@
+name: Apply exact HA integration edits
+on:
+  push:
+    paths:
+      - 'dev/integration_edits.json'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: ha-integration-writer
+  cancel-in-progress: false
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate exact file hashes and apply retained edits
+        run: |
+          python dev/apply_integration_edits.py dev/integration_edits.json --receipt "$RUNNER_TEMP/HA-integration-receipt.json"
+      - name: Save only the exact requested files without forcing the branch
+        env:
+          RECEIPT: ${{ runner.temp }}/HA-integration-receipt.json
+        run: |
+          python - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          receipt = json.loads(Path(os.environ['RECEIPT']).read_text())
+          if receipt['files']:
+              subprocess.run(['git', 'config', 'user.name', 'github-actions[bot]'], check=True)
+              subprocess.run(['git', 'config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'], check=True)
+              subprocess.run(['git', 'add', '--', *receipt['files']], check=True)
+              subprocess.run(['git', 'commit', '-m', 'Apply exact HA integration: ' + receipt['id'] + ' [skip ci]'], check=True)
+              subprocess.run(['git', 'push', 'origin', 'HEAD:main'], check=True)
+          receipt['published_commit'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          Path(os.environ['RECEIPT']).write_text(json.dumps(receipt, indent=2) + '\n')
+          PY
+      - name: Preserve the published source and receipt
+        run: |
+          git archive --format=zip --prefix=Hivemind_Assembly/ HEAD > "$RUNNER_TEMP/HA-published-source.zip"
+          sha256sum "$RUNNER_TEMP/HA-published-source.zip" > "$RUNNER_TEMP/HA-published-source.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HA-published-integration-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/HA-integration-receipt.json
+            ${{ runner.temp }}/HA-published-source.zip
+            ${{ runner.temp }}/HA-published-source.sha256
+          retention-days: 14
+          if-no-files-found: error
