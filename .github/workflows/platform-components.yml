@@ -1,0 +1,41 @@
+name: Package HA native runtimes
+on:
+  push:
+    paths:
+      - '.github/workflows/platform-components.yml'
+      - 'dev/build_platform_components.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  platform:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.15.0'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+      - name: Package required native capabilities
+        shell: bash
+        run: |
+          python dev/build_platform_components.py "$RUNNER_TEMP/ha-platform" --ghidra
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HA-native-${{ runner.os }}-${{ github.sha }}
+          path: ${{ runner.temp }}/ha-platform/
+          retention-days: 14
+          if-no-files-found: error
