@@ -1,0 +1,32 @@
+name: Build HA remote protocol
+on:
+  push:
+    paths:
+      - '.github/workflows/connect-component.yml'
+      - 'dev/build_connect_component.py'
+      - 'dev/connect_component_main.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  connect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.15.0'
+      - name: Compile selected T3 code and reject invalid signed proofs
+        run: python dev/build_connect_component.py "$RUNNER_TEMP/ha-connect"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HA-connect-protocol-${{ github.sha }}
+          path: ${{ runner.temp }}/ha-connect/
+          retention-days: 14
+          if-no-files-found: error

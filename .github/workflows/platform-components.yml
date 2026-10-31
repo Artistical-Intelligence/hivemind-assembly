@@ -25,6 +25,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24.15.0'
+      # Both archive members and destination roots are canonicalized before extraction.
       - name: Package required native capabilities from original distributions
         shell: bash
         run: |
