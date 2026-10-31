@@ -90,6 +90,7 @@ base64 = "0.22"
 tokio = { version="1", features=["io-util","io-std","macros","rt-multi-thread","sync","time"] }
 [dev-dependencies]
 pretty_assertions = "1.4.1"
+tempfile = "3"
 ''')
     shutil.copy2(ROOT / 'dev/internal_execution_main.rs', runtime / 'main.rs')
     shutil.copy2(source / 'LICENSE', work / 'LICENSE')
