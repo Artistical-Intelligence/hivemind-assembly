@@ -1,5 +1,5 @@
 from __future__ import annotations
-import os, signal, subprocess, threading, time
+import math, os, re, signal, subprocess, threading, time
 from pathlib import Path
 from hivemind_assembly.core.common import ContractError
 
@@ -7,13 +7,20 @@ from hivemind_assembly.core.common import ContractError
 class Jobs:
     """Managed child processes; no shell strings and no ambient model credentials."""
 
-    def __init__(self):
+    def __init__(self, runtime=None):
         self.running = {}
         self.lock = threading.Lock()
+        self.runtime = runtime
+        self.reservations = {}
 
     def run(self, key, argv, cwd, timeout=300, cancel=None, environment=None):
-        if not argv or not all(isinstance(x, str) for x in argv):
-            raise ContractError("Expected an argv array")
+        if (not isinstance(key, str) or re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", key) is None
+                or not isinstance(argv, (list, tuple)) or not argv or len(argv) > 200
+                or not all(isinstance(x, str) and "\x00" not in x and len(x) <= 65536 for x in argv)
+                or not argv[0]):
+            raise ContractError("Expected a bounded argv array and operation identifier")
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or not 0 < timeout <= 3600:
+            raise ContractError("Execution timeout must be between zero and one hour")
         env = {
             k: v
             for k, v in os.environ.items()
@@ -38,6 +45,32 @@ class Jobs:
             if any(not isinstance(v, str) for v in environment.values()):
                 raise ContractError("Native tool environment values must be paths")
             env.update(environment)
+        owned_stop = threading.Event()
+        with self.lock:
+            if key in self.reservations:
+                raise ContractError("This process operation is already running")
+            self.reservations[key] = owned_stop
+
+        class Cancellation:
+            def is_set(self):
+                return owned_stop.is_set() or (cancel is not None and cancel.is_set())
+
+        cancelled = Cancellation()
+        try:
+            if cancelled.is_set():
+                return {"status": "cancelled", "exit_code": -1, "elapsed": 0.0,
+                        "output": "", "output_truncated": False}
+            # The application supplies an authenticated component resolver. A
+            # configured helper's failure never falls back or repeats the command.
+            engine = self.runtime() if self.runtime is not None else None
+            if engine is not None:
+                return engine.run(key, argv, cwd, timeout, cancelled, env)
+            return self._run_native(key, argv, cwd, timeout, cancelled, env)
+        finally:
+            with self.lock:
+                self.reservations.pop(key, None)
+
+    def _run_native(self, key, argv, cwd, timeout, cancel, env):
         flags = (
             {"start_new_session": True}
             if os.name != "nt"
@@ -90,7 +123,10 @@ class Jobs:
 
     def stop(self, key):
         with self.lock:
+            owned_stop = self.reservations.get(key)
             proc = self.running.get(key)
+        if owned_stop is not None:
+            owned_stop.set()
         if proc and proc.poll() is None:
             if os.name == "nt":
                 subprocess.run(
