@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "id": "strict-csp-unified-dashboard-and-owned-editing",
+  "reason": "Previous offline run passed local foundation execution, search and restart. Recheck after replacing the CSP-incompatible browser wait and integrating one HA setup surface and guarded patch editing.",
+  "previous_run": 41236671264,
+  "native_components_run": 41234152198,
+  "hosted_acceptance_claimed": false,
+  "release_approved": false
+}
