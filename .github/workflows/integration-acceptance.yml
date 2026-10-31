@@ -1,0 +1,73 @@
+name: HA integration acceptance
+on:
+  push:
+    paths:
+      - '.github/workflows/integration-acceptance.yml'
+      - 'dev/integration_acceptance_request.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ha-integration-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  regression:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install the existing HA test dependencies
+        run: python -m pip install -r _app/requirements.txt pytest
+        env:
+          PIP_DISABLE_PIP_VERSION_CHECK: '1'
+      - name: Run the application regression tier
+        run: python -m pytest tests -m "not slow" -q --junitxml=integration-results.xml
+        env:
+          HA_SKIP_HELPER_REGISTRATION: '1'
+          HA_MEANING_SEARCH: '0'
+      - name: Retain exact source and regression evidence
+        if: always()
+        shell: bash
+        run: |
+          git rev-parse HEAD > tested-commit.txt
+          git archive --format=zip --prefix=Hivemind_Assembly/ HEAD > HA-tested-source.zip
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HA-integration-regression-${{ runner.os }}-${{ github.sha }}
+          path: |
+            integration-results.xml
+            tested-commit.txt
+            HA-tested-source.zip
+          retention-days: 14
+  local-test-dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Preserve binary packages for the isolated Linux verification environment
+        run: |
+          python -m pip download --only-binary=:all: --find-links _app/bootstrap/wheels -r _app/requirements.txt pytest --dest test-wheels
+          python -c "from pathlib import Path; import hashlib,json; p=Path('test-wheels'); (p/'SHA256.json').write_text(json.dumps({f.name:hashlib.sha256(f.read_bytes()).hexdigest() for f in sorted(p.iterdir()) if f.is_file()},indent=2)+'\n')"
+        env:
+          PIP_DISABLE_PIP_VERSION_CHECK: '1'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HA-test-wheels-linux313-${{ github.sha }}
+          path: test-wheels/
+          retention-days: 3
+          if-no-files-found: error
