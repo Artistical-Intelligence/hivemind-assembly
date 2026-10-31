@@ -8,3 +8,4 @@ CHECKS PENDING: build_internal_execution.py — copied patch/process implementat
 CHECKS PENDING: internal_execution_main.rs — bounded execution/patch protocol and cancellation review.
 CHECKS PENDING: build_connect_component.py — selected T3 source, dependency, signing and notice review.
 CHECKS PENDING: connect_component_main.ts — signature, scope, identity and proof-key verification review.
+CHECKS PENDING: assemble_offline.py — strict local component/wheel/browser/model assembly; fresh-machine acceptance and independent review.
