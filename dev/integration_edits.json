@@ -1,30 +1,15 @@
 {
   "schema": 1,
-  "id": "owned-execution-application-binding",
+  "id": "execution-rebuild-archive-timestamps",
   "edits": [
     {
-      "path": "_app/hivemind_assembly/application/capabilities.py",
-      "before_sha256": "2acd462233aebdfc700931ab8cf5ad3b85c0efa638ed5f1f2f5f8e6a41a38729",
-      "after_sha256": "785f86740039d1cf26776cbd5c5a604e0b006333f2099ea51d0a151dd88e6e16",
+      "path": "dev/build_internal_execution.py",
+      "before_sha256": "d7a382a6a7d5cf6fc61d4e1b7b1afbba6ed6fe6626601c2c1aa1a4df763947ca",
+      "after_sha256": "d916f6228d01240fcbb973556a2a11c3d5227e3b957e80c51a40feb652f47002",
       "replacements": [
         {
-          "old": "    def run(self, action, publish=None):\n",
-          "new": "    def execution_runtime(self):\n        \"\"\"Resolve only HA-owned, hash-checked code; never search PATH for helpers.\n\n        Source/developer installations without a catalogue keep the legacy runner.\n        A configured but missing or damaged runtime blocks instead of degrading to\n        a different execution path. Resolution performs no installation or network.\n        \"\"\"\n        from hivemind_assembly.core.execution import ExecutionClient\n\n        components = self.components\n        if components.catalogue_error or components.state_error:\n            raise Blocked('HA runtime inventory needs repair before executing jobs')\n        if 'execution' not in components.entries:\n            if 'execution' in components.active:\n                raise Blocked('The owned execution runtime is missing from this HA package')\n            return None\n        component = components.resolve('execution')\n        return ExecutionClient([str(component.entrypoint)])\n\n    def run(self, action, publish=None):\n"
-        },
-        {
-          "old": "            result = verify_foundations(self.root / 'private/verification', self.config.get('foundations', {}))\n",
-          "new": "            from hivemind_assembly.core.jobs import Jobs\n            result = verify_foundations(self.root / 'private/verification', self.config.get('foundations', {}),\n                                       jobs=Jobs(runtime=self.execution_runtime))\n"
-        }
-      ]
-    },
-    {
-      "path": "_app/hivemind_assembly/application/app.py",
-      "before_sha256": "13c2b6ffd4b4a7d0e0ba9b023cb00ee314801736499f54eae9ec1c58d94ca274",
-      "after_sha256": "790775170d42b4441395f9fbb68d5c9043c21b06d1762df00499e3a61d84f26f",
-      "replacements": [
-        {
-          "old": "            hosted_tests=self.hosted_tests,\n        )\n        from .workspace import Workspace\n",
-          "new": "            hosted_tests=self.hosted_tests,\n        )\n        self.broker.jobs.runtime = self.builtins.execution_runtime\n        from .workspace import Workspace\n"
+          "old": "        with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED) as z:\n",
+          "new": "        # Cargo registry archives may deliberately retain Unix-epoch mtimes.\n        with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED, strict_timestamps=False) as z:\n"
         }
       ]
     }
