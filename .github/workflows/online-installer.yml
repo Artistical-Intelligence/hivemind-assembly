@@ -1,0 +1,154 @@
+name: Publish single-download HA beta installer
+# Packaging-only addition to the owner-authorized beta. Do not replace the
+# offline installer, move the release tag, clear review markers or publish stable.
+on:
+  push:
+    paths:
+      - '.github/workflows/online-installer.yml'
+      - 'dev/online_installer_request.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ha-online-installer-0.38.0-beta.1
+  cancel-in-progress: false
+jobs:
+  build-and-accept:
+    if: github.ref == 'refs/heads/main' && github.actor == github.repository_owner
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      DO_NOT_TRACK: '1'
+      ORT_DISABLE_TELEMETRY: '1'
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12.10'
+      - name: Validate the exact beta payload and build contracts
+        shell: pwsh
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'ha-online'
+          New-Item -ItemType Directory -Force $output | Out-Null
+          python -m pip --isolated install pytest
+          if ($LASTEXITCODE -ne 0) { throw 'Test setup failed' }
+          python -m pytest tests/test_online_installer.py -q --junitxml="$output/online-installer-tests.xml"
+          if ($LASTEXITCODE -ne 0) { throw 'Online installer contracts failed' }
+      - name: Compile the small native downloading installer
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw 'The expected Inno Setup compiler is unavailable' }
+          python dev/build_online_installer.py --iscc $iscc --output "$env:RUNNER_TEMP/ha-online"
+          if ($LASTEXITCODE -ne 0) { throw 'Online installer compilation failed' }
+      - name: Test compiled failures, cache retention and actual published-beta installation
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe'
+          python dev/verify_online_installer.py --iscc $iscc --setup "$env:RUNNER_TEMP/ha-online/Hivemind_Assembly_0.38.0-beta.1_Install.exe" --output "$env:RUNNER_TEMP/ha-online-acceptance"
+          if ($LASTEXITCODE -ne 0) { throw 'The actual compiled installer failed acceptance' }
+          Copy-Item "$env:RUNNER_TEMP/ha-online-acceptance/online-installer-acceptance.json" "$env:RUNNER_TEMP/ha-online/"
+          Copy-Item dev/ONLINE_INSTALLER.md "$env:RUNNER_TEMP/ha-online/"
+      - name: Retain small diagnostics even when acceptance fails
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: HA-online-diagnostics-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/ha-online/*.json
+            ${{ runner.temp }}/ha-online/*.xml
+            ${{ runner.temp }}/ha-online/*.iss
+            ${{ runner.temp }}/ha-online-acceptance/*.json
+            ${{ runner.temp }}/ha-online-acceptance/fixtures/*.log
+            ${{ runner.temp }}/ha-online-acceptance/real/*.log
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Hand only the passing single-file installer to publication
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: HA-online-publish-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/ha-online/*_Install.exe
+            ${{ runner.temp }}/ha-online/ONLINE-SHA256SUMS.txt
+            ${{ runner.temp }}/ha-online/online-build-provenance.json
+            ${{ runner.temp }}/ha-online/online-installer-acceptance.json
+            ${{ runner.temp }}/ha-online/online-installer-tests.xml
+            ${{ runner.temp }}/ha-online/ONLINE_INSTALLER.md
+          retention-days: 14
+          if-no-files-found: error
+  publish-beta-addition:
+    needs: build-and-accept
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: HA-online-publish-${{ github.sha }}
+          path: online
+      - name: Verify the passing binary and preserve the existing beta identity
+        working-directory: online
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          sha256sum --check ONLINE-SHA256SUMS.txt
+          gh api repos/Artistical-Intelligence/hivemind-assembly/releases/430328733 > current-release.json
+          python - <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path('../dev').resolve()))
+          from build_online_installer import verify_release, digest
+          request = json.loads(Path('../dev/online_installer_request.json').read_text())
+          release = verify_release(request, json.loads(Path('current-release.json').read_text()))
+          report = json.loads(Path('online-installer-acceptance.json').read_text())
+          provenance = json.loads(Path('online-build-provenance.json').read_text())
+          assert report['passed'] is True and report['commit'] == os.environ['GITHUB_SHA']
+          assert provenance['packaging_commit'] == os.environ['GITHUB_SHA']
+          assert provenance['runtime_changed'] is False
+          assert report['installer_sha256'] == provenance['installer_sha256'] == digest(provenance['installer'])
+          assets = {a['name']: a for a in release['assets']}
+          files = [provenance['installer'], 'ONLINE-SHA256SUMS.txt', 'online-build-provenance.json',
+                   'online-installer-acceptance.json', 'online-installer-tests.xml', 'ONLINE_INSTALLER.md']
+          missing = []
+          for name in files:
+              if name in assets:
+                  if assets[name].get('digest') != 'sha256:' + digest(name):
+                      raise ValueError('Refusing to overwrite a published asset: ' + name)
+              else:
+                  missing.append(name)
+          Path('upload-list.txt').write_text('\n'.join(missing) + '\n')
+          original = release.get('body', '')
+          marker = '<!-- ha-one-download:start -->'
+          if marker in original:
+              raise ValueError('Online-installation notes already published; review before editing')
+          url = 'https://github.com/Artistical-Intelligence/hivemind-assembly/releases/download/' + request['tag'] + '/' + provenance['installer']
+          note = (marker + '\n## Recommended: one download\n\n'
+                  '**[Download and run ' + provenance['installer'] + '](' + url + ')**\n\n'
+                  'This small setup executable automatically downloads, verifies and retains the required data. '
+                  '**Do not download the .bin files manually for this option.** '
+                  'The initial download is about 2.23 GB; verified cached files are reused. '
+                  'The application is the same tested beta; this update changes packaging only.\n\n'
+                  'Offline files are kept in `%LOCALAPPDATA%\\Hivemind Assembly\\InstallerCache\\' + request['version'] + '`. '
+                  'Keep that complete folder for offline reinstallation. The original three-file offline installer remains below as an alternative. '
+                  'See `ONLINE_INSTALLER.md`, `ONLINE-SHA256SUMS.txt` and `online-installer-acceptance.json` for details. '
+                  'Back up HA and close it before updating. This installer is unsigned.\n'
+                  '<!-- ha-one-download:end -->\n\n---\n\n')
+          original = original.replace('### Install\n', '### Offline installation (manual alternative)\n', 1)
+          Path('updated-release-notes.md').write_text(note + original)
+          PY
+          while IFS= read -r asset; do
+            if [ -n "$asset" ]; then gh release upload v0.38.0-beta.1 "$asset"; fi
+          done < upload-list.txt
+          gh release edit v0.38.0-beta.1 --notes-file updated-release-notes.md --prerelease --latest=false
+          gh release view v0.38.0-beta.1 --json url,isDraft,isPrerelease,assets
