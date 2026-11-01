@@ -16,7 +16,7 @@ DefaultGroupName=Hivemind Assembly
 DisableProgramGroupPage=yes
 DisableDirPage=no
 DisableWelcomePage=no
-CreateAppDir=no
+CreateAppDir=yes
 Uninstallable=no
 CreateUninstallRegKey=no
 PrivilegesRequired=lowest
@@ -125,7 +125,7 @@ end;
 
 function OnDownloadProgress(const Url, FileName: String; const Progress, ProgressMax: Int64): Boolean;
 begin
-  ; A final hash/length check is still mandatory. Do not accept an oversized body.
+  // A final hash/length check is still mandatory. Do not accept an oversized body.
   Result := (Progress <= ExpectedDownloadSize) and
     ((ProgressMax = 0) or (ProgressMax <= ExpectedDownloadSize));
 end;
@@ -138,7 +138,7 @@ begin
   CheckOrdinaryPath(Destination);
   Pending := Destination + '.partial';
   PreserveRejected(Pending);
-  ; Rename avoids copying gigabytes when temp/cache are on the same volume.
+  // Rename avoids copying gigabytes when temp/cache are on the same volume.
   if not RenameFile(Source, Pending) then
     if not FileCopy(Source, Pending, True) then
       RaiseException('Could not retain installer data. Free disk space and retry.');
@@ -166,7 +166,7 @@ begin
     RaiseException('Not enough space to retain the HA installer files. Choose another cache drive with /CACHE="path".');
   BesideSetup := ExpandConstant('{src}\') + AssetNames[Index];
   if (CompareText(BesideSetup, Target) <> 0) and Verified(BesideSetup, Index) then begin
-    ; Never move an owner's original offline installer files.
+    // Never move an owner's original offline installer files.
     Temporary := ExpandConstant('{tmp}\') + AssetNames[Index];
     if not FileCopy(BesideSetup, Temporary, False) then
       RaiseException('Could not copy the provided offline file.');
@@ -222,7 +222,7 @@ begin
       if not ForceDirectories(CacheDir) then RaiseException('Could not create the offline installer cache.');
       CheckOrdinaryPath(CacheDir);
       for I := 0 to AssetCount - 1 do EnsureFile(I);
-      ; Recheck every file immediately before executing the offline installer.
+      // Recheck every file immediately before executing the offline installer.
       Sums := '';
       for I := 0 to AssetCount - 1 do begin
         if not Verified(AddBackslash(CacheDir) + AssetNames[I], I) then
