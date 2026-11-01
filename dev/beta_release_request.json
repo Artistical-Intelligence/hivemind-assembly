@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "version": "0.38.0-beta.1",
+  "channel": "beta",
+  "owner_testing_beta_authorized": true,
+  "authorization": "The owner requested publication for download and testing, explicitly noting that HA is still in beta. This authorizes a GitHub prerelease, not stable-release approval or removal of pending-review markers.",
+  "independent_review_complete": false,
+  "requested_product_complete": false,
+  "tested_application_commit": "cc02d1cbfa1b5b2ae9c450b883dc0ede38537138",
+  "offline_run": 41238262130,
+  "offline_artifact": "HA-offline-recheck-cc02d1cbfa1b5b2ae9c450b883dc0ede38537138",
+  "offline_artifact_id": 13056484258,
+  "offline_artifact_sha256": "3004f7b3ee18e46340d4b834b32c02ad60b97337b3544033c717360c8431c5d5",
+  "component_build_commit": "7b844e33032157430e74689adda6af839adb659e",
+  "component_build_run": 41234152198,
+  "remaining_testing": [
+    "Independent source review remains pending; existing review markers are retained.",
+    "T3 Connect hosted-account sign-in, pairing and interoperability.",
+    "Tailscale access, revocation and reconnection from a genuinely remote device.",
+    "Owner-desktop upgrade and signed-in live-agent workflows.",
+    "The separate reverse-engineering application is not delivered by this HA beta."
+  ]
+}
