@@ -200,6 +200,7 @@ class Application:
             lambda provider: chrome_helper.details(self.connection(), provider),
             lambda provider, url, flow: chrome_helper.pair(self.connection(), provider, url, flow),
             lambda: self.config["routes"],
+            service_status=lambda provider: self.connection().status().get("services", {}).get(provider, {}),
         )
         # A new address: reconnect the chosen providers from HA's own windows.
         self.quick.on_ready = lambda origin: (
@@ -380,6 +381,17 @@ class Application:
             auto.save([*auto.providers(), provider])  # keep it connected after restarts
         await auto.run(provider)
 
+    async def stop_native_setup(self):
+        """Join setup cancellation before closing the browser it is using."""
+        futures = list(self.native_setup_futures.values())
+        for future in futures:
+            future.cancel()
+        await asyncio.gather(*(f if isinstance(f, asyncio.Future) else asyncio.wrap_future(f)
+                               for f in futures), return_exceptions=True)
+        self.native_setup_futures.clear()
+        self.sessions.drafts.clear()
+        self.native_setup.pages.clear()
+
     async def stop_provider_setup(self):
         """Stop connector/sign-in work before closing or replacing its browser."""
         await self.debugging.cancel_connect()
@@ -388,7 +400,8 @@ class Application:
             if not future.done():
                 future.cancel()
                 self.auto_reconnect.report(provider, "manual", "Connection setup stopped because the browser changed or HA closed. Select Create HA MCP to retry.")
-        await asyncio.gather(*futures, return_exceptions=True)
+        await asyncio.gather(*(f if isinstance(f, asyncio.Future) else asyncio.wrap_future(f)
+                               for f in futures), return_exceptions=True)
         self.provider_connect_futures.clear()
         await self.native_signin.close()
 
@@ -1009,6 +1022,7 @@ class Application:
             atomic_write(self.config_path, canonical(saved))
             # Open windows or tabs from the other mode are closed; they reopen in the new place.
             async def change_browser():
+                await self.stop_native_setup()
                 await self.stop_provider_setup()
                 await self.browser.close()
             self.submit(change_browser()).result(30)
@@ -1022,7 +1036,8 @@ class Application:
         if path == "/api/debug/status":
             return self.debugging.status()
         if path == "/api/debug/start":
-            return self.debugging.start(data.get("routes"), screenshots=data.get("screenshots", False))
+            return self.debugging.start(data.get("routes"), screenshots=data.get("screenshots", False),
+                                        primary_connection=data.get("primary_connection", False))
         if path == "/api/debug/stop":
             return self.debugging.stop()
         if path == "/api/debug/pairing":
@@ -2096,8 +2111,7 @@ class Application:
         async def close_runtime():
             await self.stop_provider_setup()
             await self.connections.oauth.drain()
-            for future in self.native_setup_futures.values():
-                future.cancel()
+            await self.stop_native_setup()
             if self.github_setup_future is not None:
                 self.github_setup_future.cancel()
             await self.team.stop()

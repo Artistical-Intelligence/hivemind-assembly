@@ -3,3 +3,5 @@ CHECKS PENDING: app.py — unified HA integration; regression checks and indepen
 CHECKS PENDING: components.py — offline package integrity, corruption isolation and repair tests; independent review.
 CHECKS PENDING: capabilities.py — unified setup, interrupted preparation and bounded passive status; independent review.
 CHECKS PENDING: verification.py — owned runtime paths and real analysis fixture regression checks.
+
+CHECKS PENDING: app.py — 2026-11-01 browser/MCP repair; independent source and regression review pending.
