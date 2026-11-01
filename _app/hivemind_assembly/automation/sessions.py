@@ -233,6 +233,7 @@ class Sessions:
         target=None,
         preferences=None,
         expected_binding=None,
+        setup_page=None,
     ):
         if (target is not None or preferences is not None) and not isolated:
             raise Blocked(
@@ -319,6 +320,10 @@ class Sessions:
                 }
                 self.store.put("session_intent", key, intent)
             clone = self.drafts.get(key)
+            if clone is not None and any(page.is_closed() for page in clone.pages.values()):
+                # Keep journaled intent/delivery; reconstruct the transport around it.
+                self.drafts.pop(key, None)
+                clone = None
             binding = self.store.rows(
                 "SELECT payload FROM records WHERE kind='message_session' AND id=?",
                 (key,),
@@ -333,6 +338,7 @@ class Sessions:
                 clone = NativeBrowser(
                     config, self.browser.root, self.browser.controller
                 )
+                clone.transport_owner = self.browser
                 clone.contexts = self.browser.contexts
                 clone.profile_locks = self.browser.profile_locks
                 clone.dispatch_locks = self.browser.dispatch_locks
@@ -352,9 +358,15 @@ class Sessions:
                     # exchange verifies the complete echoed payload.
                     clone.config["routes"][route]["conversation_url"] = page.url
                 else:
-                    page = await self.browser.service_page(
-                        cfg["profile"], CONTRACTS[cfg["provider"]]["new_url"], cfg.get("allowed_hosts")
-                    )
+                    # The discovery tab is blank and has no delivery to reconcile.
+                    # Reuse it for this route's canary instead of opening a second tab.
+                    if (setup_page is not None and not setup_page.is_closed()
+                            and setup_page.url == CONTRACTS[cfg["provider"]]["new_url"]):
+                        page = setup_page
+                    else:
+                        page = await self.browser.service_page(
+                            cfg["profile"], CONTRACTS[cfg["provider"]]["new_url"], cfg.get("allowed_hosts")
+                        )
                 clone.pages[route] = page
                 self.setup_pages[route] = page
                 chosen = self.store.rows(
@@ -507,6 +519,7 @@ class Sessions:
             config = copy.deepcopy(self.browser.config)
             config["routes"][route] = value["binding"]
             clone = NativeBrowser(config, self.browser.root, self.browser.controller)
+            clone.transport_owner = self.browser
             clone.contexts, clone.profile_locks = (
                 self.browser.contexts,
                 self.browser.profile_locks,
