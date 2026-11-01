@@ -25,34 +25,39 @@ def test_other_root_and_publisher_files_remain_protected(publisher, path):
         publisher.safe_path(path)
 
 
-def test_readme_still_requires_exact_before_and_after_hashes(publisher, tmp_path):
+@pytest.mark.parametrize('newline', [b'\n', b'\r\n'])
+def test_readme_still_requires_exact_before_and_after_hashes(publisher, tmp_path, newline):
+    # Hashes describe bytes, not platform-translated text. Exercise both formats
+    # on every OS without weakening the publisher's exact-byte identity check.
+    before, after = b'old' + newline, b'new' + newline
     readme = tmp_path / 'README.md'
-    readme.write_text('old\n')
+    readme.write_bytes(before)
     manifest = tmp_path / 'request.json'
-    edit = {'path':'README.md','before_sha256':publisher.sha(b'old\n'),
-            'after_sha256':publisher.sha(b'new\n'),
-            'replacements':[{'old':'old\n','new':'new\n'}]}
-    manifest.write_text(json.dumps({'schema':1,'id':'docs','edits':[edit]}))
+    edit = {'path':'README.md','before_sha256':publisher.sha(before),
+            'after_sha256':publisher.sha(after),
+            'replacements':[{'old':before.decode(), 'new':after.decode()}]}
+    manifest.write_text(json.dumps({'schema':1,'id':'docs','edits':[edit]}), encoding='utf-8')
     result = publisher.apply(manifest)
     assert result['files'] == ['README.md']
     assert result['independent_review'] is False
     assert result['release_approved'] is False
-    assert readme.read_text() == 'new\n'
+    assert readme.read_bytes() == after
     assert publisher.apply(manifest)['files'] == []
-    readme.write_text('someone else edited this\n')
+    changed = b'someone else edited this' + newline
+    readme.write_bytes(changed)
     with pytest.raises(ValueError, match='Concurrent'):
         publisher.apply(manifest)
-    assert readme.read_text() == 'someone else edited this\n'
+    assert readme.read_bytes() == changed
 
 
 def test_invalid_later_edit_does_not_partially_change_readme(publisher, tmp_path):
     readme = tmp_path / 'README.md'
-    readme.write_text('old\n')
+    readme.write_bytes(b'old\n')
     valid = {'path':'README.md','before_sha256':publisher.sha(b'old\n'),
              'after_sha256':publisher.sha(b'new\n'),
              'replacements':[{'old':'old\n','new':'new\n'}]}
     manifest = tmp_path / 'request.json'
-    manifest.write_text(json.dumps({'schema':1,'id':'docs','edits':[valid,{'path':'AGENTS.md'}]}))
+    manifest.write_text(json.dumps({'schema':1,'id':'docs','edits':[valid,{'path':'AGENTS.md'}]}), encoding='utf-8')
     with pytest.raises(ValueError):
         publisher.apply(manifest)
-    assert readme.read_text() == 'old\n'
+    assert readme.read_bytes() == b'old\n'
