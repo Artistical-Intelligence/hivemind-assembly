@@ -8,6 +8,13 @@ The owner additionally requested a single downloading/verifying/caching setup ex
 
 | Item | Folder | Waiting for |
 | --- | --- | --- |
+| test_debug_mcp.py | tests | 2026-11-01 browser/MCP repair: independent review and regressions |
+| mcp.py | _app/hivemind_assembly/integrations | 2026-11-01 browser/MCP repair: independent review and regressions |
+| debug_mcp.py | _app/hivemind_assembly/integrations | 2026-11-01 browser/MCP repair: independent review and regressions |
+| auto_reconnect.py | _app/hivemind_assembly/integrations | 2026-11-01 browser/MCP repair: independent review and regressions |
+| onboarding.py | _app/hivemind_assembly/automation | 2026-11-01 browser/MCP repair: independent review and regressions |
+| sessions.py | _app/hivemind_assembly/automation | 2026-11-01 browser/MCP repair: independent review and regressions |
+| native.py | _app/hivemind_assembly/automation | 2026-11-01 browser/MCP repair: independent review and regressions |
 | online_installer.iss; build_online_installer.py; verify_online_installer.py; online_installer_request.json; ONLINE_INSTALLER.md | dev | Independent source review; compiled Windows acceptance required for this owner-authorized beta packaging addition |
 | online-installer.yml | .github/workflows | Independent workflow review; preserve existing beta/stable asset bytes and identity |
 | test_online_installer.py | tests | Independent test review; unit contracts are not compiled installer acceptance |
