@@ -26,7 +26,7 @@ Sign-in observation, setup retry, automated HA MCP entry point and 0.37.1 eviden
 
 Inherited runtime guidance and provenance records: [independent review](checks/2026-10-29-runtime-provenance-review.md), with acquisition-byte and live-Windows limitations.
 
-Setup conversation recovery, durable quota handling and 0.37.2 evidence: [independent review](checks/2026-10-29/setup-recovery-review.md). Local fixtures do not establish live-provider acceptance.
+Setup conversation recovery, durable quota handling and 0.37.2 evidence: [independent review](checks/2026-10-29-setup-recovery-review.md). Local fixtures do not establish live-provider acceptance.
 
 Dedicated owner MCP debugging and 0.37.3 evidence: [independent review](checks/2026-10-29-debug-mcp-review.md). Local fixtures do not establish live-provider or remote-tunnel acceptance.
 
