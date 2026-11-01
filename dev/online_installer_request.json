@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "version": "0.38.0-beta.1",
+  "tag": "v0.38.0-beta.1",
+  "release_id": 430328733,
+  "channel": "beta",
+  "owner_authorized": true,
+  "scope": "Add one small downloading/verifying/caching installer to the existing beta; retain all original offline assets and runtime bytes.",
+  "independent_review_complete": false,
+  "assets": [
+    {
+      "name": "Hivemind_Assembly_0.38.0-beta.1_Setup.exe",
+      "size": 2202679,
+      "sha256": "a7029aff25e99ab9067b41aa15b23a51b830b789a9045f137558d0b19615d4b5"
+    },
+    {
+      "name": "Hivemind_Assembly_0.38.0-beta.1_Setup-1.bin",
+      "size": 1497797321,
+      "sha256": "00dfdeb069d61612c3885c52a6da06832cec68c0d34ffe75162e8f05d6bc59c4"
+    },
+    {
+      "name": "Hivemind_Assembly_0.38.0-beta.1_Setup-2.bin",
+      "size": 734721537,
+      "sha256": "c8803931681ea8ebc9a196e1c5ecc11e4d02f754d4c2911809320dd988fc3a57"
+    }
+  ]
+}
