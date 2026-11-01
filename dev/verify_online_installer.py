@@ -168,7 +168,8 @@ def real_payload(setup, work):
     assert code == 0 and 'HA_INSTALL_COMPLETE' in text, text[-5000:]
     assert text.count('HA_DOWNLOAD ') == len(data['assets']), 'Real payload was not fetched by the installer'
     assert_cache(cache, data['assets'])
-    assert (cache / setup.name).is_file()
+    assert (cache / 'OFFLINE-SHA256SUMS.txt').is_file()
+    assert (cache / 'OFFLINE-README.txt').is_file()
     app = installed / '_app'
     manifest = json.loads((app / 'package_manifest.json').read_text())
     for relative, expected in manifest['files'].items():
@@ -176,7 +177,7 @@ def real_payload(setup, work):
     subprocess.run([sys.executable, str(app / 'offline_bootstrap.py'), '--app-root', str(app)],
                    check=True, timeout=180)
     assert sentinel.read_text() == 'retained-owner-state'
-    code, text = run_installer(cache / setup.name, cache, installed, work / 'cached-reinstall.log', timeout=600)
+    code, text = run_installer(setup, cache, installed, work / 'cached-reinstall.log', timeout=600)
     assert code == 0 and 'HA_DOWNLOAD ' not in text, text[-5000:]
     assert sentinel.read_text() == 'retained-owner-state'
     # Only the small cached offline EXE is damaged; large payloads must be reused.

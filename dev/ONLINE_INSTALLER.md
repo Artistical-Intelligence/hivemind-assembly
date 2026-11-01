@@ -16,10 +16,10 @@ By default, complete verified files are retained in:
 
 `%LOCALAPPDATA%\Hivemind Assembly\InstallerCache\0.38.0-beta.1`
 
-The small Install.exe, original Setup.exe, both Setup-*.bin files, checksums and
+The original Setup.exe, both Setup-*.bin files, checksums and offline
 instructions are kept together. They are not removed when installation finishes
 or when HA is uninstalled. Keep or copy that entire folder for offline recovery.
-Running Install.exe again checks and reuses the saved files, without downloading
+Run the cached Setup.exe to reinstall offline. Running your downloaded Install.exe again checks and reuses the saved files, without downloading
 valid copies again. Matching offline files beside Install.exe are also accepted
 only after verification and are copied rather than moved.
 
