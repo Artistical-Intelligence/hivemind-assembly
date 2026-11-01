@@ -1,15 +1,13 @@
 {
   "schema": 1,
-  "id": "single-installer-destination-and-pascal-comments",
+  "id": "retain-required-offline-payload-without-running-loader-copy",
   "edits": [{
     "path": "dev/online_installer.iss",
-    "before_git_blob": "bc5ded5b91c9670115e842c081cfda643256a603",
+    "before_git_blob": "206d080a3570b4b3dde82247511d07aba080d024",
     "replacements": [
-      {"old": "CreateAppDir=no", "new": "CreateAppDir=yes"},
-      {"old": "  ; A final hash/length check", "new": "  // A final hash/length check"},
-      {"old": "  ; Rename avoids copying", "new": "  // Rename avoids copying"},
-      {"old": "    ; Never move an owner's", "new": "    // Never move an owner's"},
-      {"old": "      ; Recheck every file", "new": "      // Recheck every file"}
+      {"old": "  Params, Sums, SavedSelf: String;", "new": "  Params, Sums: String;"},
+      {"old": "        'Keep this entire folder. Run {#OnlineName}.exe or the matching Setup.exe to reinstall.' + #13#10 +", "new": "        'Keep this entire folder. Run the matching Setup.exe to reinstall offline, or rerun your downloaded Install.exe.' + #13#10 +"},
+      {"old": "      SavedSelf := AddBackslash(CacheDir) + '{#OnlineName}.exe';\n      CheckOrdinaryPath(SavedSelf);\n      if CompareText(ExpandConstant('{srcexe}'), SavedSelf) <> 0 then begin\n        if FileExists(SavedSelf) then begin\n          if CompareText(GetSHA256OfFile(SavedSelf), GetSHA256OfFile(ExpandConstant('{srcexe}'))) <> 0 then\n            PreserveRejected(SavedSelf);\n        end;\n        if not FileExists(SavedSelf) and not FileCopy(ExpandConstant('{srcexe}'), SavedSelf, True) then\n          RaiseException('Could not retain the single-file installer for later use.');\n      end;\n", "new": "      // The complete offline Setup.exe plus data is retained. Copying the\n      // currently executing downloader is not required for offline recovery.\n"}
     ]
   }]
 }
