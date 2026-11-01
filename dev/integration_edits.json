@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "id": "single-download-installer-review-scope",
-  "edits": [
-    {"path": "dev/STATUS.md", "before_git_blob": "b9f17b2d46340590f064bab0bc1fea1a38809dd2", "replacements": [
-      {"old": "CHECKS PENDING: ingest_automation.py", "new": "CHECKS PENDING: online_installer.iss; build_online_installer.py; verify_online_installer.py; online_installer_request.json; ONLINE_INSTALLER.md — owner-authorized packaging-only beta; compiled Windows acceptance required, independent source review remains open.\nCHECKS PENDING: ingest_automation.py"}
-    ]},
-    {"path": "tests/STATUS.md", "before_git_blob": "397e7110b01ae672265025e2bc5e10840442f05d", "replacements": [
-      {"old": "CHECKS PENDING: test_hermes_board.py", "new": "CHECKS PENDING: test_online_installer.py — pinned manifest, release identity and generated-script tests; independent source review remains open; compiled acceptance is separate.\nCHECKS PENDING: test_hermes_board.py"}
-    ]}
-  ]
+  "id": "published-one-download-beta-instructions",
+  "edits": [{
+    "path": "README.md",
+    "before_git_blob": "3671404c8482308844fd7c6ffc51d071cba21117",
+    "replacements": [{
+      "old": "## Unified integration on main — not yet a production release\n",
+      "new": "## Test the current beta — one download\n\n**[Download Hivemind_Assembly_0.38.0-beta.1_Install.exe](https://github.com/Artistical-Intelligence/hivemind-assembly/releases/download/v0.38.0-beta.1/Hivemind_Assembly_0.38.0-beta.1_Install.exe)** and run it. This small native installer automatically downloads, checks and retains the required data; you do not need to download the `.bin` files manually. No separate installer scripts or runtimes are required.\n\nThe first download is approximately 2.23 GB. Complete verified files are kept in `%LOCALAPPDATA%\\Hivemind Assembly\\InstallerCache\\0.38.0-beta.1`, separate from the application and your HA data. Rerunning Install.exe reuses them. The retained Setup.exe and both matching data files can also reinstall offline; keep that complete folder for recovery. Back up HA and close it before updating. The installer is unsigned.\n\nThe [beta release](https://github.com/Artistical-Intelligence/hivemind-assembly/releases/tag/v0.38.0-beta.1) retains the original three-file offline alternative, checksums and acceptance results. See [installer details](dev/ONLINE_INSTALLER.md) and [observed test evidence](checks/2026-11-01-online-installer-evidence.json). Actual Windows download, installation, cached reinstall, selective cache repair and preservation on uninstall passed. This packaging addition does not change the tested application, clear independent-review markers, or claim live-account/remote-device acceptance.\n\nThe stable-version instructions below remain separate from this owner-testing beta.\n\n## Unified integration on main — not yet a production release\n"
+    }]
+  }]
 }
