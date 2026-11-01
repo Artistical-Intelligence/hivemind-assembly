@@ -1,22 +1,12 @@
 {
   "schema": 1,
-  "id": "test-complete-offline-cache-without-optional-loader-copy",
+  "id": "single-download-installer-review-scope",
   "edits": [
-    {
-      "path": "dev/verify_online_installer.py",
-      "before_git_blob": "ae361cde96197909fc55edcaf87dcf3109221e3a",
-      "replacements": [
-        {"old": "    assert (cache / setup.name).is_file()\n", "new": "    assert (cache / 'OFFLINE-SHA256SUMS.txt').is_file()\n    assert (cache / 'OFFLINE-README.txt').is_file()\n"},
-        {"old": "run_installer(cache / setup.name, cache, installed", "new": "run_installer(setup, cache, installed"}
-      ]
-    },
-    {
-      "path": "dev/ONLINE_INSTALLER.md",
-      "before_git_blob": "cb00625f4c94daaa285801a7117989770811392c",
-      "replacements": [
-        {"old": "The small Install.exe, original Setup.exe, both Setup-*.bin files, checksums and\ninstructions are kept together.", "new": "The original Setup.exe, both Setup-*.bin files, checksums and offline\ninstructions are kept together."},
-        {"old": "Running Install.exe again checks", "new": "Run the cached Setup.exe to reinstall offline. Running your downloaded Install.exe again checks"}
-      ]
-    }
+    {"path": "dev/STATUS.md", "before_git_blob": "b9f17b2d46340590f064bab0bc1fea1a38809dd2", "replacements": [
+      {"old": "CHECKS PENDING: ingest_automation.py", "new": "CHECKS PENDING: online_installer.iss; build_online_installer.py; verify_online_installer.py; online_installer_request.json; ONLINE_INSTALLER.md — owner-authorized packaging-only beta; compiled Windows acceptance required, independent source review remains open.\nCHECKS PENDING: ingest_automation.py"}
+    ]},
+    {"path": "tests/STATUS.md", "before_git_blob": "397e7110b01ae672265025e2bc5e10840442f05d", "replacements": [
+      {"old": "CHECKS PENDING: test_hermes_board.py", "new": "CHECKS PENDING: test_online_installer.py — pinned manifest, release identity and generated-script tests; independent source review remains open; compiled acceptance is separate.\nCHECKS PENDING: test_hermes_board.py"}
+    ]}
   ]
 }
