@@ -1,6 +1,7 @@
 {
   "schema": 1,
   "version": "0.38.0-beta.1",
+  "build_attempt": 2,
   "channel": "beta",
   "owner_testing_beta_authorized": true,
   "authorization": "The owner requested publication for download and testing, explicitly noting that HA is still in beta. This authorizes a GitHub prerelease, not stable-release approval or removal of pending-review markers.",
