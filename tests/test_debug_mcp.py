@@ -48,8 +48,8 @@ def test_old_rpc_cannot_acquire_new_grant(debug):
     stale = old.call("ha_debug_status", {})
     assert stale["isError"]
     assert not debug.rpc().call("ha_debug_status", {}).get("isError")
-    project = Rpc(lambda tool, args: {}, "test")
-    assert all(not t["name"].startswith("ha_debug") for t in project.tools)
+    project = Rpc(debug.app.mcp_gateway.call, "test")
+    assert any(t["name"] == "ha_debug_status" for t in project.tools)
     assert project.call("ha_debug_status", {})["isError"]
 
 
