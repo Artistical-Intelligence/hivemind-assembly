@@ -1,3 +1,4 @@
+CHECKS PENDING: online-installer.yml — independent workflow review; owner-authorized beta packaging addition only. Requires compiled failure/recovery tests and real installation, preserves all offline assets, and cannot publish stable or move the beta tag.
 CHECKS PENDING: source-snapshot.yml — source-archive workflow review.
 CHECKS PENDING: integration-inputs.yml — pinned donor preservation review.
 CHECKS PENDING: owned-components.yml — source build and offline artifact retention review.
