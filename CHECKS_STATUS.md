@@ -4,8 +4,13 @@ Unified HA implementation is in progress. Missing markers alone do not prove app
 
 The owner has explicitly requested `v0.38.0-beta.1` for download and testing, noting that HA is still in beta. This is a narrowly scoped testing-prerelease authorization, not independent source approval. The stable release workflow and all unresolved review markers remain in force for stable publication. See `dev/beta_release_request.json` for the tested payload identity and open beta checks.
 
+The owner additionally requested a single downloading/verifying/caching setup executable, retaining the offline alternative. `dev/online_installer_request.json` pins the existing beta's exact offline assets. This packaging-only beta addition must pass compiled failure/recovery and actual Windows installer acceptance before publication; it does not alter runtime bytes or remove review requirements.
+
 | Item | Folder | Waiting for |
 | --- | --- | --- |
+| online_installer.iss; build_online_installer.py; verify_online_installer.py; online_installer_request.json; ONLINE_INSTALLER.md | dev | Independent source review; compiled Windows acceptance required for this owner-authorized beta packaging addition |
+| online-installer.yml | .github/workflows | Independent workflow review; preserve existing beta/stable asset bytes and identity |
+| test_online_installer.py | tests | Independent test review; unit contracts are not compiled installer acceptance |
 | Unified setup, automation, remote access and packaged foundations | root, application, automation, integrations, dev, tests | Independent source review and separate live acceptance; no stable release approved |
 | package_beta.py; beta_release_request.json | dev | Independent packaging review; owner-authorized beta only, with required retained-payload and installed-Windows checks |
 | beta-release.yml | .github/workflows | Independent workflow review; publication is prerelease-only and cannot replace stable assets |
@@ -21,7 +26,7 @@ Sign-in observation, setup retry, automated HA MCP entry point and 0.37.1 eviden
 
 Inherited runtime guidance and provenance records: [independent review](checks/2026-10-29-runtime-provenance-review.md), with acquisition-byte and live-Windows limitations.
 
-Setup conversation recovery, durable quota handling and 0.37.2 evidence: [independent review](checks/2026-10-29-setup-recovery-review.md). Local fixtures do not establish live-provider acceptance.
+Setup conversation recovery, durable quota handling and 0.37.2 evidence: [independent review](checks/2026-10-29/setup-recovery-review.md). Local fixtures do not establish live-provider acceptance.
 
 Dedicated owner MCP debugging and 0.37.3 evidence: [independent review](checks/2026-10-29-debug-mcp-review.md). Local fixtures do not establish live-provider or remote-tunnel acceptance.
 
