@@ -102,6 +102,7 @@ class NativeBrowser:
         self.root = Path(root)
         self.controller = controller
         self.contexts = {}
+        self.transport_owner = None  # draft sessions borrow the owning transport
         self.pages = {}
         self.locks = {}
         self.playwright = None
@@ -137,7 +138,7 @@ class NativeBrowser:
     async def owner_context(self):
         """The owner's Chrome, reached through the helper extension; one window of HA tabs."""
         async with self.owner_lock:
-            if self.owner_browser is not None and self.owner_browser.is_connected():
+            if self.owner_browser is not None and self.owner_browser.is_connected() and self.owner_browser.contexts:
                 return self.owner_browser.contexts[0]
             if self.relay is None:
                 raise Blocked("Your-Chrome mode isn't available in this HA session.")
@@ -145,17 +146,63 @@ class NativeBrowser:
             await self.relay.start()
             await self.relay.wait_for_extension(60)
             browser = await self.playwright.chromium.connect_over_cdp(self.relay.cdp_url)
-            browser.on("disconnected", lambda _: self.forget_owner(browser))
+            contexts = tuple(browser.contexts)
+            browser.on("disconnected", lambda _: self.forget_owner(browser, contexts))
             self.owner_browser = browser
-            return browser.contexts[0]
+            if not contexts:
+                raise Blocked("Chrome connected without an available browser context; reconnect the HA helper.")
+            return contexts[0]
 
-    def forget_owner(self, browser):
-        """Chrome or the extension went away: reconnect (and reopen tabs) on next use."""
+    def forget_context(self, context):
+        """Invalidate in place: session drafts share the owner's context dictionary."""
+        for profile, current in list(self.contexts.items()):
+            if current is context:
+                del self.contexts[profile]
+        for route, page in list(self.pages.items()):
+            if page.is_closed() or getattr(page, "context", None) is context:
+                del self.pages[route]
+                self.deep_checked.pop(route, None)
+        self.service_pages.difference_update(
+            p for p in tuple(self.service_pages)
+            if p.is_closed() or getattr(p, "context", None) is context
+        )
+
+    def forget_owner(self, browser, contexts=None):
+        """Retain context identities before disconnect; Playwright then empties them."""
         if self.owner_browser is browser:
             self.owner_browser = None
-        gone = set(browser.contexts)
-        self.contexts = {k: v for k, v in self.contexts.items() if v not in gone}
-        self.pages = {k: v for k, v in self.pages.items() if not v.is_closed()}
+        for context in contexts if contexts is not None else tuple(browser.contexts):
+            self.forget_context(context)
+
+    def track_context(self, profile, context):
+        self.contexts[profile] = context
+        context.on("close", lambda _: self.forget_context(context))
+        return context
+
+    async def context(self, profile, *, service=False):
+        if self.transport_owner is not None:
+            return await self.transport_owner.context(profile, service=service)
+        current = self.contexts.get(profile)
+        if current is not None:
+            browser = getattr(current, "browser", None)
+            if browser is None or browser.is_connected():
+                return current
+            self.forget_context(current)
+        if self.your_chrome():
+            return self.track_context(profile, await self.owner_context())
+        await self.start()
+        allowed = {
+            k: v for k, v in self.config.get("browser", {}).items()
+            if k in ("headless", "channel", "locale", "timezone_id", "viewport", "color_scheme")
+        }
+        if service:
+            allowed["headless"] = False
+        else:
+            allowed.setdefault("headless", False)
+        context = await self.playwright.chromium.launch_persistent_context(
+            str(self.profile_dir(profile)), accept_downloads=True, **allowed,
+        )
+        return self.track_context(profile, context)
 
     async def start(self):
         from playwright.async_api import async_playwright
@@ -166,7 +213,7 @@ class NativeBrowser:
 
     async def close(self):
         owned = set(self.owner_browser.contexts) if self.owner_browser else set()
-        for ctx in self.contexts.values():
+        for ctx in set(self.contexts.values()):
             if ctx not in owned:
                 await ctx.close()
         if self.owner_browser is not None:
@@ -174,8 +221,10 @@ class NativeBrowser:
             self.owner_browser = None
         if self.playwright:
             await self.playwright.stop()
-        self.contexts = {}
-        self.pages = {}
+        self.contexts.clear()
+        self.pages.clear()
+        self.service_pages.clear()
+        self.deep_checked.clear()
         self.playwright = None
 
     async def page(self, route):
@@ -196,24 +245,7 @@ class NativeBrowser:
             # Never open an arbitrary page inside a signed-in provider profile.
             raise Blocked("Setup URL is outside the configured service")
         async with self.profile_locks.setdefault(profile, asyncio.Lock()):
-            await self.start()
-            if profile not in self.contexts and self.your_chrome():
-                self.contexts[profile] = await self.owner_context()
-            if profile not in self.contexts:
-                opts = {
-                    k: v
-                    for k, v in self.config.get("browser", {}).items()
-                    if k
-                    in ("channel", "locale", "timezone_id", "viewport", "color_scheme")
-                }
-                self.contexts[profile] = (
-                    await self.playwright.chromium.launch_persistent_context(
-                        str(self.profile_dir(profile)),
-                        headless=False,
-                        **opts,
-                    )
-                )
-            context = self.contexts[profile]
+            context = await self.context(profile, service=True)
             # Reuse the empty tab the browser opens at launch instead of adding one.
             self.service_pages = {p for p in self.service_pages if not p.is_closed()}
             claimed = set(self.pages.values()) | self.service_pages
@@ -228,40 +260,16 @@ class NativeBrowser:
     async def _page(self, route):
         cfg = self.config["routes"][route]
         profile = identifier(cfg["profile"])
-        if profile not in self.contexts and self.your_chrome():
-            self.contexts[profile] = await self.owner_context()
-        if profile not in self.contexts:
-            if not self.playwright:
-                await self.start()
-            opts = self.config.get("browser", {})
-            allowed = {
-                k: v
-                for k, v in opts.items()
-                if k
-                in (
-                    "headless",
-                    "channel",
-                    "locale",
-                    "timezone_id",
-                    "viewport",
-                    "color_scheme",
-                )
-            }
-            allowed.setdefault("headless", False)
-            self.contexts[profile] = (
-                await self.playwright.chromium.launch_persistent_context(
-                    str(self.profile_dir(profile)),
-                    accept_downloads=True,
-                    **allowed,
-                )
-            )
+        context = await self.context(profile)
         if route not in self.pages or self.pages[route].is_closed():
             url = cfg.get("conversation_url")
             if not url:
                 raise Blocked(f"{route}: native conversation is not bound")
             self.validate_url(route, url)
-            context = self.contexts[profile]
-            claimed = set(self.pages.values())
+            claimed = set(self.pages.values()) | self.service_pages
+            if self.transport_owner is not None:
+                claimed.update(self.transport_owner.pages.values())
+                claimed.update(self.transport_owner.service_pages)
             page = (
                 next((p for p in context.pages if p.url == url and p not in claimed), None)
                 or next((p for p in context.pages if p.url == "about:blank" and p not in claimed), None)
