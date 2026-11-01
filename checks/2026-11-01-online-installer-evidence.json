@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "kind": "implementation_test_evidence_not_independent_review",
+  "packaging_commit": "c48cddf8c2f0abab552f544d39f51e313c86094f",
+  "workflow_run": 41279273848,
+  "build_job": 124767665741,
+  "publication_job": 124768628869,
+  "build_and_publication_conclusion": "success",
+  "beta_tag": "v0.38.0-beta.1",
+  "beta_release_id": 430328733,
+  "existing_release_source_commit": "c3c6c8bfd3d64c61f90569454edd6b88d55d942c",
+  "installer": "Hivemind_Assembly_0.38.0-beta.1_Install.exe",
+  "published_asset_id": 697494344,
+  "installer_bytes": 2099776,
+  "installer_sha256": "734a60c6e06c3501d2c5766a256111e44e5418b006c9ef4e20ed0ccd2ac52db3",
+  "unit_tests": {"passed": 23, "failed": 0, "errors": 0, "skipped": 0},
+  "compiled_windows_checks": [
+    "Fresh download with embedded hash and length verification followed by child launch",
+    "Valid cache reuse with zero requests to an unavailable fixture server",
+    "Changed cached file blocks execution and retains rejected bytes",
+    "Recovery downloads only the missing or changed file",
+    "Corrupt download cannot execute; completed downloads retained",
+    "Truncated download cannot execute; completed downloads retained",
+    "Child installation failure is not reported as success",
+    "Cache and application paths cannot overlap",
+    "Junction-redirected cache rejected without writing through it",
+    "Offline files beside the small EXE are verified and copied, not moved"
+  ],
+  "actual_published_payload": {
+    "downloaded_by_compiled_installer_from_github": true,
+    "payload_bytes": 2234721537,
+    "installed_manifest_files_verified": 1086,
+    "offline_payload_integrity": true,
+    "cached_reinstall_without_downloads": true,
+    "selective_changed_executable_repair": true,
+    "uninstall_keeps_cache_and_user_data": true,
+    "original_offline_asset_bytes_preserved": true,
+    "application_runtime_changed": false,
+    "owner_desktop_test": false
+  },
+  "passing_artifact": {"id": 13072323992, "sha256": "876936f033eda3dcab8ff3020848599167b4cec11a574608d6f3fa257e6e3704"},
+  "independent_review_complete": false,
+  "stable_release_approved": false,
+  "limits": [
+    "The payload is the existing owner-authorized testing beta, not a new stable release.",
+    "Completed files are retained; interrupted individual downloads may restart from their beginning.",
+    "The offline Setup.exe and all data files are retained; the running Install.exe is not automatically copied.",
+    "The installer is unsigned. Hash checking is not publisher code signing or a sandbox.",
+    "Owner-desktop and existing live-provider/T3/Tailscale acceptance remain distinct."
+  ]
+}
