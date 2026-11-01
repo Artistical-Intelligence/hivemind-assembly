@@ -8,3 +8,5 @@ CHECKS PENDING: test_offline_wheel_names.py — dotted/canonical package matchin
 CHECKS PENDING: test_offline_acceptance_fixture.py — fresh-state setup without overwriting a retained file; independent source review.
 CHECKS PENDING: test_owned_patching.py — real retained parser, one-file scope, writer authority and uncertain-write recovery on both platforms; independent source review.
 CHECKS PENDING: test_unified_installation_ui.py — one preparation surface and actual readiness-state JavaScript; independent source and browser review.
+CHECKS PENDING: test_integration_document_scope.py — exact LF/CRLF byte fixtures and protected documentation writes; independent source review.
+CHECKS PENDING: test_beta_packaging.py — beta-only authorization, original ZIP spelling, traversal/alias/link rejection and fail-closed publication; independent source review. A passing beta test does not confer stable-release approval.
