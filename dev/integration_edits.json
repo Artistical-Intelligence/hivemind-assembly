@@ -1,1 +1,15 @@
-{"schema":1,"id":"beta-original-zip-name-validation","edits":[{"path":"dev/package_beta.py","before_git_blob":"e80d07246b2400d4c6e2a76df91d1a45161202cb","replacements":[{"old":"            name = entry.filename.rstrip('/')\n","new":"            # ZipInfo normalizes backslashes on Windows; validate the original\n            # archive spelling before that platform-specific normalization.\n            name = entry.orig_filename.rstrip('/')\n"}]},{"path":"tests/test_beta_packaging.py","before_git_blob":"2607ccd14b243d238f558e82ebb4fab38024829a","replacements":[{"old":"    with zipfile.ZipFile(archive, 'w') as z:\n        z.writestr(name, b'fixture')\n","new":"    stored_name = name.replace('\\\\', '/')\n    with zipfile.ZipFile(archive, 'w') as z:\n        z.writestr(stored_name, b'fixture')\n    if stored_name != name:\n        # Windows' ZIP writer normalizes its input. Mutate both equal-length\n        # name records so this is a genuinely malformed archive on every OS.\n        archive.write_bytes(archive.read_bytes().replace(stored_name.encode(), name.encode()))\n"}]}]}
+{
+  "schema": 1,
+  "id": "single-installer-destination-and-pascal-comments",
+  "edits": [{
+    "path": "dev/online_installer.iss",
+    "before_git_blob": "bc5ded5b91c9670115e842c081cfda643256a603",
+    "replacements": [
+      {"old": "CreateAppDir=no", "new": "CreateAppDir=yes"},
+      {"old": "  ; A final hash/length check", "new": "  // A final hash/length check"},
+      {"old": "  ; Rename avoids copying", "new": "  // Rename avoids copying"},
+      {"old": "    ; Never move an owner's", "new": "    // Never move an owner's"},
+      {"old": "      ; Recheck every file", "new": "      // Recheck every file"}
+    ]
+  }]
+}
