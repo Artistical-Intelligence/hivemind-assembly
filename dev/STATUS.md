@@ -12,3 +12,5 @@ CHECKS PENDING: connect_component_main.ts — signature, scope, identity and pro
 CHECKS PENDING: assemble_offline.py — strict local component/wheel/browser/model assembly; fresh-machine acceptance and independent review.
 CHECKS PENDING: prepare_offline_assets.py — pinned Windows dependencies, browser and local search attribution/integrity; independent review.
 CHECKS PENDING: verify_offline_install.py — real fresh Windows setup, execution, search, dashboard and network-boundary evidence; independent review.
+CHECKS PENDING: package_beta.py — independent packaging review remains; the owner explicitly authorized a testing prerelease, not stable approval. Retained payload identity, installer and offline acceptance are required by the beta workflow.
+CHECKS PENDING: beta_release_request.json — explicit owner-testing scope and provenance record; does not authorize clearing any independent-review markers or publishing a stable release.
