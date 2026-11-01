@@ -2,9 +2,14 @@
 
 Unified HA implementation is in progress. Missing markers alone do not prove approval; compare current files with retained check evidence. Live-provider and Windows acceptance remain distinct from source approval.
 
+The owner has explicitly requested `v0.38.0-beta.1` for download and testing, noting that HA is still in beta. This is a narrowly scoped testing-prerelease authorization, not independent source approval. The stable release workflow and all unresolved review markers remain in force for stable publication. See `dev/beta_release_request.json` for the tested payload identity and open beta checks.
+
 | Item | Folder | Waiting for |
 | --- | --- | --- |
-| Unified setup, automation, remote access and packaged foundations | root, application, automation, integrations, dev, tests | Implementation, regression checks, independent source review and separate live acceptance; no release approved |
+| Unified setup, automation, remote access and packaged foundations | root, application, automation, integrations, dev, tests | Independent source review and separate live acceptance; no stable release approved |
+| package_beta.py; beta_release_request.json | dev | Independent packaging review; owner-authorized beta only, with required retained-payload and installed-Windows checks |
+| beta-release.yml | .github/workflows | Independent workflow review; publication is prerelease-only and cannot replace stable assets |
+| test_beta_packaging.py; test_integration_document_scope.py | tests | Independent source review; cross-platform archive and exact-byte fixtures are tested in the beta build |
 
 Workflow/context source, evidence and fixture approval: [2026-10-29 independent review](checks/2026-10-29-workflow-context-review.md).
 
