@@ -208,7 +208,7 @@ end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   I, LaunchError: Integer;
-  Params, Sums, SavedSelf: String;
+  Params, Sums: String;
 begin
   Result := '';
   if Installed then Exit;
@@ -235,20 +235,12 @@ begin
       CheckOrdinaryPath(AddBackslash(CacheDir) + 'OFFLINE-README.txt');
       if not SaveStringToFile(AddBackslash(CacheDir) + 'OFFLINE-README.txt',
         'HA {#AppVersion} offline installer cache.' + #13#10 +
-        'Keep this entire folder. Run {#OnlineName}.exe or the matching Setup.exe to reinstall.' + #13#10 +
+        'Keep this entire folder. Run the matching Setup.exe to reinstall offline, or rerun your downloaded Install.exe.' + #13#10 +
         'All matching Setup-*.bin files must stay beside Setup.exe. Rejected files are preserved, never executed.' + #13#10 +
         'Projects and settings are stored separately in %LOCALAPPDATA%\UnifiedWorkbench.' + #13#10, False) then
         RaiseException('Could not retain the offline installation instructions.');
-      SavedSelf := AddBackslash(CacheDir) + '{#OnlineName}.exe';
-      CheckOrdinaryPath(SavedSelf);
-      if CompareText(ExpandConstant('{srcexe}'), SavedSelf) <> 0 then begin
-        if FileExists(SavedSelf) then begin
-          if CompareText(GetSHA256OfFile(SavedSelf), GetSHA256OfFile(ExpandConstant('{srcexe}'))) <> 0 then
-            PreserveRejected(SavedSelf);
-        end;
-        if not FileExists(SavedSelf) and not FileCopy(ExpandConstant('{srcexe}'), SavedSelf, True) then
-          RaiseException('Could not retain the single-file installer for later use.');
-      end;
+      // The complete offline Setup.exe plus data is retained. Copying the
+      // currently executing downloader is not required for offline recovery.
       DownloadPage.SetText('Installing Hivemind Assembly', 'The offline files have been verified and saved.');
       Params := '/SP- /CURRENTUSER /NORESTART /RESTARTEXITCODE=3010 /DIR="' + WizardDirValue + '"';
       if WizardSilent then Params := Params + ' /VERYSILENT /SUPPRESSMSGBOXES'
