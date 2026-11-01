@@ -49,8 +49,13 @@ def test_authorized_request_stays_unreviewed_beta(builder):
                                   'Hivemind_Assembly/a\\b', 'Hivemind_Assembly/a:b'])
 def test_archive_cannot_leave_its_product_root(builder, tmp_path, name):
     archive = tmp_path / 'input.zip'
+    stored_name = name.replace('\\', '/')
     with zipfile.ZipFile(archive, 'w') as z:
-        z.writestr(name, b'fixture')
+        z.writestr(stored_name, b'fixture')
+    if stored_name != name:
+        # Windows' ZIP writer normalizes its input. Mutate both equal-length
+        # name records so this is a genuinely malformed archive on every OS.
+        archive.write_bytes(archive.read_bytes().replace(stored_name.encode(), name.encode()))
     with pytest.raises(ValueError, match='archive member'):
         builder.safe_extract(archive, tmp_path / 'staged')
     assert not (tmp_path / 'escape').exists()

@@ -42,7 +42,9 @@ def safe_extract(archive, destination):
         seen = set()
         total = 0
         for entry in z.infolist():
-            name = entry.filename.rstrip('/')
+            # ZipInfo normalizes backslashes on Windows; validate the original
+            # archive spelling before that platform-specific normalization.
+            name = entry.orig_filename.rstrip('/')
             path = PurePosixPath(name)
             if (not name or path.is_absolute() or str(path) != name
                     or '..' in path.parts or any(c in name for c in ('\\', ':', '\0'))
