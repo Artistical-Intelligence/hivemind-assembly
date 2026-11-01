@@ -1,13 +1,22 @@
 {
   "schema": 1,
-  "id": "retain-required-offline-payload-without-running-loader-copy",
-  "edits": [{
-    "path": "dev/online_installer.iss",
-    "before_git_blob": "206d080a3570b4b3dde82247511d07aba080d024",
-    "replacements": [
-      {"old": "  Params, Sums, SavedSelf: String;", "new": "  Params, Sums: String;"},
-      {"old": "        'Keep this entire folder. Run {#OnlineName}.exe or the matching Setup.exe to reinstall.' + #13#10 +", "new": "        'Keep this entire folder. Run the matching Setup.exe to reinstall offline, or rerun your downloaded Install.exe.' + #13#10 +"},
-      {"old": "      SavedSelf := AddBackslash(CacheDir) + '{#OnlineName}.exe';\n      CheckOrdinaryPath(SavedSelf);\n      if CompareText(ExpandConstant('{srcexe}'), SavedSelf) <> 0 then begin\n        if FileExists(SavedSelf) then begin\n          if CompareText(GetSHA256OfFile(SavedSelf), GetSHA256OfFile(ExpandConstant('{srcexe}'))) <> 0 then\n            PreserveRejected(SavedSelf);\n        end;\n        if not FileExists(SavedSelf) and not FileCopy(ExpandConstant('{srcexe}'), SavedSelf, True) then\n          RaiseException('Could not retain the single-file installer for later use.');\n      end;\n", "new": "      // The complete offline Setup.exe plus data is retained. Copying the\n      // currently executing downloader is not required for offline recovery.\n"}
-    ]
-  }]
+  "id": "test-complete-offline-cache-without-optional-loader-copy",
+  "edits": [
+    {
+      "path": "dev/verify_online_installer.py",
+      "before_git_blob": "ae361cde96197909fc55edcaf87dcf3109221e3a",
+      "replacements": [
+        {"old": "    assert (cache / setup.name).is_file()\n", "new": "    assert (cache / 'OFFLINE-SHA256SUMS.txt').is_file()\n    assert (cache / 'OFFLINE-README.txt').is_file()\n"},
+        {"old": "run_installer(cache / setup.name, cache, installed", "new": "run_installer(setup, cache, installed"}
+      ]
+    },
+    {
+      "path": "dev/ONLINE_INSTALLER.md",
+      "before_git_blob": "cb00625f4c94daaa285801a7117989770811392c",
+      "replacements": [
+        {"old": "The small Install.exe, original Setup.exe, both Setup-*.bin files, checksums and\ninstructions are kept together.", "new": "The original Setup.exe, both Setup-*.bin files, checksums and offline\ninstructions are kept together."},
+        {"old": "Running Install.exe again checks", "new": "Run the cached Setup.exe to reinstall offline. Running your downloaded Install.exe again checks"}
+      ]
+    }
+  ]
 }
