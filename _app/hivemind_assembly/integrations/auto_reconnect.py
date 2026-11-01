@@ -18,6 +18,7 @@ import asyncio
 import json
 import time
 from pathlib import Path
+from contextlib import asynccontextmanager
 from urllib.parse import urlsplit
 
 from hivemind_assembly.core.common import Blocked, atomic_write, canonical
@@ -35,13 +36,26 @@ class Stuck(Exception):
 
 
 class AutoReconnect:
-    def __init__(self, folder, browser, details, pair, routes, name=NAME):
+    def __init__(self, folder, browser, details, pair, routes, name=NAME, *, service_status=None):
         """details(provider) and pair(provider, page_url, flow) come from the active connection."""
         self.name = name
         self.settings_path = Path(folder) / "auto_reconnect.json"
         self.browser, self.details, self.pair, self.routes = browser, details, pair, routes
         self.state = {}
         self.locks = {}
+        self.service_status = service_status
+
+    @asynccontextmanager
+    async def profile_guard(self, provider):
+        profile, _ = self.profile(provider)
+        # Older adapters may not expose dispatch locking. NativeBrowser does;
+        # share its lock with setup and model-picker work on the same profile.
+        lock = self.browser.profile_lock(profile) if hasattr(self.browser, "profile_lock") else asyncio.Lock()
+        async with lock:
+            yield
+
+    def authorized(self, provider):
+        return bool(self.service_status and self.service_status(provider).get("authorized"))
 
     # Settings ---------------------------------------------------------------
     def providers(self):
@@ -80,7 +94,17 @@ class AutoReconnect:
             return self.state.get(provider)
         async with lock:
             try:
-                await self.reconnect(provider)
+                async with self.profile_guard(provider):
+                    # Read the current endpoint before consulting its authorization
+                    # state. A completed setup click is not proof of token exchange.
+                    self.details(provider)
+                    if self.authorized(provider):
+                        self.report(provider, "done", "Already connected: HA confirmed this service's authorization.")
+                    else:
+                        await self.reconnect(provider)
+            except asyncio.CancelledError:
+                self.report(provider, "manual", "Connection setup was interrupted. Select Connect to retry.")
+                raise
             except Stuck as exc:
                 self.report(provider, "manual", str(exc) + " The setup tab stays open. You can also connect " + provider + " by hand (Connection details).")
             except Blocked as exc:
@@ -101,7 +125,14 @@ class AutoReconnect:
         self.report(provider, "working", "Opening " + provider + " in HA's window.")
         page = await self.browser.service_page(profile, SETUP[provider], hosts)
         context = page.context
-        before = set(context.pages)
+        owned = set()
+        def own(candidate):
+            if candidate in owned:
+                return
+            owned.add(candidate)
+            if hasattr(candidate, "on"):
+                candidate.on("popup", own)
+        own(page)
         completed = False
         cancelled = False
         try:
@@ -113,20 +144,33 @@ class AutoReconnect:
             self.report(provider, "working", "Filling in the new address.")
             await self.fill_and_submit(provider, page, details)
             self.report(provider, "working", "Approving on HA's page.")
-            approval = await self.approval_page(context, origin)
+            approval = await self.approval_page(context, origin, pages=owned)
             await self.approve(provider, approval)
-            self.report(provider, "done", "Reconnected. " + provider + " will confirm on its first use.")
+            if self.service_status is None:
+                raise Stuck("Approval returned, but HA cannot verify this service's token exchange.")
+            deadline = time.monotonic() + 30
+            while not self.authorized(provider):
+                if time.monotonic() >= deadline:
+                    raise Stuck("Approval returned, but the service has not completed authorization. Retry Connect after it finishes.")
+                await asyncio.sleep(0.5)
+            self.report(provider, "done", "Connected. HA verified " + provider + "'s authorization; tool use is checked separately.")
             completed = True
         except asyncio.CancelledError:
             cancelled = True
             raise
         finally:
+            for candidate in owned:
+                if hasattr(candidate, "remove_listener"):
+                    candidate.remove_listener("popup", own)
             if completed or cancelled:
-                for extra in set(context.pages) - before:
-                    if not extra.is_closed():
-                        await extra.close()
-                if not page.is_closed():
-                    await page.close()
+                # A shared Chrome context also contains other agents and owner
+                # tabs. Only this setup tab and its own popups belong to us.
+                for candidate in owned:
+                    if not candidate.is_closed():
+                        try:
+                            await candidate.close()
+                        except Exception:
+                            pass  # closing Chrome must not mask the setup result
             elif not page.is_closed():
                 try:
                     await page.bring_to_front()
@@ -201,12 +245,15 @@ class AutoReconnect:
             await self.click_marked(page)
             await page.wait_for_timeout(1500)
 
-    async def approval_page(self, context, origin, seconds=90):
+    async def approval_page(self, context, origin, seconds=90, *, pages=None):
         deadline = time.monotonic() + seconds
         while time.monotonic() < deadline:
-            for candidate in context.pages:
+            for candidate in list(context.pages if pages is None else pages):
+                if candidate.is_closed():
+                    continue
                 u = urlsplit(candidate.url)
-                if candidate.url.startswith(origin + "/") and u.path == "/authorize":
+                if (u.scheme + "://" + u.netloc == origin and u.path == "/authorize"
+                        and not u.username and not u.password and not u.fragment):
                     await candidate.wait_for_load_state("domcontentloaded")
                     return candidate
             await asyncio.sleep(0.5)
@@ -218,9 +265,8 @@ class AutoReconnect:
         code = self.pair(provider, page.url, flow)
         await page.locator("form[action='/authorize'] input[name=pairing_code]").fill(code["pairing_code"])
         await page.locator("form[action='/authorize'] button").click()
-        hosts = ("chatgpt.com", "chat.openai.com", "claude.ai", "claude.com")
+        hosts = ("chatgpt.com", "chat.openai.com") if provider == "ChatGPT" else ("claude.ai", "claude.com")
         try:
-            await page.wait_for_url(lambda url: urlsplit(url).hostname in hosts, timeout=30000)
+            await page.wait_for_url(lambda url: urlsplit(url).scheme == "https" and urlsplit(url).hostname in hosts, timeout=30000)
         except Exception:
             raise Stuck("The approval didn't return to " + provider + ".") from None
-        await page.wait_for_timeout(3000)  # let the provider finish exchanging the code
