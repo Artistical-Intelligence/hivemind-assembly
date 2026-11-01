@@ -689,11 +689,9 @@ class NativeBrowser:
         if not usage.get("url"):
             raise Blocked("Usage page is not configured")
         self.validate_url(route, usage["url"])
-        if cfg.get("conversation_url"):
-            context = (await self.page(route)).context
-            page = await context.new_page()
-        else:
-            page = await self.service_page(cfg["profile"], usage["url"], cfg.get("allowed_hosts"))
+        # Polling allowance needs the account profile, not an agent conversation.
+        # Keep lazily closed setup/work tabs closed during background usage checks.
+        page = await self.service_page(cfg["profile"], usage["url"], cfg.get("allowed_hosts"))
         try:
             await page.goto(usage["url"], wait_until="domcontentloaded")
             self.validate_url(route, page.url)

@@ -12,6 +12,7 @@ import json
 import os
 import threading
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -109,6 +110,7 @@ def test_reconnect_replaces_the_old_connector_and_approves_on_has_page(tmp_path,
                 lambda p, url, flow: chrome_helper.pair(quick, p, url, flow),
                 lambda: {"worker.astra": {"provider": "openai", "profile": "openai", "allowed_hosts": ["chatgpt.com"]}},
                 name=name,
+                service_status=lambda p: gateway.auth.services()[p],
             )
             auto.save(["ChatGPT"])
             results = await auto.run_all()
@@ -139,3 +141,147 @@ def test_missing_signed_in_window_is_reported_not_raised(tmp_path):
     auto = AutoReconnect(tmp_path, None, lambda p: {"origin": ORIGIN}, None, lambda: {})
     result = asyncio.run(auto.run("Claude"))
     assert result["stage"] == "manual" and "No HA assistant uses Claude" in result["message"]
+
+
+class SetupPage:
+    def __init__(self, url="https://chatgpt.com/plugins"):
+        self.url = url
+        self.events = {}
+        self.closed = False
+        self.wait_for_load_state = AsyncMock()
+        self.bring_to_front = AsyncMock()
+
+    def on(self, event, callback):
+        self.events[event] = callback
+
+    def remove_listener(self, event, callback):
+        if self.events.get(event) is callback:
+            del self.events[event]
+
+    def is_closed(self):
+        return self.closed
+
+    async def close(self):
+        self.closed = True
+
+
+def setup_fixture(tmp_path):
+    page = SetupPage()
+    page.context = SimpleNamespace(pages=[page])
+    locks = {}
+    browser = SimpleNamespace(
+        service_page=AsyncMock(return_value=page),
+        profile_lock=lambda profile: locks.setdefault(profile, asyncio.Lock()),
+    )
+    state = {"authorized": False}
+    auto = AutoReconnect(
+        tmp_path, browser, lambda p: {"origin": ORIGIN}, None,
+        lambda: {"worker": {"provider": "openai", "profile": "openai", "allowed_hosts": ["chatgpt.com"]}},
+        service_status=lambda p: state,
+    )
+    auto.remove_old = AsyncMock()
+    auto.open_form = AsyncMock()
+    auto.fill_and_submit = AsyncMock()
+    auto.approval_page = AsyncMock(return_value=page)
+    async def approve(provider, target):
+        state["authorized"] = True
+    auto.approve = approve
+    return auto, page, state
+
+
+@pytest.mark.parametrize("cancelled", [False, True])
+def test_cleanup_closes_only_owned_setup_and_popups(tmp_path, cancelled):
+    auto, page, _ = setup_fixture(tmp_path)
+    unrelated, popup, nested_popup = SetupPage(), SetupPage(), SetupPage()
+
+    async def submit(*args):
+        # An agent tab opens while connector setup runs in the same Chrome.
+        page.context.pages.extend([unrelated, popup, nested_popup])
+        page.events["popup"](popup)
+        popup.events["popup"](nested_popup)
+        if cancelled:
+            raise asyncio.CancelledError()
+    auto.fill_and_submit = submit
+
+    async def run():
+        if cancelled:
+            with pytest.raises(asyncio.CancelledError):
+                await auto.run("ChatGPT")
+        else:
+            assert (await auto.run("ChatGPT"))["stage"] == "done"
+    asyncio.run(run())
+    assert page.closed and popup.closed and nested_popup.closed
+    assert not unrelated.closed
+    assert not page.events and not popup.events and not nested_popup.events
+
+
+def test_authorized_service_is_reused_without_removing_connector(tmp_path):
+    auto, page, state = setup_fixture(tmp_path)
+    state["authorized"] = True
+    result = asyncio.run(auto.run("ChatGPT"))
+    assert result["stage"] == "done" and "Already connected" in result["message"]
+    auto.browser.service_page.assert_not_awaited()
+    auto.remove_old.assert_not_awaited()
+
+
+def test_approval_without_token_exchange_is_not_success(tmp_path, monkeypatch):
+    from hivemind_assembly.integrations import auto_reconnect
+    auto, page, _ = setup_fixture(tmp_path)
+    auto.approve = AsyncMock()
+    clock = iter([0, 31])
+    monkeypatch.setattr(auto_reconnect, "time", SimpleNamespace(time=lambda: 0, monotonic=lambda: next(clock)))
+    result = asyncio.run(auto.run("ChatGPT"))
+    assert result["stage"] == "manual" and "not completed authorization" in result["message"]
+    assert not page.closed
+
+
+@pytest.mark.parametrize("same_profile", [False, True])
+def test_connector_setup_serializes_only_shared_profiles(tmp_path, same_profile):
+    async def run():
+        auto, _, _ = setup_fixture(tmp_path)
+        second = AutoReconnect(tmp_path / "second", auto.browser, auto.details, None,
+            lambda: {"worker": {"provider": "openai", "profile": "openai" if same_profile else "other", "allowed_hosts": ["chatgpt.com"]}})
+        active = 0
+        peak = 0
+        started = asyncio.Event()
+        release = asyncio.Event()
+        async def reconnect(provider):
+            nonlocal active, peak
+            active += 1
+            peak = max(peak, active)
+            started.set()
+            await release.wait()
+            active -= 1
+        auto.reconnect = second.reconnect = reconnect
+        first = asyncio.create_task(auto.run("ChatGPT"))
+        await started.wait()
+        other = asyncio.create_task(second.run("ChatGPT"))
+        await asyncio.sleep(0)
+        assert active == (1 if same_profile else 2)
+        release.set()
+        await asyncio.gather(first, other)
+        assert peak == (1 if same_profile else 2)
+    asyncio.run(run())
+
+
+def test_approval_selection_ignores_unrelated_tabs(tmp_path):
+    auto, _, _ = setup_fixture(tmp_path)
+    unrelated = SetupPage(ORIGIN + "/authorize")
+    owned = SetupPage(ORIGIN + "/authorize")
+    context = SimpleNamespace(pages=[unrelated, owned])
+    selected = asyncio.run(AutoReconnect.approval_page(auto, context, ORIGIN, pages={owned}))
+    assert selected is owned
+    unrelated.wait_for_load_state.assert_not_awaited()
+
+
+def test_approval_callback_must_return_to_same_provider(tmp_path):
+    auto, page, _ = setup_fixture(tmp_path)
+    locator = SimpleNamespace(input_value=AsyncMock(return_value="flow"), fill=AsyncMock(), click=AsyncMock())
+    page.locator = lambda selector: locator
+    auto.pair = lambda *args: {"pairing_code": "code"}
+    async def wait_for_url(predicate, **kwargs):
+        assert not predicate("https://claude.ai/return")
+        assert not predicate("http://chatgpt.com/return")
+        assert predicate("https://chatgpt.com/connector_platform_oauth_redirect")
+    page.wait_for_url = wait_for_url
+    asyncio.run(AutoReconnect.approve(auto, "ChatGPT", page))

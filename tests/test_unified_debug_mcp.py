@@ -47,6 +47,13 @@ def test_separate_debug_grant_does_not_enable_primary_then_opt_in_and_revoke(app
         app.mcp_gateway.call("ha_debug_tab", {"route": "worker.opus"})
     with pytest.raises(Blocked, match="screenshots"):
         app.mcp_gateway.call("ha_debug_screenshot", {"route": ROUTE})
+    settings = app.connections.settings()
+    settings["enabled"] = False
+    app.connections.save(settings)
+    assert not app.mcp_gateway.call("ha_connection_status", {})["tab_access_enabled"]
+    with pytest.raises(Blocked, match="Enable MCP"):
+        app.mcp_gateway.call("ha_debug_status", {})
+    enable(app)
     debug.stop()
     assert not app.mcp_gateway.call("ha_connection_status", {})["tab_access_enabled"]
     with pytest.raises(Blocked):

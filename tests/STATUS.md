@@ -13,3 +13,9 @@ CHECKS PENDING: test_integration_document_scope.py — exact LF/CRLF byte fixtur
 CHECKS PENDING: test_beta_packaging.py — beta-only authorization, original ZIP spelling, traversal/alias/link rejection and fail-closed publication; independent source review. A passing beta test does not confer stable-release approval.
 
 CHECKS PENDING: test_debug_mcp.py — 2026-11-01 browser/MCP repair; independent source and regression review pending.
+
+CHECKS PENDING: test_unified_debug_mcp.py — 2026-11-01 browser/MCP repair; independent source and regression review pending.
+
+CHECKS PENDING: test_browser_setup_lifecycle.py — 2026-11-01 browser/MCP repair; independent source and regression review pending.
+
+CHECKS PENDING: test_auto_reconnect.py — 2026-11-01 browser/MCP repair; independent source and regression review pending.

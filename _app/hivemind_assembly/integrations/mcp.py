@@ -586,7 +586,7 @@ class Gateway:
             return {
                 "version": __version__, "state": "ready" if cfg["enabled"] else "disabled",
                 "project_access_enabled": cfg["enabled"],
-                "tab_access_enabled": bool(debugging and debugging.primary_connection and debugging.routes),
+                "tab_access_enabled": bool(cfg["enabled"] and debugging and debugging.primary_connection and debugging.routes),
                 "message": "Use ha_projects for shared projects. To inspect and control tabs through this connection, enable primary connection access and select assistants in HA Connections > Tab access. Screenshot access is a separate local choice.",
             }
         cfg = self.connections.settings()

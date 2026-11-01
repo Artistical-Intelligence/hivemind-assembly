@@ -15,3 +15,5 @@ CHECKS PENDING: prepare_offline_assets.py — pinned Windows dependencies, brows
 CHECKS PENDING: verify_offline_install.py — real fresh Windows setup, execution, search, dashboard and network-boundary evidence; independent review.
 CHECKS PENDING: package_beta.py — independent packaging review remains; the owner explicitly authorized a testing prerelease, not stable approval. Retained payload identity, installer and offline acceptance are required by the beta workflow.
 CHECKS PENDING: beta_release_request.json — explicit owner-testing scope and provenance record; does not authorize clearing any independent-review markers or publishing a stable release.
+
+CHECKS PENDING: HANDOFF_BROWSER_MCP_2026-11-01.md — 2026-11-01 browser/MCP repair; independent source and regression review pending.

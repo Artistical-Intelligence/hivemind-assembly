@@ -8,6 +8,8 @@ The owner additionally requested a single downloading/verifying/caching setup ex
 
 | Item | Folder | Waiting for |
 | --- | --- | --- |
+| HANDOFF_BROWSER_MCP_2026-11-01.md | dev | 2026-11-01 browser/MCP repair: independent review and regressions |
+| test_auto_reconnect.py | tests | 2026-11-01 browser/MCP repair: independent review and regressions |
 | test_browser_setup_lifecycle.py | tests | 2026-11-01 browser/MCP repair: independent review and regressions |
 | test_unified_debug_mcp.py | tests | 2026-11-01 browser/MCP repair: independent review and regressions |
 | app.py | _app/hivemind_assembly/application | 2026-11-01 browser/MCP repair: independent review and regressions |
