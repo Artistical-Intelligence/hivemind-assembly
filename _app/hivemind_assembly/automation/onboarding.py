@@ -29,6 +29,8 @@ class NativeSetup:
         self.sessions, self.team = sessions, team
         self.pages = {}
         self.locks = {}
+        self.profile_locks = {}
+        self.discovery_pages = {}
         # Routes sharing a browser profile share one sign-in: only one of them
         # opens a page until that profile is signed in.
         self.signing_in = {}
@@ -97,7 +99,10 @@ class NativeSetup:
         if page is None or page.is_closed():
             page = getattr(self.browser, "pages", {}).get(route)
         if page is None or page.is_closed():
-            return False
+            cfg = self.browser.config["routes"].get(route, {})
+            if not cfg.get("conversation_url"):
+                return False
+            page = await self.browser.page(route)
         await page.bring_to_front()
         return True
 
@@ -146,158 +151,194 @@ class NativeSetup:
         if route not in self.browser.config["routes"]:
             raise Blocked("Unknown native route")
         async with self.locks.setdefault(route, asyncio.Lock()):
-            cfg = self.browser.config["routes"][route]
-            profile = cfg["profile"]
-            usage = cfg.setdefault("usage", {})
-            if not usage.get("url") and CONTRACTS[cfg["provider"]].get("usage_url"):
-                usage["url"] = CONTRACTS[cfg["provider"]]["usage_url"]
-                usage["discover_progressbars"] = True
-            held = self.team.observations.get(route) if self.team is not None else None
-            if held is not None and held.blocked_kind == "quota":
-                observation = await self.allowance(route, cfg)
-                if observation is None or not observation.eligible():
-                    return self.save(route, stage="waiting_quota", instruction="Provider usage limit reached. HA waits for the daily allowance recheck; spending settings are unchanged.")
-            page = self.pages.get(route)
-            if page is None or page.is_closed():
-                owner = self.signing_in.get(profile)
-                owner_page = self.pages.get(owner)
-                if owner not in (None, route) and owner_page is not None and not owner_page.is_closed():
-                    return self.save(
-                        route,
-                        stage="authentication",
-                        instruction="Waiting for sign-in in the window already open for this account.",
-                    )
-                self.save(
-                    route,
-                    stage="opening",
-                    instruction="Opening " + PROVIDER_NAMES.get(cfg["provider"], cfg["provider"]) + " in a tab.",
-                )
-                url = (
-                    cfg.get("conversation_url") or CONTRACTS[cfg["provider"]]["new_url"]
-                )
-                self.signing_in[profile] = route
-                try:
-                    page = await self.browser.service_page(profile, url, cfg["allowed_hosts"])
-                except BaseException:
-                    if self.signing_in.get(profile) == route:
-                        del self.signing_in[profile]
-                    raise
-                self.pages[route] = page
-            if urlsplit(page.url).hostname not in cfg["allowed_hosts"]:
-                return self.save(
-                    route,
-                    stage="authentication",
-                    instruction="Waiting for provider sign-in to return to the native service.",
-                )
-            self.browser.validate_url(route, page.url)
-            login = False
-            for name in ("Log in", "Sign in"):
-                button = page.get_by_role("button", name=name, exact=True)
-                login = login or (
-                    await button.count() > 0 and await button.first.is_visible()
-                )
-            if (
-                login
-                or await page.locator(
-                    'input[type="password"], input[autocomplete="one-time-code"]'
-                ).count()
-                or "/login" in page.url
-                or "/auth/" in page.url
-            ):
-                return self.save(
-                    route,
-                    stage="authentication",
-                    instruction="Complete provider sign-in in the opened browser; setup continues automatically.",
-                )
-            if self.signing_in.get(profile) == route:
-                # Signed in: the account's other routes can open their chats now.
-                del self.signing_in[profile]
-            # Routes sharing an account take turns: the page keeps model and effort per account.
-            lock = getattr(self.browser, "dispatch_lock", None)
-            if lock is not None:
-                async with lock(route):
-                    discovered = await discover(page, cfg)
-            else:
-                discovered = await discover(page, cfg)
-            if discovered["missing"]:
-                return self.save(
-                    route,
-                    stage="binding_required",
-                    instruction="Waiting for visible exact controls: "
-                    + ", ".join(discovered["missing"]),
-                    detail=discovered.get("detail", ""),
-                )
-            old = copy.deepcopy(cfg)
-            cfg.update(
-                selectors=discovered["selectors"],
-                account_label=discovered["account_label"],
-            )
-            unresolved = bool(getattr(self.sessions, "pending", lambda r: [])(route))
-            # Opening the original chat to recover an unresolved request must not
-            # change the previous binding used to identify its retained intent.
-            persistent = conversation_url(cfg, page.url) and not unresolved
-            evidence = None
-            if persistent:
-                cfg["conversation_url"] = page.url
-                self.browser.pages[route] = page
-                try:
-                    evidence = await self.browser.observe(route)
-                    validate_config(self.browser.config)
-                except Exception:
-                    cfg.clear()
-                    cfg.update(old)
-                    raise
-            usage = cfg.setdefault("usage", {})
-            if not usage.get("url"):
-                links = await page.get_by_role("link", name="Usage", exact=True).all()
-                if len(links) == 1:
-                    url = urljoin(page.url, await links[0].get_attribute("href") or "")
-                    self.browser.validate_url(route, url)
-                    usage.update(url=url, discover_progressbars=True)
-            if not usage.get("url") and CONTRACTS[cfg["provider"]].get("usage_url"):
-                # Today's sites keep usage behind menus; their usage pages have fixed addresses.
-                url = CONTRACTS[cfg["provider"]]["usage_url"]
-                self.browser.validate_url(route, url)
-                usage.update(url=url, discover_progressbars=True)
-            atomic_write(self.config_path, canonical(self.browser.config))
-            if self.sessions is None or self.team is None:
-                return self.save(
-                    route,
-                    stage="bound" if persistent else "ready_for_session",
-                    evidence=evidence,
-                    instruction="Exact controls observed. Native session acceptance remains pending.",
-                )
-            if not usage.get("url"):
-                return self.save(
-                    route,
-                    stage="allowance_mapping",
-                    instruction="Waiting for an unambiguous provider allowance mapping. No model request has been sent.",
-                )
+            profile = self.browser.config["routes"][route]["profile"]
+            # Account menus and native model selection are shared state. Different
+            # profiles can progress concurrently; one profile completes a step at
+            # a time. Polling waits below never retain this lock.
+            async with self.profile_locks.setdefault(profile, asyncio.Lock()):
+                return await self._step(route)
+
+    async def _step(self, route):
+        cfg = self.browser.config["routes"][route]
+        profile = cfg["profile"]
+        usage = cfg.setdefault("usage", {})
+        if not usage.get("url") and CONTRACTS[cfg["provider"]].get("usage_url"):
+            usage["url"] = CONTRACTS[cfg["provider"]]["usage_url"]
+            usage["discover_progressbars"] = True
+        held = self.team.observations.get(route) if self.team is not None else None
+        if held is not None and held.blocked_kind == "quota":
             observation = await self.allowance(route, cfg)
             if observation is None or not observation.eligible():
+                return self.save(route, stage="waiting_quota", instruction="Provider usage limit reached. HA waits for the daily allowance recheck; spending settings are unchanged.")
+        discovery_key = (profile, cfg["provider"], cfg.get("mode"))
+        page = self.pages.get(route)
+        if page is None or page.is_closed():
+            owner = self.signing_in.get(profile)
+            owner_page = self.pages.get(owner)
+            if owner not in (None, route) and owner_page is not None and not owner_page.is_closed():
                 return self.save(
                     route,
-                    stage="waiting_quota",
-                    instruction="Session acceptance waits for sufficient allowance under the 24-hour polling policy.",
+                    stage="authentication",
+                    instruction="Waiting for sign-in in the window already open for this account.",
                 )
-            if not (persistent and self.sessions.accepted(route)):
-                self.save(route, stage="ready_for_session", instruction="Checking the saved setup conversation; unresolved requests are never resent.")
-                await self.sessions.renew("session_setup", route)
-                self.pages[route] = self.browser.pages[route]
-            # A durable session commit can precede a process crash. Publish
-            # readiness from the retained allowance even when no renewal is needed.
-            self.team.observations[route] = observation
-            from dataclasses import asdict
-
-            self.store.put("availability", uid("usage"), asdict(observation))
+            self.save(
+                route,
+                stage="opening",
+                instruction="Opening " + PROVIDER_NAMES.get(cfg["provider"], cfg["provider"]) + " in a tab.",
+            )
+            url = (
+                cfg.get("conversation_url") or CONTRACTS[cfg["provider"]]["new_url"]
+            )
+            self.signing_in[profile] = route
+            try:
+                shared = self.discovery_pages.get(discovery_key)
+                if (not cfg.get("conversation_url") and shared is not None
+                        and not shared.is_closed() and not conversation_url(cfg, shared.url)):
+                    page = shared
+                else:
+                    page = await self.browser.service_page(profile, url, cfg["allowed_hosts"])
+                    if not cfg.get("conversation_url"):
+                        self.discovery_pages[discovery_key] = page
+            except BaseException:
+                if self.signing_in.get(profile) == route:
+                    del self.signing_in[profile]
+                raise
+            self.pages[route] = page
+        if urlsplit(page.url).hostname not in cfg["allowed_hosts"]:
             return self.save(
                 route,
-                stage="verified",
-                instruction="Exact native route, persistent conversation and both attachment directions verified.",
+                stage="authentication",
+                instruction="Waiting for provider sign-in to return to the native service.",
             )
+        self.browser.validate_url(route, page.url)
+        login = False
+        for name in ("Log in", "Sign in"):
+            button = page.get_by_role("button", name=name, exact=True)
+            login = login or (
+                await button.count() > 0 and await button.first.is_visible()
+            )
+        if (
+            login
+            or await page.locator(
+                'input[type="password"], input[autocomplete="one-time-code"]'
+            ).count()
+            or "/login" in page.url
+            or "/auth/" in page.url
+        ):
+            return self.save(
+                route,
+                stage="authentication",
+                instruction="Complete provider sign-in in the opened browser; setup continues automatically.",
+            )
+        if self.signing_in.get(profile) == route:
+            # Signed in: the account's other routes can open their chats now.
+            del self.signing_in[profile]
+        # Routes sharing an account take turns: the page keeps model and effort per account.
+        lock = getattr(self.browser, "dispatch_lock", None)
+        if lock is not None:
+            async with lock(route):
+                discovered = await discover(page, cfg)
+        else:
+            discovered = await discover(page, cfg)
+        if discovered["missing"]:
+            return self.save(
+                route,
+                stage="binding_required",
+                instruction="Waiting for visible exact controls: "
+                + ", ".join(discovered["missing"]),
+                detail=discovered.get("detail", ""),
+            )
+        old = copy.deepcopy(cfg)
+        cfg.update(
+            selectors=discovered["selectors"],
+            account_label=discovered["account_label"],
+        )
+        unresolved = bool(getattr(self.sessions, "pending", lambda r: [])(route))
+        # Opening the original chat to recover an unresolved request must not
+        # change the previous binding used to identify its retained intent.
+        persistent = conversation_url(cfg, page.url) and not unresolved
+        evidence = None
+        if persistent:
+            cfg["conversation_url"] = page.url
+            self.browser.pages[route] = page
+            try:
+                evidence = await self.browser.observe(route)
+                validate_config(self.browser.config)
+            except Exception:
+                cfg.clear()
+                cfg.update(old)
+                raise
+        usage = cfg.setdefault("usage", {})
+        if not usage.get("url"):
+            links = await page.get_by_role("link", name="Usage", exact=True).all()
+            if len(links) == 1:
+                url = urljoin(page.url, await links[0].get_attribute("href") or "")
+                self.browser.validate_url(route, url)
+                usage.update(url=url, discover_progressbars=True)
+        if not usage.get("url") and CONTRACTS[cfg["provider"]].get("usage_url"):
+            # Today's sites keep usage behind menus; their usage pages have fixed addresses.
+            url = CONTRACTS[cfg["provider"]]["usage_url"]
+            self.browser.validate_url(route, url)
+            usage.update(url=url, discover_progressbars=True)
+        atomic_write(self.config_path, canonical(self.browser.config))
+        if self.sessions is None or self.team is None:
+            return self.save(
+                route,
+                stage="bound" if persistent else "ready_for_session",
+                evidence=evidence,
+                instruction="Exact controls observed. Native session acceptance remains pending.",
+            )
+        if not usage.get("url"):
+            return self.save(
+                route,
+                stage="allowance_mapping",
+                instruction="Waiting for an unambiguous provider allowance mapping. No model request has been sent.",
+            )
+        observation = await self.allowance(route, cfg)
+        if observation is None or not observation.eligible():
+            return self.save(
+                route,
+                stage="waiting_quota",
+                instruction="Session acceptance waits for sufficient allowance under the 24-hour polling policy.",
+            )
+        if not (persistent and self.sessions.accepted(route)):
+            self.save(route, stage="ready_for_session", instruction="Checking the saved setup conversation; unresolved requests are never resent.")
+            # A shared blank discovery tab becomes private to this route before
+            # its canary can send anything. Other roles never adopt that chat.
+            for name, candidate in list(self.pages.items()):
+                if name != route and candidate is page:
+                    del self.pages[name]
+            if self.discovery_pages.get(discovery_key) is page:
+                del self.discovery_pages[discovery_key]
+            if not unresolved and page.url == CONTRACTS[cfg["provider"]]["new_url"]:
+                await self.sessions.renew("session_setup", route, setup_page=page)
+            else:
+                await self.sessions.renew("session_setup", route)
+            accepted_page = self.browser.pages[route]
+            self.pages[route] = accepted_page
+            # Acceptance has a durable conversation binding; reopen lazily when
+            # work or Show tab needs it instead of retaining every setup tab.
+            try:
+                await accepted_page.close()
+                if page is not accepted_page and not page.is_closed() and not conversation_url(cfg, page.url):
+                    await page.close()
+            except Exception:
+                pass  # cleanup is not a failed acceptance; retain the binding
+        # A durable session commit can precede a process crash. Publish
+        # readiness from the retained allowance even when no renewal is needed.
+        self.team.observations[route] = observation
+        from dataclasses import asdict
+
+        self.store.put("availability", uid("usage"), asdict(observation))
+        return self.save(
+            route,
+            stage="verified",
+            instruction="Exact native route, persistent conversation and both attachment directions verified.",
+        )
 
     async def run(self, route):
         unconfirmed = 0
+        reconnects = 0
         while True:
             try:
                 result = await self.step(route)
@@ -331,6 +372,20 @@ class NativeSetup:
                     route, stage="waiting_delivery", instruction=str(error)
                 )
             except Exception as error:
+                closed = "target page, context or browser has been closed" in str(error).lower()
+                if closed and reconnects < 2:
+                    reconnects += 1
+                    page = self.pages.pop(route, None)
+                    cfg = self.browser.config["routes"][route]
+                    if self.signing_in.get(cfg["profile"]) == route:
+                        self.signing_in.pop(cfg["profile"], None)
+                    if "BrowserContext.new_page" in str(error):
+                        context = self.browser.contexts.get(cfg["profile"])
+                        if context is not None:
+                            self.browser.forget_context(context)
+                    self.save(route, stage="opening", instruction="Browser connection closed. Reconnecting and recovering saved setup; existing requests will not be resent.")
+                    await asyncio.sleep(1)
+                    continue
                 # Browser errors carry long call logs; the first line says what happened.
                 first = (str(error).strip().splitlines() or [type(error).__name__])[0][:300]
                 await self.snapshot(route, force=True)
