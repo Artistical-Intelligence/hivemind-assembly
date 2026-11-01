@@ -1,3 +1,4 @@
+CHECKS PENDING: online_installer.iss; build_online_installer.py; verify_online_installer.py; online_installer_request.json; ONLINE_INSTALLER.md — owner-authorized packaging-only beta; compiled Windows acceptance required, independent source review remains open.
 CHECKS PENDING: ingest_automation.py — embedded donor integration and independent review.
 CHECKS PENDING: acquire_donor_sources.py — pinned source preservation review.
 CHECKS PENDING: build_owned_analysis.py — offline analysis build and independent review.

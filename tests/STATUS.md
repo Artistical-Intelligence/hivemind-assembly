@@ -1,3 +1,4 @@
+CHECKS PENDING: test_online_installer.py — pinned manifest, release identity and generated-script tests; independent source review remains open; compiled acceptance is separate.
 CHECKS PENDING: test_hermes_board.py — unified HA integration; regression checks and independent source review.
 CHECKS PENDING: test_owned_components.py — offline installation, tampering and preservation coverage; independent review.
 CHECKS PENDING: test_internal_execution.py — protocol tests plus actual compiled-helper tests on Windows and Linux; independent source review.
