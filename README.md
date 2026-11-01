@@ -2,6 +2,16 @@
 
 A local reverse-engineering workspace for collaborative agents, independent verification, and reusable learning. Current version: 0.37.4. Ghidra and REA remain complete foundations; task control, native browser sessions, evidence, and learning are integrated around them.
 
+## Test the current beta — one download
+
+**[Download Hivemind_Assembly_0.38.0-beta.1_Install.exe](https://github.com/Artistical-Intelligence/hivemind-assembly/releases/download/v0.38.0-beta.1/Hivemind_Assembly_0.38.0-beta.1_Install.exe)** and run it. This small native installer automatically downloads, checks and retains the required data; you do not need to download the `.bin` files manually. No separate installer scripts or runtimes are required.
+
+The first download is approximately 2.23 GB. Complete verified files are kept in `%LOCALAPPDATA%\Hivemind Assembly\InstallerCache\0.38.0-beta.1`, separate from the application and your HA data. Rerunning Install.exe reuses them. The retained Setup.exe and both matching data files can also reinstall offline; keep that complete folder for recovery. Back up HA and close it before updating. The installer is unsigned.
+
+The [beta release](https://github.com/Artistical-Intelligence/hivemind-assembly/releases/tag/v0.38.0-beta.1) retains the original three-file offline alternative, checksums and acceptance results. See [installer details](dev/ONLINE_INSTALLER.md) and [observed test evidence](checks/2026-11-01-online-installer-evidence.json). Actual Windows download, installation, cached reinstall, selective cache repair and preservation on uninstall passed. This packaging addition does not change the tested application, clear independent-review markers, or claim live-account/remote-device acceptance.
+
+The stable-version instructions below remain separate from this owner-testing beta.
+
 ## Unified integration on main — not yet a production release
 
 The current development code brings session/task storage, browser automation,
