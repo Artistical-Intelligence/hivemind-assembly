@@ -30,10 +30,16 @@ INSTRUCTIONS = (
 
 def build_debug_server(call):
     from mcp.server import MCPServer
-    from mcp.server.mcpserver.exceptions import ToolError
-    from mcp.types import ImageContent, TextContent
 
     server = MCPServer(NAME, instructions=INSTRUCTIONS)
+    register_debug_tools(server, call)
+    return server
+
+
+def register_debug_tools(server, call):
+    """Share the catalog, never the grant, with the primary HA connection."""
+    from mcp.server.mcpserver.exceptions import ToolError
+    from mcp.types import ImageContent, TextContent
 
     def invoke(tool, args):
         try:
@@ -78,6 +84,7 @@ class DebugConnection:
         self.lock = threading.RLock()
         self.routes = set()
         self.visual = False
+        self.primary_connection = False
         self.visual_lock = asyncio.Lock()
         self.identities = {}
         self.retry_tasks = set()
@@ -102,6 +109,7 @@ class DebugConnection:
         with self.lock:
             return {**self.quick.status(), "name": NAME, "routes": sorted(self.routes),
                     "available_routes": list(self.app.config["routes"]), "screenshots_enabled": self.visual,
+                    "primary_connection_enabled": self.primary_connection,
                     "ocr_available": self.ocr_available(),
                     "setup": self.auto.status() if self.auto else {"progress": {}}}
 
@@ -110,7 +118,9 @@ class DebugConnection:
         from .debug_vision import available
         return available()
 
-    def start(self, routes, screenshots=False):
+    def start(self, routes, screenshots=False, primary_connection=False):
+        if type(primary_connection) is not bool:
+            raise ContractError("Primary connection access must be enabled explicitly")
         if type(screenshots) is not bool:
             raise ContractError("Screenshot access must be enabled explicitly")
         if not isinstance(routes, list) or not routes or any(
@@ -120,13 +130,15 @@ class DebugConnection:
         with self.lock:
             if self.stopping:
                 raise Blocked("Debugging is stopping; wait before starting it again")
-            if self.routes and (set(routes) != self.routes or screenshots != self.visual):
+            if self.routes and (set(routes) != self.routes or screenshots != self.visual
+                                or primary_connection != self.primary_connection):
                 raise Blocked("Stop debugging before changing the selected assistants or screenshot access")
             if not self.routes:
                 self.epoch += 1
                 self.requests.clear()
                 self.routes = set(routes)
                 self.visual = screenshots
+                self.primary_connection = primary_connection
                 self.identities = {r: self.identity(r) for r in routes}
             self.quick.start()
         return self.status()
@@ -138,6 +150,7 @@ class DebugConnection:
             self.stopping = True
             self.routes.clear()
             self.visual = False
+            self.primary_connection = False
             self.epoch += 1
             self.quick.revoke()
         try:
@@ -181,7 +194,8 @@ class DebugConnection:
 
         self.auto = AutoReconnect(self.quick.folder, self.app.browser, info,
                                   lambda p, url, flow: pair(self.quick, p, url, flow),
-                                  lambda: self.app.config["routes"], name=NAME)
+                                  lambda: self.app.config["routes"], name=NAME,
+                                  service_status=lambda p: self.quick.status().get("services", {}).get(p, {}))
         epoch = self.epoch
 
         async def run():
@@ -225,6 +239,14 @@ class DebugConnection:
                 raise Blocked("Assistant identity changed. Stop and reconnect debugging for the new configuration.")
             if route is not None and route not in self.routes:
                 raise Blocked("This assistant is not enabled for debugging")
+
+    def call_primary(self, tool, args):
+        """Only a local owner grant may extend the primary project connection."""
+        with self.lock:
+            if not self.primary_connection:
+                raise Blocked("Enable primary connection access in HA Connections > Tab access first")
+            epoch = self.epoch
+        return self.call(tool, args, epoch=epoch)
 
     def call(self, tool, args, epoch=None):
         epoch = self.epoch if epoch is None else epoch
@@ -327,6 +349,18 @@ class DebugConnection:
             finally:
                 page.remove_listener("framenavigated", navigation)
 
+    def route_status(self, route):
+        page = self.app.native_setup.display_page(route)
+        return {
+            "route": route, "provider": self.app.config["routes"][route]["provider"],
+            "target": {k: self.app.config["routes"][route].get(k) for k in ("model", "mode", "effort")},
+            "stage": self.app.native_setup.status(route).get("stage"),
+            "message": self.clean(self.app.native_setup.progress(route).get("instruction", "")),
+            "tab_open": page is not None and not page.is_closed(),
+            "setup_running": bool(self.app.native_setup_futures.get(route)
+                                  and not self.app.native_setup_futures[route].done()),
+        }
+
     async def execute(self, tool, args, epoch):
         task = asyncio.current_task()
         self.inflight.add(task)
@@ -339,14 +373,9 @@ class DebugConnection:
         self.check(epoch=epoch)
         if tool == "ha_debug_status":
             return {"version": self.version, "screenshots_enabled": self.visual,
-                    "ocr_available": self.ocr_available(), "routes": [{
-                "route": r, "provider": self.app.config["routes"][r]["provider"],
-                "target": {k: self.app.config["routes"][r].get(k) for k in ("model", "mode", "effort")},
-                "stage": self.app.native_setup.status(r).get("stage"),
-                "message": self.clean(self.app.native_setup.progress(r).get("instruction", "")),
-                "tab_open": self.app.native_setup.display_page(r) is not None,
-                "setup_running": bool(self.app.native_setup_futures.get(r) and not self.app.native_setup_futures[r].done()),
-            } for r in sorted(self.routes)]}
+                    "primary_connection_enabled": self.primary_connection,
+                    "ocr_available": self.ocr_available(),
+                    "routes": [self.route_status(r) for r in sorted(self.routes)]}
         route = args.get("route")
         self.check(route, epoch)
         if tool == "ha_debug_action":
@@ -423,6 +452,9 @@ class DebugConnection:
                     else:
                         from hivemind_assembly.automation.providers import dismiss_popups
                         await dismiss_popups(page, check_allowance=True)
+                    self.check(route, epoch)
+                    self.page(route)
+                    receipt["observation"] = {**self.route_status(route), "observed": time.time()}
                     receipt["state"] = "completed"
             except Exception as exc:
                 receipt["error"] = type(exc).__name__
