@@ -8,6 +8,7 @@ The owner additionally requested a single downloading/verifying/caching setup ex
 
 | Item | Folder | Waiting for |
 | --- | --- | --- |
+| FINDINGS.md — GitHub MCP materialization and bounded continuation discoveries | dev/discoveries/2026-11-02-github-mcp-continuation | Independent evidence review; saved observations and proposed tests only, not runtime implementation, release acceptance, or proof of unlimited execution |
 | online_installer.iss; build_online_installer.py; verify_online_installer.py; online_installer_request.json; ONLINE_INSTALLER.md | dev | Independent source review; compiled Windows acceptance required for this owner-authorized beta packaging addition |
 | online-installer.yml | .github/workflows | Independent workflow review; preserve existing beta/stable asset bytes and identity |
 | test_online_installer.py | tests | Independent test review; unit contracts are not compiled installer acceptance |
