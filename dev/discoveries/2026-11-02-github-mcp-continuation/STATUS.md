@@ -1,0 +1,1 @@
+CHECKS PENDING: FINDINGS.md — Connector/materialization and bounded-continuation discoveries are being saved at the owner's request; independent source/evidence review is required. This is documentation only, not HA implementation or release acceptance.
