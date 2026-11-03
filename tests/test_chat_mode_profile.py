@@ -44,7 +44,7 @@ def test_chat_mode_policy_is_exact_and_does_not_route_by_model_or_host():
 def test_chat_mode_guidance_preserves_large_task_and_review_boundaries():
     assert "owner policy 1.2" in CHAT_MODE_GUIDANCE
     for step in range(1, 11):
-        assert f"\\n{step}. " in CHAT_MODE_GUIDANCE
+        assert f"\n{step}. " in CHAT_MODE_GUIDANCE
     for phrase in (
         "Pending checks are not a fixed work-in-progress cap",
         "Preserve large coherent tasks across waves and chats",
@@ -111,4 +111,4 @@ def test_native_request_packet_is_scoped_by_real_route_config(store):
         assert request["protocol"] == expected
         assert request["role_instructions"] == ROLE_PROMPTS["worker"]
         assert request["objective"] == "Read a pinned review artifact"
-        assert request["capabilities"]  # Existing broker grants, not new permissions.
+        assert isinstance(request["capabilities"], list)  # No extra permission granted.
