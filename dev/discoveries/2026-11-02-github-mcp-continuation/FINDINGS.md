@@ -54,7 +54,17 @@ Relevant saved plugin files:
 - `skills/github-text-first/agents/openai.yaml`;
 - `skills/github-text-first/references/VALIDATION.md`.
 
-Do not claim that the new skill automatically loaded in every existing or scheduled context. That needs a fresh-context behavioral test. The installed update is already account-side; re-uploading its ZIP or rotating credentials is not required merely to save the update.
+Do not claim that the new skill automatically loaded in every existing or scheduled context. The narrow fresh-context read-only test is now reported successful below; universal invocation remains unproven. The installed update is already account-side; re-uploading its ZIP or rotating credentials is not required merely to save the update.
+
+### Fresh-context read-only test — owner-supplied result
+
+The owner supplied the result of the specifically requested fresh-chat test. Evidence classification: **reported success from an owner-supplied test report**, not a direct observation of that other execution by this documenting agent, a scheduler record, or an independent review of this findings document. The original purpose was to test the installed skill in a fresh context, not to transfer review coordination or start an independent research reviewer.
+
+The report states that `github-text-first` was available, read and followed before retrieval. It used `GitHub.fetch_file` with UTF-8 and lines 1–3 of `Research/Continuation/B02/review_work_2026-10-27/continuation_2026-11-02/automation_capability_probe.md` in `Artistical-Intelligence/RE-Wizard` on `reviews/b02-batch-continuation-2026-11-02`. The response was inline text, with no returned attachment, no fallback and no tool-level error. The reported blob SHA was `359188f6771081d6c6f47949db93903c6a504394`, matching the previously retained test-file identity above.
+
+The report records no approval blocker in the returned operation result; it explicitly does not establish that the owner saw no client-side dialog. It reports no access to the previous authoring conversation, no repository/plugin/permission/schedule writes, and no reviews, workers or coordination takeover. Preserve these as reported scope observations rather than independently audited activity.
+
+**Disposition:** The original fresh-chat skill-loading and inline-text read smoke test is complete on the supplied evidence. No additional coordinator handoff or repeat of this same smoke test is required merely to continue existing work. This result does not validate native MCP file-response repair, fresh-context writes, every scheduled context, independent research review, successor creation, detached persistence or universal approval-free behavior. The remaining independent evidence-review marker on this document stays in place; it is not a request to repeat the successful smoke test.
 
 ### Retrieval policy to retain
 
@@ -118,7 +128,7 @@ For rollovers, use bounded lineage and one intended active successor, with owner
 
 ## 7. Focused next tests
 
-1. **Fresh-context routing:** Read the installed GitHub MCP 1.0.1 skill, verify the App identity and available connectors, retrieve one authorized text file and directory metadata, and record response shape. Do not assume the current conversation refreshed the skill. A screenshot or explicit owner observation is needed to settle client-only UI questions.
+1. **Fresh-context routing:** The original narrow skill-loading and file-read smoke test is now reported successful in section 3. Do not repeat it or require a coordinator handoff merely to continue work. Directory metadata, fresh-context writes, universal skill invocation and client-only approval behavior are separate scopes; test them only when they resolve a concrete remaining requirement. A screenshot or explicit owner observation is needed to settle client-only UI questions.
 2. **Full connector repair, when authorized and source is accessible:** Locate the source and deployment actually owning the App's tools. Test a genuinely inline-text, bounded retrieval implementation, preserving authentication, writes and binary opt-in behavior. Package skills alone cannot override a remote tool. Do not change App bindings through an editor that only permits skill changes, or claim a deployment happened without deployment evidence.
 3. **Scheduled successor and duplicate race:** Inspect existing jobs first. Use a bounded, nonrecursive test with an isolated canary output and supported atomic ownership. Check replay, simultaneous claim, uncertain creation result, lease expiry and stale-writer rejection. Respect service cadence and explicit execution restrictions. Do not alter the active review schedule without authorization.
 4. **Detached / persistent lifecycle:** When HA's host is reachable, verify an actual task handle, durable output, parent-end behavior, cancellation, recovery and single successor ownership. Distinguish desktop availability, remote endpoint connectivity and provider session capability.
@@ -137,6 +147,7 @@ Before testing any automated rollover, inspect the existing review and successor
 ## Evidence references and recheck boundaries
 
 - Owner-provided materialization dialog: the initiating observation; transcribed above without embedding the private conversation screenshot.
+- Owner-supplied fresh-chat read-only test report: section 3 records its narrow result and limits. No raw trace, complete activity log or independent review of that report was supplied; this save does not claim one.
 - Account plugin source/readback: GitHub MCP 1.0.1, especially `README.md`, `plugin.json`, `.app.json` and `skills/github-text-first/references/VALIDATION.md`. These were inspected again for this save; they are account-scoped, not vendored server source.
 - Earlier scoped write evidence: RE-Wizard commits `b0a6fb7669293e394ef2cfba68a7db0904365a40` and `da8171a6dd8c2396dc21bb467c5e173e6367243f`, as returned by the earlier tools. Their exact changed-path claims require checking those commits when reused.
 - Current scheduled-result linkage and remote audit: section 5. This save verified the audit's retrieval, not every preceding commit or source claim.
