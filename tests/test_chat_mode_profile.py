@@ -80,6 +80,8 @@ def test_native_request_packet_is_scoped_by_real_route_config(store):
         "worker.extra": ("openai", "Chat"),
         "worker.astra": ("openai", "Work"),
         "worker.opus": ("claude", "native"),
+        "adviser.extra": ("openai", "Chat"),
+        "reviewer.high": ("openai", "Chat"),
     }
     for route, (provider, mode) in routes.items():
         assert (cfg["routes"][route]["provider"], cfg["routes"][route]["mode"]) == (provider, mode)
@@ -109,6 +111,6 @@ def test_native_request_packet_is_scoped_by_real_route_config(store):
         request = native.calls[-1][1]
         expected = PROTOCOL + (CHAT_MODE_GUIDANCE if mode == "Chat" else "")
         assert request["protocol"] == expected
-        assert request["role_instructions"] == ROLE_PROMPTS["worker"]
+        assert request["role_instructions"] == ROLE_PROMPTS[route.split(".", 1)[0]]
         assert request["objective"] == "Read a pinned review artifact"
         assert isinstance(request["capabilities"], list)  # No extra permission granted.
