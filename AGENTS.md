@@ -31,6 +31,52 @@
   turns for routine polls. Follow any service-required heartbeat without
   presenting waiting as token-free model work.
 
+## Core adaptive execution and incremental progress
+
+Apply [the core process](dev/continuous_execution/PROCESS.md), revision 1.0,
+when developing HA and specifying the native coordinator/worker briefs it supplies.
+The owner adopted all ten steps, with the explicit clarification that useful large
+chunks and partial results should accumulate across waves. This is an operating
+requirement, not a claim that untested runtime mechanisms are implemented.
+
+1. **Read, reassess, decide each wave:** reconcile current owner directions,
+   repository state, outputs, verdicts, interruptions and real capabilities.
+2. **Define outcomes and evidence:** keep the long-horizon goal and distinguish
+   useful incremental progress from independent acceptance and publication.
+3. **Prioritize bottlenecks and cumulative value:** unlock completion without
+   selecting only small/easy wins or excluding valuable foundational work.
+4. **Verify capabilities:** check actual executor/reviewer/model/context and
+   artifact-return support; reuse unchanged capability evidence, never invent it.
+5. **Manage dependencies, not arbitrary backlog caps:** continue useful, reviewable,
+   nonduplicative and resumable work despite pending reviews. Defer only affected
+   paths for concrete dependencies, invalidated premises, conflicts, resource/access
+   constraints, owner stops or lack of useful work. Do not impose a fixed draft cap.
+6. **Preserve large coherent tasks:** a chunk may span many waves. Maintain its goal
+   and exact resume point; split only when practical constraints justify it.
+   Checkpoints are recovery points, not stop commands or one-unit-per-wave limits.
+7. **Reduce overhead:** use deterministic scripts, safe batched reads, pinned inputs
+   and scoped reuse without reducing required coverage or independent scrutiny.
+8. **Test explicit hypotheses:** separate automation experiments from project
+   validation; distinguish live results, isolated tests, simulations and blockers.
+9. **Recover through durable handoffs:** promptly save complete snapshots, verify
+   remote persistence, reconcile uncertain writes and preserve writer ownership.
+10. **Compare, learn, replan:** assess results at milestones, record concise rationale
+    and next decision triggers, and change ineffective methods without forcing novelty.
+
+A wave is a decision/execution opportunity, not a deadline for the whole assignment
+or a synchronization barrier. Do not stop merely because one milestone was saved,
+reviews are pending, or a large task will not finish in one turn. Continue valuable
+work within real budgets, permissions, dependencies and owner deadlines. Never trade
+away quality gates or claim partial work is accepted. Do not add a performance ledger.
+
+Scheduled executions may occur in another chat. Recover current authorized task
+state and material owner corrections from durable project/GitHub records; never
+assume the scheduling conversation or full author context is present. A different
+chat/task ID alone does not establish fresh context or reviewer independence.
+AI-only coordination must not depend on the owner opening chats, running commands,
+copying reports or recruiting reviewers. Respect mandatory approval and stop gates.
+Revise this process as the owner clarifies goals and verified findings accumulate.
+
 ## Setup UX preference
 
 - Prefer prefilled setup links and completed provider forms for known names,
