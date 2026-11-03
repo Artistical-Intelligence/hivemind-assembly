@@ -3,9 +3,7 @@
   "date": "2026-11-03",
   "status": "checks_pending",
   "scope": "Static documentation/routing contract for the ChatGPT Chat Mode-only adaptive execution profile.",
-  "result": "passed",
-  "checks_passed": 18,
-  "checks_failed": 0,
+  "result": "focused_static_checks_passed",
   "verified": {
     "chatgpt_profile_scope": "ChatGPT in Chat Mode only",
     "excludes": [
@@ -29,9 +27,16 @@
     "dev/continuous_execution/test_continuation_contract.py": "e7979c9e56a31e28ff6fc4ae8474a01c782bbf85"
   },
   "limitations": [
+    "The full Python unittest file was updated but not executed in a complete repository checkout in this session.",
     "Static checks do not prove live HA prompt routing.",
     "Static checks do not establish behavior in ChatGPT Work or Codex.",
     "Static checks do not independently approve the instruction change.",
     "Claude remaining unchanged does not validate Claude behavior."
-  ]
+  ],
+  "focused_checks": {
+    "passed": 18,
+    "failed": 0,
+    "method": "Direct inspection of current GitHub file contents and blob identities."
+  },
+  "python_contract_file_executed": false
 }
