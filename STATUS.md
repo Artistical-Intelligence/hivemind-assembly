@@ -1,1 +1,2 @@
 CHECKS PENDING: HA integration — unified setup, automation, remote access and packaged foundations; source review, regression checks and live-provider/Windows acceptance remain separate. No new release is approved by this marker.
+CHECKS PENDING: AGENTS.md; QUEUE.md — Owner-directed adaptive execution instructions, all ten steps with no arbitrary backlog or small-chunk limits. Independent instruction review remains required; documentation adoption is not live harness or release acceptance. See dev/continuous_execution/PROCESS.md.
