@@ -46,11 +46,13 @@ Claude or any other surface/provider; their capabilities are separately unproven
 
 
 def guidance_for_native_route(cfg):
-    """Return the extra policy only for a verified, explicit ChatGPT Chat route.
+    """Return the extra policy only for an explicitly configured ChatGPT Chat route.
 
     This function intentionally does not infer the mode from a hostname, model
     name, worker role or default. Unknown/missing/malformed routes fail closed.
-    It does not switch a route or change its authorization.
+    This checks configuration, not observed browser state; native session checks
+    must establish the actual surface separately before delivery. It does not
+    switch a route or change its authorization.
     """
     if not isinstance(cfg, dict):
         return ""
