@@ -45,13 +45,14 @@
     "corrected_issue": "NativeTeam originally always supplied the common PROTOCOL without the new Chat Mode adaptive instructions. Added a fail-closed helper and injected it only for native OpenAI Chat route config.",
     "module": {
       "path": "_app/hivemind_assembly/automation/chat_mode_profile.py",
-      "git_blob_sha": "ce944cc7bcdc6005eced11f6edd34c44e6df273e",
+      "git_blob_sha": "f568d0abd1274c832a0c717f62f50df686505692",
       "exact_bytes_verified_by_local_git_hash_object": true,
       "python_compile": "passed",
       "locally_executed_pytest": "17 passed",
       "positive": "explicit provider=openai and mode=Chat",
       "negative": "Work, Codex, Claude/native, unknown/missing/case-mismatched/malformed routes",
-      "policy_content_checks": "10 numbered steps; large-task carryover; no artificial backlog cap; quality gates; AI-only; no cross-mode transfer"
+      "policy_content_checks": "10 numbered steps; large-task carryover; no artificial backlog cap; quality gates; AI-only; no cross-mode transfer",
+      "note": "Exact current remote module was reproduced locally and re-tested after clarifying that route configuration does not independently attest the observed browser mode."
     },
     "native_request_builder": {
       "path": "_app/hivemind_assembly/automation/team.py",
@@ -67,7 +68,7 @@
         "worker.astra (Work)",
         "worker.opus (Claude/native)"
       ],
-      "note": "Source/code-level verification only; complete NativeTeam request-packet fixture has not yet executed."
+      "note": "Source/code-level verification only; complete NativeTeam request-packet fixture has not yet executed. Native session verification must separately establish the actual UI mode."
     },
     "regression_test_file": {
       "path": "tests/test_chat_mode_profile.py",
