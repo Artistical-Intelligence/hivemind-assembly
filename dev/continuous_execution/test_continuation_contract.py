@@ -1,18 +1,20 @@
-"""Static instruction checks only; not agent behavior or live runtime acceptance.
+"""Static ChatGPT instruction checks, not agent behavior or live acceptance.
 
 Run from a complete repository checkout:
     python dev/continuous_execution/test_continuation_contract.py
 
-These tests guard the presence, linkage and distinctions in the owner-adopted
-process. They do not prove that a model follows prose, launch any workers, access
-networks, change schedules, or replace independent review.
+These checks examine document linkage, required distinctions and provider scope.
+They do not prove a model follows prose, launch workers, access networks, change
+schedules, validate runtime provider routing, or replace independent review.
 """
 from pathlib import Path
+import hashlib
 import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 PROCESS_PATH = ROOT / "dev" / "continuous_execution" / "PROCESS.md"
+CLAUDE_BASELINE_BLOB = "0c8be2da28e6be34ef7220792e4ff8eda778529c"
 
 
 class InstructionContract(unittest.TestCase):
@@ -20,6 +22,8 @@ class InstructionContract(unittest.TestCase):
     def setUpClass(cls):
         cls.process = PROCESS_PATH.read_text(encoding="utf-8")
         cls.agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        cls.chatgpt = (ROOT / "CHATGPT.md").read_text(encoding="utf-8")
+        cls.claude_bytes = (ROOT / "CLAUDE.md").read_bytes()
         cls.queue = (ROOT / "QUEUE.md").read_text(encoding="utf-8")
         cls.register = (ROOT / "CHECKS_STATUS.md").read_text(encoding="utf-8")
         cls.local_status = PROCESS_PATH.with_name("STATUS.md").read_text(encoding="utf-8")
@@ -33,13 +37,16 @@ class InstructionContract(unittest.TestCase):
     def test_01_exactly_ten_steps(self):
         self.assertEqual(re.findall(r"^## (\d+)\. ", self.process, re.M), [str(n) for n in range(1, 11)])
 
-    def test_02_core_agent_steps(self):
-        core = self.agents.split("## Core adaptive execution and incremental progress", 1)[1].split("## Setup UX preference", 1)[0]
+    def test_02_ten_steps_live_in_chatgpt_profile(self):
+        core = self.chatgpt.split("## Core adaptive execution and incremental progress", 1)[1].split("## Harness routing", 1)[0]
         self.assertEqual(re.findall(r"^(\d+)\. ", core, re.M), [str(n) for n in range(1, 11)])
+        self.assertNotIn("## Core adaptive execution and incremental progress", self.agents)
 
-    def test_03_root_entrypoints_link_process(self):
-        for text in (self.agents, self.queue):
+    def test_03_scoped_entrypoints_link_process(self):
+        for text in (self.agents, self.queue, self.chatgpt):
             self.assertIn("dev/continuous_execution/PROCESS.md", text)
+        for text in (self.agents, self.queue):
+            self.assertIn("CHATGPT.md", text)
         self.assertTrue(PROCESS_PATH.is_file())
 
     def test_04_step_five_has_no_arbitrary_cap(self):
@@ -71,7 +78,7 @@ class InstructionContract(unittest.TestCase):
 
     def test_09_missing_checker_not_global_halt(self):
         self.assertIn("not every useful reading, writing", self.section(4))
-        self.assertIn("not a global barrier", self.queue)
+        self.assertIn("not a fixed backlog cap or a global barrier", " ".join(self.queue.split()))
         self.assertIn("Do not idle solely because many drafts exist", self.section(5))
 
     def test_10_cross_chat_does_not_imply_independence(self):
@@ -103,7 +110,7 @@ class InstructionContract(unittest.TestCase):
     def test_15_pending_records_present(self):
         self.assertIn("CHECKS PENDING", self.local_status)
         self.assertIn("PROCESS.md", self.local_status)
-        self.assertIn("AGENTS.md; QUEUE.md", self.root_status)
+        self.assertIn("AGENTS.md; CHATGPT.md; QUEUE.md", self.root_status)
         self.assertIn("test_continuation_contract.py", self.register)
         self.assertIn("dev/continuous_execution", self.register)
 
@@ -111,6 +118,31 @@ class InstructionContract(unittest.TestCase):
         self.assertIn("not a second general-purpose coordinator or ledger", self.section(9))
         self.assertIn("mandatory operational cost/performance dashboard", self.section(10))
         self.assertIn("unchanged closure count", self.section(10))
+
+    def test_17_explicit_chatgpt_only_scope(self):
+        self.assertIn("Provider scope: **ChatGPT only**", self.chatgpt)
+        self.assertIn("## Provider scope — ChatGPT only", self.process)
+        self.assertIn("**ChatGPT only:**", self.agents)
+        self.assertIn("For ChatGPT sessions only", self.queue)
+        self.assertIn("not an instruction for Claude or other providers", self.agents)
+
+    def test_18_claude_policy_is_unchanged(self):
+        data = self.claude_bytes
+        actual = hashlib.sha1(b"blob " + str(len(data)).encode("ascii") + b"\0" + data).hexdigest()
+        self.assertEqual(actual, CLAUDE_BASELINE_BLOB, "Reconcile any independently authorized Claude change; do not silently adopt the ChatGPT profile.")
+        self.assertNotIn(b"CHATGPT.md", data)
+        self.assertNotIn(b"continuous_execution", data)
+
+    def test_19_no_cross_provider_prompt_default(self):
+        self.assertIn("not a provider-neutral HA execution policy", self.process)
+        self.assertIn("Do not use it as a common or unknown-provider default", self.process)
+        self.assertIn("Never append it to shared all-provider prompts or Claude", self.process)
+        self.assertIn("separate owner authorization and provider-specific validation", self.chatgpt)
+
+    def test_20_no_universal_capability_inference(self):
+        self.assertIn("does not mean every proposed capability is already verified even for ChatGPT", self.process)
+        self.assertIn("ChatGPT observations do not establish Claude capabilities", self.chatgpt)
+        self.assertIn("provider-routing code, prompt injection or lifecycle behavior", self.process)
 
 
 if __name__ == "__main__":
