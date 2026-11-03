@@ -2,7 +2,7 @@
   "schema_version": 1,
   "date": "2026-11-03",
   "status": "checks_pending",
-  "scope": "Static documentation/routing contract for the ChatGPT Chat Mode-only adaptive execution profile.",
+  "scope": "ChatGPT Chat Mode-only adaptive process: documented instructions and offline native request routing preflight.",
   "result": "focused_static_checks_passed",
   "verified": {
     "chatgpt_profile_scope": "ChatGPT in Chat Mode only",
@@ -38,5 +38,70 @@
     "failed": 0,
     "method": "Direct inspection of current GitHub file contents and blob identities."
   },
-  "python_contract_file_executed": false
+  "python_contract_file_executed": false,
+  "current_disposition": "offline_checks_passed_live_and_independent_checks_pending",
+  "offline_runtime_followup_2026_11_03": {
+    "result": "partial_pass",
+    "corrected_issue": "NativeTeam originally always supplied the common PROTOCOL without the new Chat Mode adaptive instructions. Added a fail-closed helper and injected it only for native OpenAI Chat route config.",
+    "module": {
+      "path": "_app/hivemind_assembly/automation/chat_mode_profile.py",
+      "git_blob_sha": "ce944cc7bcdc6005eced11f6edd34c44e6df273e",
+      "exact_bytes_verified_by_local_git_hash_object": true,
+      "python_compile": "passed",
+      "locally_executed_pytest": "17 passed",
+      "positive": "explicit provider=openai and mode=Chat",
+      "negative": "Work, Codex, Claude/native, unknown/missing/case-mismatched/malformed routes",
+      "policy_content_checks": "10 numbered steps; large-task carryover; no artificial backlog cap; quality gates; AI-only; no cross-mode transfer"
+    },
+    "native_request_builder": {
+      "path": "_app/hivemind_assembly/automation/team.py",
+      "git_blob_sha": "f9b80d494fd5264a46628b55b9922ce843696252",
+      "source_comparison": "Exactly two intentional source edits: import helper and append route-gated suffix to existing protocol. Reversing those edits reproduces the prior Git blob text.",
+      "repository_config_sha": "cd780815c4109d13224674addff0e9af5caadb1a",
+      "source_config_expected_positive_routes": [
+        "worker.extra",
+        "adviser.extra",
+        "reviewer.high"
+      ],
+      "source_config_expected_unchanged_routes": [
+        "worker.astra (Work)",
+        "worker.opus (Claude/native)"
+      ],
+      "note": "Source/code-level verification only; complete NativeTeam request-packet fixture has not yet executed."
+    },
+    "regression_test_file": {
+      "path": "tests/test_chat_mode_profile.py",
+      "git_blob_sha": "af3b2a86dc5e5e8ec4e5a566eb8fbd9c28cc5413",
+      "exact_bytes_verified_by_local_git_hash_object": true,
+      "python_compile": "passed",
+      "two_unit_test_functions_run_from_actual_file": "passed",
+      "native_request_packet_fixture": "written but not executed; complete HA checkout and its test dependencies unavailable in this isolated environment",
+      "test_scope": "Chat worker, Chat adviser, Chat reviewer, Work worker, Claude worker; original role instructions and broker capability surface retained."
+    },
+    "additional_verification": {
+      "documentation_contracts": "21 of 21 equivalent remote-file static assertions passed (not the repository's Python unittest command).",
+      "unchanged_git_blobs": {
+        "CLAUDE.md": "0c8be2da28e6be34ef7220792e4ff8eda778529c",
+        "_app/hivemind_assembly/automation/prompts.py": "e342080a39a1e7eccb2472ff647f90fb644cb996",
+        "_app/config/default.json": "cd780815c4109d13224674addff0e9af5caadb1a"
+      },
+      "scheduler_registry": "8 automations inspected, 0 enabled; no automation was created, updated or resumed",
+      "github_scope": "Eight authorized commits before this report; code module, request hook, focused test and pending review records only"
+    },
+    "evidence_tiers": {
+      "actual_local_python": "17 isolated pytest cases and two test functions from the exact repo test file",
+      "actual_remote_git": "verified created/updated files and blob identities, source diff and unchanged non-Chat inputs",
+      "static_source_contract": "21 document checks, request-hook import/injection and default route mapping",
+      "not_executed": "full Python documentation unittest; full HA request-packet fixture; broad HA coordination/recovery test suite",
+      "not_available": "HA program/service is off; independent qualified fresh-context reviewer and live HA native browser routing",
+      "deliberately_not_attempted": "new scheduled-chat tests while owner has all scheduled tasks paused; nested/detached worker tests; provider-UI acceptance in Work/Codex/Claude"
+    },
+    "pending_acceptance": "Separate qualified source/contract review, complete-checkout tests including NativeTeam packet, and later live HA Chat Mode acceptance are required. No release approval.",
+    "next_actions": [
+      "When a full checkout/execution runtime is available, run tests/test_chat_mode_profile.py plus the existing relevant coordination and surface suites without enabling the HA program.",
+      "Before any HA release, obtain an independent reviewer verdict on exact new code/input revisions and confirm no Work/Codex/Claude prompt leakage.",
+      "When the HA program is eventually on, validate the actual native request packet and recovery behavior against the real Chat Mode interface.",
+      "Keep all eight automations paused until the owner separately authorizes reactivation."
+    ]
+  }
 }
