@@ -1,9 +1,9 @@
-"""Static ChatGPT instruction checks, not agent behavior or live acceptance.
+"""Static ChatGPT Chat Mode instruction checks, not agent behavior or live acceptance.
 
 Run from a complete repository checkout:
     python dev/continuous_execution/test_continuation_contract.py
 
-These checks examine document linkage, required distinctions and provider scope.
+These checks examine document linkage, required distinctions and Chat Mode surface/provider scope.
 They do not prove a model follows prose, launch workers, access networks, change
 schedules, validate runtime provider routing, or replace independent review.
 """
@@ -119,12 +119,12 @@ class InstructionContract(unittest.TestCase):
         self.assertIn("mandatory operational cost/performance dashboard", self.section(10))
         self.assertIn("unchanged closure count", self.section(10))
 
-    def test_17_explicit_chatgpt_only_scope(self):
-        self.assertIn("Provider scope: **ChatGPT only**", self.chatgpt)
-        self.assertIn("## Provider scope — ChatGPT only", self.process)
-        self.assertIn("**ChatGPT only:**", self.agents)
-        self.assertIn("For ChatGPT sessions only", self.queue)
-        self.assertIn("not an instruction for Claude or other providers", self.agents)
+    def test_17_explicit_chat_mode_only_scope(self):
+        self.assertIn("Provider/surface scope: **ChatGPT in Chat Mode only**", self.chatgpt)
+        self.assertIn("## Provider/surface scope — ChatGPT Chat Mode only", self.process)
+        self.assertIn("**ChatGPT Chat Mode only:**", self.agents)
+        self.assertIn("For **ChatGPT Chat Mode sessions only**", self.queue)
+        self.assertIn("not an instruction for ChatGPT Work, Codex, Claude", self.agents)
 
     def test_18_claude_policy_is_unchanged(self):
         data = self.claude_bytes
@@ -133,16 +133,23 @@ class InstructionContract(unittest.TestCase):
         self.assertNotIn(b"CHATGPT.md", data)
         self.assertNotIn(b"continuous_execution", data)
 
-    def test_19_no_cross_provider_prompt_default(self):
-        self.assertIn("not a provider-neutral HA execution policy", self.process)
-        self.assertIn("Do not use it as a common or unknown-provider default", self.process)
-        self.assertIn("Never append it to shared all-provider prompts or Claude", self.process)
-        self.assertIn("separate owner authorization and provider-specific validation", self.chatgpt)
+    def test_19_no_cross_surface_prompt_default(self):
+        self.assertIn("not a provider-neutral or all-OpenAI HA execution policy", self.process)
+        self.assertIn("common, unknown-provider, unknown-surface, or generic OpenAI default", self.process)
+        self.assertIn("Never append it to ChatGPT Work, Codex", self.process)
+        self.assertIn("separate owner authorization and surface-specific validation", self.chatgpt)
 
     def test_20_no_universal_capability_inference(self):
-        self.assertIn("does not mean every proposed capability is already verified even for ChatGPT", self.process)
-        self.assertIn("ChatGPT observations do not establish Claude capabilities", self.chatgpt)
+        self.assertIn("does not mean every proposed capability is already verified even within Chat Mode", self.process)
+        self.assertIn("Evidence from Chat Mode does not establish capabilities in Work, Codex, Claude", self.chatgpt)
         self.assertIn("provider-routing code, prompt injection or lifecycle behavior", self.process)
+
+    def test_21_work_and_codex_are_explicitly_excluded(self):
+        for text in (self.chatgpt, self.process, self.agents, self.queue):
+            self.assertIn("ChatGPT Work", text)
+            self.assertIn("Codex", text)
+        self.assertIn("only when both ChatGPT and Chat Mode are explicitly selected", self.process)
+        self.assertIn("Do not select it merely because the provider is OpenAI or the product is ChatGPT", self.chatgpt)
 
 
 if __name__ == "__main__":
