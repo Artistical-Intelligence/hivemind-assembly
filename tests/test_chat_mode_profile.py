@@ -21,7 +21,7 @@ from hivemind_assembly.learning.scopes import KnowledgeScopes
 
 
 def test_chat_mode_policy_is_exact_and_does_not_route_by_model_or_host():
-    assert POLICY_REVISION == "chatgpt-chat-mode-adaptive-1.2"
+    assert POLICY_REVISION == "chatgpt-chat-mode-adaptive-1.3"
     chat = {"provider": "openai", "mode": "Chat", "model": "GPT-6",
             "conversation_url": "https://chatgpt.com/c/one"}
     assert guidance_for_native_route(chat) == CHAT_MODE_GUIDANCE
@@ -42,7 +42,7 @@ def test_chat_mode_policy_is_exact_and_does_not_route_by_model_or_host():
 
 
 def test_chat_mode_guidance_preserves_large_task_and_review_boundaries():
-    assert "owner policy 1.2" in CHAT_MODE_GUIDANCE
+    assert "owner policy 1.3" in CHAT_MODE_GUIDANCE
     for step in range(1, 11):
         assert f"\n{step}. " in CHAT_MODE_GUIDANCE
     for phrase in (
@@ -53,6 +53,26 @@ def test_chat_mode_guidance_preserves_large_task_and_review_boundaries():
         "Do not import instructions from this Chat Mode profile into ChatGPT Work, Codex",
     ):
         assert phrase in CHAT_MODE_GUIDANCE
+
+
+
+def test_adaptive_chain_is_evidence_driven_and_not_a_fixed_loop():
+    for phrase in (
+        "ADAPTIVE TASK CHAIN (not a fixed repeating loop)",
+        "Each link reads",
+        "new source/AI-review evidence",
+        "open-ended number of useful waves or distinct one-time tasks",
+        "There is NO arbitrary cap on the",
+        "total number of handoffs or on coherent chunk size",
+        "Do not automatically pre-create successor tasks",
+        "based on a material new finding",
+        "Never spawn tasks just",
+        "to remain active or evade recurring-schedule or usage limits",
+        "finite chain-length cap in a safety probe does not cap real large-task work",
+    ):
+        assert phrase in CHAT_MODE_GUIDANCE
+    assert guidance_for_native_route({"provider": "openai", "mode": "Work"}) == ""
+    assert guidance_for_native_route({"provider": "claude", "mode": "native"}) == ""
 
 
 class CaptureNative:
