@@ -33,21 +33,23 @@
 
 ## Provider-specific execution instructions
 
-**ChatGPT only:** read [CHATGPT.md](CHATGPT.md) for the owner-adopted adaptive
-execution process and its large-task clarification. The detailed profile is in
-[dev/continuous_execution/PROCESS.md](dev/continuous_execution/PROCESS.md).
+**ChatGPT Chat Mode only:** read [CHATGPT.md](CHATGPT.md) for the owner-adopted
+adaptive execution process and its large-task clarification. The detailed Chat
+Mode profile is in [dev/continuous_execution/PROCESS.md](dev/continuous_execution/PROCESS.md).
 
-This ChatGPT profile is **not an instruction for Claude or other providers**.
-Do not inject it into Claude prompts, worker/coordinator briefs, or a shared
-all-provider default. Keep Claude's existing instructions, model assignments
-and runtime behavior unchanged. ChatGPT test evidence does not establish Claude
-capabilities; extension requires separate owner authorization and provider-specific
-validation. Do not assume all OpenAI surfaces share ChatGPT's tested capabilities.
+This profile is **not an instruction for ChatGPT Work, Codex, Claude, or any other
+provider/surface**. Do not inject it into Work tasks, Codex tasks, Claude prompts,
+worker/coordinator briefs for those surfaces, or a shared all-provider/all-surface
+default. Route it only when the configured execution surface is explicitly ChatGPT
+**Chat Mode**. Keep Work, Codex and Claude instructions, model assignments,
+authorization and runtime behavior unchanged. Chat Mode test evidence does not
+establish their capabilities; extension requires separate owner authorization and
+surface-specific validation.
 
 These routing boundaries apply when maintaining HA's harness, regardless of the
-maintainer's provider. Existing shared safety, saving, privacy, source mediation
-and independent-review rules below retain their original scope; this notice does
-not remove them or impose the ChatGPT workflow on Claude.
+maintainer's provider or surface. Existing shared safety, saving, privacy, source
+mediation and independent-review rules below retain their original scope; this
+notice does not remove them or impose the Chat Mode workflow elsewhere.
 
 ## Setup UX preference
 
