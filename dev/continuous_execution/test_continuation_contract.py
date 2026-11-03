@@ -23,6 +23,7 @@ class InstructionContract(unittest.TestCase):
         cls.process = PROCESS_PATH.read_text(encoding="utf-8")
         cls.agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         cls.chatgpt = (ROOT / "CHATGPT.md").read_text(encoding="utf-8")
+        cls.chat_mode_profile = (ROOT / "_app" / "hivemind_assembly" / "automation" / "chat_mode_profile.py").read_text(encoding="utf-8")
         cls.claude_bytes = (ROOT / "CLAUDE.md").read_bytes()
         cls.queue = (ROOT / "QUEUE.md").read_text(encoding="utf-8")
         cls.register = (ROOT / "CHECKS_STATUS.md").read_text(encoding="utf-8")
@@ -150,6 +151,22 @@ class InstructionContract(unittest.TestCase):
             self.assertIn("Codex", text)
         self.assertIn("only when both ChatGPT and Chat Mode are explicitly selected", self.process)
         self.assertIn("Do not select it merely because the provider is OpenAI or the product is ChatGPT", self.chatgpt)
+
+
+    def test_22_open_ended_evidence_driven_chain_not_preset_loop(self):
+        self.assertIn("Adaptive task chains are not preset loops", self.chatgpt)
+        self.assertIn("no arbitrary limit on the number of handoffs", self.chatgpt)
+        self.assertIn("A chain is not a loop", self.chatgpt)
+        self.assertIn("Evidence-driven task chains, not prescheduled loops", self.process)
+        self.assertIn("no arbitrary total length", self.process)
+        self.assertIn("new observation makes a concrete next task useful", self.process)
+        self.assertIn("five-minute ad hoc deadlines", self.process.lower())
+        self.assertIn("Never use a one-time chain to evade", self.process)
+        self.assertIn("ADAPTIVE TASK CHAIN (not a fixed repeating loop)", self.chat_mode_profile)
+        self.assertIn("total number of handoffs or on coherent chunk size", self.chat_mode_profile)
+        self.assertIn("Do not automatically pre-create successor tasks", self.chat_mode_profile)
+        self.assertIn("finite chain-length cap in a safety probe does not cap real large-task work", self.chat_mode_profile)
+        self.assertIn("ChatGPT Work, Codex", self.chat_mode_profile)
 
 
 if __name__ == "__main__":
