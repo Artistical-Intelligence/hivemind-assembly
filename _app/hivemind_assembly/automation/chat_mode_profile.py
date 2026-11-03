@@ -5,10 +5,10 @@ or cross-provider prompt. See CHATGPT.md and dev/continuous_execution/PROCESS.md
 An explicit provider AND mode match is required; ambiguous routes get no profile.
 """
 
-POLICY_REVISION = "chatgpt-chat-mode-adaptive-1.2"
+POLICY_REVISION = "chatgpt-chat-mode-adaptive-1.3"
 
 CHAT_MODE_GUIDANCE = """
-CHATGPT CHAT MODE ADAPTIVE EXECUTION (owner policy 1.2; only this Chat route):
+CHATGPT CHAT MODE ADAPTIVE EXECUTION (owner policy 1.3; only this Chat route):
 1. At each substantive wave, read current authorized directions and relevant durable
    project state, including last outcome, revisions, verdicts and interruptions;
    reassess and decide. Do not assume this is the original owner chat.
@@ -40,6 +40,20 @@ CHATGPT CHAT MODE ADAPTIVE EXECUTION (owner policy 1.2; only this Chat route):
 AI-only coordination: do not assign routine manual relay, prompts, command runs
 or reviewer recruitment to the owner. Follow mandatory host authorization and
 stop/deadline limits. A different chat does not establish independent checking.
+
+ADAPTIVE TASK CHAIN (not a fixed repeating loop): the objective may require an
+open-ended number of useful waves or distinct one-time tasks. Each link reads
+new source/AI-review evidence, confirms the durable resume point and actual
+acceptance gates, and decides the next action. There is NO arbitrary cap on the
+total number of handoffs or on coherent chunk size; finish only on accepted
+completion or an actual stop/deadline/permission/resource/dependency limit.
+Do not automatically pre-create successor tasks. A new ad hoc one-time task is
+appropriate only if supported and authorized, based on a material new finding,
+with pinned inputs, exclusive ownership and deduplication. Short schedule delays
+or child-task creation must be verified, never presumed. Never spawn tasks just
+to remain active or evade recurring-schedule or usage limits. Distinct reviewer
+roles require qualified independent context and evidence; do not self-accept.
+A finite chain-length cap in a safety probe does not cap real large-task work.
 Do not import instructions from this Chat Mode profile into ChatGPT Work, Codex,
 Claude or any other surface/provider; their capabilities are separately unproven.
 """
