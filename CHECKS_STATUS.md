@@ -8,6 +8,7 @@ The owner additionally requested a single downloading/verifying/caching setup ex
 
 | Item | Folder | Waiting for |
 | --- | --- | --- |
+| chat_mode_profile.py; NativeTeam request-policy hook in team.py; test_chat_mode_profile.py | _app/hivemind_assembly/automation; tests | Independent source and provider-boundary review, isolated complete-checkout request-packet execution, and separate live HA session verification; no Work/Codex/Claude injection is authorized or established by documentation alone |
 | ChatGPT Chat Mode-only profile in CHATGPT.md; surface/provider-scoped AGENTS.md and QUEUE.md links; PROCESS.md; test_continuation_contract.py; TEST_RESULTS.json | root; dev/continuous_execution | Separate instruction, surface/provider-boundary and test review; all ten owner-adopted steps with large-task/no-arbitrary-cap caveats apply only to ChatGPT Chat Mode. ChatGPT Work, Codex and Claude instructions/runtime configuration remain unchanged. Static checks are not live harness acceptance or independent source approval |
 | FINDINGS.md — GitHub MCP materialization and bounded continuation discoveries | dev/discoveries/2026-11-02-github-mcp-continuation | Independent evidence review; saved observations and proposed tests only, not runtime implementation, release acceptance, or proof of unlimited execution |
 | online_installer.iss; build_online_installer.py; verify_online_installer.py; online_installer_request.json; ONLINE_INSTALLER.md | dev | Independent source review; compiled Windows acceptance required for this owner-authorized beta packaging addition |
