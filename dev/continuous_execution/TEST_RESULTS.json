@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-03",
+  "status": "checks_pending",
+  "scope": "Static documentation/routing contract for the ChatGPT Chat Mode-only adaptive execution profile.",
+  "result": "passed",
+  "checks_passed": 18,
+  "checks_failed": 0,
+  "verified": {
+    "chatgpt_profile_scope": "ChatGPT in Chat Mode only",
+    "excludes": [
+      "ChatGPT Work",
+      "Codex",
+      "Claude",
+      "unknown surfaces/providers"
+    ],
+    "explicit_routing_requirement": "Both ChatGPT and Chat Mode must be explicitly selected.",
+    "claude_unchanged_blob": "0c8be2da28e6be34ef7220792e4ff8eda778529c",
+    "ten_step_process": true
+  },
+  "inputs": {
+    "AGENTS.md": "59f891c12e7a074b8972ba5b767710c3f883b40e",
+    "CHATGPT.md": "10623fa6102adb9370d170cd71daad1b02acc48c",
+    "QUEUE.md": "87436cdf3555a1220ee0a1908ff04401dd3ca353",
+    "STATUS.md": "bda41599bd087764ee41ebbd2d3422b376f8c4d2",
+    "CHECKS_STATUS.md": "88f5d1d6fe1bdc96cfe5ffd36b8b59e582c6ed0c",
+    "dev/continuous_execution/PROCESS.md": "7f60bf8605b14ef2b3ac1b8f73654ddd1128bd11",
+    "dev/continuous_execution/STATUS.md": "252e51795f8a3eb1076f847b7ddf4c1e85120fbd",
+    "dev/continuous_execution/test_continuation_contract.py": "e7979c9e56a31e28ff6fc4ae8474a01c782bbf85"
+  },
+  "limitations": [
+    "Static checks do not prove live HA prompt routing.",
+    "Static checks do not establish behavior in ChatGPT Work or Codex.",
+    "Static checks do not independently approve the instruction change.",
+    "Claude remaining unchanged does not validate Claude behavior."
+  ]
+}
