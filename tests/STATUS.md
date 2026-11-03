@@ -11,3 +11,4 @@ CHECKS PENDING: test_owned_patching.py — real retained parser, one-file scope,
 CHECKS PENDING: test_unified_installation_ui.py — one preparation surface and actual readiness-state JavaScript; independent source and browser review.
 CHECKS PENDING: test_integration_document_scope.py — exact LF/CRLF byte fixtures and protected documentation writes; independent source review.
 CHECKS PENDING: test_beta_packaging.py — beta-only authorization, original ZIP spelling, traversal/alias/link rejection and fail-closed publication; independent source review. A passing beta test does not confer stable-release approval.
+CHECKS PENDING: test_chat_mode_profile.py — isolated Chat/Work/Claude route scope and native request-packet fixture tests; execute in a complete checkout and obtain independent source review before acceptance.
