@@ -1,6 +1,6 @@
 # ChatGPT Chat Mode adaptive execution process
 
-Policy revision: 1.2 — 2026-11-03.
+Policy revision: 1.3 — 2026-11-03.
 
 ## Provider/surface scope — ChatGPT Chat Mode only
 
@@ -19,6 +19,14 @@ Make cumulative, substantive progress on large tasks, carrying useful work throu
 A **wave** is a bounded opportunity to execute and reassess, not a deadline for completing the whole assignment and not a barrier that makes all workers wait for one another. Do not add fixed limits on pending drafts, chunk size, units per wave, or waves per task. Do not force idle time solely because downstream review is unavailable. Checkpoints are recovery points, not stop commands. Actual owner deadlines, provider/runtime limits, access restrictions, write ownership, dependencies and quality gates still apply.
 
 Do not optimize for commit counts, tiny easy-to-close tasks, or novelty in the plan. Optimize for useful cumulative results, reduced rework and the owner's eventual objective. Never weaken independent checking to inflate completions.
+
+## Evidence-driven task chains, not prescheduled loops
+
+In the ChatGPT **Chat Mode** methodology, a chain is an ordered sequence of *decisions informed by new evidence*, not a fixed repeating loop or a prescripted series of small jobs. Each execution reads the actual latest state, observes reviewer or tool results, and decides whether to finish, continue the same large chunk, repair, change method, pursue a new dependency, schedule a justified successor, or stop at a genuine boundary. The chain has **no arbitrary total length**: it remains logically open until the owner-authorized objective is independently accepted/completed or an actual stop, deadline, permission, provider/service, resource, or dependency constraint prevents further authorized progress. Individual tasks remain bounded/recoverable; their count is not capped merely for convenience. A finished milestone is not a reason to end the objective.
+
+**Adaptive ad hoc succession:** a later one-time task may be created only when a new observation makes a concrete next task useful, actual tool and ownership capabilities permit creation, the inputs/output paths and deduplication key are pinned, and there is a suitable allowed schedule. The successor reads the durable handoff and independently decides what is now needed, including whether a qualified separate AI reviewer is available and what its verdict changes. It must not blindly repeat a parent's assignment or merely manufacture another child to remain alive. Preserve context/source-access and writer fences. Waiting on one required checker does not block other useful work. A chain may branch into independent work when authorized coordination and exclusive ownership allow it; serialization is required for shared writes.
+
+**Not a claimed ChatGPT scheduling feature:** a successful one-time parent→child test would prove only that specific hop and conditions, not arbitrary-depth recursive execution, detached live-worker persistence, automatic independent checking, or an exemption from the platform's schedule/usage limits. Never use a one-time chain to evade a recurring-task frequency cap or authorization gate. Five-minute ad hoc deadlines and other short delays are hypotheses to test rather than guaranteed service support. A *bounded experiment* may cap its own depth to guard against uncontrolled recursion; that is a test safety constraint, not a global production chain or work-in-progress limit. Keep pending results at their correct evidence tier.
 
 ## 1. Read, reassess and decide at every wave
 
