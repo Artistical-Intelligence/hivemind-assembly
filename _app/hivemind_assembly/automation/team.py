@@ -21,6 +21,7 @@ from hivemind_assembly.core.common import (
 
 from .context_reset import ContextResetYield, reset_context
 from .prompts import PROTOCOL, ROLE_PROMPTS, TOOL_SCHEMAS  # noqa: F401 (compatibility exports)
+from .chat_mode_profile import guidance_for_native_route
 
 
 class NativeTeam:
@@ -374,7 +375,7 @@ class NativeTeam:
                     "Attached frame images: " + ", ".join(Path(a["path"]).name for a in images)
                 )
         request = {
-            "protocol": PROTOCOL,
+            "protocol": PROTOCOL + guidance_for_native_route(cfg),
             "experimental_learning": self.experimental.settings(),
             "domain": self.broker.domain.id if self.broker.domain else None,
             "domain_instructions": (
