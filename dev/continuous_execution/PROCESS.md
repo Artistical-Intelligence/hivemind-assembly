@@ -41,6 +41,33 @@ task copies to bypass frequency/usage restrictions.
 **Not a claimed ChatGPT scheduling feature:** a successful one-time parent→child test would prove only that specific hop and conditions, not arbitrary-depth recursive execution, detached live-worker persistence, automatic independent checking, or an exemption from the platform's schedule/usage limits. Never use a one-time chain to evade a recurring-task frequency cap or authorization gate. Five-minute ad hoc deadlines and other short delays are hypotheses to test rather than guaranteed service support. A *bounded experiment* may cap its own depth to guard against uncontrolled recursion; that is a test safety constraint, not a global production chain or work-in-progress limit. Keep pending results at their correct evidence tier.
 
 
+## Interleaved concurrent and inherited work waves
+
+**Owner clarification:** Both forms of scheduling are central to HA's
+ChatGPT Chat Mode orchestration. Many agents can pursue genuinely
+independent useful work **in parallel**, while results can also **feed
+successor waves** in the same agent or through another existing agent.
+A dependency can create a serial handoff; integration can merge branches;
+a failed test can create a correction wave while unrelated work proceeds.
+Neither an exclusively parallel pool with no inheritance nor a fixed
+single-file worker/reviewer/tester relay describes the intended process.
+
+Maintain the permanent final objective and a compact graph of material
+work dependencies and versioned artifacts. Assign only ready and
+authorized work; select start times and recurrence/stop parameters per
+worker based on evidence, deadlines and usage allowance. Existing
+Chat Mode automations can be retasked or rescheduled by permitted
+scheduled updates. Their tested runtime was **not permitted to create
+additional scheduled child tasks**, so "inheritance" normally means a
+new assignment for an already pre-provisioned task, not a new
+automation or a new live ChatGPT process. A separate session can
+use the same short GitHub checkpoint only when its authorized tools
+actually fetch it. Keep writer ownership/revision fences and qualified
+independent review for affected outputs. Verify actual overlapping
+run timestamps before asserting parallel execution and verify
+the receiving run's recorded use of an exact source artifact before
+asserting a handoff worked.
+
 ## Pre-provisioned conductor and continuously evolving objective
 
 Owner choice (November 4, 2026): if authorized for the real project,
@@ -94,8 +121,11 @@ declare automatic rollover blocked if there is no permitted native mechanism.
 Evidence as of Nov 4: own-prompt/schedule updates, self-pause, cross-task
 updating and task-result retrieval have completed live scheduled runs.
 One revised 2-hour recurrence executed once; new multiple-interval and
-test-owned revival experiments are pending. Scheduled child creation was
-blocked; actual scheduled GitHub writes are also pending permission tests.
+test-owned revival verification is partially complete: a manager re-enabled
+previously completed tests and one revived occurrence completed; later dispatches
+remain under observation. Scheduled child creation was blocked. An independently
+audited scheduled Chat Mode GitHub write **completed** on an isolated test branch;
+other MCP/service permissions remain unverified.
 A different task ID does not establish qualified independent review when
 both share the same chat reference. Do not release or self-approve based on
 these experiments.
