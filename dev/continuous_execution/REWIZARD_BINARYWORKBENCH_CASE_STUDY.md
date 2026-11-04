@@ -159,6 +159,18 @@ fully eliminated recurrence. The scheduled evidence review should
 check actual future worker actions and record honest remaining gaps
 without copying private source or task identifiers to this repo.
 
+## Later operational outcomes — November 4, 2026
+
+**Real authenticated synthetic tests now execute.** The earlier local-checkout/DNS limitations did not make all source testing impossible. The private team and interactive contributor established isolated GitHub Actions execution against pinned source-equivalent snapshots, then expanded a composite test gate. Actual completed runs include **376 cases (360 pass, 6 fail, 10 skip)** and, on a **different** source/coverage snapshot, **443 cases (432 pass, 10 fail, 1 error, 0 skip)**. The newer expanded run is a **failed** CI gate; new test coverage can uncover additional defects without implying every earlier fix regressed. Source-bound negative results are actionable work, not approval of the integrated product. Private task identities and code remain in the restricted project.
+
+**Actual shift-manager corrective handoff observed.** One manager run used recorded failing CI evidence, modified an already authorized worker's assigned corrective milestone, and a later **completed** receiving run referenced that evidence and committed substantive corrective implementation and regression material. This verifies *task-registry reassignment plus subsequent evidence consumption*, more than a saved prompt alone. It does **not** demonstrate that the receiving worker was dispatched earlier than its normal legal time, nor that every correction now passes tests. Multiple independent implementation workstreams continued while the failing CI gate was investigated.
+
+**Multiple useful steps per invocation have occurred.** Some completed worker runs produced more than one related fix, tests and source-readback/checkpoints. However, their end-of-run cause cannot be reliably attributed to runtime exhaustion versus a voluntary stop without more direct service evidence; do not interpret commit count as quality or demand a guaranteed hour of execution.
+
+**Changed lifecycle of task identities.** A formerly expired one-time test task that had passed two *necromancy* resurrections was later repurposed by the private team's manager for substantive CI work. The reuse shows why a coordinator must treat a historical task ID as a mutable **current role/ownership** record, not a permanently vacant test slot. Do not recover the old experimental task by overwriting its current production prompt.
+
+**Current limits:** Actual overlapping completed model-session windows, changed artifacts, downstream receipt and source-executed negative tests are supported by records. No qualified independent reviewer approval, successful full integration, approved merge or native HA end-to-end deployment follows automatically. See the separate [multi-session service-test audit](CHAT_MODE_SESSION_TEST_AUDIT_20261104.md). This is a deliberately privacy-limited summary rather than a private code export.
+
 ## Evidence collection rules
 
 For each later bounded observation:
@@ -172,6 +184,6 @@ For each later bounded observation:
 
 ## Status
 
-**Two substantive production waves observed.** Four specialized scheduled workers now have real overlapping intervals and separate committed branch work; an earlier completed integration-preparation wave consumed exact producer revisions at the static-interface level, and a later provisional verifier committed further review evidence. **CHECKS PENDING:** qualified independent review, real in-repository test execution, executable integration, CI, authorized PR/main merge and final acceptance. The most recent integrator run was still in progress at this snapshot. The finite public observer retains read-only scope for the private project and its scheduled team.
+**Evidence advanced but still CHECKS PENDING.** Bounded Chat Mode scheduling tests now establish fully completed three-occurrence two-hour recurrence, completed revival from expired/self-paused states, two successive same-ID one-time necromancy revivals, cross-conversation task-registry updates and independently audited scheduled GitHub writing. The live private workforce has recorded parallel productive sessions, inherited static review and a completed corrective worker handoff. **Executable CI exists and exposes failing tests; integrated acceptance remains incomplete.** Model/reasoning effort, formal reviewer qualification, immediate/sub-hour corrective dispatch, maximum-runway shift-manager phase and native HA runtime deployment remain unverified. The ongoing scheduled evidence observer is not authorized to modify the real project's tasks, schedules, branches or source.
 
-This document is public HA instruction evidence only. Authoritative project work and private identifiers remain in the project's own private repository.
+This document is **public HA instruction evidence only**. Authoritative project work and private identifiers remain with their private owner-approved repository.
