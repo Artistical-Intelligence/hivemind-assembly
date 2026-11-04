@@ -78,6 +78,16 @@ def test_adaptive_chain_is_evidence_driven_and_not_a_fixed_loop():
 def test_owner_scheduled_roster_guidance_remains_chat_mode_only():
     """Static policy expectations; not a live scheduler acceptance test."""
     required = (
+        "PROACTIVE GLOBAL COFFEE AND ONE-TO-ONE RESERVE (owner rule 2026-11-04):",
+        "EVERY authorized scheduled Chat Mode worker should seek and dispatch",
+        "PARALLEL OR SYNERGISTIC",
+        "ANY ChatGPT chat and ANY",
+        "CURRENT registry state",
+        "ONE restricted global claim namespace",
+        "for N permanent HOURLY workers, target N additional",
+        "DORMANT one-time reserves",
+        "creating any missing reserve slots from an authorized interactive",
+        "rather than schedule meaningless placeholder runs",
         "FULL-TIME VS SHARED COFFEE (latest owner Shift Manager policy; Chat Mode):",
         "Shift Manager exclusively controls",
         "Other staff CANNOT retask",
