@@ -34,6 +34,53 @@ Some **initial** updates and runs are now verified; later occurrences remain **s
 
 The owner is using an advance-provisioned **five-role** Chat Mode team for substantive private RE-Wizard BinaryWorkbench refinement, not merely for a simulated test. It is the **test case for both** (a) genuinely parallel useful worker activity and (b) output/check/integration **inheritance between work waves**. At initial inspection, all five tasks were enabled but had not recorded runs; actual overlap, committed work, accepted handoffs and reviewer independence were **unverified**. A bounded scheduled observer will examine only permitted private metadata, not expose private code, task IDs, private branch names, protected inputs or chat refs in the public HA repository. The [case study](REWIZARD_BINARYWORKBENCH_CASE_STUDY.md) tracks high-level findings; the exact private records remain in their own repository. The observer must not control or alter that team's workflows, code, branches or schedules.
 
+## Repeated one-time reactivation — "necromancy" (pending)
+
+**Known:** A scheduled manager already succeeded in re-enabling an
+expired, *test-owned* one-time task, and its first independently
+dispatched revived run completed. This does **not** establish that the
+**same** one-time automation can be revived multiple times.
+
+**New bounded test:** key `CHATMODE-20261104-NECROMANCER-A`,
+pre-created hourly manager (four total coordinator opportunities),
+will attempt to re-enable exactly one previously expired test-owned
+one-time automation **twice**, each time only after the prior
+single-event run is independently recorded `completed` and the task
+is again disabled. The target is the originally completed bounded
+parent-child test, not a RE-Wizard or owner-paused automation. Each
+revival would change its saved `prompt` and future single
+`DTSTART`, plus `is_enabled=true`, preserving its **same task ID**.
+Proof requires two newly completed runs with distinct run IDs, each
+delivered the expected `NECRO_ROUND` marker; no new child automation
+or duplicate one-off should appear. This experiment is **scheduled,
+not yet verified**, and does not relax the hourly or usage limits.
+
+A direct attempt to create another test one-off failed with
+`too_many_active_automations`, reporting a cap of **15 active
+tasks** for the tested account at that time. Instead of changing
+live production tasks, two redundant **test-owned read-only**
+cadence auditors were disabled because the existing scheduled
+evidence-sync already observes the underlying cadence task. Their
+absence is deliberate, not a failed execution of the recurrence core.
+
+## Live project cadence and milestone preference
+
+Owner's instructions to the separate active private BinaryWorkbench
+team: the originally staggered five-role workforce was expanded;
+active production scheduled roles should be **hourly, as early as
+the service permits**, with large work divided across workers in
+parallel where useful. Results may feed inherited successor waves.
+The main interactive chat is an **additional worker during live
+turns**, and the owner wants concise milestone updates there to
+review later. At a 10:20 UTC snapshot, eight project-related
+scheduled roles were enabled with hourly saved recurrence, but
+their actual execution/parallel work and milestone reporting had
+not yet produced completed registry results. The bounded public
+HA observer reads their *actual* later execution records and
+private GitHub artifact metadata without altering the team's
+schedules, files, or permissions. See the privacy-safe
+[BinaryWorkbench case study](REWIZARD_BINARYWORKBENCH_CASE_STUDY.md).
+
 ## Orchestration design decision
 
 The practical pattern is an **interleaved graph of work waves**, pursued in **parallel** when independent and **sequentially/inherited** when a previous artifact, test, fix or integration result is needed. It uses a pre-provisioned, owner-authorized pool of existing tasks, with a default proposal of five useful roles and upper target of ten when plan limits/actual work justify it. A conductor can adapt authorized tasks' prompts, schedule and enabled status. This does not permit it to create children from its own scheduled runtime, circumvent per-task hourly limits, manufacture independent chat contexts, override source mediation or restart user-paused work.
