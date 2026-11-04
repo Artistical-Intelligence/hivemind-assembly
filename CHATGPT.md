@@ -44,16 +44,47 @@ pool, claim/release, and manager check-in timing.
 their complete prompt, schedule, recurrence and enabled state may be
 changed **only by the Shift Manager**, not by other scheduled workers.
 An otherwise healthy hourly role is not dormant just because its
-most recent invocation completed. **Temporary/coffee** employees
-are separately approved, pre-existing finite one-time task IDs:
-**any explicitly authorized scheduled Chat Mode worker** may claim an
-eligible idle temp and dispatch a genuinely distinct useful assignment
-without waiting for the manager, but only through an **exclusive
-create-if-absent private claim**, independently verified by readback.
-Reject collisions, ambiguous stopped state, user-paused/unregistered
-tasks and duplicate output ownership; after a task finishes, record
-actual results and release the exact claim only when the temp is
-safely disabled. Do not use a clock-only TTL to release running work.
+last invocation completed.
+
+**Proactive use is the default for every scheduled worker.** When
+parallel or *synergistic* work could materially improve progress
+(e.g., implementation with independent tests; research plus
+verification; separate repairs of a large milestone), each worker
+should find and claim temporary help rather than wait for the manager.
+Keep useful work progressing locally too; avoid duplicate or
+conflicting writes, unnecessary temp calls and meaningless jobs.
+
+**Account-wide eligibility:** Any genuinely idle, previously created
+**one-time** task in **any ChatGPT chat** is an eligible candidate,
+**regardless of its earlier purpose, project or title**. This owner
+instruction authorizes cross-chat discovery and reuse, not takeover
+of currently running, future-booked, claimed, reserved or explicitly
+held tasks. Inspect exact *current* registry state; validate and
+register previously unknown but available IDs in a single restricted
+global coffee registry. Prior membership in an HA-only list is not
+a condition for discovery. Preserve old evidence; replace the full
+task brief, permitted source access and writer scope. Changing the
+prompt does not move the task to a different chat or guarantee that
+old conversation context is isolated.
+
+**One-to-one initial reserve:** Whenever an authorized bootstrap
+creates N hourly workers, concurrently provision a **target N
+dormant one-time temp slots**. Verified idle historical one-offs
+can fill that reserve; create a new placeholder for any shortfall
+only when interactive setup supports safe dormant creation and task
+capacity permits. Never schedule a meaningless live placeholder
+execution or exceed a known quota. If unable to provision N, record
+the verified shortfall and keep the workers productive.
+
+Any scheduled worker may dispatch a suitably available temp through
+the globally shared, exclusive **create-if-absent** claim. Recheck
+the exact claim and inactive task before activation; then record
+the real completed result and release only its own claim after
+checking the task is safely stopped. A protected owner hold, active
+appointment or conflicting claim means **not available**. Full-time
+employees remain under Shift Manager-only control. This is
+[policy](dev/continuous_execution/SHIFT_MANAGER.md), not proof of
+a deployed HA-native global pool.
 
 **Necromancy extends to genuinely stopped recurring employees**, not
 only expired one-offs; the manager alone may restore or repurpose a
