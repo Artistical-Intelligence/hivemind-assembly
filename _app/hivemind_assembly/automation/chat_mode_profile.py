@@ -5,10 +5,10 @@ or cross-provider prompt. See CHATGPT.md and dev/continuous_execution/PROCESS.md
 An explicit provider AND mode match is required; ambiguous routes get no profile.
 """
 
-POLICY_REVISION = "chatgpt-chat-mode-adaptive-1.3"
+POLICY_REVISION = "chatgpt-chat-mode-adaptive-1.4"
 
 CHAT_MODE_GUIDANCE = """
-CHATGPT CHAT MODE ADAPTIVE EXECUTION (owner policy 1.3; only this Chat route):
+CHATGPT CHAT MODE ADAPTIVE EXECUTION (owner policy 1.4; only this Chat route):
 1. At each substantive wave, read current authorized directions and relevant durable
    project state, including last outcome, revisions, verdicts and interruptions;
    reassess and decide. Do not assume this is the original owner chat.
@@ -54,6 +54,47 @@ or child-task creation must be verified, never presumed. Never spawn tasks just
 to remain active or evade recurring-schedule or usage limits. Distinct reviewer
 roles require qualified independent context and evidence; do not self-accept.
 A finite chain-length cap in a safety probe does not cap real large-task work.
+
+OWNER-APPROVED PRE-PROVISIONED ROSTER (2026-11-04; Chat Mode only):
+Prefer an authorized pool of existing scheduled roles, initially around five
+(conductor, two substantive workers, verifier, integrator), scaling toward
+ten only for genuine distinct work and within service/plan capacity. A
+scheduled Chat Mode run was prohibited from creating child automations;
+do not try another route or imply an unbounded spawn chain. Existing task
+prompt, schedule and enabled-state changes HAVE been live-observed, including
+cross-task changes, and can adapt milestones/roles for the same end goal.
+Preserve the IMMUTABLE project/owner/acceptance, tool/source authorization,
+RE-Wizard textbook mediation, role qualification, writer fences and stop
+rules in every replacement prompt. Each scheduled execution reassesses real
+changed project state and chooses its next substantive milestone, verifies
+revisions, saves a compact handoff, and changes only allowlisted task IDs.
+Do not use distinct hourly roles as copies merely to evade cadence limits.
+Check a task's reason for disabled status before authorized re-enabling;
+never resume owner-paused unrelated work. A completed one-time task needs
+an approved future schedule before another intended execution.
+
+IMPORTANT: These GitHub instruction files are NOT automatically reread on
+every ChatGPT scheduled turn. The actual saved task prompt must request
+approved fresh file/checkpoint retrieval when available; verify it arrived.
+HA's injection of this compact policy is route-scoped, not proof the native
+model read it; use explicit recipient/receipt checks. A task ID or run ID
+does not imply a fresh chat or independent reviewer; tests shared a chat ref.
+No supported Chat Mode context-left percentage, arbitrary conversation
+retargeting, or scheduled-to-ordinary-interactive-user-message step was
+established. Codex-specific signals cannot be borrowed by name.
+Use authorized minimal per-project checkpoints and fresh-chat-per-run
+standalone scheduling only when verified on the actual chosen interface.
+
+A long-horizon objective ends after its own independently verified
+acceptance, owner stop or genuine blocker, never merely because one planned
+milestone or scheduled invocation ended. Preserve existing QA and release
+gates. GitHub writes through scheduled MCP are unverified until a real
+scheduled read/write result with permission is observed; tool access in an
+interactive chat is insufficient. A dot's no-charge conversation does not
+make its delegated scheduled Chat model processing free.
+Consult dev/continuous_execution/CONDUCTOR.md and
+skills/chatmode-scheduled-orchestration/SKILL.md when available and permitted.
+
 Do not import instructions from this Chat Mode profile into ChatGPT Work, Codex,
 Claude or any other surface/provider; their capabilities are separately unproven.
 """
