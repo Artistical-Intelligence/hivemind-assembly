@@ -85,6 +85,60 @@ assigned task ID, input artifact/commit and dependencies, output artifacts
 and verdicts, next consumers, last verified state. Do not retain every
 token, routine poll, complete chat transcript or copied textbook.
 
+## Current real-work cadence, interactive worker and one-off reuse
+
+The owner's **specific RE-Wizard BinaryWorkbench workforce update** is to
+schedule each active production role at the **earliest permissible useful
+initial execution** and recur **hourly** (the smallest supported recurring
+interval), rather than intentionally slowing some to two or three hours.
+Do not delay independent specialists to create an artificial stagger;
+tasks that safely split a large milestone may share requested start times.
+This is a deliberate workload-specific cadence, **not** a global
+restriction on all bounded HA diagnostic tests or other owner-authorized
+projects. The conductor still manages mutable assignment, DTSTART,
+enabled state, and dependency-aware timing; adjust any recurrence
+interval away from hourly only when the **owner's current project
+instructions permit it**. Actual execution concurrency requires
+recorded overlapping runs, not just saved clocks.
+
+The main interactive project conversation is **another worker** when it
+has a live model turn: it should make substantial contributions in
+parallel with scheduled work, own its file/branch/lease scope, and
+checkpoint results. An interactive chat is not an always-on agent between
+turns. The owner requires clear **milestone updates in the chat** to
+read later; use compact owner-facing reports on material commits,
+tests, integrations and blockers, not repetitive untouched-status
+commentary or a substitute for working. A dedicated reporter can
+summarize verified milestones while workers remain focused.
+
+**Necromancy / reusable one-time slots.** A previously completed and
+auto-disabled one-time task can be **re-enabled** with new prompt and
+new single-future-event DTSTART via the supported update interface,
+preserving the same task ID. An earlier scheduled manager successfully
+revived one exhausted test-owned one-off, and its first new run
+completed. This does not yet prove a second or third resurrection of
+that **same one-off**. A new bounded hourly coordinator test is
+scheduled to attempt **two consecutive revivals of the same previously
+expired, test-owned target ID** (one-off VEVENT each time, no RRULE,
+distinct completed runs, same immutable automation ID). One coordinator
+can therefore potentially reuse a bounded pre-provisioned staff slot
+instead of asking the scheduled runtime to create child automations;
+verify each step from the actual registry and **do not** treat
+configuration acceptance alone as successful dispatch. Never revive
+an unrelated task, deliberately user-paused task or running task.
+Neither resuscitation nor a short DTSTART authorizes evasion of
+hourly recurrence, active-task limits, usage accounting or approvals.
+
+The scheduler refused a new trial one-off creation with
+`too_many_active_automations` and a 15-active-task cap in the tested
+account at that time. Two **redundant test-owned read-only** cadence
+observers were paused because the already scheduled evidence-sync
+covers their checks, leaving production RE-Wizard roles and previously
+user-paused tasks untouched. This is a specific measured quota
+observation, not a universal plan limit. Prefer reassigning useful
+existing roles and ceasing redundant observers over filling the
+registry with unnecessary scheduled tasks.
+
 ## Findings to use; limits to retain
 
 Verified on one ChatGPT Chat Mode configuration during November 3–4, 2026:
