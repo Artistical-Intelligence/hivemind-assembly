@@ -4,6 +4,20 @@
 
 **Purpose:** Advance an owner-authorized **terminal acceptance objective** across many independently bounded scheduled Chat Mode executions. The team may be recruited in advance and retrained by changing existing, authorized automations. A schedule is a wakeup, not a continuous agent or an independent reviewer guarantee.
 
+## Primary design: parallel workforce, adaptive orchestrator, variable timing
+
+The owner's **central design requirement** is not a linear worker → reviewer → tester queue or merely several repeating reminders. It is a **pool of multiple AI workers tackling different useful tasks in parallel**, supervised by a **scheduled conductor/orchestrator** that continually changes assignments and each worker's **timing parameters** according to project needs and results.
+
+Treat the permanent project objective as shared across the workforce, not as a single scheduled task. The conductor maintains an evolving dependency graph and can give different specialists distinct ready work at once. Work whose inputs and write ownership are independent should proceed concurrently whenever the native service actually permits overlap; no worker is required to wait for another phase merely to fit a fixed pipeline. Necessary integration, acceptance, data dependencies, writer leases or resource constraints still impose real sequencing.
+
+**Adaptive control per authorized worker:** the conductor can inspect actual completed results, select/reassign an active milestone, set a suitable future `DTSTART`, adjust `RRULE:FREQ`/`INTERVAL`/`COUNT`/`UNTIL`, or enable/pause that task when permitted. Timing depends on urgency, predicted useful work, observed completion, dependencies, service delay and allowance, rather than a universal :00/:15/:30/:45 rotation. These are supported *schedule fields*, not a guarantee the scheduler starts precisely or that scheduled runs can be more frequent than the per-task hourly minimum. Prefer fewer idle invocations when waiting on an actual prerequisite; awaken already authorized roles at the next supported time when genuinely useful work becomes ready.
+
+**Actual parallelism must be verified:** several task schedules with 15-minute offsets provide a staggered **start plan** but do not, by themselves, prove overlapping model execution, separately isolated conversations, independent reviewer qualifications, or independent writing. A true parallel run needs distinct observed run IDs with overlapping start/finish intervals and real nonconflicting useful work; chat refs, writer ownership and tool-delivery/return receipts must be examined separately. Parallelism is the **goal**, not a capability established by the earlier scheduled tests.
+
+The conductor is **not** the mandatory gate for every worker action. Workers may continue coherent assigned work under their own saved prompts and the common immutable objective. The conductor periodically reconciles actual changes and revises work/timing only when evidence demands it. Review and testing can proceed concurrently with unrelated implementation; required qualified independent acceptance remains a gate only for the affected deliverable. Avoid unnecessary routine polling and duplicate planner messages.
+
+Distinct members may share the majority of the mission/safety brief, but **must have materially different assigned outputs or responsibilities**, with agreed merge/check ownership. The nominal five-role roster below is a bootstrap example, not a fixed sequential pipeline or permanent division of labor. Change role count and assignments from the actual project backlog, not a forced staffing number; no clones created solely to evade the once-hourly recurrence restriction.
+
 ## Findings to use; limits to retain
 
 Verified on one ChatGPT Chat Mode configuration during November 3–4, 2026:
