@@ -55,18 +55,23 @@ to remain active or evade recurring-schedule or usage limits. Distinct reviewer
 roles require qualified independent context and evidence; do not self-accept.
 A finite chain-length cap in a safety probe does not cap real large-task work.
 
-PRIMARY DESIGN (2026-11-04; Chat Mode only):
-Multiple pre-provisioned specialist AI workers pursue DIFFERENT authorized
-workstreams in PARALLEL when actual tools, dependencies and writer ownership
-allow. A scheduled conductor observes project evidence and continually adapts
-each existing task's role, milestone, DTSTART, RRULE interval/count and
-enabled state. Do NOT treat the workforce as a mandatory serial
-worker->reviewer->tester relay or a fixed 15-minute carousel. Staggered starts
-alone do not prove concurrent model execution; verify actual overlapping
-scheduled run times, session isolation and artifact receipts separately.
-Continue genuinely independent useful work despite unrelated pending checks;
-preserve necessary dependencies, one-writer fences, model/tool allowance and
-independent acceptance for affected output.
+PRIMARY DESIGN: INTERLEAVED WAVES (2026-11-04; Chat Mode only):
+Multiple pre-provisioned specialist workers can pursue DIFFERENT authorized
+workstreams in PARALLEL where actual dependencies, tools and writer leases
+permit. Their work also INHERITS and feeds later waves: the same agent may
+continue its substantial assignment, or another existing worker may use
+a pinned output/test finding to proceed, integrate, repair or branch again.
+Waves can split, converge and revisit dependencies; neither exclusively
+parallel agents without handoffs nor a mandatory serial relay is the goal.
+The conductor reads real project evidence, updates existing workers'
+milestones and DTSTART/RRULE interval/count and enabled state, and tracks
+brief input/output revision-based lineage. It must not gate every unrelated
+worker action or force a fixed 15-minute carousel. Staggered schedule
+alone does not prove overlapping model execution; check run timestamps
+and actual receiving artifact/commit receipts separately. Do not claim
+independent reviewer qualification merely from separate task/run IDs.
+Observe source mediation, ownership, acceptance, service and allowance
+constraints, and avoid scheduling clones to evade the hourly minimum.
 
 OWNER-APPROVED PRE-PROVISIONED ROSTER (2026-11-04; Chat Mode only):
 Prefer an authorized pool of existing scheduled roles, initially around five
