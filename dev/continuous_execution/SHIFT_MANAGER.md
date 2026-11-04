@@ -1,101 +1,129 @@
-# ChatGPT Chat Mode shift manager — corrective one-offs and maximum work runway
+# HA ChatGPT Chat Mode — Shift Manager operating policy
 
-**CHECKS PENDING. Owner clarification: November 4, 2026.** This is a ChatGPT **Chat Mode-only** HA orchestration design. It must not be included in Claude, Work, Codex, generic all-provider instructions, or the active private RE-Wizard team's saved tasks. This document is an HA design/reference: committing it does **not** change any live automation schedule or execute new tasks.
+**Authority:** Owner-approved HA application of the November 4, 2026 [BinaryWorkbench Shift Manager Policy](https://github.com/Artistical-Intelligence/RE-Wizard/blob/automation/binaryworkbench-orchestration-20261104/Tools/BinaryWorkbench/orchestration/SHIFT_MANAGER_POLICY_20261104.md). This file is the **single authoritative HA Chat Mode shift-management procedure**. [CONDUCTOR.md](CONDUCTOR.md), [PROCESS.md](PROCESS.md), [CHATGPT.md](../../CHATGPT.md) and the [scheduling skill](../../skills/chatmode-scheduled-orchestration/SKILL.md) provide background, exact tools and evidence, not competing manager policies.
 
-## Two corrections to the earlier description
+**Scope and status:** **CHECKS PENDING. ChatGPT Chat Mode only.** HA also targets Claude, but this experimental scheduling policy must **not** be injected into Claude, ChatGPT Work, Codex or unknown modes. This is a documented design and pure helper contract; it does **not** install a scheduler, create a team, activate a worker, or change any private RE-Wizard automation. Actual HA-native prompt receipt, worker permissions, independent acceptance and service integration need separate verification. Apply the user's general design principles without copying RE-Wizard-specific private task IDs, branch names, eight-person staffing decisions or game restrictions as universal HA requirements.
 
-**A new corrective task is not automatically a repeat of the previous scheduled task.** If a prior run failed to achieve a useful milestone, the manager should generate a distinct, generalized corrective assignment from its observed gap: the incomplete behavior/test, exact artifact/revision, necessary follow-up experiment, acceptance criterion, dependencies, and permitted output owner. The **same existing one-time task slot** may be reused with an updated complete prompt and a new single-event DTSTART, or a different authorized available worker may inherit the corrective work. This is task reassignment, not another ordinary `RRULE` occurrence of unchanged instructions.
+## 1. Office roles and decision authority
 
-**The manager's own scheduling objective is to maximize its available useful work window**, not to minimize a worker's wait for the manager or make the manager a gate. Arrange the manager's hourly start **just after the relevant cohort's outputs are expected to be available**, with the largest feasible time before the next major work wave begins. All other authorized workers continue without waiting for the manager except for actual source/data/write dependencies.
+There are **two disjoint classes of scheduled employees**. An agent's title, historical identity or disabled flag alone cannot confer access to either class.
 
-## Corrective dispatch: same-ID one-time resurrection and work inheritance
+| Class | Work contract | Who can change its scheduled prompt, time and enabled state |
+| --- | --- | --- |
+| **Full-time / permanent** | Owner-authorized existing recurring roles (typically hourly when owner requests the service minimum), each with a permanent project mission, distinct current workload, branch/file ownership and acceptance criteria. A stopped full-time role remains full-time. | **Only the Shift Manager** may reassign, reschedule, pause, revive, restore recurrence or change the role's rights, subject to owner authorization and host permissions. Workers cannot update each other's full-time task objects. |
+| **Temporary / shared coffee pool** | Explicitly owner-approved, already-existing reusable **one-time** task IDs. A fresh substantive finite assignment is loaded into a dormant ID, executed, checked and returned to the pool. Temps never inherit permanent source write rights by default. | **Any specifically authorized Chat Mode project worker, including the Shift Manager and a temp already executing**, may *claim and dispatch* an eligible temp through the atomic exclusive-claim protocol in §5. The main interactive chat may do so only during its live user turn and within its permissions. |
 
-A previously completed one-time Chat Mode automation was **successfully resurrected twice** in the bounded November 4 test: the original task and two revived assignments completed with **three different run IDs under the same immutable automation ID**, with one-time VEVENTs containing no `RRULE`. A scheduled manager changed full saved prompts, future one-time DTSTART and `is_enabled=true`. The target auto-disabled after each completion. This demonstrates reusing the one-time slot; it does **not** establish unbounded resurrection, arbitrary interface permission, or any particular minimum time between distinct resurrections.
+**The manager supervises, but does not gate, temp assignments.** The shared temp pool exists so independent staff can request useful parallel help without waiting for the manager's next hourly check. Conversely, this does **not** give any regular employee permission to retask a full-time colleague. A project bootstrap might provision a nominal five-role permanent workforce, expandable when useful and within quota; **do not hard-code RE-Wizard's eight roles as HA's universal structure**.
 
-For HA, a new **legitimate corrective assignment** is a separate piece of work even if delivered through an old task object. When a task object is completed, **do not impose an invented 60-minute delay solely because its ID ran earlier**. Instead, try the supported one-time update with the **earliest permitted future event** and verify the scheduler's response. The once-per-hour minimum stated for repeating `RRULE` schedules does not, by itself, demonstrate a cooldown on all distinct *ad hoc one-time* assignments. Conversely, the one-off revival experiments have **not** verified that arbitrary sub-hour restarts are allowed. A prompt rewrite alone is not a new model invocation, and a hypothetical ability to create unlimited tasks is not established: an actual attempt to create a further test task returned an **active-task limit of 15** in the tested plan. Never manufacture semantically identical one-offs just to emulate a recurring sub-hour timer or evade a provider restriction.
+For an already authorized project, the immutable owner mission and provider/mode boundaries survive every work-order rewrite. All employees can *identify, diagnose and report* common bottlenecks; exclusive **writing** scope is not exclusive permission to notice problems. Use separate branches/revision fences/leases for actual writes. Independent useful work continues without waiting for the manager except when a real dependency or write lock applies.
 
-When a high-priority deficit appears:
+## 2. Shift = substantive deliverable, not a completed model invocation
 
-1. **Recognize the gap.** Compare intended work and source-level evidence with actual completed run results, GitHub revisions, executed tests and missing acceptance. `in_progress` is not a failure; do not duplicate its active write.
-2. **Produce a new corrective brief.** Specify the missing capability/evidence, the exact source/test SHA, actionable fix or negative/positive test, acceptance condition, dependencies, permitted tools and output ownership. Preserve immutable mission and safety constraints.
-3. **Select the fastest legitimate recipient.** Consider the original worker, another compatible existing worker, or a completed pre-provisioned **one-time** task eligible for new instructions. Compare their actual allowed next dispatch opportunities and output write scopes; transfer exclusive ownership explicitly when necessary. Give independent repair/test fragments to different workers in parallel when helpful.
-4. **Dispatch, don't just report.** Update the exact allowlisted task's **full prompt** and one-time DTSTART/`is_enabled` (or compatible existing recurring task's next permissible phase) as appropriate; use a supported future offset when available, and read back the persisted ID, prompt, schedule and enable state. Don't treat a successful update as an executed corrective job.
-5. **Verify the new instance.** Confirm its distinct run ID, actual start and completion, delivered instructions, tested artifacts, and resolution or downstream consumption. If dispatch is rejected, record the *actual* service constraint and choose the best other permitted route, not an invented hourly ceiling.
+**Every scheduled role has an observable deliverable and exit condition.** The service saying `recorded_status=completed` establishes only that the *invocation* stopped. It does not establish that the engineering, verification or research outcome was achieved. A commit, checkpoint, successful static read or single small test is a recovery point, **not** an automatic stop if meaningful work remains and the current invocation can continue.
 
-Authorization, active-task caps, model allowances, approval, unrelated paused tasks, per-task **recurring** frequency rules, privacy and one-writer safeguards still apply. A previously completed task may be reassigned, but new work does not grant unrestricted or guaranteed immediate execution.
+A shift manager inspects two separate evidence dimensions: **scheduling reliability** (`scheduled_for`, actual start/finish, jitter, run identity, overlap, accepted updates) and **delivered work** (changed artifact/commit, tests genuinely executed on the correct SHA, pass/fail/skip outcomes, independently qualified review, downstream receipt, unresolved defect). Store only compact evidence and a next-action pointer in the project's existing checkpoint; do not introduce a repetitive timesheet or reward commit counts.
 
-## Mathematical objective: maximize shift-manager work runway
+Every invocation should proceed through multiple useful implementation, bounded test, diagnosis or repair steps when permitted by real context/runtime/tools. Nobody may pretend to force a sixty-minute model run. Milestones to the user should distinguish verified successes, known failures, and pending independent review, and avoid unchanged routine chatter.
 
-Let one **relevant work wave** have required producer/checker/integrator outputs with actual completion timestamps, and let `T_next` be the earliest *next* major worker-cohort start. The manager should start after enough of those outputs have arrived to act intelligently, but as **early as safely possible thereafter**. Delaying its start consumes its available analysis/replanning time.
+## 3. Shift Manager: active control and prompt corrective action
 
-Use a small deterministic phase search once useful data exists. Definitions for a given candidate hourly phase `m ∈ {0,...,59}`:
+At every **actual** managerial invocation, reconcile the owner directives, **current** permanent roster, current temp-claim state, real run/results, source/test revisions, downstream dependencies and explicit stops. Distinguish `in_progress`, `no_update`, failed, blocked, incomplete, accepted and unknown. Missing latest history or `next_run_time:null` is **not** permission to dispatch a duplicate.
 
-- `R_q`: a conservative observed readiness time for **relevant** completed outputs (for example, empirical 80th–90th percentile of the latest critical completion within a comparable wave); with few samples, use the latest observed completion and mark it provisional.
-- `J_m`: an observed upper-bound or high-quantile allowance for manager start delay/jitter and prompt-update propagation; do **not** claim the service honors exact times.
-- `D`: the next major independent worker-cohort start. It is an opportunity for the manager's updated plans to be ready, **not** a stop command or a gate for those workers.
-- `S(m)`: the prospective actual manager start with phase `m` in the relevant hourly cycle, adjusted by `J_m`.
-- `B`: a modest readiness/update safety margin based on actual tool latency.
+An important unfinished or failing shift produces a **new logical corrective work package**, not a verbatim repeat of the old prompt. Draft a **generalized outcome brief** (§4) with valid predecessor evidence, what remains missing, acceptance and constraints, while leaving implementation choices to the receiving worker.
 
-Evaluate:
+**Immediate triggers, not optional delays:** a failed pinned test, missing mandatory output, failed independent review, repeated non-progress or a currently blocking shared prerequisite warrants corrective action at the **next available manager decision point**. Two distinct workers reporting the same blocker, or the same blocker surviving two completed shifts, is a **maximum escalation delay**, not permission to wait when a consumer is blocked now. The manager assigns one permitted owner to the executable unblock experiment and lets unrelated lanes proceed.
+
+To dispatch, choose the **earliest suitable already authorized full-time worker or available claimed temp** with the necessary skills and nonconflicting write scope. An original worker is a candidate, not a mandatory recipient; a different colleague may investigate a genuinely separate test/reproduction while the original implements the fix. **Only the manager** may change a full-time person's assignment or schedule. A properly claimed temp can be dispatched by any authorized project worker. The manager must actually perform the supported update where permitted, then verify the complete saved prompt/schedule/enable state and later the receiving run and artifact result. Status reporting alone is not dispatch.
+
+**Corrective overtime:** prioritize/redistribute the unfinished deliverable, let a current invocation continue substantive work, and request the earliest **service-accepted** next occurrence for its new assignment. Ordinary permanent recurrence remains hourly when required by the owner; never pretend an updated task prompt forces an additional run or overrides provider limits. An entirely distinct **one-time** corrective assignment should use the earliest permitted future single event rather than an invented per-ID 60-minute cooldown inferred from the recurring `RRULE` minimum. Sub-hour single-event execution is **not established** by the earlier same-ID resurrection tests; test actual service acceptance, no unsupported workaround. Do not duplicate active writers, revive unrelated/user-paused work, spawn scheduled children through prohibited tools, or automatically bypass approvals.
+
+When the work package's acceptance passes, close **that assignment**. A permanent employee continues useful ready work on its authorized cadence; a finite temp normally sleeps again after its completed/reported assignment. The project-wide mission remains until its independent terminal acceptance or explicit owner stop.
+
+## 4. Canonical generalized continuation brief — part of this policy
+
+Use a concise work order, not a full chat transcript or a rigid prescribed fix:
 
 ```text
-eligible(m)  = [ S(m) >= R_q + B ]                # enough relevant evidence exists
-work_runway(m) = max(0, D - S(m) - B)              # available pre-next-wave manager time
-m* = argmax_{m in 0..59, eligible(m)} work_runway(m)
+CORRECTIVE-WAVE: <project key / unique work-order key>
+Standing objective: <owner-requested end state>
+Predecessor: <exact completed run and pinned source/test revisions>
+Results preserved: <what truly worked and artifact or CI receipts>
+Outstanding deficit: <incomplete result; NOT RUN vs FAILED vs BLOCKED>
+Criticality / dependencies: <who depends on the missing outcome>
+Evidence: <source SHA, test counts/skips/failures, constraints>
+Acceptance: <observable behavior and required executed checks>
+Write owner: <authorized branch/files, permissions and review gates>
+Next eligible recipient: <existing role or claimed temp; permitted time>
+Worker discretion: <choose methods, safe experiments and necessary fixes>
+Resume: <save exact revisions and continue useful work beyond first commit>
 ```
 
-The optimum **under these stated observations and assumptions** is normally the **earliest feasible manager phase immediately after required results are ready**, since every later minute shortens its runway. In a probabilistic variant, maximize `P(outputs ready at m) × E[work_runway(m)]` or impose a readiness-confidence threshold; do not pretend fixed clock phases yield guaranteed outputs. Estimate using actual run `scheduled_for`, `started_at`, `completed_at`, source receipts and service jitter, not the scheduled clock alone.
+The work order must carry the immutable mission/safety header, present source revision and **real** authorization. Suggested implementation methods may be included as evidence, not as compulsory recipes. Keep earlier failed approaches as data so the receiving worker does not merely repeat them. A successful update to a scheduled prompt alone is a configuration receipt: require the subsequent *distinct run ID* and actual output/test evidence before calling the correction complete. Do not self-approve work requiring a qualified independent reviewer.
 
-**Illustration, not a permanent recommendation:** Suppose the relevant last tests/integration finish around :54–:56 and the next main work wave is near :20 in the following hour. A manager starting shortly after :56 potentially receives substantially more usable preparation runway before :20 than one waiting until :08. The exact selected minute depends on measured jitter, how late relevant outputs arrive, and expected manager duration. Do **not** preserve :08 merely because it was inherited from a separate project's roster. Optimize **manager workspace/time**, not the speed at which workers receive permission to proceed. Workers never pause for a shift-manager check unless an actual required dependency or write lease is unresolved.
+## 5. Temporary coffee pool — exclusive claims without manager bottleneck
 
-If no minute provides a high-confidence post-results, pre-next-wave window, choose the best *partial-evidence* phase and let the manager do useful work from whatever is available; explicitly record what remains unfinished. Do not hold up other workers to manufacture an all-done moment. Once a higher-value time is justified, the manager can revise **its own permitted hourly phase** through a supported schedule update after validating owner instructions, runtime/service restrictions and live task identity.
+This mechanism uses **pre-provisioned, expressly authorized task objects**, because scheduled Chat Mode child-task creation was prohibited in completed tests. The pool must be held in a **project-authorized restricted workspace**, not in HA's public agent instructions or an unprotected repo containing other users' task IDs. A conceptual layout, adapted per project:
 
-## Pure planning helper (no automation side effects)
+```text
+<private-project-control>/coffee_pool.json
+<private-project-control>/coffee_claims/<opaque-temp-ID>.json
+<private-project-control>/coffee_history/<work-order-key>.json
+```
 
-HA now includes a small deterministic helper at
-[`_app/hivemind_assembly/automation/shift_window.py`](../../_app/hivemind_assembly/automation/shift_window.py),
-with [offline contract tests](../../tests/test_shift_window.py).
-`best_shift_manager_phase(critical_completion_offsets, next_cohort_offset, ...)`
-scans every hourly phase and returns the phase giving the maximum
-*pre-next-cohort manager work runway* under a supplied conservative
-completion quantile, observed service early/late jitter, readiness
-buffer and update margin. Inputs are real completion offsets relative
-to a common wave hour (next-hour :20 is 80 minutes, not 20).
-It returns `no_pre_wave_window` when there is no feasible preparation
-window rather than treating the manager as a worker stop gate.
+A membership registry must list immutable eligible temp IDs, original provenance and explicit owner permission. A disabled task that is not on the allowlist is **not** free coffee. The owner-approved permanent roster and temporary pool are disjoint. Never publish account-specific task IDs, secrets or protected source in a public HA policy file.
 
-**Scope:** The helper does **not** retrieve Automations records, decide
-which workers are relevant, or change any scheduled tasks. An HA
-integration must first verify exact native Chat Mode routing,
-input provenance, permission, test output, complete run receipts and
-user-authorized execution before using its recommendation to update
-the manager's own schedule. The result is conditional on empirical
-samples, not a guaranteed physical or service-wide optimum.
-This is substantive deterministic planning code, **not yet a live
-service-connected scheduler**.
+### Claim, dispatch and release
 
-## Real-work corrective handoff now observed
+1. **Discover and preflight.** Read the exact registry member and actual live Automations entry. It must be authorized, currently disabled, have a completed or suitably adjudicated prior one-time shift (or be an approved unused slot), and have **no** active run or outstanding future appointment/claim. Check plan active-task capacity, source authorization and an available tool that supports exclusive create-if-absent.
+2. **Prepare genuinely different work.** Assign a unique work-order key and useful objective with predecessor SHA, acceptance, source revisions, downstream consumer and *exclusive* output scope. No duplicate source writer or cloned unchanged recurring job.
+3. **Acquire the exclusive claim.** Use an **atomic create-if-absent** operation against the **same private coordination branch** and canonical per-temp claim path. Required claim metadata: schema, immutable temp ID, work-order key, claiming task/run, previous temp run ID, objective, acceptance, source SHAs, output branch/write scope, earliest requested dispatch. If the file already exists, any write conflicts, or atomicity cannot be established, **fail closed**: do not dispatch that temp; choose another authorized slot or escalate to manager. Never overwrite an existing claim by a blind save or whole-branch batch write.
+4. **Verify before modifying the task.** Re-read the exact claim's GitHub commit/blob and current task status. If the task is active or ownership changed since preflight, stop and preserve the claim for reconciliation.
+5. **Only the successful claimant dispatches.** Update **that temp alone** with complete new prompt/title, future **one-time** `DTSTART` *without* `RRULE`, and `is_enabled=true`. Validate the service's accepted configuration, actual future run ID, completion, prompt marker, artifact and test receipts. A successfully created claim is not an executed job. Do not try to reactivate a temp still running.
+6. **Return to pool after proven closure.** On completion, write a compact immutable history record with the output SHA, test outcome, disposition (`accepted`, `partial`, `failed`, `needs-check`) and next consumer. Only after verifying the temp auto-disabled and no newer run/claim replaced it may the claimant delete its **own** claim file by the **latest exact blob SHA**. If it cannot prove ownership or delete permission, ask the manager to reconcile; never release a stale or guessed claim.
 
-A separate production Chat Mode shift manager **actually identified failing
-hosted synthetic-test evidence, replaced an existing authorized worker's
-corrective assignment, and a later completed receiving worker run
-consumed the evidence and committed corrective changes and tests**.
-This is a verified **inheritance/corrective dispatch** at the task-registry
-and source-artifact level. It does **not** demonstrate earlier-than-normal
-service dispatch, a guaranteed single-event sub-hour revival, successful
-integrated test closure, or a maximum-work-runway manager phase.
+**Do not reclaim by time-to-live alone.** A worker can exceed the scheduled time or be delayed. A claim remains exclusive until an authorized actor checks the actual run state and releases it. An already executing temp may request another available temp using this same protocol, but cannot claim itself or borrow the same writer lease as its parent. Respect actual active-task and usage caps; no self-restarting unbounded descendants or alternate provider/API route.
 
-For this HA design, evaluate manager positioning by **its own available
-substantive analysis/replanning window after relevant output readiness**,
-not by whether it happens to precede every other worker, nor by forcing
-other workers to wait. The pure
+**No live acceptance inferred:** Existing tests established same-ID one-time resurrection and cross-task updates, *not* two concurrent agents racing over atomic claims or a functional HA-native coffee-pool dispatcher. Requiring a claim in documentation is a safety design, not evidence that HA currently implements one.
+
+## 6. Necromancy of stopped recurring staff — manager exclusively
+
+An otherwise enabled healthy recurring role with a completed last *invocation* is **still employed and scheduled**. It is not an eligible sleeping temp.
+
+A **genuinely stopped** permanent recurring role is different: it may have an exhausted `COUNT`/`UNTIL`, a recorded pause for lack of ready work, a failed/disabled schedule, or another verified lack of future eligible work. The **Shift Manager alone** diagnoses the cause and owner intent. If the employee still owns ongoing independent responsibilities, restore its supported hourly recurrence with a refreshed generalized assignment. If the role instead needs one bounded new corrective instance, the manager can reuse the same ID with a future **single-event VEVENT**, but must preserve its permanent role and restore/reconcile any ongoing mission afterward.
+
+Never convert or pause a **healthy in-progress** permanent worker to manufacture a necromancy test. A user-explicit stop, unrelated project, disabled unknown task, insufficient quota or ambiguous `in_progress` record is not automatically eligible. A stopped full-time role is **not** inserted into the shared temp registry; ordinary workers have no right to modify it.
+
+The bounded November 4 Chat Mode tests confirmed **two resurrections of a previously completed one-time slot**, plus revival of a self-paused test-owned task. They did **not** independently demonstrate actual recovery of an unexpectedly **stopped recurring full-time role** with owner-approved role restoration. That distinct acceptance test remains pending.
+
+## 7. Shift Manager's own timing: maximize useful runway, not worker latency
+
+The mathematical objective approved for **HA** is to position the manager **just after enough relevant work has finished** so it has the **longest feasible useful work window** to diagnose, reassign, test and prepare before the next significant cohort. Other workers **do not wait** for its check-in. The source policy's weighted critical-path delay can inform which outputs count as relevant, but must **not replace the owner's explicit maximum-manager-runway objective**, impose a supervisor gate or hard-code RE-Wizard's provisional `:08` UTC phase.
+
+For one representative wave, let `R_q` be the observed high-confidence ready time of *relevant* prior outputs (with a margin for actual early/late dispatch), and `D` the next independent worker cohort's start. For each allowed hourly phase `m ∈ {0,…,59}`, project its actual start `S_m` with conservative jitter and define:
+
+```text
+eligible(m) = [S_m >= R_q + readiness_margin]
+runway(m)   = max(0, D - S_m - update_margin)
+m*          = argmax_{eligible(m)} runway(m)
+```
+
+With reliable evidence the earliest **feasible** phase after the necessary results arrive generally maximizes this window. Estimate from actual completed timestamps and real service jitter; if there are too few samples or no feasible phase, report a provisional recommendation and continue useful work on partial evidence. `D` is a **planning reference**, not a stop condition for the manager's model invocation or a barrier for unrelated workers. A single check cannot guarantee every asynchronous worker has finished.
+
+HA already has a **pure, side-effect-free** phase-search helper:
 [`shift_window.py`](../../_app/hivemind_assembly/automation/shift_window.py)
-is only a deterministic planning helper, not a connected live scheduler.
-The multi-session [service audit](CHAT_MODE_SESSION_TEST_AUDIT_20261104.md)
-provides the completed bounded-task evidence and the latest known gaps.
+with [offline tests](../../tests/test_shift_window.py). It is not a connected scheduler and does not change an automation. Never claim a mathematically optimal real dispatch without actual trusted completion samples, tool-supported update and later execution evidence.
 
-## Acceptance and evidence
+## 8. Evidence, minimum shift report and acceptance gates
 
-The mechanism is **not fully proven** by these instructions. Verify independently that a real HA-managed coordinator: (1) identifies a missing important deliverable, (2) issues a distinct corrective brief rather than replaying the old job, (3) reuses an authorized existing one-time task or suitable worker, (4) gets an earlier **actual** follow-up when permitted and confirms the service-accepted execution rather than inferring it from a saved prompt, (5) records corrected artifact/test acceptance, and (6) chooses a manager phase because it maximizes the observed work runway rather than because of an inherited fixed time. A bounded test may investigate whether a newly corrected *one-time* assignment can execute within an hour of the preceding one; its success is not assumed until the run finishes.
+The manager records one compact decision summary in the **existing private project checkpoint**: (1) what completed vs remains running/incomplete, (2) actual run IDs and source/test receipts, (3) the current critical blocker/explicit owner, (4) changed prompts, `DTSTART` and enabled states accepted and independently re-read, (5) candidate phase and expected manager working window with uncertainty, and (6) what work proceeds independently. No duplicate performance ledger. A main-chat contributor acts only during an actual turn, not continuously between turns; scheduled workers must identify unresolved gaps autonomously.
 
-No automatic scheduling integration or provider permission is granted by this document. Do not modify any private RE-Wizard repo or its active automations while implementing this HA-only policy. Preserve the existing independent reviewer and release checks.
+**Prove each capability separately** before claiming deployment:
+
+- **Full-time authority:** only manager updates a permanent role and it later receives the correct assignment; no unrelated task touched.
+- **Corrective dispatch:** a completed manager identifies an incomplete important outcome; writes a generalized brief; moves the **same eligible worker's next start earlier** where genuinely permitted and beneficial (retained acceptance demonstration), and separately tests dispatching a nonconflicting fragment to a **different** suitable role. Verify actual receipts, not just configuration. This is not a requirement to make the manager a gate or to violate actual cadence restrictions.
+- **Shared temp pool:** at least two authorized scheduled agents successfully obtain **different** temporary claims without collision, execute distinct one-time assignments, record exact results, release with verified blob SHA, and demonstrate later reuse. Independently test a same-temp concurrent claim race and fail-closed behavior; **no double dispatch**.
+- **Stopped recurring revival:** a genuinely stopped manager-controlled full-time task resumes under the **same task ID** and produces actual work, or properly returns to dormancy as a single-event corrective instance. Don't manufacture the stopped state by pausing healthy work.
+- **Manager-phase optimization:** actual output and jitter samples produce a justified maximum-work-runway phase; the manager updates its schedule only when permitted, re-reads it, and verifies later actual timing. Other workers proceed independently.
+- **Safety:** no unapproved provider switch, model/effort claim, protected-source bypass, user-paused task resurrection, conflicting writers, approval workaround, false independent-review assertion or unrestricted child creation.
+
+**Current evidence:** Service-level Chat Mode tests proved self/cross-task updates, bounded 2-hour recurrence, completed self-paused/expired task revival, two same-ID one-time resurrections and an isolated GitHub write, and real-work scheduling demonstrated overlapping sessions and an inherited correction. **HA's full-time/temp claim partition, stopped recurring resurrection, live manager optimization and source-native acceptance remain CHECKS PENDING.** See [the multi-session audit](CHAT_MODE_SESSION_TEST_AUDIT_20261104.md). The private RE-Wizard source policy is a *reference*, not an authorization to edit its live project.
