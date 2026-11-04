@@ -57,7 +57,8 @@ notice does not remove them or impose the Chat Mode workflow elsewhere.
 **Only when the configured execution route is explicitly ChatGPT Chat Mode:**
 read [CHATGPT.md](CHATGPT.md),
 [the HA conductor design](dev/continuous_execution/CONDUCTOR.md),
-[the dated evidence and open tests](dev/continuous_execution/CHAT_MODE_FINDINGS.md)
+[the dated evidence and open tests](dev/continuous_execution/CHAT_MODE_FINDINGS.md),
+[the completed multi-session test audit](dev/continuous_execution/CHAT_MODE_SESSION_TEST_AUDIT_20261104.md)
 and [the scheduling/automation skill](skills/chatmode-scheduled-orchestration/SKILL.md).
 These documents are **CHECKS PENDING** and do not implement a new native
 scheduler, install a ChatGPT skill or provide a general permission grant.
@@ -93,14 +94,25 @@ without confirming an actual supported value. Standalone per-run fresh chats
 may use minimal GitHub checkpoints where supported, but a scheduled task cannot
 claim a new interactive chat was created or its conversation ID retargeted.
 
-Prior experiments verified own-task and cross-task prompt/schedule changes,
-self-pause and completed result retrieval in Chat Mode. Scheduled-run child
-automation creation was blocked by permission. Repeated two-hour cadence,
-resumption of completed tasks, and scheduled GitHub writes remain bounded
-pending tests until recorded completion. All existing independent-acceptance,
-model qualification, RE-Wizard source mediation, writer fences, project pauses,
-credentials, and release gates are unchanged. Do not apply this method to Work,
-Codex or Claude by inference.
+Completed November 4 service experiments verify saved own/cross-task
+prompt and schedule changes, **three** successive two-hourly completions,
+expired and previously self-paused task revival, **two** sequential
+same-ID one-time task resurrections, cross-conversation registry
+coordination, and a separately audited scheduled GitHub write on an
+authorized isolated branch. Scheduled child creation was prohibited;
+a same-chat ordinary user-role message trigger was unavailable.
+These are service-level findings, **not** proof of HA-native runtime
+integration, independent model/reviewer qualification, unrestricted
+service/API access, or immediate/sub-hour corrective dispatch.
+One test-owned task ID was later repurposed as an active production
+worker; check CURRENT ownership and saved prompt before any mutation.
+Real-work tests also show overlapping productive ChatGPT sessions,
+inherited corrections and failing source-bound CI, not accepted
+integration. The manager's maximum-work-runway optimization remains
+unverified in a live HA scheduler. All existing independent-acceptance,
+model qualification, RE-Wizard source mediation, writer fences,
+project pauses, credentials, and release gates remain unchanged.
+Do not apply this Chat Mode method to Work, Codex or Claude by inference.
 
 ## Setup UX preference
 
