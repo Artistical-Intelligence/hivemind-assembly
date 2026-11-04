@@ -9,6 +9,40 @@
 - A Chat Mode scheduled execution was **not permitted** to create a new automation. However, completed tests verified self-modification of instructions and schedule, self-pause, changing an existing other task, and a later task receiving updated instructions. Distinct run IDs shared a conversation ref, so that is **not** qualified independent review.
 - Additional bounded real-scheduler tests are scheduled to observe multiple consecutive two-hour occurrences, controlled reactivation of expired or test-self-paused automations, and a GitHub write to a throwaway branch. Do not claim those results until their exact run records are complete.
 
+## HA-only shift-manager correction, November 4
+
+Owner explicitly prohibited changing the private RE-Wizard repository
+or any of its live task automations from this HA design discussion.
+**Only HA files were modified for the latest correction.**
+
+An important unfinished shift produces a **distinct corrective
+one-time task assignment**, not a replay of unchanged hourly work.
+The existing same-ID one-off reactivation experiment passed twice,
+but an arbitrary immediate/sub-hour corrective dispatch has NOT
+been verified; the recurring RRULE hourly limit by itself does not
+establish an automatic per-ID 60-minute cooldown for a different
+ad hoc one-off. Request the earliest service-permitted future event
+and check actual acceptance and completed run rather than assert
+a capability or ban.
+
+The HA shift manager should maximize its **own useful runway** after
+relevant worker evidence is ready and before the next main work wave,
+not make workers wait for managerial approval or optimize their
+latency to receiving instructions. The new deterministic
+`_app/hivemind_assembly/automation/shift_window.py` and
+`tests/test_shift_window.py` implement/test an offline 60-phase
+search under observed completion/jitter assumptions. A new
+`dev/continuous_execution/SHIFT_MANAGER.md` defines the
+formula, safe correction dispatch and unresolved live scheduler
+integration. The code is not a native service schedule editor.
+
+All changes are pushed with CHECKS PENDING. Next step:
+independent source/instruction review, execute focused helper/routing
+tests in CI, and do not claim live HA scheduling optimization or
+sub-hour one-time reactivation without a bounded service run.
+No owner-paused tasks, private source or live RE-Wizard orchestration
+was altered in this HA correction.
+
 ## Exact next action
 
 A separate qualified assistant session should read the changed source files and relevant original instructions, compare syntax and safety, run the focused Chat Mode routing and prompt tests in a complete checkout, reconcile review markers and document reproducible results. Do not mark accepted or publish without a qualified independent reviewer and actual owner-authorized HA native runtime validation.
