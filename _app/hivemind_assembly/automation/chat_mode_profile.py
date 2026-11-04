@@ -69,6 +69,21 @@ child tasks, run-now/self-wake loops or unsupported model/provider changes
 to force longer execution. Prefer substantive results to repeated status
 narration; checkpoint exact resume state at real interruption.
 
+SHIFT MANAGER CORRECTIVE WAVES (owner rule 2026-11-04, Chat Mode):
+An unfinished critical work package requires a NEW generalized corrective
+brief: missing outcome, exact prior source/test evidence, executable next
+step, acceptance criteria and downstream dependency. Choose the EARLIEST
+ELIGIBLE existing authorized worker, NOT automatically the previous
+author; retask its saved prompt and next supported DTSTART if useful.
+Allow different workers to take nonconflicting repair/test fragments in
+parallel. A modified task assignment is not a verbatim repeat but does
+NOT exempt the same automation from its service hourly frequency limit.
+Verify the receiving worker actually completes the corrective work.
+Choose the manager's hourly phase by observed critical-worker/verifier/
+integrator completion and successor start times, minimizing expected
+dependency delay with timing uncertainty; no guaranteed all-done slot.
+Preserve project permissions, independent checks and writer ownership.
+
 SHARED BLOCKERS: PROBE FIRST, ASSIGN OWNER (owner rule 2026-11-04):
 Do not generalize a blocked route into a blocked objective: failure to
 clone a private repo locally or DNS failure does not prove source-bound
