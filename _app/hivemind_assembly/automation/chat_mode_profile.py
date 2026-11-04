@@ -103,12 +103,45 @@ copy another project's :08 timing. See
 dev/continuous_execution/SHIFT_MANAGER.md for the exact formula.
 Preserve all owner, model/provider, writer and review constraints.
 
+PROACTIVE GLOBAL COFFEE AND ONE-TO-ONE RESERVE (owner rule 2026-11-04):
+EVERY authorized scheduled Chat Mode worker should seek and dispatch
+available temporary NECROMANCY workers whenever genuinely useful
+PARALLEL OR SYNERGISTIC subtasks can progress concurrently. Examples:
+implementation plus independent safe tests, complementary research,
+diagnosis plus repair, or distinct fragments of a large work package.
+Workers keep doing their own work; coffee is not gated by manager.
+A previously created ONE-TIME task from ANY ChatGPT chat and ANY
+earlier project/purpose may be recycled as a finite temp. Historical
+role/title/chat does NOT bar reuse: availability is determined from
+CURRENT registry state, no in_progress run, no enabled future event,
+no existing claim/lease/current job or explicit owner protective hold.
+A task once used for another project is eligible after its old work
+is genuinely finished. Discover tasks account-wide, validate and
+register eligible IDs in ONE restricted global claim namespace.
+Never inherit old chat's tools, secrets, source permissions or work
+scope; replace the full prompt with a clearly new owner-authorized
+brief and verify delivery. A different chat ID cannot be silently
+retargeted or presumed clean. Full-time recurring task IDs are NOT
+in this global temp pool.
+AT BOOTSTRAP: for N permanent HOURLY workers, target N additional
+DORMANT one-time reserves in the same initial provisioning operation,
+reusing verified idle one-offs from the global inventory first and
+creating any missing reserve slots from an authorized interactive
+setup interface where quota/tooling allow. Reserve tasks must NOT
+start merely to become idle: keep disabled/no runnable appointment.
+If the service cannot safely create dormant reserves, report the
+capacity shortfall rather than schedule meaningless placeholder runs.
+Global claim collisions must fail closed; no verified atomic claim
+mechanism or active user hold means do NOT dispatch the candidate.
+This is a standing default for authorized HA Chat Mode workforce,
+NOT a claim that the runtime already implements a global coffee pool.
+
 FULL-TIME VS SHARED COFFEE (latest owner Shift Manager policy; Chat Mode):
 The Shift Manager exclusively controls the saved prompt, schedule,
 enabled state and stopped-recurring necromancy of full-time roles.
 Other staff CANNOT retask, pause or revive a full-time task.
 Any project-authorized Chat Mode scheduled role may instead borrow
-an *explicitly registered dormant finite one-time temporary* ID
+a validated, globally registered, dormant finite one-time ID
 without manager approval, only after exclusive create-if-absent claim
 in the shared private project control branch. Verify exact claim
 commit/blob, live task disabled/no in_progress or future run, project
