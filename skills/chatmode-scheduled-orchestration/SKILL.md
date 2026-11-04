@@ -73,6 +73,71 @@ were not changed. Re-enabled one-offs still consume an active task
 slot; this is not free unlimited execution or a way around the
 hourly recurrence/usage limits.
 
+## Known failure mode: inaccessible checkout ≠ unexecutable tests
+
+**Owner retrospective, November 4, 2026.** A live Chat Mode workforce
+could read/write a private repository through an authenticated GitHub
+connector yet repeatedly failed to run its repository's tests because
+a local authenticated checkout was unavailable (and some direct network
+calls had DNS errors). The integrator explored GitHub Actions at length
+without trying a minimal authorized branch-scoped workflow. Strict file
+ownership helped avoid races but left the **shared testing infrastructure
+blocker unowned**. The owner ultimately ran a minimal isolated branch
+GitHub Actions experiment, and multiple narrow synthetic CI checks
+completed successfully. This is not evidence of full current-branch or
+integrated product acceptance.
+
+**Enforce these guardrails in the conductor and every affected worker:**
+
+1. **Classify the failing layer, not the entire goal.** Distinguish:
+   connector-only repository access; obtaining the exact source revision
+   locally; remote/hosted test execution; source-revision CI acceptance;
+   qualified reviewer and integration acceptance. A failed local
+   clone or DNS request is not proof that all test routes are blocked.
+2. **Probe a small, authorized alternative immediately.** When the
+   available tools and permissions allow, attempt a harmless isolated
+   test branch containing a minimal GitHub Actions workflow, sparse/
+   exact source checkout and safe synthetic tests; then inspect a real
+   run's job status, exit code, source SHA, test counts/skips, and result.
+   This is superior to repeated speculative CI plans. Never bypass
+   approval, run games/opaque binaries, broaden secrets permissions,
+   write unreviewed workflow changes to main, or assume CI is available
+   in every repo. If permission is denied, record the exact blocker and
+   seek another **supported** approved route.
+3. **Give shared blockers explicit ownership.** At least two worker
+   lanes hitting the same prerequisite, or the same real blocker
+   recurring across **two completed waves**, triggers immediate
+   conductor triage. Assign one existing authorized specialist/
+   integrator to run the smallest feasible proof, document its
+   acceptance condition and update the team's checkpoint. Other
+   independent workstreams continue. Exclusive **write** ownership
+   never forbids other workers from identifying system-wide problems,
+   investigating safe alternatives or proposing a fix.
+4. **The interactive contributor is also accountable.** When its
+   actual ChatGPT turn is active, the main-chat worker should challenge
+   unresolved shared bottlenecks and execute helpful authorized
+   experiments, not just monitor the schedule. No claim of continuous
+   interactive activity between turns.
+5. **Turn a demonstrated capability into a repeatable gate.** A
+   success on a disposable test branch establishes **that exact
+   scoped revision and synthetic suite**, not that the latest worker
+   branch, integrated candidate or complete product passes. The
+   integrator must move toward a trusted, repeatable runner for
+   changed revisions, retain exact pass/fail/skip counts and
+   qualified reviewer gates. Avoid treating script text or a commit
+   as a passing run.
+
+**Stop condition:** Once a route produces an actual runnable synthetic
+test, retire the unsupported blanket assertion that "we cannot run
+tests." Focus instead on remaining concrete gaps: source HEAD binding,
+coverage, failures/skips, integration and independent approval.
+Do not stall additional useful code work while that capability is
+being repaired. Record only one concise existing project blocker
+entry (owner, observed evidence, next experiment and state), not a
+new operational performance ledger. The described root causes are
+derived from an owner retrospective and scope-checked CI evidence;
+future non-recurrence is not yet empirically guaranteed.
+
 ## Live parallel-and-inherited waves case study
 
 The owner is simultaneously running a **real** BinaryWorkbench improvement team in the separate, private RE-Wizard repository. Initially five roles, it now has **eight hourly scheduled roles** (conductor, four technical developers, provisional verifier, integrator and milestone reporter) with bounded branch/output ownership; a main-chat developer contributes during actual interactive turns. Their goal is meaningful program development and synthetic testing, **not** merely a scheduler demo. Subsequent November 4 receipts **confirmed four completed productive workers with a common recorded execution overlap and distinct chat references**, an earlier **completed integrator reading exact GitHub producer artifacts** for static checks, and a later **completed provisional verifier identifying an additional regression gap**. This verifies recorded parallel run intervals and source-level inheritance, not completed real repository tests, approved integration, CI, qualified reviewer independence, or release acceptance. Both **parallel work** and **inherited follow-up waves** matter; enabled tasks alone still prove neither. Do not copy proprietary private source, branch names, account identifiers or protected evidence into the public HA skill. Read the [public, deliberately privacy-limited case study](../../dev/continuous_execution/REWIZARD_BINARYWORKBENCH_CASE_STUDY.md) and [dated findings](../../dev/continuous_execution/CHAT_MODE_FINDINGS.md). A short, **bounded** scheduled evidence-sync is authorized to examine real task run results and private GitHub evidence with read-only access, updating only HA public evidence/skill documentation when material changes are independently supported. Do not interfere with the private project's work or its conductor's schedule authority.
