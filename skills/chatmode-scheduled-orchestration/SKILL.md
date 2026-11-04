@@ -10,11 +10,57 @@ description: Draft operations manual for bounded ChatGPT Chat Mode scheduled-tas
 
 **Final test audit:** [Completed November 4 cross-conversation service results](../../dev/continuous_execution/CHAT_MODE_SESSION_TEST_AUDIT_20261104.md). Read before relying on earlier pending-status claims below. Provider restriction, owner permission and HA-native implementation remain separate.
 
+## Authoritative HA full-time and temporary worker rules
+
+For all owner-authorized HA ChatGPT **Chat Mode** scheduling, follow
+[SHIFT_MANAGER.md](../../dev/continuous_execution/SHIFT_MANAGER.md) as
+the **single authoritative operating policy**. The external private
+BinaryWorkbench policy is a design source, **not** authority over HA
+task IDs, provider access or the user's other projects.
+
+**Permanent full-time recurring roles are manager-controlled only.**
+The Shift Manager alone may change their prompt, schedule, recurrence,
+enabled state, and recovery of a genuinely stopped recurring role.
+A completed *run* of a healthy hourly worker is not an available temp.
+
+**Shared temporary coffee** is a distinct, owner-allowlisted collection
+of pre-existing finite one-time task IDs. Any **expressly authorized
+Chat Mode scheduled worker**, not just the manager, may dispatch a
+dormant temp for a new, generalized useful work order **after**
+obtaining a unique exclusive claim by create-if-absent on the common
+private coordination branch. Recheck the claim's exact commit/blob,
+live task stopped state and capacity before updating the temp. No
+claim, stale claim or ambiguous owner → no dispatch. Never let
+multiple workers borrow the same ID or write the same output; preserve
+claim through execution. When finished, save exact run and artifact/
+test evidence and release the *same* claim using latest exact blob SHA
+only after checking no newer run/claim exists. Never expire a claim
+merely because wall-clock time passed while a worker could be running.
+Full-time IDs must never enter the shared coffee pool.
+
+**Necromancy extends to STOPPED recurring employees** with verified
+owner intent: the manager alone may restore their hourly recurrence
+or give a finite corrective one-off while preserving any continuing
+core mission. Healthy recurring workers, owner-paused work, ambiguous
+in-progress tasks, and unrelated diagnostic IDs are never eligible by
+default. Twice resurrecting a completed one-time ID has passed; actual
+recovery of a genuinely stopped full-time recurring role and concurrent
+atomic temp claims are **not yet proven in HA or the completed Chat Mode
+service tests**.
+
+**Worker autonomy:** Separate authorized workers can call temporary
+help without waiting for the manager. The manager remains responsible
+for critical shared blockers, owner-facing milestones, overall workforce
+status and maximum-useful-runway scheduling. Generalized correction
+briefs specify failed outcome, predecessor evidence/SHAs, safety and
+success—not a forced narrow implementation. Source/access/approval
+gates and service active-task limits always apply.
+
 ## 2026-11-04 owner-approved HA application and bootstrap
 
 **CHECKS PENDING:** This manual is committed as owner-authorized guidance, not independently source-reviewed, a ChatGPT-installed skill, a working HA scheduler feature, a guarantee that GitHub files are auto-read, or permission to start autonomous agents. See [CONDUCTOR.md](../../dev/continuous_execution/CONDUCTOR.md) for the HA-specific integration plan.
 
-- **Central objective: interleaved parallel AND inherited work waves:** Pre-provision workers to tackle **different useful tasks concurrently** when dependencies, tools and writer ownership allow, **and** allow completed discoveries, artifacts, check results and milestones to feed **subsequent waves**. A wave may continue in the same worker or be inherited by another existing worker. The conductor dynamically changes each agent's assignment, next execution time, recurrence interval/count and enabled state based on real evidence, while workers may continue independent work without waiting for the conductor. Branches can split, converge, return for repair, or continue sequentially as needed. Do not force an exclusively parallel pool, a mandatory serial worker → reviewer → tester relay, a single-assistant loop, or a fixed 15-minute carousel. Confirm **actual** overlapping runs separately from proven handoffs, using exact run and artifact revisions. Preserve relevant acceptance and writer fences.
+- **Central objective: interleaved parallel AND inherited work waves:** Pre-provision workers to tackle **different useful tasks concurrently** when dependencies, tools and writer ownership allow, **and** allow completed discoveries, artifacts, check results and milestones to feed **subsequent waves**. A wave may continue in the same worker or be inherited by another existing worker. The Shift Manager dynamically changes each authorized **full-time** employee's assignment, time, recurrence and enabled state based on real evidence, while separately authorized workers may **claim and dispatch eligible temps** without waiting for the manager. Independent work continues without unnecessary gates. Branches can split, converge, return for repair, or continue sequentially as needed. Do not force an exclusively parallel pool, a mandatory serial worker → reviewer → tester relay, a single-assistant loop, or a fixed 15-minute carousel. Confirm **actual** overlapping runs separately from proven handoffs, using exact run and artifact revisions. Preserve relevant acceptance and writer fences.
 - **Pre-provision, do not self-spawn:** Maintain a roster of up to ten permitted project-scoped existing automations, starting with **five** when quota and real work justify it: one conductor, two substantive workers, one verifier and one integration/acceptance coordinator. This is a proposed *pool size*, not automatic startup, five guaranteed simultaneous agents or five independently qualified contexts. Scale down idle roles and reassign by updating their saved prompts; do not create child schedules from scheduled Chat Mode or bypass hourly task cadence. The scheduler's active-task cap is a separate constraint.
 - **Common foundation plus distinct assignments:** Agents may share most policies and the same final outcome. Each active role must nevertheless have a real complementary responsibility, output ownership, handoff contract and stopping condition. A staggered schedule may coordinate independent work; not merely replicate one hourly task to evade a frequency limit.
 - **HA shift-manager corrective tasks are NEW work, not a recurrence replay:** A
@@ -311,7 +357,7 @@ Subtasks can be chosen adaptively, but **the permanent objective must survive ev
 
 - Maintain an **allowlist** mapping project role -> task key -> automation ID -> conversation ref -> allowed update fields. Never update a task simply because its title resembles an active role.
 - Read task registry and completed results; do not confuse `last_run` from one run with another; match `run_id` and scheduled/completion timestamps.
-- Coordinate **existing** tasks by updating their saved prompts, schedules or enabled status, when authorized. Cross-task mutation has been tested; creating a new child task from a scheduled run has **not** been permitted.
+- Only the **Shift Manager** may change existing **full-time recurring roles**. Any specifically authorized project worker may change only an **explicitly approved dormant temporary task** after winning and verifying its exclusive private claim. Cross-task configuration updates have been tested, but live two-worker race-safe temp claims have not; scheduled-run child creation remains prohibited.
 - If a task is paused, inspect whether it was paused by the user, expired after `COUNT`, blocked for approval, or stopped by the workflow. Do not automatically resume previously user-paused tasks. Re-enabling an exhausted rule may also require a future DTSTART and a valid new count.
 - If a chat gets too large, checkpoint externally, reduce retained context, and request or use an approved fresh-chat workflow. No tested operation can silently create a new ordinary Chat chat and retarget the automation to it.
 - Prefer short snapshots and targeted testing. Send to the next execution **only** active objectives, verified state, changed paths, blockers, and next checks; never include full textbooks when mediated retrieval should be used.
