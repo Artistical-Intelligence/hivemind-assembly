@@ -85,55 +85,50 @@ assigned task ID, input artifact/commit and dependencies, output artifacts
 and verdicts, next consumers, last verified state. Do not retain every
 token, routine poll, complete chat transcript or copied textbook.
 
-## HA shift manager: distinct corrective one-offs and maximum work runway
+## Operating authority: full-time manager, shared temporary coffee
 
-The owner wants the HA shift manager to **do corrective work immediately** and
-to have **as much time as possible to plan and act** after the relevant team
-results arrive, without becoming a gate for the workers.
+**The [HA Shift Manager Policy](SHIFT_MANAGER.md) is now the single operational
+authority for this ChatGPT Chat Mode design.** Its sections on generalized
+corrective briefs, stopped recurring employees and the exclusively claimed
+temporary coffee pool supersede earlier wording that gave the conductor
+sole control over **all** workers.
 
-An incomplete high-priority shift generates a **new generalized corrective
-task instance**, not an unchanged extra recurrence. Make a concise handoff
-containing what is missing, source/test revision, executable fix or diagnostic,
-acceptance criterion and affected downstream consumer. Dispatch to the earliest
-suitable existing authorized worker or **completed reusable one-time task
-slot**, not necessarily the original author; preserve output ownership and
-avoid duplicating an in-progress mutation. The two-revival one-off
-experiment proves the same task ID can be reused for different assignments,
-but has **not** measured the earliest supported time after a preceding run.
-For a genuinely new ad hoc one-time assignment, **do not automatically apply
-an hourly cooldown** inferred from the hourly `RRULE` recurrence rule.
-Request the earliest supported future one-time event and verify both the
-accepted configuration and its later completed execution. A new prompt
-alone is not a new run. The platform may reject a particular timing or
-enforce other permissions and active-task limits; report those actual
-constraints rather than assuming either an exemption or impossibility.
-Never create endless copies of the same recurring job to evade restrictions.
+- **Full-time/recurring roles:** only the Shift Manager may change their
+  assignments, next permitted starts, recurrence, enabled state or authorizations.
+  A healthy recurring employee's completed invocation does **not** make
+  its task ID dormant or available to borrow. A genuinely stopped full-time
+  employee can be revived only by the Shift Manager, with its continuing
+  obligations explicitly reconciled.
+- **Temporary/coffee-pool roles:** any **project-authorized** Chat Mode
+  scheduled worker may claim an approved dormant finite one-time worker
+  via an atomic shared private-registry claim, dispatch a distinct
+  outcome-based work order, verify its execution, and return it after
+  completed/failed/partial results and exact lease release. The manager
+  supervises but **does not gate** claims; full-time IDs are never
+  shared-pool members. No authorized atomic create-if-absent → no
+  delegated temporary dispatch.
+- **Parallel plus inherited work:** independent specialists may execute
+  simultaneously; results and failures feed successor waves. A
+  corrective brief inherits the exact previous artifact/result but
+  must not require a fixed narrow implementation method. Critical
+  blockages demand an immediate actionable experiment; repeated
+  cross-lane problems cannot go unowned.
+- **Manager time:** the manager's hourly phase is optimized to maximize
+  *its own useful work runway* after relevant outputs become available.
+  Do not change that objective to minimizing worker latency, make
+  workers wait, or hard-code a phase from the referenced private project.
+- **Service and acceptance:** one-time same-ID resurrection has been
+  verified twice; cross-worker task update and GitHub write were tested.
+  Actual shared-temp claim contention, full-time stopped recurrence
+  recovery, sub-hour distinct corrective dispatch and HA-native
+  execution remain **CHECKS PENDING**. Do not equate prompt or claim
+  persistence with a completed model invocation.
 
-**Mathematical scheduling objective:** Maximize the manager's **usable
-work runway**, not minimize the time until a downstream task receives
-permission to work. From actual run timestamps, estimate when the
-**relevant** worker, verifier and integrator evidence will be ready
-(including observed jitter). Search the 60 candidate hourly minute phases.
-Among phases with sufficiently high evidence-readiness confidence, pick
-the **earliest one immediately after those outputs become available**:
-it leaves the greatest available time until the next major worker cohort.
-Allow appropriate update/start safety margins, document the uncertainty,
-and revise the phase as actual timing distributions change. Do not
-preserve a fixed :08 phase just because another team's schedule used it.
-Do not force workers to wait for the manager. When not all outputs are
-ready, the manager can still use the available evidence and independent
-work can continue. The next cohort's start is an opportunity to have
-reassignments prepared, **not** a deadline that stops the manager's own
-run or a permission barrier for those workers.
-
-The full HA-specific mathematical definition, evidence tiers and
-one-time reactivation procedure are in
-[SHIFT_MANAGER.md](SHIFT_MANAGER.md). This corrects the earlier
-critical-path-latency objective and unsupported statement that every
-new task instance on an old automation ID must automatically wait one
-hour. CHECKS PENDING: instructions and the bounded two-revival experiment
-do not yet prove immediate or sub-hour corrective dispatch, an
-automatically computed optimal phase, or shipped HA runtime integration.
+The original BinaryWorkbench document is a source of useful procedures,
+**not a grant of access** to its private project or its eight real task
+IDs. Only HA files may be modified under this adaptation; keep the
+existing source mediator, model/effort, qualified reviewer and release
+boundaries intact.
 
 ## Deep substantive work within each scheduled wave
 
@@ -333,7 +328,7 @@ Before any prompt update, compare the *full replacement* to required immutable h
 5. Perform authorized operations and targeted tests. A source read, an accepted schedule update, a completed model run and independent acceptance are different states.
 6. Save full necessary artifact bytes and brief evidence; verify persisted bytes/hash/commit. Reconcile uncertain writes, do not replay blindly.
 7. Update the one compact checkpoint and concise next-run handoff **only if there is material change**. Avoid redundant full histories, textbook copies, performance ledgers and unchanged polling prose.
-8. Conductor may retask/reschedule/re-enable **only allowlisted existing tasks**, preserving headers and owner decisions. For a paused task, first distinguish deliberate owner pause, test self-pause, exhausted `COUNT`, approval blocked, model usage blocked and completion; never resume owner-paused work by default. To move `next_run_time`, update `schedule`/`DTSTART`; that output field cannot be set directly.
+8. The **Shift Manager alone** may retask/reschedule/re-enable **allowlisted full-time employees**. Any explicitly authorized scheduled role may instead dispatch an *approved dormant temp* only after the exclusive shared claim procedure in [SHIFT_MANAGER.md](SHIFT_MANAGER.md) succeeds, preserving headers and owner decisions. For a paused task, first distinguish deliberate owner pause, test self-pause, exhausted `COUNT`, approval blocked, model usage blocked and completion; never resume owner-paused work by default. To move `next_run_time`, update `schedule`/`DTSTART`; that output field cannot be set directly.
 9. Stop or pause only after measured acceptance, explicit owner stop, real authorization/resource limitation or no useful permitted work. Open-ended objective does not override actual model/session limits or approval requirements.
 
 ## Persistence and minimal handoff
