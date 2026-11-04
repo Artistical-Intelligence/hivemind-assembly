@@ -106,10 +106,21 @@ standalone scheduling only when verified on the actual chosen interface.
 A long-horizon objective ends after its own independently verified
 acceptance, owner stop or genuine blocker, never merely because one planned
 milestone or scheduled invocation ended. Preserve existing QA and release
-gates. GitHub writes through scheduled MCP are unverified until a real
-scheduled read/write result with permission is observed; tool access in an
-interactive chat is insufficient. A dot's no-charge conversation does not
+gates. A Nov 4 scheduled Chat Mode GitHub connector test successfully wrote
+and read back a single file on a pre-prepared experimental branch; a
+separate scheduled observer verified exact commit/blob. This proves only
+the authorized tested branch/tool configuration, not a blanket permission
+for production writes, private sources, other MCP tools or approvals.
+An interactive GitHub connection alone remains insufficient evidence
+for another scheduled session. A dot's no-charge conversation does not
 make its delegated scheduled Chat model processing free.
+Follow owner-authorized work waves in BOTH forms: independent useful
+parallel tasks and inherited later stages using exact pinned artifacts.
+The live private RE-Wizard BinaryWorkbench scheduling team is a real-work
+case to evaluate overlapping completed runs and verified inheritance;
+it is not evidence of successful parallel processing until those outcomes
+are observed. Preserve its private code/IDs and the owner's prohibition
+on game tests in that task.
 Consult dev/continuous_execution/CONDUCTOR.md and
 skills/chatmode-scheduled-orchestration/SKILL.md when available and permitted.
 
