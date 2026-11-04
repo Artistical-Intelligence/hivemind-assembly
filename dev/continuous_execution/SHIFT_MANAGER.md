@@ -50,6 +50,30 @@ The optimum **under these stated observations and assumptions** is normally the 
 
 If no minute provides a high-confidence post-results, pre-next-wave window, choose the best *partial-evidence* phase and let the manager do useful work from whatever is available; explicitly record what remains unfinished. Do not hold up other workers to manufacture an all-done moment. Once a higher-value time is justified, the manager can revise **its own permitted hourly phase** through a supported schedule update after validating owner instructions, runtime/service restrictions and live task identity.
 
+## Pure planning helper (no automation side effects)
+
+HA now includes a small deterministic helper at
+[`_app/hivemind_assembly/automation/shift_window.py`](../../_app/hivemind_assembly/automation/shift_window.py),
+with [offline contract tests](../../tests/test_shift_window.py).
+`best_shift_manager_phase(critical_completion_offsets, next_cohort_offset, ...)`
+scans every hourly phase and returns the phase giving the maximum
+*pre-next-cohort manager work runway* under a supplied conservative
+completion quantile, observed service early/late jitter, readiness
+buffer and update margin. Inputs are real completion offsets relative
+to a common wave hour (next-hour :20 is 80 minutes, not 20).
+It returns `no_pre_wave_window` when there is no feasible preparation
+window rather than treating the manager as a worker stop gate.
+
+**Scope:** The helper does **not** retrieve Automations records, decide
+which workers are relevant, or change any scheduled tasks. An HA
+integration must first verify exact native Chat Mode routing,
+input provenance, permission, test output, complete run receipts and
+user-authorized execution before using its recommendation to update
+the manager's own schedule. The result is conditional on empirical
+samples, not a guaranteed physical or service-wide optimum.
+This is substantive deterministic planning code, **not yet a live
+service-connected scheduler**.
+
 ## Acceptance and evidence
 
 The mechanism is **not fully proven** by these instructions. Verify independently that a real HA-managed coordinator: (1) identifies a missing important deliverable, (2) issues a distinct corrective brief rather than replaying the old job, (3) reuses an authorized existing one-time task or suitable worker, (4) gets an earlier **actual** follow-up when permitted and confirms the service-accepted execution rather than inferring it from a saved prompt, (5) records corrected artifact/test acceptance, and (6) chooses a manager phase because it maximizes the observed work runway rather than because of an inherited fixed time. A bounded test may investigate whether a newly corrected *one-time* assignment can execute within an hour of the preceding one; its success is not assumed until the run finishes.
