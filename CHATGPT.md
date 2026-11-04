@@ -46,18 +46,21 @@ scheduler extension or an approval to start autonomous HA workers.
   one verifier and one integrator. A team is not useful merely because all
   slots are active. No scheduled child creation, no frequency-limit
   circumvention, no automatic activation of unrelated or owner-paused tasks.
-- **Parallelism is the core, not a relay:** Recruit multiple useful workers
-  in advance, assign genuinely independent workstreams concurrently, and let
-  them progress without awaiting the conductor or an unrelated review. The
-  conductor dynamically changes each authorized task's current goal,
-  `DTSTART`, recurrence interval, occurrence limit, and enabled state
-  according to dependencies, actual evidence, and resource availability.
-  A staggered start plan is optional and does not itself demonstrate
-  simultaneously running models or independent chat contexts. Record and
-  verify actual run overlap before claiming parallel execution. The
-  worker/verifier/integrator labels are flexible responsibilities, **not a
-  compulsory linear worker -> reviewer -> tester pipeline**. Retain sole-writer
-  fences, required acceptance gates and the scheduler's real per-task limits.
+- **Interleaved waves: parallel AND inherited work:** The owner's design is
+  an ocean of connected work waves. Multiple pre-provisioned workers should
+  pursue *different* useful tasks concurrently wherever dependencies,
+  permissions and writer ownership allow; any worker may also continue
+  the same large assignment across later executions or inherit a specific
+  output/test result from another worker. Waves split, merge, reassign
+  existing tasks, and feed correction or follow-up work in **either**
+  parallel or serial patterns as circumstances demand. Do not interpret
+  the design as exclusively parallel, exclusively sequential, or a
+  fixed clock-based relay. Maintain concise artifact/commit-based
+  predecessor and next-consumer links for real handoffs rather than
+  copying entire chat histories. Adjust each authorized worker's
+  `DTSTART`, recurrence interval, occurrence bound and enabled status
+  in response to evidence. A different schedule is not proof of
+  concurrent execution; a saved handoff is not proof of receipt.
 - **Base assignments on the actual project:** The common 80% may consist of
   owner objective, rules and source boundaries; the remaining role-specific
   responsibilities must be meaningful and have separate output ownership.
@@ -70,8 +73,12 @@ scheduler extension or an approval to start autonomous HA workers.
   completed Chat Mode experiments. Those tests did **not** prove independent
   chats, detached live processes, independent acceptance or unlimited
   execution. A bounded scheduled run also found **no native operation** for posting a new user-role message in the same chat to trigger an independent ordinary interactive turn; it submitted no message. The earlier two-hour interval had one future occurrence;
-  multiple later intervals, resumption of disabled test-owned tasks and a
-  scheduled GitHub write remain pending until their bounded new runs finish.
+  multiple later intervals and final post-revival dispatches remain pending
+  until their bounded new runs finish. A Nov 4 scheduled GitHub write on a
+  disposable branch **completed** and a separate scheduled auditor independently
+  confirmed the exact file/blob/commit. This establishes GitHub connector
+  writing for that tested configuration and permitted branch, not every MCP
+  write or full HA native acceptance.
 - **Read instructions explicitly:** ChatGPT scheduled executions receive
   their persisted automation instructions and whatever chat context is
   available; a **new GitHub commit does not automatically refresh the prompts
