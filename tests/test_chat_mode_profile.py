@@ -78,6 +78,15 @@ def test_adaptive_chain_is_evidence_driven_and_not_a_fixed_loop():
 def test_owner_scheduled_roster_guidance_remains_chat_mode_only():
     """Static policy expectations; not a live scheduler acceptance test."""
     required = (
+        "MANDATORY SHIFT MANAGER FULL-ROSTER PERFORMANCE REVIEW (owner 2026-11-04):",
+        "EVERY managerial scheduled invocation must enumerate ALL accessible",
+        "Review actual meaningful progress for EVERY currently",
+        "MUST assign a distinct, useful",
+        "DURING THAT SAME managerial invocation",
+        "Do not let empty hourly shifts",
+        "Other projects'",
+        "in_progress",
+        "actual receiving",
         "PROACTIVE GLOBAL COFFEE AND ONE-TO-ONE RESERVE (owner rule 2026-11-04):",
         "EVERY authorized scheduled Chat Mode worker should seek and dispatch",
         "PARALLEL OR SYNERGISTIC",
