@@ -60,6 +60,18 @@ and inherited waves; it must not overwrite active private project
 schedules or files. This case study deliberately avoids publishing
 private branch names, task IDs, chat references or project source.
 
+## First verified live production waves — November 4, 2026
+
+**Read-only corroboration:** Exact private Automations task lookups returned completed run IDs, actual start and finish timestamps, and matched latest-result IDs. Separate authorized GitHub reads confirmed substantive worker commits, branch comparisons against the same baseline, the conductor checkpoint, integrator handoff and reporter deduplication state. The earlier 10:20 UTC no-completions snapshot above is retained strictly as historical evidence.
+
+**Parallel production confirmed at the recorded-run level.** Three independently assigned technical workers have distinct completed run receipts and different ChatGPT chat references. Their actual execution windows were **10:16:04–10:29:49**, **10:16:54–10:26:54**, and **10:21:03–10:27:11 UTC**. All three overlapped between approximately **10:21:03 and 10:26:54 UTC**. Their GitHub branches contain separately committed source changes and synthetic regression tests. GitHub confirmed four dedicated developer branches with substantive commits; the fourth (compiler) scheduled task itself had no completed run recorded, so its already existing commits cannot be attributed to that scheduled occurrence. A fifth developer contributed through the main interactive chat, which is not an always-on scheduled agent. Distinct recorded chat references are stronger evidence of separate sessions than unique automation IDs alone, but do not prove independent reviewer qualifications or physically separate computing environments.
+
+**Later inherited-wave consumption is verified for static reconciliation.** The integrator started at **10:51:18 UTC** and completed at **10:57:53 UTC**, after the substantive producing runs. Its owned, GitHub-verified handoff explicitly identifies the five prior development branch revisions consumed, compares **23 nonoverlapping changed paths** and reports **13 passing deterministic static interface/source probes**. Independent branch comparisons confirm those development branches contain changes beyond their shared baseline, while the integrator branch changes only its handoff. This is actual **saved-artifact inheritance into a completed subsequent wave**, not executable integration: there are no integrated worker source changes, no full Python regression suite executed against the actual private checkout, and no merged release.
+
+**Conductor and milestone reporting:** The conductor's first completed run persisted the owner-directed **eight hourly role schedules** and distinct write ownership to the control branch; the saved Automations registry agrees all eight roles use hourly recurrence. The milestone reporter completed an owner-facing result covering committed work and wrote deduplication keys on its owned branch. Delivery to the intended human notification surface was not independently verified; no hourly-noise claim can be generalized from a single result.
+
+**Still CHECKS PENDING:** the verifier's initial run was **in progress**, with no completed reviewer verdict; independent model/context qualification remains untested. Some developers reported limited **isolated stand-in Python checks**, which are not the real repository test suite. The integrator's environment lacked an authenticated runnable checkout; actual in-repository synthetic testing, CI success, an authorized PR/merge path and end-to-end functionality are **unproven**. Nothing was accepted or merged into main, and no games or opaque archived compilers were executed. Thus both parallel recorded execution and later static artifact inheritance have evidence, but qualified functional acceptance does not.
+
 ## Evidence collection rules
 
 For each later bounded observation:
@@ -73,6 +85,6 @@ For each later bounded observation:
 
 ## Status
 
-**Observation pending:** scheduled task execution and actual repo commits by the live team; overlap, handoff, independent review and end-to-end outcome remain to be checked from real completed records. A finite scheduled status/evidence-sync task is authorized to follow up without changing RE-Wizard work or team automations.
+**First substantive execution and committed artifacts verified.** Three distinct scheduled worker runs had real overlapping intervals; a later completed integration-preparation wave consumed exact saved producer revisions. **CHECKS PENDING:** completed qualified independent review, full in-repository test execution, CI, authorized integration/PR path and final acceptance. The finite evidence observer retains read-only scope for the private project and its scheduled team.
 
 This document is public HA instruction evidence only. Authoritative project work and private identifiers remain in the project's own private repository.
