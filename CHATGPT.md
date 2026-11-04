@@ -57,7 +57,7 @@ scheduler extension or an approval to start autonomous HA workers.
   cross-task updates, target execution and completed-result retrieval have
   completed Chat Mode experiments. Those tests did **not** prove independent
   chats, detached live processes, independent acceptance or unlimited
-  execution. The earlier two-hour interval had one future occurrence;
+  execution. A bounded scheduled run also found **no native operation** for posting a new user-role message in the same chat to trigger an independent ordinary interactive turn; it submitted no message. The earlier two-hour interval had one future occurrence;
   multiple later intervals, resumption of disabled test-owned tasks and a
   scheduled GitHub write remain pending until their bounded new runs finish.
 - **Read instructions explicitly:** ChatGPT scheduled executions receive
