@@ -132,17 +132,22 @@ scheduler extension or an approval to start autonomous HA workers.
   milestone, not an arbitrary fixed small task or repeating one-step script.
   Preserve the **permanent acceptance objective** while revising the next
   milestone, schedule and existing staff assignments as evidence changes.
-- **Exact receipts matter:** Own-task prompt/schedule updates, self-pause,
-  cross-task updates, target execution and completed-result retrieval have
-  completed Chat Mode experiments. Those tests did **not** prove independent
-  chats, detached live processes, independent acceptance or unlimited
-  execution. A bounded scheduled run also found **no native operation** for posting a new user-role message in the same chat to trigger an independent ordinary interactive turn; it submitted no message. The earlier two-hour interval had one future occurrence;
-  multiple later intervals and final post-revival dispatches remain pending
-  until their bounded new runs finish. A Nov 4 scheduled GitHub write on a
-  disposable branch **completed** and a separate scheduled auditor independently
-  confirmed the exact file/blob/commit. This establishes GitHub connector
-  writing for that tested configuration and permitted branch, not every MCP
-  write or full HA native acceptance.
+- **Use the final November 4 service-test evidence:** Self-prompt updates,
+  schedule changes, three completed two-hourly follow-ups, self-pause,
+  cross-task prompt/schedule handoffs, completed expired/self-paused
+  task revival and two successive same-ID single-event resurrections
+  are **verified in the bounded Chat Mode test environment**. A
+  scheduled manager also successfully changed a target whose execution
+  had a *different* ChatGPT chat reference; the earliest tests had
+  shared chat refs, so distinguish the two populations.
+  Scheduled GitHub read/write was verified for a single authorized
+  isolated branch and independently audited from a different chat.
+  Scheduled child creation was prohibited by its runtime; a scheduled
+  run could not find a supported operation to submit a new ordinary
+  user-role message. These service tests do NOT establish full HA
+  native worker transport, independent model/effort qualification,
+  unlimited tasks, or guaranteed exact starts. See the
+  [final multi-session audit](dev/continuous_execution/CHAT_MODE_SESSION_TEST_AUDIT_20261104.md).
 - **Read instructions explicitly:** ChatGPT scheduled executions receive
   their persisted automation instructions and whatever chat context is
   available; a **new GitHub commit does not automatically refresh the prompts
@@ -153,17 +158,27 @@ scheduler extension or an approval to start autonomous HA workers.
   actually permit it*. When updating prompts, preserve and verify that header.
   HA's own route-specific prompt injection applies only when the selected
   provider and mode exactly match ChatGPT Chat; even then, verify real receipt.
-- **Manage task lifecycle carefully:** A completed one-time task normally
-  becomes disabled. The update API exposes `is_enabled=true`, but
-  reactivation with a fresh finite schedule has been verified for two **test-owned**
-  tasks by a scheduled manager, including one newly completed revived execution.
-  Other follow-up occurrences remain to be inspected separately. Never restart
-  a user pause by default. `next_run_time`
-  is read-only; change `schedule`/`DTSTART` and verify scheduled-for plus
-  completed run results. Open-ended recurrence is not an always-running model.
-- **Cross-chat and context:** Existing tests found distinct runs that shared
-  one `chat_ref`. IDs can guide safe updates and evidence lookups, but the
-  available update operation cannot retarget a conversation. Codex-specific
+- **Manage task lifecycle carefully:** Completed one-time tasks normally
+  disable themselves. A scheduled manager successfully revived an
+  expired test-owned task for **two completed** bounded follow-ups,
+  and separately resumed a previously self-paused test-owned task
+  through completed execution. A different bounded manager twice
+  resurrected the SAME completed single-event task ID using two
+  successive replacement one-time assignments. Later, that task
+  object was reassigned to a production role: **always verify
+  current ownership, role, prompt revision, stop reason and schedule
+  before changing it**, not historical test identity alone. Never
+  restart owner-paused or unrelated work. `next_run_time:null`
+  is not a completion indicator; verify `last_run` and saved
+  VEVENT plus `latest_result.run_id`. Do not infer arbitrary
+  sub-hour dispatch from the two-revival proof.
+- **Cross-chat and context:** Early handoff experiments used multiple
+  task IDs that shared one `chat_ref`. The later revival manager and
+  targets used **different** service chat references, verifying
+  task-registry coordination across conversations, not direct
+  interactive messages or independent reviewer qualification. IDs
+  permit scoped updates and evidence lookups but the available
+  task-update operation cannot retarget a conversation. Codex-specific
   context-left indicators are not established as Chat Mode variables. Prefer
   owner-authorized standalone new-chat-per-run execution with a concise
   durable GitHub handoff when available, not a forced-context reset, full
