@@ -92,7 +92,7 @@ Verified on one ChatGPT Chat Mode configuration during November 3–4, 2026:
 - A scheduled run changed an **existing** separate automation's saved prompt and schedule. Separate target runs executed the updates, and read-only scheduled observers retrieved completed results through the Automations registry.
 - A one-time scheduled parent was **prohibited by its execution environment** from creating another automation. No backend creation attempt occurred; this is not evidence about technical scheduler capacity. Do not try child-creation workarounds or claim unlimited task spawning.
 - The tested separate task run IDs shared the **same chat reference**. Distinct task IDs, prompts and run IDs do not prove separate chat contexts, qualified independent review or a detached live process.
-- Re-enabling an expired or self-paused prior test task is **not yet verified**; a scoped Nov 4 test is scheduled. Scheduled GitHub connector writes are **not yet verified**; a test is scheduled on a disposable non-production branch. The bounded scheduled-to-ordinary-interactive-message probe **completed BLOCKED**: no supported same-chat user-role message injection tool was available; no new ordinary turn was triggered.
+- **Reactivation and GitHub evidence improved:** A scheduled manager successfully updated and re-enabled two *test-owned* completed/paused automations; the previously exhausted one-time task's **first new run completed**. Subsequent intended runs remain to be checked individually. A scheduled Chat Mode agent successfully created/read back one harmless file on a separately pre-provisioned test branch; a different scheduled observer independently verified the exact commit/blob. This does **not** authorize unrelated production writes or other MCP providers. The bounded scheduled-to-ordinary-interactive-message probe **completed BLOCKED**: no supported same-chat user-role message injection tool was available.
 - Scheduled starts were minutes early or late. Treat `next_run_time=null`, `in_progress`, `is_enabled` and a saved `RRULE` as different evidence. Each run must be verified by its recorded run ID and result.
 
 ## Owner-approved bootstrap strategy
@@ -172,7 +172,33 @@ The documented **standalone scheduled task** pattern starts a fresh chat per run
 
 Ordinary scheduled Chat model processing may count against plan allowances even if it posts nothing. The documented lack of ordinary ChatGPT usage charges for **conversing directly with a dot** does not prove that normal scheduled Chat tasks orchestrated by dot are free. If considering dot, compare actual UI-supported task types, returned surfaces and allowances in a separately bounded test; no API fallback or silent Work/Codex substitution.
 
-GitHub connection permissions currently show repository `push=true` for the owner in the interactive interface. A scheduled GitHub write still needs its own actual tool availability and approval validation; the Nov 4 one-time test uses a separate `experiment/` branch only. Never expand a capability probe to production writes or credentials by inference.
+A Nov 4 scheduled GitHub write completed on a **separate experimental branch**, and a later scheduled observer independently verified commit `8eaa4ba5657cbcd4b4b663af2e79714a81d27a4d` and blob `fe649e1a23a0078ae612d7ecfcd4483135d37d05`. This establishes GitHub connector read/write for the tested Chat Mode scheduling context and approved branch, **not** blanket approval of production writes or credentials. Any new project must verify its own role-specific source permissions and approval conditions.
+
+## Real-work validation: RE-Wizard BinaryWorkbench
+
+The owner's active private BinaryWorkbench development project is an explicit
+**real work** case for this design, not just a synthetic scheduler experiment.
+Its scheduled pool includes two complementary implementers, a conductor,
+a provisional verifier and an integrator. Early registry inspection verified
+task creation, saved responsibilities, and independent scheduling settings,
+**not** actual overlapping runs, qualified independent review, successful
+tool output or inheritance. See the [privacy-safe study](REWIZARD_BINARYWORKBENCH_CASE_STUDY.md).
+
+A bounded scheduled evidence monitor reads their actual execution records
+and permitted private GitHub commit/PR metadata, without changing the private
+project, team assignments, or schedules. It evaluates separately whether:
+(a) meaningful worker run intervals actually overlap and safely update
+different outputs; (b) a later wave **uses** a pinned prior artifact/finding;
+(c) the conductor adjusts responsibilities/timing based on actual work;
+(d) any verifier session has genuinely qualified isolation and evidence; and
+(e) real code/tests are corroborated by repository artifacts rather than
+a successful schedule alone. Preserve private branch names, task IDs, source
+bytes, protected cases and conversation references in the private project
+rather than copying them into HA's **public** documentation.
+
+Only change the HA Chat Mode scheduling manual or policy when the recorded
+result exposes a concrete reusable capability or limitation. Maintain
+CHECKS PENDING and do not equate documentation updates with code acceptance.
 
 ## Evidence and rollout gate
 
