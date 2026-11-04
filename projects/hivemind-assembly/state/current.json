@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "project": "hivemind-assembly",
+  "status": "policy-implementation-checks-pending",
+  "execution_surface": "ChatGPT Chat Mode policy only; no new runtime deployment",
+  "permanent_objective": "Build and independently verify a native, resumable, autonomous specialist reverse-engineering agent application with guarded code/tool execution, no-API provider access, adaptive verified learning, and reproducible final acceptance.",
+  "acceptance_required": [
+    "actual configured-provider/native interface transport and artifact exchange",
+    "required independent source/runtime review",
+    "pinned whole-project acceptance and release checks",
+    "no unapproved provider/model/permission changes"
+  ],
+  "phase": "Chat Mode conductor policy and skill committed; independent review and live HA integration acceptance pending",
+  "current_milestone": "Obtain separate source/provider-boundary review of updated instruction profile and confirm bounded scheduled tests without claiming deployed HA orchestration.",
+  "verified_release_commit": null,
+  "changed_files_evidence": [
+    "dev/continuous_execution/CHAT_MODE_FINDINGS.md"
+  ],
+  "blockers": [
+    "not independently checked; no live HA task team provisioning authorized in this documentation edit",
+    "scheduled GitHub write and completed-task revival tests pending real run results"
+  ],
+  "next_actions": [
+    "Review pending edited instructions and tests in a different qualified session",
+    "Reconcile bounded scheduled experiment results only after run completion",
+    "Verify actual native HA injection/route and connected MCP tools before relying on autonomous GitHub updates"
+  ],
+  "authorized_persistent_automation_pool": [],
+  "checkpoint_status": "checks-pending",
+  "private_data_policy": "No account-specific conversation references, credentials, protected test material or full textbook in public repository."
+}
