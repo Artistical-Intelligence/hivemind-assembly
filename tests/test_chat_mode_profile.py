@@ -78,6 +78,15 @@ def test_adaptive_chain_is_evidence_driven_and_not_a_fixed_loop():
 def test_owner_scheduled_roster_guidance_remains_chat_mode_only():
     """Static policy expectations; not a live scheduler acceptance test."""
     required = (
+        "FULL-TIME VS SHARED COFFEE (latest owner Shift Manager policy; Chat Mode):",
+        "Shift Manager exclusively controls",
+        "Other staff CANNOT retask",
+        "exclusive create-if-absent claim",
+        "Only the winning claimant may update that temporary task",
+        "NEVER release by clock TTL alone",
+        "A healthy recurring worker is not sleeping",
+        "live temp",
+        "No registered pool/atomic GitHub claim",
         "HA SHIFT MANAGER CORRECTIONS (owner clarification 2026-11-04):",
         "MAXIMIZE THE MANAGER",
         "does NOT establish an automatic 60-minute cooldown",
