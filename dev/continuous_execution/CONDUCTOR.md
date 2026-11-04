@@ -85,13 +85,55 @@ assigned task ID, input artifact/commit and dependencies, output artifacts
 and verdicts, next consumers, last verified state. Do not retain every
 token, routine poll, complete chat transcript or copied textbook.
 
-## Corrective waves and shift-manager timing
+## HA shift manager: distinct corrective one-offs and maximum work runway
 
-**Owner clarification, November 4:** An unfinished shift generates a **new corrective continuation brief**, not a request to replay the old task verbatim. The manager identifies the missing outcome, pinned source/test evidence, exact next experiment, acceptance criterion, dependency and exclusive output owner. It then assigns this corrective work to the **earliest suitable pre-existing authorized worker**, which need not be the previous author. Update that worker's full saved prompt and its next supported execution time when useful, then verify the receiving result and downstream use. Independent colleagues may pursue nonconflicting repair/test fragments concurrently.
+The owner wants the HA shift manager to **do corrective work immediately** and
+to have **as much time as possible to plan and act** after the relevant team
+results arrive, without becoming a gate for the workers.
 
-The correction has a different purpose from the earlier invocation; **each existing automation still obeys its actual scheduling and permission limits**, even when retasked. Do not duplicate in-progress changes, assume that changing instructions creates an extra model run, or claim child-task creation. If no eligible worker can execute earlier, record the next lawful opportunity.
+An incomplete high-priority shift generates a **new generalized corrective
+task instance**, not an unchanged extra recurrence. Make a concise handoff
+containing what is missing, source/test revision, executable fix or diagnostic,
+acceptance criterion and affected downstream consumer. Dispatch to the earliest
+suitable existing authorized worker or **completed reusable one-time task
+slot**, not necessarily the original author; preserve output ownership and
+avoid duplicating an in-progress mutation. The two-revival one-off
+experiment proves the same task ID can be reused for different assignments,
+but has **not** measured the earliest supported time after a preceding run.
+For a genuinely new ad hoc one-time assignment, **do not automatically apply
+an hourly cooldown** inferred from the hourly `RRULE` recurrence rule.
+Request the earliest supported future one-time event and verify both the
+accepted configuration and its later completed execution. A new prompt
+alone is not a new run. The platform may reject a particular timing or
+enforce other permissions and active-task limits; report those actual
+constraints rather than assuming either an exemption or impossibility.
+Never create endless copies of the same recurring job to evade restrictions.
 
-A shift manager must compare actual completed worker, verifier and integrator timestamps to the next dependent task starts, and choose an hourly check-in phase that minimizes expected **critical-path feedback and dispatch delay** using observed jitter and honest uncertainty. Inspect all sixty minute phases when enough evidence exists. A single hourly check cannot reliably follow every asynchronous task; noncritical late reports should not stall useful work. The live manager's existing :08 UTC phase remains provisional until better evidence warrants a change. Evaluate delivery and test outcomes, not activity counts; CHECKS PENDING until actual corrective handoffs succeed.
+**Mathematical scheduling objective:** Maximize the manager's **usable
+work runway**, not minimize the time until a downstream task receives
+permission to work. From actual run timestamps, estimate when the
+**relevant** worker, verifier and integrator evidence will be ready
+(including observed jitter). Search the 60 candidate hourly minute phases.
+Among phases with sufficiently high evidence-readiness confidence, pick
+the **earliest one immediately after those outputs become available**:
+it leaves the greatest available time until the next major worker cohort.
+Allow appropriate update/start safety margins, document the uncertainty,
+and revise the phase as actual timing distributions change. Do not
+preserve a fixed :08 phase just because another team's schedule used it.
+Do not force workers to wait for the manager. When not all outputs are
+ready, the manager can still use the available evidence and independent
+work can continue. The next cohort's start is an opportunity to have
+reassignments prepared, **not** a deadline that stops the manager's own
+run or a permission barrier for those workers.
+
+The full HA-specific mathematical definition, evidence tiers and
+one-time reactivation procedure are in
+[SHIFT_MANAGER.md](SHIFT_MANAGER.md). This corrects the earlier
+critical-path-latency objective and unsupported statement that every
+new task instance on an old automation ID must automatically wait one
+hour. CHECKS PENDING: instructions and the bounded two-revival experiment
+do not yet prove immediate or sub-hour corrective dispatch, an
+automatically computed optimal phase, or shipped HA runtime integration.
 
 ## Deep substantive work within each scheduled wave
 
