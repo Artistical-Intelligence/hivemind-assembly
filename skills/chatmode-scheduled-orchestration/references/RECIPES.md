@@ -51,6 +51,64 @@ Pseudo-call:
 
 Creation of one/many new tasks from a scheduled Chat Mode execution was blocked in tests. A newly scheduled one-time task from an authorized **interactive** chat is a different tested capability. Do not use multiple copies to evade the minimum hourly recurrence.
 
+## Global cross-chat coffee: default all-worker workflow and 1:1 bootstrap
+
+**Default for every authorized scheduled Chat Mode worker:** when a
+substantive independent or complementary fragment can proceed in
+parallel or synergistically, **attempt to borrow temporary help**
+instead of leaving that work idle. This can pair implementation
+with independent verification, distinguish multiple debugging
+hypotheses, or distribute nonconflicting parts of a large task.
+Do not clone the same write responsibility or stop useful work
+in the requesting worker's invocation.
+
+**Global discovery, no previous-purpose restriction:** examine all
+owner-accessible previously created **one-time** task IDs from **any
+ChatGPT conversation**. A former diagnostic, different project
+or old title is allowed: only the task's **CURRENT** availability,
+owner hold, future appointment, claim/lease, tool/model boundaries
+and writer permissions determine eligibility. A disabled task
+with a current hold or unverified ownership is not borrowable.
+If a task is idle but not yet registered, validate and enroll its
+opaque ID in the **single restricted account-wide pool** before
+claiming it; do not require it to have been originally created for
+this team. Preserve former work results separately; rewrite the
+entire prompt with the new scope without treating old chat context
+or secrets as inputs. A saved task cannot be moved to another
+conversation through the tested update interface.
+
+**Bootstrap capacity:** when owner-authorized interactive setup
+creates **N hourly full-time automations**, target **N dormant,
+one-time reserve slots at the same initial setup**. Count
+verified idle preexisting one-off IDs first, safely create
+missing reserves if the service supports disabled placeholders,
+and verify each has no pending runnable event. If active-task
+quota or create permissions prevent the target, record the
+shortfall. Do not schedule placeholder executions, create
+children from a restricted scheduled run, or activate old
+jobs merely to manufacture idle slots.
+
+**Claim lifecycle:** use exactly ONE global restricted control
+namespace for all authorized chats/projects:
+`global_coffee_pool.json`, `global_coffee_claims/<id>.json`,
+`global_coffee_history/<work-order-key>.json`. Use atomic
+create-if-absent for the exact opaque task ID, read back the
+claim and live status, and only the winner may update that temp
+to a finite new one-time assignment. The claimant records
+actual run/result/artifact receipts and releases *its own*
+claim using latest exact blob SHA only after confirming that
+the temp finished and is safely dormant. Do not release by
+a fixed time-to-live or assume a claimed slot is available.
+No global atomic claim mechanism means no safe delegated
+temp dispatch.
+
+**Manager authority:** the Shift Manager alone controls all
+full-time recurring task IDs. Global coffee does **not** grant
+a worker the right to retask or pause another full-time role.
+See [SHIFT_MANAGER.md](../../../dev/continuous_execution/SHIFT_MANAGER.md).
+These are operating instructions and have **not** established
+a deployed HA-native dispatcher or cross-chat claim race acceptance.
+
 ## Reusable one-time task: actual demonstrated "necromancy"
 
 **Completed evidence, Nov 4:** One test-owned one-time task completed
@@ -136,7 +194,7 @@ Every pre-provisioned task's saved prompt should include, at a minimum:
 - MUTABLE: current role, meaningful next milestone, changed input/artifact hashes, executable targeted test, acceptance evidence, blocker and next action. Preserve immutable lines when conductor or the task updates its prompt.
 - EVIDENCE: planned versus started versus completed versus independent acceptance; record exact run ID and timestamps, don't claim separate independent chat context from a different task ID.
 
-Pre-provision a nominal five-role project workforce only if authorized and useful (conductor, two substantive workers, verifier, integrator); extend toward ten only when plan capacity and nonconflicting work warrant. Shared overall goals and safeguards are fine; actual roles must be genuinely complementary.
+At approved bootstrap, provision the useful **N permanent hourly roles plus a target N disabled one-time coffee reserves**, reusing previously created idle one-offs from any chat before safely adding missing slots. A nominal five full-time roles is one starting example, not a fixed limit or an instruction to create five extra recurring workers. Each permanent role still needs distinct useful responsibilities and writer ownership.
 
 ## Project handoffs
 
