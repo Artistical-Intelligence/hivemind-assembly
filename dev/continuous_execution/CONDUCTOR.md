@@ -85,6 +85,14 @@ assigned task ID, input artifact/commit and dependencies, output artifacts
 and verdicts, next consumers, last verified state. Do not retain every
 token, routine poll, complete chat transcript or copied textbook.
 
+## Corrective waves and shift-manager timing
+
+**Owner clarification, November 4:** An unfinished shift generates a **new corrective continuation brief**, not a request to replay the old task verbatim. The manager identifies the missing outcome, pinned source/test evidence, exact next experiment, acceptance criterion, dependency and exclusive output owner. It then assigns this corrective work to the **earliest suitable pre-existing authorized worker**, which need not be the previous author. Update that worker's full saved prompt and its next supported execution time when useful, then verify the receiving result and downstream use. Independent colleagues may pursue nonconflicting repair/test fragments concurrently.
+
+The correction has a different purpose from the earlier invocation; **each existing automation still obeys its actual scheduling and permission limits**, even when retasked. Do not duplicate in-progress changes, assume that changing instructions creates an extra model run, or claim child-task creation. If no eligible worker can execute earlier, record the next lawful opportunity.
+
+A shift manager must compare actual completed worker, verifier and integrator timestamps to the next dependent task starts, and choose an hourly check-in phase that minimizes expected **critical-path feedback and dispatch delay** using observed jitter and honest uncertainty. Inspect all sixty minute phases when enough evidence exists. A single hourly check cannot reliably follow every asynchronous task; noncritical late reports should not stall useful work. The live manager's existing :08 UTC phase remains provisional until better evidence warrants a change. Evaluate delivery and test outcomes, not activity counts; CHECKS PENDING until actual corrective handoffs succeed.
+
 ## Deep substantive work within each scheduled wave
 
 **Owner instruction (November 4, 2026):** For the live BinaryWorkbench
