@@ -57,6 +57,7 @@ notice does not remove them or impose the Chat Mode workflow elsewhere.
 **Only when the configured execution route is explicitly ChatGPT Chat Mode:**
 read [CHATGPT.md](CHATGPT.md),
 [the HA conductor design](dev/continuous_execution/CONDUCTOR.md),
+[the authoritative Chat Mode Shift Manager policy](dev/continuous_execution/SHIFT_MANAGER.md),
 [the dated evidence and open tests](dev/continuous_execution/CHAT_MODE_FINDINGS.md),
 [the completed multi-session test audit](dev/continuous_execution/CHAT_MODE_SESSION_TEST_AUDIT_20261104.md)
 and [the scheduling/automation skill](skills/chatmode-scheduled-orchestration/SKILL.md).
