@@ -12,3 +12,5 @@ CHECKS PENDING: test_unified_installation_ui.py — one preparation surface and 
 CHECKS PENDING: test_integration_document_scope.py — exact LF/CRLF byte fixtures and protected documentation writes; independent source review.
 CHECKS PENDING: test_beta_packaging.py — beta-only authorization, original ZIP spelling, traversal/alias/link rejection and fail-closed publication; independent source review. A passing beta test does not confer stable-release approval.
 CHECKS PENDING: test_chat_mode_profile.py — isolated Chat/Work/Claude route scope, native request-packet and evidence-driven open-ended chain versus loop semantic tests; run the complete checkout tests and obtain independent source review before acceptance. Short-delay ad hoc scheduling remains an unproven separate service capability.
+
+CHECKS PENDING: test_chat_mode_profile.py policy 1.4 static contract additions — run in a complete source checkout, ensure exact-route gating/no Work/Codex/Claude injection, no accidental syntax errors, and independent test review; fixtures are not live browser/provider acceptance.
