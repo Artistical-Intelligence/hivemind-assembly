@@ -72,6 +72,16 @@ private branch names, task IDs, chat references or project source.
 
 **Still CHECKS PENDING:** the verifier's initial run was **in progress**, with no completed reviewer verdict; independent model/context qualification remains untested. Some developers reported limited **isolated stand-in Python checks**, which are not the real repository test suite. The integrator's environment lacked an authenticated runnable checkout; actual in-repository synthetic testing, CI success, an authorized PR/merge path and end-to-end functionality are **unproven**. Nothing was accepted or merged into main, and no games or opaque archived compilers were executed. Thus both parallel recorded execution and later static artifact inheritance have evidence, but qualified functional acceptance does not.
 
+## Second read-only observation — November 4, 2026, 12:56 UTC
+
+**Stronger parallel evidence:** Four scheduled technical workers have distinct completed recorded execution windows **simultaneously overlapping from 11:23:25 to 11:24:33 UTC**, rather than just the three-worker first-wave overlap. Their actual service run references and corresponding source conversations differ. The private conductor checkpoint records all four completed windows; current registry receipts independently show the same roles' later completed work. Authorized GitHub branch comparisons confirm four distinct implementation branches with new changes compared against the unchanged main baseline. This establishes **recorded overlapping service execution and productive branch work**, not simultaneous token generation, runtime isolation or acceptance.
+
+**New completed verification wave:** A later provisional verifier finished a separate run at **12:56:17 UTC**, read the updated technical branches and saved further source-pinned synthetic regression/review material. Its private verification branch contains additional committed reports. The verifier considered a prior function-boundary repair plausible but identified a related exported call-graph gap, requiring a further correction. Because no qualified model/effort and author-free review boundary or authenticated execution of the real repository unit tests is established, its results remain **provisional**, not a passing acceptance verdict.
+
+**Conductor and inheritance:** A second completed conductor wave saved a refreshed private state and source-bounded specialist assignments; separate registry checks still show all eight enabled production roles with hourly recurrence. The earlier completed integrator's source-level inheritance remains verified. At this observation the newest integrator run was explicitly **in_progress**, with no completion timestamp or matching final result, so a **new** inherited integration wave has **not** been proved. Earlier handoff checks also do not prove actual executable integration. The main interactive developer remains a separate unscheduled lane, not an always-on agent. The milestone reporter has one completed evidence-backed report, but delivery to the owner is not independently established.
+
+**Scope and acceptance:** No game or opaque archived compiler test was run by this observer. No private production source, branch, automation ID or chat ID is disclosed here. **CHECKS PENDING:** source-bound full Python suite, qualified independent verification, CI, safe authorized integration and a permitted PR/merge path. Neither the completed verifier report nor new committed regression source makes those tests pass automatically.
+
 ## Evidence collection rules
 
 For each later bounded observation:
@@ -85,6 +95,6 @@ For each later bounded observation:
 
 ## Status
 
-**First substantive execution and committed artifacts verified.** Three distinct scheduled worker runs had real overlapping intervals; a later completed integration-preparation wave consumed exact saved producer revisions. **CHECKS PENDING:** completed qualified independent review, full in-repository test execution, CI, authorized integration/PR path and final acceptance. The finite evidence observer retains read-only scope for the private project and its scheduled team.
+**Two substantive production waves observed.** Four specialized scheduled workers now have real overlapping intervals and separate committed branch work; an earlier completed integration-preparation wave consumed exact producer revisions at the static-interface level, and a later provisional verifier committed further review evidence. **CHECKS PENDING:** qualified independent review, real in-repository test execution, executable integration, CI, authorized PR/main merge and final acceptance. The most recent integrator run was still in progress at this snapshot. The finite public observer retains read-only scope for the private project and its scheduled team.
 
 This document is public HA instruction evidence only. Authoritative project work and private identifiers remain in the project's own private repository.
