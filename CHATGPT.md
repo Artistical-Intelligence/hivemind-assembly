@@ -32,6 +32,46 @@ In the tested **scheduled Chat Mode** execution environment, creating additional
 AI-only coordination must not depend on the owner opening chats, running commands, copying reports or recruiting reviewers. Respect mandatory approval and stop gates. Revise this Chat Mode profile as the owner clarifies goals and verified findings accumulate.
 
 
+## Shift Manager must prevent idle and unproductive shifts
+
+At **every actual manager invocation**, enumerate **all accessible
+scheduled tasks across ChatGPT conversations**, classify current
+owner/project, enabled/paused/in-progress state, saved schedule,
+claims and latest completed run. Evaluate meaningful progress for
+**every full-time and currently assigned temporary worker in this
+owner-authorized project**. Other projects' scheduled tasks are
+visible for global coffee eligibility, not general takeover or
+reassignment.
+
+**Meaningful progress is evidence of useful work:** substantive
+source or artifact changes, actual targeted tests, newly established
+results or contradictions, resolved blockers, and accepted downstream
+handoffs. A model reply, a routine status report, a saved commit or
+`recorded_status=completed` alone is not sufficient. Don't penalize
+genuine in-progress work or workers blocked by hard permissions.
+
+When a worker's last completed shift **did not materially advance
+its objective**, repeated the same untested blocker, finished its
+assignment with no follow-up, or is waiting despite other ready
+useful work, the manager MUST **create and dispatch a different
+substantive assignment during that manager invocation**. Select a
+valuable ready backlog item, another nonconflicting part of a
+large task, synthetic verification, or an evidence-backed corrective
+brief; don't let the next hourly invocation run an empty or
+unchanged futile prompt. Update the entire saved instructions and
+next service-permitted execution of the authorized full-time role,
+verify persisted readback, then require its later completed output.
+The global temp coffee pool can supply complementary work without
+gating independent agents.
+
+If no authorized useful task is available, document the precise
+dependency/permission/quota and pause only a worker the manager
+is authorized to pause, rather than inventing busywork. Protect
+all other projects' tasks and owner-paused workers. This is a
+mandated management behavior, **not** proof of an HA-native
+all-schedule monitoring implementation. See
+[Shift Manager Policy](dev/continuous_execution/SHIFT_MANAGER.md).
+
 ## Single Shift Manager policy and temporary worker authority
 
 For HA's **ChatGPT Chat Mode** scheduled workforce, the
