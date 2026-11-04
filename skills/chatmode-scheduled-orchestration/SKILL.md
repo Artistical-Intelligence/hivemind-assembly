@@ -23,27 +23,54 @@ The Shift Manager alone may change their prompt, schedule, recurrence,
 enabled state, and recovery of a genuinely stopped recurring role.
 A completed *run* of a healthy hourly worker is not an available temp.
 
-**Shared temporary coffee** is a distinct, owner-allowlisted collection
-of pre-existing finite one-time task IDs. Any **expressly authorized
-Chat Mode scheduled worker**, not just the manager, may dispatch a
-dormant temp for a new, generalized useful work order **after**
-obtaining a unique exclusive claim by create-if-absent on the common
-private coordination branch. Recheck the claim's exact commit/blob,
-live task stopped state and capacity before updating the temp. No
-claim, stale claim or ambiguous owner → no dispatch. Never let
-multiple workers borrow the same ID or write the same output; preserve
-claim through execution. When finished, save exact run and artifact/
-test evidence and release the *same* claim using latest exact blob SHA
-only after checking no newer run/claim exists. Never expire a claim
-merely because wall-clock time passed while a worker could be running.
-Full-time IDs must never enter the shared coffee pool.
+**Mandatory proactive coffee evaluation by ALL scheduled workers.**
+Each authorized Chat Mode worker should seek temporary Necromancy
+whenever doing useful complementary work in parallel and/or synergy
+improves the result: split independent work, run verification while
+implementation progresses, test an issue while another worker
+develops a fix, or investigate separate hypotheses. If meaningful,
+available and safe, claim a temp **without awaiting the Shift Manager**.
+Do not stop the original worker or clone identical busywork.
+
+**Any available, previously created ONE-TIME task from ANY chat
+is an eligible candidate, irrespective of its former project,
+title, purpose or role.** The owner's standing cross-chat approval
+does not make an active, future-scheduled, presently leased, held or
+ambiguous task available. Discover across the full accessible
+Automations registry, validate its current state, and **dynamically
+register** an eligible candidate in ONE restricted, globally shared
+coffee pool. Do not require its old task ID to have been designed for
+HA. Avoid copying previous-chat content, secrets or source
+permissions into the newly authorized assignment; a saved prompt
+update does not isolate or retarget the original conversation.
+
+**At the initial setup of N permanent hourly workers, target N
+additional dormant one-time reserve slots (1:1).** Count verified
+idle historical one-offs and safely create only the missing reserves
+during authorized interactive bootstrap. They must stay disabled
+with no pending runnable event until borrowed. If no safe dormant
+creation path or enough service capacity exists, log the shortfall;
+do not run placeholder work or try scheduled-run child creation.
+
+**All temp dispatchers use one authoritative global private claim
+namespace**, not isolated project-local claim files. Atomically
+create-if-absent one claim for the exact temp ID, reread the
+claim and live task state, then only the winning claimant may
+replace the full prompt with a distinct, useful one-time work order.
+After the result and source/test SHA are verified, release only
+that exact owned claim with latest blob SHA and safe stopped state.
+Never time-expire a claim for a potentially running employee.
+Full-time recurring roles remain Shift Manager-only. See
+[SHIFT_MANAGER.md](../../dev/continuous_execution/SHIFT_MANAGER.md)
+for mandatory eligibility, race safety and release rules.
 
 **Necromancy extends to STOPPED recurring employees** with verified
 owner intent: the manager alone may restore their hourly recurrence
 or give a finite corrective one-off while preserving any continuing
-core mission. Healthy recurring workers, owner-paused work, ambiguous
-in-progress tasks, and unrelated diagnostic IDs are never eligible by
-default. Twice resurrecting a completed one-time ID has passed; actual
+core mission. Healthy recurring workers and ambiguous or currently occupied
+slots are ineligible. An *idle one-time task* once used for an unrelated
+diagnostic is eligible after current status checks. Explicit owner
+protective holds remain ineligible. Twice resurrecting a completed one-time ID has passed; actual
 recovery of a genuinely stopped full-time recurring role and concurrent
 atomic temp claims are **not yet proven in HA or the completed Chat Mode
 service tests**.
