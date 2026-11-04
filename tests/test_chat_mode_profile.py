@@ -84,9 +84,8 @@ def test_owner_scheduled_roster_guidance_remains_chat_mode_only():
         "cross-task changes",
         "IMMUTABLE project/owner/acceptance",
         "Each scheduled execution reassesses real",
-        "NEVER",
     )
-    for phrase in required[:-1]:
+    for phrase in required:
         assert phrase in CHAT_MODE_GUIDANCE
     for phrase in (
         "These GitHub instruction files are NOT automatically reread",
