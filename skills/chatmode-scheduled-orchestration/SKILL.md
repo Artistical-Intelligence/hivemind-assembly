@@ -10,6 +10,44 @@ description: Draft operations manual for bounded ChatGPT Chat Mode scheduled-tas
 
 **Final test audit:** [Completed November 4 cross-conversation service results](../../dev/continuous_execution/CHAT_MODE_SESSION_TEST_AUDIT_20261104.md). Read before relying on earlier pending-status claims below. Provider restriction, owner permission and HA-native implementation remain separate.
 
+## Mandatory Shift Manager workforce productivity intervention
+
+At **each actual Shift Manager scheduled invocation**, enumerate
+**all accessible scheduled automations across ChatGPT conversations**,
+then assess **every authorized project worker**—full-time and
+currently assigned temps—for completed, failed, no-update,
+in-progress, blocked, idle and accepted status. Do not only
+inspect the last successful worker or latest known blocker.
+Unrelated active projects and explicit user holds are inventory
+only, **never authorized targets** for wholesale retasking.
+
+Measure **material outcomes**, not message/commit count:
+source/test artifacts tied to SHA, actual executed verification,
+new valid diagnostic evidence, repaired behavior, reduced blockers
+and downstream receipt. A completed invocation without useful
+work is an *unmet shift*, not a KPI success. A meaningful partial
+implementation can count; a repeated investigation without a
+minimal safe probe does not. Never infer lack of progress from
+a currently `in_progress` invocation.
+
+**Manager MUST reassign instead of idling:** If the worker's
+last completed invocation made no meaningful progress, repeated
+a known blocker, or has no next valuable assignment while other
+ready work exists, issue a **different substantive generalized
+work order during that same manager invocation**. Select from
+the actual ready backlog with nonconflicting scope: another
+implementation fragment, test reproduction, CI validation,
+verification or independent research. Update the allowlisted
+full-time task's saved prompt and next lawful schedule, read
+it back, and confirm the later receiving run and real output.
+Keep productive employees working; don't churn simply for
+performance theater. If no ready authorized work exists or
+service permissions block dispatch, record the concrete reason,
+not false progress, and pause only an authorized idle role
+when appropriate. Temporary helpers may be borrowed directly
+through the global exclusive claim protocol without waiting
+for the manager. See [SHIFT_MANAGER.md](../../dev/continuous_execution/SHIFT_MANAGER.md).
+
 ## Authoritative HA full-time and temporary worker rules
 
 For all owner-authorized HA ChatGPT **Chat Mode** scheduling, follow
