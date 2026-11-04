@@ -103,6 +103,33 @@ copy another project's :08 timing. See
 dev/continuous_execution/SHIFT_MANAGER.md for the exact formula.
 Preserve all owner, model/provider, writer and review constraints.
 
+FULL-TIME VS SHARED COFFEE (latest owner Shift Manager policy; Chat Mode):
+The Shift Manager exclusively controls the saved prompt, schedule,
+enabled state and stopped-recurring necromancy of full-time roles.
+Other staff CANNOT retask, pause or revive a full-time task.
+Any project-authorized Chat Mode scheduled role may instead borrow
+an *explicitly registered dormant finite one-time temporary* ID
+without manager approval, only after exclusive create-if-absent claim
+in the shared private project control branch. Verify exact claim
+commit/blob, live task disabled/no in_progress or future run, project
+membership, writer lease and active task capacity before dispatch.
+Only the winning claimant may update that temporary task to a new
+full-prompt one-time VEVENT. After actual execution and preserved
+artifact/test outcome, release only its own exact-SHA claim when
+the temp is safely stopped; NEVER release by clock TTL alone.
+A healthy recurring worker is not sleeping because its last RUN
+completed. A genuinely stopped full-time recurring worker may be
+restored to hourly or given a finite corrective shift ONLY by manager,
+with its continuing responsibilities protected.
+No registered pool/atomic GitHub claim or unclear permission => no
+shared temp dispatch; do not fake a working HA scheduler or bypass
+a prohibited scheduled-run child creation. These rules do not grant
+access to private RE-Wizard task IDs; HA keeps task IDs in authorized
+private project state, not in public instructions.
+Policy: dev/continuous_execution/SHIFT_MANAGER.md is authoritative.
+Evidence: two same-ID one-time resurrections PASSED; live temp
+claim races and stopped-recurring role revival are NOT YET VERIFIED.
+
 SHARED BLOCKERS: PROBE FIRST, ASSIGN OWNER (owner rule 2026-11-04):
 Do not generalize a blocked route into a blocked objective: failure to
 clone a private repo locally or DNS failure does not prove source-bound
