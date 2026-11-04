@@ -121,16 +121,22 @@ declare automatic rollover blocked if there is no permitted native mechanism.
 Evidence as of Nov 4: own-prompt/schedule updates, self-pause, cross-task
 updating and task-result retrieval have completed live scheduled runs.
 One revised 2-hour recurrence executed once; new multiple-interval and
-test-owned revival verification is partially complete: a manager re-enabled
-previously completed tests and one revived occurrence completed; later dispatches
-remain under observation. Scheduled child creation was blocked. An independently
-audited scheduled Chat Mode GitHub write **completed** on an isolated test branch;
-other MCP/service permissions remain unverified.
+test-owned revival verification is partially complete: a scheduled
+manager re-enabled two authorized previously disabled tests and one
+previously exhausted one-time target completed its first new occurrence.
+Later dispatches remain under observation. Scheduled child creation
+was blocked. A separate scheduled auditor corroborated that a scheduled
+Chat Mode GitHub write **completed** on an isolated test branch and read
+back exact commit and blob; other MCP/service permissions remain unverified.
+The private real-work BinaryWorkbench team is a standing case for
+both true parallel useful work and artifact-linked inherited follow-ups.
+An owner-authorized bounded status observer will collect real completed
+task/run/commit evidence without modifying the private project.
 A different task ID does not establish qualified independent review when
 both share the same chat reference. Do not release or self-approve based on
 these experiments.
 
-Read [CONDUCTOR.md](CONDUCTOR.md),
+Read [REWIZARD_BINARYWORKBENCH_CASE_STUDY.md](REWIZARD_BINARYWORKBENCH_CASE_STUDY.md) for the privacy-limited live real-work orchestration check. Read [CONDUCTOR.md](CONDUCTOR.md),
 [CHAT_MODE_FINDINGS.md](CHAT_MODE_FINDINGS.md) and the
 [SKILL.md](../../skills/chatmode-scheduled-orchestration/SKILL.md) for safe
 `RRULE`, task identity and handoff recipes. These docs are CHECKS PENDING
