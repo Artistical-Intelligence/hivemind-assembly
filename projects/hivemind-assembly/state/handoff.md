@@ -51,6 +51,31 @@ HA's last full contract workflow at the prior head failed: Ubuntu logged **1,368
 
 The latest corrected instructions remain **ChatGPT Chat Mode only**. The critical remaining native questions are transport/receipt, model/effort/context controls, true independent review, service acceptance of earlier-than-hourly *distinct one-time* corrections, and an actual connected shift-manager schedule optimized for **its own available work runway**. None was proved by the bounded service tests. No RE-Wizard project, file, or scheduled task is authorized for modification through this HA handoff.
 
+## Standing HA global coffee mandate (November 4)
+
+The owner wants **every scheduled Chat Mode worker** to make
+productive use of temporary same-ID necromancy for independent
+parallel and synergistic work wherever safe/available. **Any
+historically created, currently dormant one-time task in any ChatGPT
+conversation** can be discovered and registered as a temp regardless
+of its prior use. Its current activity/claim/appointment/owner hold
+determines availability, not its old chat. Use one private cross-chat
+atomic claim ledger and a full new work brief, with no inherited
+source permissions or assumption of isolated old chat context.
+
+At bootstrapping **N hourly full-time workers**, target **N dormant
+one-off reserve slots at the same time**, counting safely available
+historical one-offs before creating any deficit. No placeholder
+should run just to establish reserve capacity. Only the Shift Manager
+may change full-time task objects; every authorized worker can
+claim/release a temp under the global protocol.
+
+Authoritative procedure: `dev/continuous_execution/SHIFT_MANAGER.md`.
+This update affects HA instructions/native Chat-only guidance,
+**not the private RE-Wizard repository or active automations**.
+No HA-native cross-chat global pool/claim race was actually run or
+deployed. Mark CHECKS PENDING until tested.
+
 ## Exact next action
 
 A separate qualified assistant session should read the changed source files and relevant original instructions, compare syntax and safety, run the focused Chat Mode routing and prompt tests in a complete checkout, reconcile review markers and document reproducible results. Do not mark accepted or publish without a qualified independent reviewer and actual owner-authorized HA native runtime validation.
