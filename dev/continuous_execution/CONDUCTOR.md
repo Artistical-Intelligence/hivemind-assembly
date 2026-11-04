@@ -11,7 +11,7 @@ Verified on one ChatGPT Chat Mode configuration during November 3–4, 2026:
 - A scheduled run changed an **existing** separate automation's saved prompt and schedule. Separate target runs executed the updates, and read-only scheduled observers retrieved completed results through the Automations registry.
 - A one-time scheduled parent was **prohibited by its execution environment** from creating another automation. No backend creation attempt occurred; this is not evidence about technical scheduler capacity. Do not try child-creation workarounds or claim unlimited task spawning.
 - The tested separate task run IDs shared the **same chat reference**. Distinct task IDs, prompts and run IDs do not prove separate chat contexts, qualified independent review or a detached live process.
-- Re-enabling an expired or self-paused prior test task is **not yet verified**; a scoped Nov 4 test is scheduled. Scheduled GitHub connector writes are **not yet verified**; a test is scheduled on a disposable non-production branch. The proposed scheduled-to-ordinary-interactive-message trigger remains unverified.
+- Re-enabling an expired or self-paused prior test task is **not yet verified**; a scoped Nov 4 test is scheduled. Scheduled GitHub connector writes are **not yet verified**; a test is scheduled on a disposable non-production branch. The bounded scheduled-to-ordinary-interactive-message probe **completed BLOCKED**: no supported same-chat user-role message injection tool was available; no new ordinary turn was triggered.
 - Scheduled starts were minutes early or late. Treat `next_run_time=null`, `in_progress`, `is_enabled` and a saved `RRULE` as different evidence. Each run must be verified by its recorded run ID and result.
 
 ## Owner-approved bootstrap strategy
@@ -85,7 +85,7 @@ Use GitHub's commit/blob SHA, expected-revision updates and single-writer owners
 
 Codex may expose a remaining-context signal in its own tooling, but **no equivalent value is available in the examined Chat Mode scheduled-automation API**. Do not reuse an imagined Codex variable or claim a context percentage. Detect practical rollover need through information loss, context truncation, repeated fact correction or major checkpoint transitions. Persist a short handoff first.
 
-The documented **standalone scheduled task** pattern starts a fresh chat per run and may consume only the external minimal checkpoint. It must be validated for the chosen execution surface. A chat-attached task reuses conversation context. We have **not** established a scheduled run can create a normal new interactive chat, inject a user-role message that triggers Chat Mode, or migrate an existing task to an arbitrary conversation. If rollover cannot be performed unattended, say so and preserve usable checkpoint data rather than claiming it happened.
+The documented **standalone scheduled task** pattern starts a fresh chat per run and may consume only the external minimal checkpoint. It must be validated for the chosen execution surface. A chat-attached task reuses conversation context. We have **not** established a scheduled run can create a normal new interactive chat or migrate an existing task to an arbitrary conversation. The attempted native same-chat user-role message trigger was specifically **blocked by unavailable tooling**. If rollover cannot be performed unattended, say so and preserve usable checkpoint data rather than claiming it happened.
 
 ## Usage, dot and external tools
 
