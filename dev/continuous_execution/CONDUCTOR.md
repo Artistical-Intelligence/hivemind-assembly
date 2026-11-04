@@ -114,14 +114,13 @@ summarize verified milestones while workers remain focused.
 **Necromancy / reusable one-time slots.** A previously completed and
 auto-disabled one-time task can be **re-enabled** with new prompt and
 new single-future-event DTSTART via the supported update interface,
-preserving the same task ID. An earlier scheduled manager successfully
-revived one exhausted test-owned one-off, and its first new run
-completed. This does not yet prove a second or third resurrection of
-that **same one-off**. A new bounded hourly coordinator test is
-scheduled to attempt **two consecutive revivals of the same previously
-expired, test-owned target ID** (one-off VEVENT each time, no RRULE,
-distinct completed runs, same immutable automation ID). One coordinator
-can therefore potentially reuse a bounded pre-provisioned staff slot
+preserving the same task ID. A finite scheduled coordinator **successfully performed two consecutive
+revivals of the same previously expired, test-owned one-time task**;
+the original and both new runs completed with distinct run IDs but the
+same immutable automation ID, no RRULE or new child automation. This
+verifies two successful reuse cycles, not indefinite life, universal
+scheduling support or independent review. A conductor can therefore
+reuse a bounded pre-provisioned staff slot
 instead of asking the scheduled runtime to create child automations;
 verify each step from the actual registry and **do not** treat
 configuration acceptance alone as successful dispatch. Never revive
@@ -142,12 +141,12 @@ registry with unnecessary scheduled tasks.
 ## Findings to use; limits to retain
 
 Verified on one ChatGPT Chat Mode configuration during November 3–4, 2026:
-- A scheduled run changed its own saved instructions, schedule, recurrence interval and enabled state; follow-up runs received persisted instructions. One revised two-hour recurrence ran **once**; multiple consecutive two-hour intervals are still being tested.
+- A scheduled run changed its own saved instructions, schedule, recurrence interval and enabled state; follow-up runs received persisted instructions. A revised two-hour recurrence completed its initial configuration run **and one subsequent two-hourly occurrence**; two later bounded intervals are still pending.
 - A scheduled run changed an **existing** separate automation's saved prompt and schedule. Separate target runs executed the updates, and read-only scheduled observers retrieved completed results through the Automations registry.
 - A one-time scheduled parent was **prohibited by its execution environment** from creating another automation. No backend creation attempt occurred; this is not evidence about technical scheduler capacity. Do not try child-creation workarounds or claim unlimited task spawning.
 - The tested separate task run IDs shared the **same chat reference**. Distinct task IDs, prompts and run IDs do not prove separate chat contexts, qualified independent review or a detached live process.
-- **Reactivation and GitHub evidence improved:** A scheduled manager successfully updated and re-enabled two *test-owned* completed/paused automations; the formerly exhausted task's **two bounded post-revival scheduled runs both completed**, and the formerly self-paused task's single restarted run also **completed**. A new same-ID one-off experiment completed its **first revived single-event run** and auto-disabled again; **second re-enablement is still unverified**. A scheduled Chat Mode agent successfully created/read back one harmless file on a pre-provisioned test branch; a different scheduled observer independently verified the exact commit/blob. This does **not** authorize unrelated production writes, user-paused task revival or other MCP providers. The bounded scheduled-to-ordinary-interactive-message probe **completed BLOCKED**: no supported same-chat user-role message injection tool was available.
-- **Real productive waves (November 4):** The private hourly BinaryWorkbench team now has **three completed substantive scheduled worker runs with overlapping actual start/finish intervals and different recorded ChatGPT chat references**. Their separately committed GitHub artifacts were read by a **later completed integrator** whose saved checkpoint records **13 passing static interface/source checks** and 23 nonoverlapping paths across five development branches. This is verified parallel **recorded execution** and downstream **source/checkpoint inheritance**, but **not** a successful executable integration, CI run, formal independent review or a proven general HA runtime. The conductor persisted the owner-directed eight-role hourly schedule; the milestone reporter saved a completed owner-facing summary with deduplication state, but notification delivery is not independently established. Preserve both concurrent lanes and sequential inherited waves. See the [privacy-safe case study](REWIZARD_BINARYWORKBENCH_CASE_STUDY.md).
+- **Reactivation and GitHub evidence improved:** A scheduled manager successfully updated and re-enabled two *test-owned* completed/paused automations; the formerly exhausted task's **two bounded post-revival scheduled runs both completed**, and the formerly self-paused task's single restarted run also **completed**. A separate same-ID one-off experiment completed **two consecutive reactivations** of its original task with distinct finished run IDs and correctly saved one-time markers; both auto-disabled afterward. This is not an unlimited revival guarantee. A scheduled Chat Mode agent successfully created/read back one harmless file on a pre-provisioned test branch; a different scheduled observer independently verified the exact commit/blob. This does **not** authorize unrelated production writes, user-paused task revival or other MCP providers. The bounded scheduled-to-ordinary-interactive-message probe **completed BLOCKED**: no supported same-chat user-role message injection tool was available.
+- **Real productive waves (November 4):** The private hourly BinaryWorkbench team now has **four substantive scheduled workers with a common completed-run overlap from 11:23:25 to 11:24:33 UTC**, distinct ChatGPT chat references and separately committed private GitHub branch work. A later provisional verifier run also completed and committed a further regression report, but qualified reviewer independence is still unproven. Their separately committed GitHub artifacts were read by a **later completed integrator** whose saved checkpoint records **13 passing static interface/source checks** and 23 nonoverlapping paths across five development branches. This is verified parallel **recorded execution** and downstream **source/checkpoint inheritance**, but **not** a successful executable integration, CI run, formal independent review or a proven general HA runtime. The conductor persisted the owner-directed eight-role hourly schedule; the milestone reporter saved a completed owner-facing summary with deduplication state, but notification delivery is not independently established. Preserve both concurrent lanes and sequential inherited waves. See the [privacy-safe case study](REWIZARD_BINARYWORKBENCH_CASE_STUDY.md).
 - Scheduled starts were minutes early or late. Treat `next_run_time=null`, `in_progress`, `is_enabled` and a saved `RRULE` as different evidence. Each run must be verified by its recorded run ID and result.
 
 ## Owner-approved bootstrap strategy
