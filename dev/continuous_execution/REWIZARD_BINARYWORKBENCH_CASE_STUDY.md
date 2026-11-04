@@ -112,6 +112,53 @@ minutes, number of commits or another operational performance ledger. Use
 confirmed GitHub source/commit/test evidence, preserving project privacy.
 Avoid criticizing a run for ending at a genuine service/runtime boundary.
 
+## Known failures and prevention — owner retrospective, November 4
+
+The owner identified three concrete weaknesses in the live, real-work
+orchestration, distinct from the earlier synthetic scheduling tests:
+
+- **Wrong execution boundary:** Workers could use authenticated GitHub
+  connected tools but could not obtain a normal private checkout in
+  their own execution environment. Some direct network requests also
+  suffered DNS failures. They treated these route-specific limitations
+  as if **all source-bound tests** were unavailable.
+- **Speculation rather than experiment:** The integrator examined
+  GitHub Actions configurations and permissions but did not conduct
+  the decisive isolated minimal CI experiment. The owner supplied
+  that empirical step, after which **multiple branch-isolated synthetic
+  Actions runs succeeded**. They are real run successes for their
+  specific test commits, not proof of current worker or integrated
+  source HEADs passing the entire suite.
+- **Shared blocker without ownership:** Separate code branches and
+  exclusive editors prevented merge conflicts but masked an essential
+  cross-team prerequisite. The conductor should have recognized the
+  repeated test-execution gap and explicitly assigned an existing
+  role to prove an alternative. The active interactive ChatGPT worker
+  also had an opportunity to intervene earlier.
+
+**Required prevention in future Chat Mode waves:** When a local clone
+fails, do not report simply "tests cannot run." Build a small execution
+route matrix and conduct an authorized **minimal real CI probe** on
+an isolated safe branch before another research-only report; inspect
+the actual run/commit and any approval denial. When two workers
+report the same blocker or it repeats for two completed waves, the
+conductor must designate an accountable worker/integrator to resolve
+that shared prerequisite while unrelated implementation continues.
+Preserve ownership for **writes**, not for recognizing and raising
+a cross-team problem. The main interactive chat contributes useful
+experiments during its active turns. One scoped passing Actions
+workflow still requires current-revision binding, correct test
+selection, exact pass/fail/skip accounting, integrated checks, and
+qualified independent review before acceptance.
+
+These lessons were added to the publicly reusable Chat Mode
+[orchestration skill](../../skills/chatmode-scheduled-orchestration/SKILL.md)
+and to the **private project's owner directives and known-issues
+record**. This is policy propagation, not proof the team has
+fully eliminated recurrence. The scheduled evidence review should
+check actual future worker actions and record honest remaining gaps
+without copying private source or task identifiers to this repo.
+
 ## Evidence collection rules
 
 For each later bounded observation:
