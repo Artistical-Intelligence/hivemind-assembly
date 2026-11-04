@@ -62,6 +62,19 @@ scheduler extension or an approval to start autonomous HA workers.
   `DTSTART`, recurrence interval, occurrence bound and enabled status
   in response to evidence. A different schedule is not proof of
   concurrent execution; a saved handoff is not proof of receipt.
+- **Do several useful steps per invocation:** A scheduled worker's
+  first saved improvement, commit, report, or checkpoint is **not a
+  natural stopping point**. After saving an exact recovery revision,
+  immediately continue into the next feasible substantive
+  implementation, synthetic test, diagnosis, correction, or verification
+  step in the same run, respecting assigned ownership and actual
+  dependencies. A coherent effort may span both multiple operations
+  *within one invocation* and many later inherited work waves.
+  This requirement cannot guarantee an hour-long execution; real
+  service runtime, context, usage, tool and approval boundaries remain
+  authoritative. Do not create wakeup loops or descendants to prolong
+  a run. Stop only at real limits, completed authorized work, an owner
+  stop, or no more useful permitted action; retain concise checkpoints.
 - **Base assignments on the actual project:** The common 80% may consist of
   owner objective, rules and source boundaries; the remaining role-specific
   responsibilities must be meaningful and have separate output ownership.
