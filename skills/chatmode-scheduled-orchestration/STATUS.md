@@ -1,0 +1,1 @@
+CHECKS PENDING: SKILL.md — owner-directed Chat Mode scheduling/orchestration manual; separate qualified instruction/safety/surface review and verification against actual supported runtime tools required. It is not installed as a ChatGPT skill or a native HA scheduler extension.
