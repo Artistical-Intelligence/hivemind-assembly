@@ -1,1 +1,2 @@
 CHECKS PENDING: RECIPES.md — independently verify iCalendar COUNT/INTERVAL examples, tool field names, prompt-replacement safeguards, and Chat Mode-only source permissions; no claim of live HA runtime acceptance.
+CHECKS PENDING: RECIPES.md newly documents distinct single-event corrective reuse and shift-manager maximum-work-runway optimization; empirical sub-hour dispatch and native scheduler linkage remain untested.
