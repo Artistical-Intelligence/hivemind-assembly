@@ -78,6 +78,9 @@ def test_adaptive_chain_is_evidence_driven_and_not_a_fixed_loop():
 def test_owner_scheduled_roster_guidance_remains_chat_mode_only():
     """Static policy expectations; not a live scheduler acceptance test."""
     required = (
+        "PRIMARY DESIGN (2026-11-04; Chat Mode only):",
+        "workstreams in PARALLEL",
+        "Do NOT treat the workforce as a mandatory serial",
         "OWNER-APPROVED PRE-PROVISIONED ROSTER",
         "conductor, two substantive workers, verifier, integrator",
         "prohibited from creating child automations",
