@@ -83,20 +83,35 @@ scheduler extension or an approval to start autonomous HA workers.
   verifies only its exact revision/tests, **not** integrated
   acceptance. See the [real BinaryWorkbench case study](dev/continuous_execution/REWIZARD_BINARYWORKBENCH_CASE_STUDY.md)
   and [skill](skills/chatmode-scheduled-orchestration/SKILL.md).
-- **Shift-manager corrective dispatch:** Treat an unfinished important shift as
-  grounds for a **new generalized corrective brief**, not a verbatim replay of
-  its previous invocation. The manager identifies actual missing evidence,
-  source/test revisions, next executable repair and downstream dependency,
-  and selects the **earliest eligible existing authorized worker**, not
-  necessarily the original author. Transfer ownership explicitly, change
-  that worker's saved assignment and next lawful DTSTART when beneficial,
-  then verify that the new run actually closes the gap. Reassign separate
-  corrective fragments concurrently where outputs do not conflict.
-  Changing a task's meaning does **not** exempt its existing automation
-  from the service's per-task hourly execution limit. Optimize the manager's
-  own hourly check-in against real critical-path completion times and
-  successor starts; do not claim an exact universal optimum for asynchronous
-  work or force a sixty-minute model runtime.
+- **HA-only corrective one-off assignments:** A failed or unfinished
+  important shift creates a NEW generalized corrective work assignment,
+  not a verbatim replay of an hourly recurrence. The shift manager
+  should select the earliest capable, available authorized worker,
+  including a previously completed reusable one-time task slot.
+  Two resurrections of the same one-off task ID have been verified.
+  For a distinct ad hoc one-time correction, request the **earliest
+  supported future event**, rather than imposing an unsupported blanket
+  one-hour delay based on that ID's prior execution. The scheduler's
+  once-hourly minimum for recurring `RRULE` tasks is **not proof** of
+  a cooldown for every newly assigned one-time task. Immediate or
+  sub-hour one-off reactivation remains **unverified**; observe the
+  actual service acceptance and completed run before claiming it.
+  Prompt changes alone cannot start a new model execution. Preserve
+  active-task caps, permissions, writer ownership and approval rules;
+  do not replicate unchanged recurring jobs to evade service limits.
+- **Give the shift manager the longest useful working window:**
+  Position its own hourly phase as soon as relevant preceding
+  results are expected to be available, leaving the **maximum
+  available work time** before the next major cohort begins.
+  Choose a candidate minute by comparing actual completion-time
+  distributions, scheduler jitter and readiness margins. This is
+  an optimization of the **manager's usable planning/work runway**,
+  NOT minimization of downstream task latency and NOT an instruction
+  to make other workers wait for managerial permission. Independent
+  workers continue autonomously. A single hourly phase cannot
+  guarantee that every asynchronous output is finished; a default
+  inherited phase must be re-evaluated. See
+  [HA shift-manager formulation](dev/continuous_execution/SHIFT_MANAGER.md).
 - **Do several useful steps per invocation:** A scheduled worker's
   first saved improvement, commit, report, or checkpoint is **not a
   natural stopping point**. After saving an exact recovery revision,
