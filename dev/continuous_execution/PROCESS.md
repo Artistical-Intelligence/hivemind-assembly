@@ -68,6 +68,38 @@ run timestamps before asserting parallel execution and verify
 the receiving run's recorded use of an exact source artifact before
 asserting a handoff worked.
 
+## HA shift manager: maximal work window and distinct corrective tasks
+
+This **HA-specific ChatGPT Chat Mode** clarification takes precedence
+over any earlier policy that treated the shift manager as a required gate
+or sought only to minimize downstream worker delay.
+
+The manager should begin **just after the outputs needed for its next
+decisions are likely to be ready**, leaving the **longest usable period**
+for substantive diagnosis, brief writing, scheduling updates and
+coordination before the next substantial worker wave. Use completed-run
+evidence, dispatch jitter and source readiness, not a fixed phase from
+another project. Compare all supported hourly minute phases and pick
+the earliest high-confidence post-evidence phase. Workers may proceed
+without manager approval on ready independent work. Missing/noncritical
+results do not block the manager or workers; source dependencies and
+one-writer controls still apply. See [SHIFT_MANAGER.md](SHIFT_MANAGER.md)
+for an explicit work-runway objective and acceptance requirements.
+
+A previous run's missing deliverable generates a **new, generalized
+corrective one-time task instance**, rather than a repeat of the
+original assignment. Reassign it to the earliest suitable authorized
+worker, including a **reusable, previously completed one-time task ID**
+when available. Twice reviving the same one-off has been demonstrated;
+the exact earliest permitted dispatch following a completion has **not**
+been established. Thus do not impose a categorical 60-minute wait
+based solely on the **hourly recurring** RRULE rule; instead attempt
+a genuinely distinct owner-authorized future one-time event and
+check actual service acceptance and execution. Do not promise instant
+or sub-hour dispatch until empirically confirmed, and do not turn
+multiple semantically identical one-offs into a forbidden substitute
+for sub-hour recurring tasks. Permissions, safety and task caps remain.
+
 ## Pre-provisioned conductor and continuously evolving objective
 
 Owner choice (November 4, 2026): if authorized for the real project,
