@@ -1,0 +1,1 @@
+CHECKS PENDING: README.md and project state conventions — separate qualified review of source mediation, public-repo privacy, lease/ID discipline, and compact handoff layout; no production scheduling authorized.
