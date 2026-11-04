@@ -22,6 +22,44 @@ The actual Automations registry contained five **enabled** RE-Wizard project tas
 
 The project's own private coordination checkpoint described two independent work lanes, a provisional verifier, an integrator and a conductor responsible for revised scheduling. Compiler archive metadata had been inventoried, but its synthetic tests were explicitly marked **NOT RUN** at initial bootstrap. This is a statement about the private project's checkpoint, not fresh program validation. Do not disclose protected implementation content in HA's public evidence.
 
+## Owner's live-team instruction update (November 4, 2026)
+
+The owner clarified the already scheduled five-task group's operating
+requirements, then the other project chat expanded the real-work team:
+**every active scheduled production role should recur hourly** (the
+smallest supported recurring interval), with the **earliest useful
+permitted initial start**, while distinct nonconflicting work is assigned
+in parallel even when multiple agents are needed to divide a large
+milestone. Proven results may be inherited by later waves. This is a
+**project-specific production instruction**; do not confuse it with
+finite two-hourly diagnostic observers, or generalize it to Claude,
+Codex and Work.
+
+The **interactive main project chat remains another substantive worker
+when a user turn is actually running**, separate from background
+scheduled execution. It should contribute real project work rather
+than merely managing the automated pool. The owner also requested
+**readable milestone updates in that chat** to review later; retain
+concise durable GitHub handoffs so automation work does not depend on
+the human reading a status message.
+
+A read-only Automations registry inspection around **10:20 UTC**
+showed the team had expanded from the original five to **eight enabled
+project-related scheduled roles**: a conductor, four specialized
+implementation workers, provisional verifier, integrator and milestone
+reporter. Each saved recurrence was **hourly**, although some
+requested starts were identical for workers with distinct workloads.
+At that snapshot no completed execution from these expanded tasks was
+available yet; actual overlapping execution, source edits, milestone
+reporting, and qualified independent review remain **UNVERIFIED**.
+The project's separate conductor owns rescheduling, not the HA observer.
+
+The scheduling observer has been updated to review all eight roles and
+whether actual run and GitHub artifact evidence supports both parallel
+and inherited waves; it must not overwrite active private project
+schedules or files. This case study deliberately avoids publishing
+private branch names, task IDs, chat references or project source.
+
 ## Evidence collection rules
 
 For each later bounded observation:
