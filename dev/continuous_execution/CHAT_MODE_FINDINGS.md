@@ -46,7 +46,14 @@ pre-created hourly manager (four total coordinator opportunities),
 will attempt to re-enable exactly one previously expired test-owned
 one-time automation **twice**, each time only after the prior
 single-event run is independently recorded `completed` and the task
-is again disabled. The target is the originally completed bounded
+is again disabled. **First scheduled manager execution completed** at
+**10:24:45 UTC**. It verified the original test-owned single-use
+run was completed and disabled, then accepted one update with the
+same task ID, replacement `NECRO_ROUND=1` instructions,
+`is_enabled=true`, and a new **one-time** schedule at **10:44:28 UTC**.
+A separate registry read confirmed persistence. This verifies the
+**first resurrection update**, not yet a completed first revived run,
+and not yet repeated resurrections. The target is the originally completed bounded
 parent-child test, not a RE-Wizard or owner-paused automation. Each
 revival would change its saved `prompt` and future single
 `DTSTART`, plus `is_enabled=true`, preserving its **same task ID**.
