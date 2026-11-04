@@ -22,6 +22,63 @@ description: Draft operations manual for bounded ChatGPT Chat Mode scheduled-tas
 - **GitHub state:** Use `projects/<slug>/state/` for strictly minimal current state, handoff and task mapping *when owner-approved*. Restrict direct GitHub reads to sources each role is permitted to access, and do not expose private conversation IDs or credentials in a public repo. Track service-assigned IDs only in an appropriately private state store if necessary to address tasks.
 - **Status and accounting:** Open-ended `RRULE` does not mean a continuously live model. A task might auto-pause after inactivity or approval. Chat scheduled executions may consume normal plan allowance whether or not a dot initiated them. No confirmed free route exists by asking a dot to send an ordinary Chat task.
 
+## Owner's current live-team scheduling preferences and one-off "necromancy"
+
+**Specific to the real private BinaryWorkbench development team** (not a
+provider-neutral HA or Claude instruction): the owner requires active
+scheduled worker roles to recur **every hour, the smallest supported
+recurrence**, and to request the **earliest useful permissible initial
+execution**. Workers that can perform distinct independent fragments
+should run in parallel; when a large milestone merits multiple specialists,
+assign multiple nonconflicting work packages instead of serializing
+everything through one worker. Follow dependencies when they are real,
+and hand verified work/results to later waves when needed. Avoid artificial
+stagger delays: simultaneous planned DTSTART values are acceptable for
+genuinely distinct roles, but do not claim actual concurrency until
+recorded intervals overlap. Model invocation timing is service-controlled.
+
+**The main interactive chat also counts as an active worker while it is
+actually executing a user turn.** It should do substantive authorized
+project work alongside scheduled staff and should not claim to remain
+running without a fresh turn or an actual automation. Keep normal
+owner-readable milestone updates in that chat while writing short durable
+GitHub checkpoints for automated workers. Milestone reporting is not an
+instruction to send a message on every unchanged status poll, nor to
+replace work with narration.
+
+**Necromancy = reusing an expired one-time task ID.** A completed one-off
+normally becomes disabled. If authorized and the original task is
+test/project-owned (never a user-paused or unrelated task), a scheduled
+conductor can update that **same** task ID with its full replacement
+instructions, a new future **one-time** VEVENT (`DTSTART`, no `RRULE`)
+and `is_enabled=true`. The target then has a chance to execute again,
+disable automatically, and potentially be revived later with another
+scoped update. This reuses a staff slot; it does **not** create a new
+automation, detached agent process, ordinary user-role message, or
+independent conversation. Verify exact task ID, previous completed run,
+single-event saved schedule, enabled transition, **new distinct run ID**,
+and the receiving run's actual prompt marker. Do not accidentally
+schedule the same job twice while it is in_progress or already enabled.
+A task's `conversation_id` cannot be reassigned with the tested update
+action; later run `chat_ref` must be inspected independently.
+
+One successfully revived **first** occurrence had already been
+recorded. **Multiple resurrections of the same exact one-time task ID
+have not yet been demonstrated**. A bounded experiment named
+`CHATMODE-20261104-NECROMANCER-A` is scheduled as a single
+hourly coordinator (four occurrence maximum) to attempt two sequential
+revivals of a previously expired, test-owned one-off with the **same
+immutable ID** and no child task creation. It will test the latter
+claim, not assume it. An earlier attempt to create a separate new
+test one-off was rejected with `too_many_active_automations`,
+reporting a **15-active-task limit for the tested plan at that time**.
+Two redundant, test-owned cadence observers were therefore paused,
+because the existing bounded evidence monitor already covers their
+checks. The real development team's schedules and user-paused tasks
+were not changed. Re-enabled one-offs still consume an active task
+slot; this is not free unlimited execution or a way around the
+hourly recurrence/usage limits.
+
 ## Live parallel-and-inherited waves case study
 
 The owner is simultaneously running a **real** BinaryWorkbench improvement team in the separate, private RE-Wizard repository. Its five pre-provisioned ChatGPT Chat Mode roles are conductor, two substantive workers, provisional verifier and integrator, each with branch/output ownership and individually configurable recurrence. Their goal is meaningful program development and synthetic testing, **not** merely a scheduler demo. Review both **parallel work** and **inherited follow-up waves**, but do not mistake enabled tasks for actual overlapping execution, a task change for committed work, or a distinct reviewer task for independent model/context qualification. Do not copy proprietary private source, branch names, account identifiers or protected evidence into the public HA skill. Read the [public, deliberately privacy-limited case study](../../dev/continuous_execution/REWIZARD_BINARYWORKBENCH_CASE_STUDY.md) and [dated findings](../../dev/continuous_execution/CHAT_MODE_FINDINGS.md). A short, **bounded** scheduled evidence-sync is authorized to examine real task run results and private GitHub evidence with read-only access, updating only HA public evidence/skill documentation when material changes are independently supported. Do not interfere with the private project's work or its conductor's schedule authority.
