@@ -69,6 +69,28 @@ child tasks, run-now/self-wake loops or unsupported model/provider changes
 to force longer execution. Prefer substantive results to repeated status
 narration; checkpoint exact resume state at real interruption.
 
+SHARED BLOCKERS: PROBE FIRST, ASSIGN OWNER (owner rule 2026-11-04):
+Do not generalize a blocked route into a blocked objective: failure to
+clone a private repo locally or DNS failure does not prove source-bound
+tests cannot execute through an authorized authenticated CI runner.
+Distinguish connector source access, local execution, hosted CI execution,
+tested source revision and independent acceptance. When a safe supported
+route exists, conduct a MINIMAL real executable experiment on an isolated
+permitted branch rather than repeating speculative feasibility reports.
+For test CI, verify actual workflow run/job, exact checked SHA, executed
+test command, pass/fail/skip counts, and permissions/approval scope.
+A passing isolated synthetic CI check is NOT proof that current worker
+heads or integrated build pass; keep the exact tested revision.
+When >=2 independent lanes report one blocker OR the same blocker
+persists for two completed waves, conductor must assign one existing
+authorized owner to test and remove that SHARED prerequisite promptly.
+Other nonconflicting workers continue; no artificial global stop.
+Exclusive WRITE scope never blocks workers from diagnosing or escalating
+a team-wide constraint. Main interactive worker must also investigate
+shared blockers during live turns. If a tool or approval blocks the
+experiment, document exact evidence and do not bypass the gate.
+Preserve no-game-tests and no untrusted compiler/installer execution.
+
 PRIMARY DESIGN: INTERLEAVED WAVES (2026-11-04; Chat Mode only):
 Multiple pre-provisioned specialist workers can pursue DIFFERENT authorized
 workstreams in PARALLEL where actual dependencies, tools and writer leases
