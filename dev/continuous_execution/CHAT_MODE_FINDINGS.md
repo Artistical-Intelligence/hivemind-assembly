@@ -42,7 +42,7 @@ The private RE-Wizard BinaryWorkbench project expanded from five provisioned rol
 
 **November 4, 2026 — PASS within this bounded ChatGPT Chat Mode experiment.** A previously completed, automatically disabled **one-time** task was twice re-enabled by an existing finite hourly coordinator via saved prompt, future single `DTSTART`, and `is_enabled=true`. Original, first revived and second revived executions all completed under **the same stable automation ID** with **three distinct recorded run IDs**. The first revived task ran with `NECRO_ROUND=1` and finished 10:48:45 UTC. The second round used `NECRO_ROUND=2`, retained a **no-RRULE** one-time VEVENT and finished **11:45:41 UTC**; its latest result has the exact recorded run ID and the saved marker. After both revived executions the registry showed the task disabled. The bounded coordinator's final completed result independently compared all three run IDs and then stopped; no new child automation was created.
 
-**Limits:** This is two successful resurrections of **one test-owned** task, not unlimited repeated invocation, arbitrary user-paused task revival, automatic task creation, a new ordinary user-role message, context independence, qualified review or a relaxation of hourly recurrence, active-task quota, usage or approval restrictions. Target-authored text can still describe `in_progress` because final registry completion happens after text generation; rely on the later persisted completion and matching latest-result run ID.
+**Limits and distinction:** This establishes two successful same-ID revivals for genuinely separate single-use assignments, not unlimited repeated invocation, arbitrary user-paused task revival, automatic task creation, a new ordinary user-role message, context independence or qualified review. The minimum hourly interval for recurring `RRULE` tasks does **not by itself establish** a mandatory 60-minute cooldown for every *new* single-event corrective assignment. However, this test did **not** deliberately verify a sub-hour single-event dispatch after a prior completed run; do not promise immediate scheduling until a bounded service experiment verifies it. The tested account also encountered an active-task cap, and usage/approval rules still apply. Target-authored text can still describe `in_progress` because final registry completion happens after text generation; rely on the later persisted completion and matching latest-result run ID.
 
 A direct attempt to create another test one-off failed with
 `too_many_active_automations`, reporting a cap of **15 active
@@ -70,6 +70,10 @@ HA observer reads their *actual* later execution records and
 private GitHub artifact metadata without altering the team's
 schedules, files, or permissions. See the privacy-safe
 [BinaryWorkbench case study](REWIZARD_BINARYWORKBENCH_CASE_STUDY.md).
+
+## HA-specific manager correction: maximum available work time
+
+The owner corrected two overgeneralizations in the earlier HA shift-manager guidance. **First**, a new corrective brief can reuse an expired one-time automation as a logically distinct task; its earliest supported next event must be checked on the actual scheduler rather than inferred from the hourly **recurring** RRULE minimum. The November 4 two-revival PASS proves slot reuse but not arbitrary sub-hour dispatch. **Second**, the manager's own hourly check-in should be positioned to **maximize its useful working window after relevant results are ready and before the next major worker cohort**, rather than minimizing a downstream worker's wait for the manager. Independent work proceeds without managerial gating. The explicit phase-search objective and testable pure helper are in [SHIFT_MANAGER.md](SHIFT_MANAGER.md) and `_app/hivemind_assembly/automation/shift_window.py` (source tests pending CI/independent review); no live private RE-Wizard task or schedule was changed by this HA correction.
 
 ## Orchestration design decision
 
