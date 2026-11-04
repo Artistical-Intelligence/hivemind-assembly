@@ -82,6 +82,36 @@ private branch names, task IDs, chat references or project source.
 
 **Scope and acceptance:** No game or opaque archived compiler test was run by this observer. No private production source, branch, automation ID or chat ID is disclosed here. **CHECKS PENDING:** source-bound full Python suite, qualified independent verification, CI, safe authorized integration and a permitted PR/merge path. Neither the completed verifier report nor new committed regression source makes those tests pass automatically.
 
+## Deep work per scheduled invocation (owner update, November 4)
+
+The owner wants **substantially more productive individual executions**. A
+worker should continue through **multiple feasible implementation and
+targeted testing steps within a single scheduled run** instead of stopping at
+its first committed edit, finished issue, short report, or checkpoint. A commit
+is a durable recovery boundary, not a natural finish line. After each useful
+change, continue the same coherent task, run available safe synthetic
+regressions, fix newly discovered defects, and pick up another worthwhile
+nonconflicting step when resources permit. Checkpoints remain mandatory for
+recovery, revision provenance and independent review; workers must **not**
+treat them as work quotas.
+
+The actual private scheduled workforce now has this rule in its **saved task
+prompts**, including its conductor, technical workers, verifier, integrator,
+and milestone reporter. That is verified prompt state, **not proof** of
+longer-running or more productive future model executions. Real service
+runtime, context, tool approval, model usage and other limits are not under
+task instruction control, and an hour-long execution cannot be guaranteed.
+Do not try child/duplicate/run-now wakeup loops to extend a run.
+
+For the live review, look at each worker's **completed run and actual
+revisioned artifacts**: did it proceed beyond one initial commit or report
+into additional useful code, targeted synthetic tests, diagnosis, correction
+or verification when possible? Were later tasks blocked by concrete limits?
+Evaluate substance and genuine tested outcomes, **not** mere elapsed
+minutes, number of commits or another operational performance ledger. Use
+confirmed GitHub source/commit/test evidence, preserving project privacy.
+Avoid criticizing a run for ending at a genuine service/runtime boundary.
+
 ## Evidence collection rules
 
 For each later bounded observation:
