@@ -46,6 +46,18 @@ scheduler extension or an approval to start autonomous HA workers.
   one verifier and one integrator. A team is not useful merely because all
   slots are active. No scheduled child creation, no frequency-limit
   circumvention, no automatic activation of unrelated or owner-paused tasks.
+- **Parallelism is the core, not a relay:** Recruit multiple useful workers
+  in advance, assign genuinely independent workstreams concurrently, and let
+  them progress without awaiting the conductor or an unrelated review. The
+  conductor dynamically changes each authorized task's current goal,
+  `DTSTART`, recurrence interval, occurrence limit, and enabled state
+  according to dependencies, actual evidence, and resource availability.
+  A staggered start plan is optional and does not itself demonstrate
+  simultaneously running models or independent chat contexts. Record and
+  verify actual run overlap before claiming parallel execution. The
+  worker/verifier/integrator labels are flexible responsibilities, **not a
+  compulsory linear worker -> reviewer -> tester pipeline**. Retain sole-writer
+  fences, required acceptance gates and the scheduler's real per-task limits.
 - **Base assignments on the actual project:** The common 80% may consist of
   owner objective, rules and source boundaries; the remaining role-specific
   responsibilities must be meaningful and have separate output ownership.
