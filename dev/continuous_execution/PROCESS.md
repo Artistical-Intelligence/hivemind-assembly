@@ -68,7 +68,25 @@ run timestamps before asserting parallel execution and verify
 the receiving run's recorded use of an exact source artifact before
 asserting a handoff worked.
 
-## HA shift manager: maximal work window and distinct corrective tasks
+## HA shift manager: maximal work window, shared temps and full-time authority
+
+**The authoritative HA Chat Mode Shift Manager operating rules are in
+[SHIFT_MANAGER.md](SHIFT_MANAGER.md).** Only the manager changes
+full-time/recurring roles, including recovery of an actually stopped
+recurring employee. Any explicitly authorized scheduled worker may
+borrow a registered **dormant one-time temp** without waiting for the
+manager, but must first win an atomic, exact-ID, private
+create-if-absent claim, verify its persistence and the live task's
+stopped state, and return it only after checked outcome and an exact
+claim release. Full-time task IDs are never in the shared temp pool;
+disabled or historically experimental tasks are not automatically
+eligible. The private coordination branch and task identities must
+remain private; do not apply this to Work, Codex, Claude or another
+provider. The protocol is **documented, not a demonstrated HA-native
+claim dispatcher**. The shift manager still maximizes its own useful
+pre-wave work runway without imposing a gate on independent workers.
+
+## Earlier HA shift-manager context (superseded where inconsistent)
 
 This **HA-specific ChatGPT Chat Mode** clarification takes precedence
 over any earlier policy that treated the shift manager as a required gate
