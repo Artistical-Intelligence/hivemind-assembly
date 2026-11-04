@@ -14,7 +14,7 @@
 | `CHATMODE-20261104-COOP-COORDINATOR-A` + `CHATMODE-20261104-COOP-TARGET-A` + observer | A scheduled coordinator changed the target's prompt and one-time DTSTART; target completed at the revised occurrence; observer retrieved both completed results. | Same chat reference; model reports of updates are not independent tool transaction logs. |
 | `CHATMODE-20261104-INTERACTIVE-ECHO-A` | A bounded scheduled run **completed** (08:34:32 UTC) and inspected its available native actions. It reported **BLOCKED-NO-SUPPORTED-USER-MESSAGE-TOOL**: no operation for adding a user-role message to the same chat and independently triggering ordinary interactive Chat Mode. | `notify_parent` is not a transcript user message; no test message was submitted, so another interface or future product change remains untested. |
 | `CHATMODE-20261104-GITHUB-WRITE-A` + `CHATMODE-20261104-GITHUB-WRITE-AUDITOR-A` | A scheduled Chat Mode run **completed** and created exactly one harmless file on a previously prepared non-main GitHub experiment branch, with readback. A **separate scheduled auditor** independently fetched exact commit `8eaa4ba5657cbcd4b4b663af2e79714a81d27a4d` and blob `fe649e1a23a0078ae612d7ecfcd4483135d37d05`. The authoring run and auditor have **different chat references**. | This verifies this particular scheduled GitHub connector read/write flow without an approval interruption; not arbitrary production repository access, other MCP connections, broader autonomous HA operation, or formal qualified review. |
-| `CHATMODE-20261104-REVIVE-MANAGER-A` | One scheduled manager completed at **09:08:30 UTC**, reporting two accepted and persisted updates to **test-owned** disabled automations: one previously exhausted one-time target and one previously self-paused target; both were re-enabled with future schedules and replacement prompts. The former independently dispatched and **completed its first post-revival occurrence** (`scheduled_for=09:45 UTC`, completed at 09:42:06 UTC). | Manager update acceptance plus first revived run verified; do not claim the later second occurrence or self-paused target's new run before their own completed records. Unrelated user pauses remained out of scope. |
+| `CHATMODE-20261104-REVIVE-MANAGER-A` | Manager completed 09:08:30 UTC and re-enabled two test-owned disabled automations. The exhausted target subsequently completed **both** post-revival bounded occurrences: scheduled 09:45 UTC (finished 09:42:06) and 10:45 UTC (finished 10:46:46). The formerly self-paused target also completed its restarted 10:05 UTC one-off (finished 10:08:25). Latest completed registry runs have matching result run IDs. | This verifies actual post-revival completion, not a **second re-enablement** of the same one-off, independent reviewer qualification, or permission to restart unrelated user-paused tasks. Task-authored text captured during in-progress execution can lag final registry status. |
 | `CHATMODE-20261103-ONESHOT-PARENT-A` and `CHATMODE-20261103-PARENTCHILD-A` | Scheduled parent runs executed and inspected the registry, but their runtime prohibited creating an additional scheduled task. No child existed. | **Blocked at permission level**; no backend creation attempt, cannot infer implementation incapability. |
 
 All completed prior bounded tests were disabled afterward; no indefinite worker was created. Some scheduled starts occurred early/late; intended times alone do not establish actual execution. All reported status claims require task identity, exact `scheduled_for`, `last_run.id`, `recorded_status`, `completed_at`, and matching `latest_result.run_id`.
@@ -26,41 +26,21 @@ Some **initial** updates and runs are now verified; later occurrences remain **s
 | Key | Hypothesis and bounds |
 | --- | --- |
 | `CHATMODE-20261104-RECUR-3X2H-A` | **Initial change and completion verified:** single scheduled execution changed its own schedule to `DTSTART:20261104T112000Z` and `RRULE:FREQ=HOURLY;INTERVAL=2;COUNT=3`, with readback; actual completed initial run scheduled for 09:20 UTC, completed 09:25:05. Future three occurrences intended for 11:20, 13:20, 15:20 UTC and read-only auditors remain under observation. Don't infer repeated cadence from accepted configuration. |
-| `CHATMODE-20261104-REVIVED-EXPIRED-A` and `CHATMODE-20261104-REVIVED-SELFPAUSED-A` | The completed manager successfully set both test-owned tasks' new prompts/schedules/enabled state; **first** expired-task revival completed for scheduled-for 09:45 UTC. Its second occurrence is intended for 10:45 UTC. Self-paused task is intended to restart at 10:05 UTC, pending recorded execution. |
+| `CHATMODE-20261104-REVIVED-EXPIRED-A` and `CHATMODE-20261104-REVIVED-SELFPAUSED-A` | **Completed:** both intended post-revival runs of the expired target and the single resumed self-paused target run now have completed receipts. The separate later audit remains pending. |
 | `CHATMODE-20261104-REVIVE-AUDITOR-A` | Later read-only check of the manager and both revived tasks; separate config acceptance from post-revival execution and completion. |
 | `CHATMODE-20261104-HA-WAVE-EVIDENCE-SYNC-A` | A separate, five-occurrence, two-hourly scheduled observer will read the bounded test records **and the real private BinaryWorkbench workforce's completed run/repository metadata**; it may update only public HA skill and case-study documentation on genuinely new, independently corroborated evidence. No mutation of worker schedules, private project source or branches. |
 
 ## Real-work BinaryWorkbench review
 
-The owner is using an advance-provisioned **five-role** Chat Mode team for substantive private RE-Wizard BinaryWorkbench refinement, not merely for a simulated test. It is the **test case for both** (a) genuinely parallel useful worker activity and (b) output/check/integration **inheritance between work waves**. At initial inspection, all five tasks were enabled but had not recorded runs; actual overlap, committed work, accepted handoffs and reviewer independence were **unverified**. A bounded scheduled observer will examine only permitted private metadata, not expose private code, task IDs, private branch names, protected inputs or chat refs in the public HA repository. The [case study](REWIZARD_BINARYWORKBENCH_CASE_STUDY.md) tracks high-level findings; the exact private records remain in their own repository. The observer must not control or alter that team's workflows, code, branches or schedules.
+The private RE-Wizard BinaryWorkbench project expanded from five provisioned roles to **eight hourly scheduled roles**, plus a separate interactive developer. It is the test case for both (a) real parallel development and (b) artifact inheritance into subsequent work waves. The observer has read completed Automations results and independently checked private GitHub commit and branch-comparison metadata; exact private task IDs, branch names, source files and chat references are not published here.
 
-## Repeated one-time reactivation — "necromancy" (pending)
+**November 4 first-wave finding:** Three substantive scheduled development tasks have distinct completed run IDs, different recorded ChatGPT chat references, and **actual overlapping start/end windows**. Their separate branches contain independently verified source and synthetic-test commits. A later integrator completed a separate run and consumed the five developer branches at exact revisions, saving **13 passing static source/interface checks** and a 23-path, zero-direct-collision comparison. The conductor completed a configuration wave and saved the eight-role hourly team state. A milestone-reporting task produced a completed owner-facing summary and persisted deduplication state; actual human notification delivery was not separately established. The fourth compiler branch contains previous work, but its specific **scheduled** worker had no completed run recorded yet. A reviewer run remained in progress. **Qualified independent review, real repository-level tests, executable integration, CI and approved PR/main merge remain unproven.** See the [privacy-limited case study](REWIZARD_BINARYWORKBENCH_CASE_STUDY.md).
 
-**Known:** A scheduled manager already succeeded in re-enabling an
-expired, *test-owned* one-time task, and its first independently
-dispatched revived run completed. This does **not** establish that the
-**same** one-time automation can be revived multiple times.
+## Repeated one-time reactivation — "necromancy" (second revival pending)
 
-**New bounded test:** key `CHATMODE-20261104-NECROMANCER-A`,
-pre-created hourly manager (four total coordinator opportunities),
-will attempt to re-enable exactly one previously expired test-owned
-one-time automation **twice**, each time only after the prior
-single-event run is independently recorded `completed` and the task
-is again disabled. **First scheduled manager execution completed** at
-**10:24:45 UTC**. It verified the original test-owned single-use
-run was completed and disabled, then accepted one update with the
-same task ID, replacement `NECRO_ROUND=1` instructions,
-`is_enabled=true`, and a new **one-time** schedule at **10:44:28 UTC**.
-A separate registry read confirmed persistence. This verifies the
-**first resurrection update**, not yet a completed first revived run,
-and not yet repeated resurrections. The target is the originally completed bounded
-parent-child test, not a RE-Wizard or owner-paused automation. Each
-revival would change its saved `prompt` and future single
-`DTSTART`, plus `is_enabled=true`, preserving its **same task ID**.
-Proof requires two newly completed runs with distinct run IDs, each
-delivered the expected `NECRO_ROUND` marker; no new child automation
-or duplicate one-off should appear. This experiment is **scheduled,
-not yet verified**, and does not relax the hourly or usage limits.
+A pre-existing one-off that had already completed was re-enabled by a finite hourly conductor **without creating a new automation ID**. The manager's first execution completed at 10:24:45 UTC, verified the original exhausted/disabled state, and persisted replacement round-one instructions and a new single-event schedule, with no RRULE. **The target's first same-ID revived occurrence has now completed:** scheduled 10:44:28 UTC, started 10:47:40 UTC, completed **10:48:45 UTC**, with a fresh run ID, matching latest-result run ID and the delivered NECRO_ROUND=1 marker. It automatically became disabled again. The target-authored report itself described in-progress status because its prose preceded scheduler finalization; the final persisted completed receipt is authoritative.
+
+**Not yet proven:** a **second re-enablement of that exact one-off** followed by a further distinct completed run carrying NECRO_ROUND=2. The bounded experiment remains active; a completed first revival does not establish indefinite same-ID resurrection or bypass hourly recurrence, active-task quota, approvals and usage limits.
 
 A direct attempt to create another test one-off failed with
 `too_many_active_automations`, reporting a cap of **15 active
@@ -79,10 +59,11 @@ the service permits**, with large work divided across workers in
 parallel where useful. Results may feed inherited successor waves.
 The main interactive chat is an **additional worker during live
 turns**, and the owner wants concise milestone updates there to
-review later. At a 10:20 UTC snapshot, eight project-related
-scheduled roles were enabled with hourly saved recurrence, but
-their actual execution/parallel work and milestone reporting had
-not yet produced completed registry results. The bounded public
+review later. At the historical **10:20 UTC initial snapshot**, eight project-related
+scheduled roles were enabled with hourly saved recurrence but had no
+confirmed completed results. **Later completed records now verify**
+overlapping development runs, GitHub artifact production and static
+inheritance into the integrator's separate wave. The bounded public
 HA observer reads their *actual* later execution records and
 private GitHub artifact metadata without altering the team's
 schedules, files, or permissions. See the privacy-safe
