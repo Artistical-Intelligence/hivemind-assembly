@@ -45,6 +45,75 @@ To dispatch, choose the **earliest suitable already authorized full-time worker 
 
 When the work package's acceptance passes, close **that assignment**. A permanent employee continues useful ready work on its authorized cadence; a finite temp normally sleeps again after its completed/reported assignment. The project-wide mission remains until its independent terminal acceptance or explicit owner stop.
 
+## 3A. Mandatory full-roster audit and productive reassignment
+
+**Every Shift Manager invocation MUST inspect the complete accessible scheduled-task
+registry across chats**, not merely the manager's last assigned workers or the
+handful whose previous results were successful. Classify each task by exact
+current ID, project/owner authorization, current full-time versus temporary
+role, enabled/paused state, saved VEVENT, actual latest run and result, open
+work-order, current claim/lease, next eligible slot and explicit owner stop.
+The broad scan discovers unused one-off coffee candidates; it **does not**
+authorize taking over unrelated active projects, protected user-paused tasks
+or other managers' full-time employees. Maintain a current roster and
+separately track every employee of this owner-authorized project, including
+workers whose invocation has not run, has failed, is repeatedly delayed or
+has returned `no_update`. A task with `next_run_time:null` is not
+automatically idle.
+
+**Judge meaningful progress by outcomes, not activity or the model's prose.**
+For each project worker, compare the current deliverable and its required
+exit criteria with actual revisioned source/artifacts, executed targeted
+tests, failures and skips, reviewed evidence, resolved defects and a useful
+downstream handoff. A commit, report, tool call, lengthy investigation or
+`recorded_status=completed` without material advancement is **not
+meaningful progress**. A worker need not pass its final acceptance in
+one invocation; concrete valid partial advances that reduce uncertainty
+or unblock dependent work do count. Evaluate blockers and the suitability
+of the current assignment, not just elapsed time or commit counts.
+
+**No employee left idle with ready authorized work.** If a completed
+invocation made no demonstrable progress, repeated the same untested
+plan, reported an already-known blocker without testing an available
+alternative, reached a closed/no-work milestone or cannot progress
+because of a real dependency, **the manager MUST assign a different,
+substantive, ready work package during that same manager invocation**.
+Use the highest-value unowned item from the project's verified backlog
+or another independent fragment of a large milestone. Give a generalized
+brief with specific acceptance evidence, owner/write scope and earliest
+supported next execution; reassign or rebalance roles, including a
+genuinely useful verification/CI/reproduction task, rather than
+leaving a worker to repeat an empty hourly invocation. Where needed,
+allocate one owner to the shared blocker while other workers pursue
+independent progress. If the issue is low capability or repeated
+method failure, change the task approach, specialization, evidence
+packet or permitted escalation rather than just rewriting the same
+instruction. **Do not wait for two cycles** when the first completed
+run clearly produced no useful result or a critical dependency is
+blocked.
+
+**Respect ongoing execution and genuine constraints.** If a task is
+`in_progress`, do not infer failure from partial records or dispatch a
+conflicting write; let it finish or choose an independent colleague.
+If a worker truly has no ready authorized work, lacks the required
+tool/permission/allowance, or is explicitly owner-paused, record
+`NO-READY-WORK` or the exact blocker rather than inventing busywork;
+the manager can leave it dormant or pause that **authorized** task
+and revisit it when a dependency clears. A productive worker should
+keep its useful assignment and continue across invocations; do not
+churn roles merely to appear active. Temp workers available in the
+global coffee pool may support independent parallel/synergistic work,
+but manager-only authority over full-time roles remains unchanged.
+
+**Action and receipts are mandatory:** actual changed saved assignment,
+next eligible schedule and full-prompt readback, followed by the
+worker's distinct completed run and artifact/test evidence. An
+unexecuted recommendation or narrative reassignment is a pending
+decision, **not** demonstrated recovery. The manager's own check-in
+time remains optimized to maximize its useful planning/work runway,
+and its decisions must not become a prerequisite for unrelated workers
+to keep working.
+
 ## 4. Canonical generalized continuation brief — part of this policy
 
 Use a concise work order, not a full chat transcript or a rigid prescribed fix:
@@ -121,10 +190,11 @@ with [offline tests](../../tests/test_shift_window.py). It is not a connected sc
 
 ## 8. Evidence, minimum shift report and acceptance gates
 
-The manager records one compact decision summary in the **existing private project checkpoint**: (1) what completed vs remains running/incomplete, (2) actual run IDs and source/test receipts, (3) the current critical blocker/explicit owner, (4) changed prompts, `DTSTART` and enabled states accepted and independently re-read, (5) candidate phase and expected manager working window with uncertainty, and (6) what work proceeds independently. No duplicate performance ledger. A main-chat contributor acts only during an actual turn, not continuously between turns; scheduled workers must identify unresolved gaps autonomously.
+The shift report must also account for **every authorized project worker**, including those with no new artifact, a completed `no_update`, repeated same-blocker reports, or an idle/no-ready-work state. For each worker record only current useful progress, readiness, the kept/reassigned next work order, and actual dispatch evidence. Treat unrelated account tasks as inventory/protected records, **not** as candidates for forced retasking.\n\nThe manager records one compact decision summary in the **existing private project checkpoint**: (1) what completed vs remains running/incomplete, (2) actual run IDs and source/test receipts, (3) the current critical blocker/explicit owner, (4) changed prompts, `DTSTART` and enabled states accepted and independently re-read, (5) candidate phase and expected manager working window with uncertainty, and (6) what work proceeds independently. No duplicate performance ledger. A main-chat contributor acts only during an actual turn, not continuously between turns; scheduled workers must identify unresolved gaps autonomously.
 
 **Prove each capability separately** before claiming deployment:
 
+- **Full-roster anti-idling:** a completed manager invocation enumerates **all accessible scheduled tasks across chats**, classifies unrelated/protected entries without changing them, and evaluates meaningful progress for **every authorized project worker**, including no-update/failed/blocked/delayed employees. At least one eligible nonproductive worker is given a substantive alternative work order **in that manager invocation**, with saved prompt/next-slot readback and a later successful receiving-run result; true no-ready-work and in-progress exclusions are verified without manufacturing duplicate work.
 - **Full-time authority:** only manager updates a permanent role and it later receives the correct assignment; no unrelated task touched.
 - **Corrective dispatch:** a completed manager identifies an incomplete important outcome; writes a generalized brief; moves the **same eligible worker's next start earlier** where genuinely permitted and beneficial (retained acceptance demonstration), and separately tests dispatching a nonconflicting fragment to a **different** suitable role. Verify actual receipts, not just configuration. This is not a requirement to make the manager a gate or to violate actual cadence restrictions.
 - **Global, reusable temp pool:** bootstrap N permanent hourly roles with a **target N dormant one-time reserves** where quota permits, including genuinely idle one-offs discovered in **other ChatGPT chats regardless of previous purpose**. Confirm disabled/no-future-run state, exact global membership and scope reset. At least two authorized scheduled agents obtain **different** claims without collision, execute distinct parallel/synergistic one-time assignments, record actual results, release verified claims, and demonstrate later reuse. Independently test a cross-chat competing claim for the **same** temp and fail-closed behavior; **no double dispatch**. If the reserve target cannot be met, record the actual capacity reason instead of launching placeholders.
