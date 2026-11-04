@@ -39,7 +39,7 @@ Continue useful project work across **separate scheduled Chat Mode executions**,
 | Re-enable (`is_enabled=true`) a previously paused task | Update API exposes this field; not independently tested in the above experiment series. Only resume explicitly authorized tasks. |
 | Create a new automation **from a scheduled Chat Mode run** | **Blocked by scheduled-run permission boundary** in prior tests; the model did not call the backend to test low-level rejection. Do not retry through alternate routes. |
 | Create one or many child automations from scheduled runs | Same restriction. Do not use copies/descendants to evade cadence restrictions. |
-| Insert a new user-role message in the same chat that triggers an independent interactive turn | Unproven; no suitable native tool identified in interactive tool listing. A bounded scheduled probe was created 2026-11-04, result requires recorded-run inspection. `notify_parent` is not equivalent. |
+| Insert a new user-role message in the same chat that triggers an independent interactive turn | Unproven; no suitable native tool identified in interactive tool listing. Bounded Nov 4 scheduled probe **completed and reported BLOCKED-NO-SUPPORTED-USER-MESSAGE-TOOL**; no native user-message action could trigger a separate ordinary interactive turn. `notify_parent` is not equivalent. |
 | Spawn an ordinary new interactive chat from a scheduled run | Not established. Do not claim that changing task IDs creates or retargets chats. |
 | GitHub writes / plugin or MCP operations | Official documentation permits connected tools in scheduled tasks under permissions and possible approvals. A specific scheduled GitHub write was **not** established by these experiments. |
 
@@ -223,7 +223,7 @@ Completed scheduled tasks in Chat **may consume plan usage allowance even when t
 
 ## Open questions / next bounded tests
 
-1. Same-chat *user-role* message submission followed by an independent ordinary interactive turn (separate one-time probe created; inspect its actual result before classifying).
+1. Same-chat *user-role* message submission followed by an independent ordinary interactive turn: scheduled probe completed BLOCKED (no supported tool); re-open only if a different explicitly supported interface is identified.
 2. Whether a paused, **test-owned** automation can be successfully resumed and run at a new scheduled time by another scheduled Chat task, while leaving all other paused tasks untouched.
 3. Scheduled Chat tool availability for repository and MCP reads; actual GitHub writes remain subject to permission and approval. Do not write to productive repos solely to satisfy a capability test.
 4. Whether a pre-created task in a **different ChatGPT conversation** can be updated by a scheduled coordinator and execute with that distinct `chat_ref`. Existing tests shared one chat ref.
