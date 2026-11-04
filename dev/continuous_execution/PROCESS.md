@@ -1,6 +1,6 @@
 # ChatGPT Chat Mode adaptive execution process
 
-Policy revision: 1.3 — 2026-11-03.
+Policy revision: 1.4 — 2026-11-04.
 
 ## Provider/surface scope — ChatGPT Chat Mode only
 
@@ -24,9 +24,87 @@ Do not optimize for commit counts, tiny easy-to-close tasks, or novelty in the p
 
 In the ChatGPT **Chat Mode** methodology, a chain is an ordered sequence of *decisions informed by new evidence*, not a fixed repeating loop or a prescripted series of small jobs. Each execution reads the actual latest state, observes reviewer or tool results, and decides whether to finish, continue the same large chunk, repair, change method, pursue a new dependency, schedule a justified successor, or stop at a genuine boundary. The chain has **no arbitrary total length**: it remains logically open until the owner-authorized objective is independently accepted/completed or an actual stop, deadline, permission, provider/service, resource, or dependency constraint prevents further authorized progress. Individual tasks remain bounded/recoverable; their count is not capped merely for convenience. A finished milestone is not a reason to end the objective.
 
-**Adaptive ad hoc succession:** a later one-time task may be created only when a new observation makes a concrete next task useful, actual tool and ownership capabilities permit creation, the inputs/output paths and deduplication key are pinned, and there is a suitable allowed schedule. The successor reads the durable handoff and independently decides what is now needed, including whether a qualified separate AI reviewer is available and what its verdict changes. It must not blindly repeat a parent's assignment or merely manufacture another child to remain alive. Preserve context/source-access and writer fences. Waiting on one required checker does not block other useful work. A chain may branch into independent work when authorized coordination and exclusive ownership allow it; serialization is required for shared writes.
+**Adaptive succession under the verified Chat Mode restriction:** The two
+scheduled parent-child experiments reached their execution contexts but were
+prohibited by the scheduled runtime from creating another automation. No
+creation API attempt was allowed. Do not build a production plan around scheduled
+child-task spawning, multiple descendants or an assumed interactive-turn
+escape. Instead, the owner prefers **pre-provisioning a bounded pool of
+project-owned existing automations**, then updating their full saved prompts,
+scheduled times and enabled states as the next real work requires. Keep a
+stable permanent objective and changing milestones; do not confuse dynamic
+reassignment of a known task with a new chat or independent reviewer. An
+alternate execution environment may support new-task creation, but requires
+separate explicit authority and validation. Do not use descendants or parallel
+task copies to bypass frequency/usage restrictions.
 
 **Not a claimed ChatGPT scheduling feature:** a successful one-time parent→child test would prove only that specific hop and conditions, not arbitrary-depth recursive execution, detached live-worker persistence, automatic independent checking, or an exemption from the platform's schedule/usage limits. Never use a one-time chain to evade a recurring-task frequency cap or authorization gate. Five-minute ad hoc deadlines and other short delays are hypotheses to test rather than guaranteed service support. A *bounded experiment* may cap its own depth to guard against uncontrolled recursion; that is a test safety constraint, not a global production chain or work-in-progress limit. Keep pending results at their correct evidence tier.
+
+
+## Pre-provisioned conductor and continuously evolving objective
+
+Owner choice (November 4, 2026): if authorized for the real project,
+recruit a **nominal five-role** pool in advance (conductor; two specialized
+workers; verifier; integrator), optionally rising toward ten if the plan
+allows and tasks are genuinely valuable. Distinct roles may share the
+majority of a mission brief while having different meaningful capabilities,
+milestones, output paths and exclusive edit ownership. A staggered
+hourly schedule may order those workstreams but does not guarantee precise
+start times, native parallelism, independent chat context or unlimited model
+allowance. Do not create ten recurring tasks merely because ten slots exist.
+The conductor owns the allowed task roster, not every task in the account.
+
+A run MUST keep:
+1. **Immutable contract:** project key, full-term final objective, acceptance
+   criteria, approved source/tool scope, execution mode/model constraints,
+   secrets/privacy/RE-Wizard mediation, writer fences and owner stop gates.
+2. **Mutable assignment:** this run's meaningful dependency-aware work,
+   concise inputs/outputs, targeted tests, current milestone and next decision.
+3. **Actual evidence:** authoritative changed file/revision hashes, completed
+   task results, last-run identity/status and blockers.
+
+The conductor may **retrain** allowlisted existing tasks by updating complete
+saved prompts, schedules and enabled state if the live tool/runtime permits.
+Preserve the immutable contract across every prompt rewrite, verify the
+persisted prompt in the registry, and confirm the next execution actually
+received it. Changing a task does not by itself change its service-assigned
+conversation or launch a separate interactive chat. Before re-enabling a
+disabled task, identify the reason (user pause, autonomous pause, expired one-
+time schedule, approval hold) and set a valid finite future schedule when
+needed. Never revive owner-paused unrelated tasks.
+
+**Do not assume repository instructions are read every scheduled turn:**
+native ChatGPT scheduled runs receive their own saved instructions and the
+available chat context. Repo files such as `AGENTS.md` and `SKILL.md` are
+read only if a supported tool retrieves them or HA's own exactly routed
+prompt-builder includes their compact contents. Every saved prompt must
+request the minimum relevant fresh instructions/checkpoint through an
+authorized tool when accessible. Verify receipt; never claim that writing
+GitHub automatically refreshed every worker.
+
+For sustained work, prefer concise revision-bound project checkpoints over
+transcripts. The standalone scheduled-task product documents a fresh chat per
+run; validate it on the chosen surface and reconstruct only necessary context.
+No Chat Mode-scheduled tool in these tests supplied remaining-context
+percentage, a new ordinary-chat creation operation or a conversation-retarget
+argument. A Codex-specific context signal is **not** an established Chat Mode
+variable. Shorten handoffs when prior context becomes inaccessible, and
+declare automatic rollover blocked if there is no permitted native mechanism.
+
+Evidence as of Nov 4: own-prompt/schedule updates, self-pause, cross-task
+updating and task-result retrieval have completed live scheduled runs.
+One revised 2-hour recurrence executed once; new multiple-interval and
+test-owned revival experiments are pending. Scheduled child creation was
+blocked; actual scheduled GitHub writes are also pending permission tests.
+A different task ID does not establish qualified independent review when
+both share the same chat reference. Do not release or self-approve based on
+these experiments.
+
+Read [CONDUCTOR.md](CONDUCTOR.md),
+[CHAT_MODE_FINDINGS.md](CHAT_MODE_FINDINGS.md) and the
+[SKILL.md](../../skills/chatmode-scheduled-orchestration/SKILL.md) for safe
+`RRULE`, task identity and handoff recipes. These docs are CHECKS PENDING
+until a separate qualified session reviews them.
 
 ## 1. Read, reassess and decide at every wave
 
