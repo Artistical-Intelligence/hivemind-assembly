@@ -85,6 +85,43 @@ assigned task ID, input artifact/commit and dependencies, output artifacts
 and verdicts, next consumers, last verified state. Do not retain every
 token, routine poll, complete chat transcript or copied textbook.
 
+## Mandatory full-roster anti-idling review
+
+**Every scheduled Shift Manager invocation must scan all accessible
+scheduled task records across chats** and reconcile the current
+permanent team, assigned temps, pending one-off claims and
+protected/unrelated tasks. For **each employee of the authorized
+project**, compare its deliverable's exit criteria against actual
+completed run, source/test revision and useful handoff. Track
+`no_update`, failed, incomplete, idle and stalled employees, not
+only successful agents or the manager's previous worklist.
+Historical task IDs and a null `next_run_time` are not reliable
+evidence of availability.
+
+**Act on lack of meaningful progress in the same manager run.**
+When an employee's last completed shift adds no substantive
+implementation, test/evidence, blocker resolution or useful
+handoff—or it repeats an already-known blocker or has finished
+without new assigned work—select a different valuable, authorized
+ready task and retask that full-time worker with a generalized
+brief and specific acceptance evidence. Verify actual saved
+prompt/schedule; later check completed execution and output.
+Avoid delaying until a second identical empty recurrence.
+Workers waiting on a prerequisite should receive unrelated
+nonconflicting work where available. Assign a shared blocker to
+an accountable worker while other lanes continue.
+
+Do not overwrite **in_progress** or genuinely productive work;
+do not invent meaningless tasks when no permitted work is ready,
+and never retask unrelated/owner-paused employees. Full-time
+writes remain **Shift Manager-only**; authorized temp dispatchers
+retain independent global coffee claim rights. The manager
+continues to maximize its own usable planning time and **must
+not become a dependency gate** for the rest of the office.
+Read [SHIFT_MANAGER.md](SHIFT_MANAGER.md) for the binding policy.
+This is a required operational rule; live HA-native enforcement
+remains CHECKS PENDING.
+
 ## Operating authority: full-time manager, shared temporary coffee
 
 **The [HA Shift Manager Policy](SHIFT_MANAGER.md) is now the single operational
