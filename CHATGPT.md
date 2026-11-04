@@ -35,7 +35,8 @@ AI-only coordination must not depend on the owner opening chats, running command
 ## Retaskable pre-provisioned scheduled workforce (owner update, November 4)
 
 See [HA conductor instructions](dev/continuous_execution/CONDUCTOR.md),
-[observed Chat Mode evidence](dev/continuous_execution/CHAT_MODE_FINDINGS.md)
+[observed Chat Mode evidence](dev/continuous_execution/CHAT_MODE_FINDINGS.md),
+[privacy-safe live BinaryWorkbench wave study](dev/continuous_execution/REWIZARD_BINARYWORKBENCH_CASE_STUDY.md)
 and [scheduling/automation SKILL.md](skills/chatmode-scheduled-orchestration/SKILL.md).
 These are instructions and **CHECKS PENDING** design artifacts, not a released
 scheduler extension or an approval to start autonomous HA workers.
@@ -91,8 +92,10 @@ scheduler extension or an approval to start autonomous HA workers.
   provider and mode exactly match ChatGPT Chat; even then, verify real receipt.
 - **Manage task lifecycle carefully:** A completed one-time task normally
   becomes disabled. The update API exposes `is_enabled=true`, but
-  reactivation with a fresh finite schedule must be verified for the precise
-  owner-authorized task. Never restart a user pause by default. `next_run_time`
+  reactivation with a fresh finite schedule has been verified for two **test-owned**
+  tasks by a scheduled manager, including one newly completed revived execution.
+  Other follow-up occurrences remain to be inspected separately. Never restart
+  a user pause by default. `next_run_time`
   is read-only; change `schedule`/`DTSTART` and verify scheduled-for plus
   completed run results. Open-ended recurrence is not an always-running model.
 - **Cross-chat and context:** Existing tests found distinct runs that shared
