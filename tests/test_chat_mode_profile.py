@@ -78,6 +78,10 @@ def test_adaptive_chain_is_evidence_driven_and_not_a_fixed_loop():
 def test_owner_scheduled_roster_guidance_remains_chat_mode_only():
     """Static policy expectations; not a live scheduler acceptance test."""
     required = (
+        "DEEP EACH-INVOCATION WORK (owner rule 2026-11-04; Chat Mode only):",
+        "CONTINUE immediately into further feasible substantive implementation",
+        "A durable checkpoint is for recovery, not an automatic stopping point",
+        "does NOT guarantee",
         "PRIMARY DESIGN: INTERLEAVED WAVES (2026-11-04; Chat Mode only):",
         "workstreams in PARALLEL",
         "also INHERITS and feeds later waves",
