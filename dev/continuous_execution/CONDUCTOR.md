@@ -85,6 +85,46 @@ assigned task ID, input artifact/commit and dependencies, output artifacts
 and verdicts, next consumers, last verified state. Do not retain every
 token, routine poll, complete chat transcript or copied textbook.
 
+## Deep substantive work within each scheduled wave
+
+**Owner instruction (November 4, 2026):** For the live BinaryWorkbench
+team and future authorized ChatGPT Chat Mode waves, a scheduled execution
+should perform as many **substantive consecutive implementation and
+targeted testing steps** as are feasible within its *actual* execution.
+A saved first improvement, commit, checkpoint, review note or passing
+synthetic check is a **recovery milestone, not an automatic stop**.
+After saving and validating the revision, continue into the next useful
+independent or dependent step during the SAME invocation: additional
+implementation, test execution, diagnosis, fixes, verification or
+integration within the worker's approved write scope. Reconcile newly
+discovered blockers and choose the next most valuable authorized action.
+Preserve artifact hashes, review gates, sole-writer rules and exact
+handoffs before each materially risky transition.
+
+Do not impose a one-commit/one-subtask-per-run quota or spend a run only
+repeating a plan/status report when actionable work is available.
+Conductor oversight must not force each worker to stop at a milestone,
+nor require it to wait for an unrelated role. A reviewer/integrator can
+continue multiple checks/repairs on unblocked paths, but must never
+self-approve or merge work whose mandatory independent gate is missing.
+
+**Execution duration is not a scheduler setting.** Longer and deeper
+work is an instruction about effort within the actual service
+invocation; it does not guarantee an hour-long model run, change
+per-run runtime limits, grant more context/model allowance, or permit
+run-now loops, recursion, child task spawning or approval workarounds.
+The worker finishes on a genuine service/resource/tool constraint,
+owner stop, satisfied objective or exhaustion of useful permitted work,
+with a complete durable resume point.
+
+Observed state: the separate live BinaryWorkbench chat already saved
+an equivalent owner-requested DEEP EXECUTION RULE in the prompts of
+all eight existing scheduled project roles. This establishes
+instruction propagation, not yet that each future run completed
+multiple steps. The bounded HA evidence review should verify real
+artifact and synthetic-test substance, not count commits or add a
+performance ledger.
+
 ## Current real-work cadence, interactive worker and one-off reuse
 
 The owner's **specific RE-Wizard BinaryWorkbench workforce update** is to
