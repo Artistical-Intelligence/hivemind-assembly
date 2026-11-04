@@ -78,6 +78,13 @@ def test_adaptive_chain_is_evidence_driven_and_not_a_fixed_loop():
 def test_owner_scheduled_roster_guidance_remains_chat_mode_only():
     """Static policy expectations; not a live scheduler acceptance test."""
     required = (
+        "HA SHIFT MANAGER CORRECTIONS (owner clarification 2026-11-04):",
+        "MAXIMIZE THE MANAGER",
+        "does NOT establish an automatic 60-minute cooldown",
+        "Sub-hour one-off dispatch has NOT been validated",
+        "the MOST TIME POSSIBLE for managerial",
+        "NOT minimum worker latency and NOT a supervisory gate",
+        "dev/continuous_execution/SHIFT_MANAGER.md",
         "SHARED BLOCKERS: PROBE FIRST, ASSIGN OWNER (owner rule 2026-11-04):",
         "failure to",
         "When >=2 independent lanes report one blocker",
@@ -113,6 +120,8 @@ def test_owner_scheduled_roster_guidance_remains_chat_mode_only():
         "Do not use distinct hourly roles as copies",
     ):
         assert phrase in CHAT_MODE_GUIDANCE
+    assert "NOT exempt the same automation from its service hourly frequency limit" not in CHAT_MODE_GUIDANCE
+    assert "minimizing expected\ndependency delay" not in CHAT_MODE_GUIDANCE
     for route in (
         {"provider": "openai", "mode": "Work"},
         {"provider": "openai", "mode": "Codex"},
