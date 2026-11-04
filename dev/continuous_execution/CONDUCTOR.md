@@ -99,14 +99,39 @@ sole control over **all** workers.
   its task ID dormant or available to borrow. A genuinely stopped full-time
   employee can be revived only by the Shift Manager, with its continuing
   obligations explicitly reconciled.
-- **Temporary/coffee-pool roles:** any **project-authorized** Chat Mode
-  scheduled worker may claim an approved dormant finite one-time worker
-  via an atomic shared private-registry claim, dispatch a distinct
-  outcome-based work order, verify its execution, and return it after
-  completed/failed/partial results and exact lease release. The manager
-  supervises but **does not gate** claims; full-time IDs are never
-  shared-pool members. No authorized atomic create-if-absent → no
-  delegated temporary dispatch.
+- **Proactive temporary Necromancy is everyone's job.** Every
+  authorized scheduled worker should *seek and use* an available
+  temporary one-off when nonduplicative parallel **and/or synergistic**
+  work can proceed: complementary tests, research/validation,
+  diagnosis/repair, or genuinely independent parts of a large task.
+  It may dispatch a claimed temp without waiting for the manager.
+  Keep the requesting worker substantively active too.
+- **Global pool, across ANY ChatGPT conversation and prior purpose:**
+  an existing one-time task can be recycled even if formerly used
+  for another project or diagnostic. Do not exclude it because the
+  old chat, title or role differs. Discover available tasks account-
+  wide, verify each **current** inactive/no-future-job/no-claim
+  status and ensure no owner hold or competing work remains, then
+  dynamically enroll it in a **single private global claim ledger**.
+  Only the winning claimant gets to update its full new prompt,
+  one-time event and new authorized output scope. A full-time
+  recurring ID remains protected and never enters the temp pool.
+- **One-to-one reserves at bootstrap:** When creating N hourly
+  workers, prepare N **dormant one-time reserve slots** in the same
+  setup process. Reuse already-idle historical one-offs before
+  creating more; create any deficit only if the service allows
+  safe, disabled placeholders and enough quota. Do not run
+  empty placeholder assignments. Record any quota shortfall.
+- **Exclusive claim and verified return:** All dispatchers must
+  atomically create an exclusive per-ID claim in the **same
+  restricted cross-chat registry**, verify the blob and task
+  status, and hold it until actual completion and revision-bound
+  outcome receipt. Only the claiming worker may safely return
+  the temp; never release by a wall-clock TTL. No working
+  global claim mechanism => no parallel dispatch of that temp.
+  Different chats cannot claim the same ID from different
+  project-local ledgers.
+
 - **Parallel plus inherited work:** independent specialists may execute
   simultaneously; results and failures feed successor waves. A
   corrective brief inherits the exact previous artifact/result but
