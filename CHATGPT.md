@@ -105,6 +105,29 @@ scheduler extension or an approval to start autonomous HA workers.
   owner-authorized standalone new-chat-per-run execution with a concise
   durable GitHub handoff when available, not a forced-context reset, full
   transcript replay, or an invented new chat.
+- **Project-specific hourly worker cadence and owner updates:** For the
+  current authorized **private BinaryWorkbench** production team, the
+  owner requires every active scheduled role to recur **hourly** (the
+  smallest supported interval) at the earliest useful service-supported
+  start, not two/three-hour spacing for active workers. Allocate large
+  independent fragments across simultaneous useful specialists;
+  preserve necessary inherited handoffs. The main **interactive** project
+  chat contributes substantive work as another worker when a turn is
+  actually running, but does not remain continuously active between
+  turns. Post concise, owner-readable milestone updates there while
+  retaining durable GitHub receipts. This is a project-specific cadence,
+  not an instruction to replace finite experimental observations or
+  modify Claude, Work, or Codex schedules.
+- **Reusable one-time slots ("necromancy"):** An authorized conductor
+  may update the **same completed test/project-owned one-off task ID**
+  with new future one-time DTSTART, complete prompt and enabled state.
+  The first such revival and completed new run have been verified;
+  **repeated** revival of the exact same one-off is undergoing a
+  bounded experiment and is not yet accepted. Check prior completion,
+  owner authorization, disabled status, full prompt, one-time VEVENT
+  and actual new run receipt on each cycle. Do not resurrect
+  user-paused or unrelated tasks, create descendants or evade active
+  task limits, recurrence/usage restrictions, or approvals.
 - **External tools and costs:** Connected GitHub or other MCP permissions must
   be checked in the *actual scheduled environment*, including approvals.
   Ordinary scheduled Chat runs may consume plan usage even if a dot coordinates
