@@ -1,0 +1,1 @@
+CHECKS PENDING: current.json; handoff.md; automations.json — verify schema/meaning, factual state, privacy, absence of invented active workers, and correct revision/acceptance boundaries before use as authoritative automated state.
