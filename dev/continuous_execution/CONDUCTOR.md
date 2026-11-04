@@ -4,19 +4,86 @@
 
 **Purpose:** Advance an owner-authorized **terminal acceptance objective** across many independently bounded scheduled Chat Mode executions. The team may be recruited in advance and retrained by changing existing, authorized automations. A schedule is a wakeup, not a continuous agent or an independent reviewer guarantee.
 
-## Primary design: parallel workforce, adaptive orchestrator, variable timing
+## Primary design: interleaved waves of parallel work AND inherited continuation
 
-The owner's **central design requirement** is not a linear worker → reviewer → tester queue or merely several repeating reminders. It is a **pool of multiple AI workers tackling different useful tasks in parallel**, supervised by a **scheduled conductor/orchestrator** that continually changes assignments and each worker's **timing parameters** according to project needs and results.
+**Owner clarification (November 4, 2026): both are essential.** The
+orchestration model is an **ocean of work waves**: several useful workers act
+in parallel; their outputs, discoveries, checks and constraints flow into
+later waves, sometimes within the same worker and sometimes by transfer to
+another worker. A branch can split into independent workstreams; multiple
+branches can merge for integration; a failed test can send a corrective wave
+back to implementation while unrelated work continues. **Do not force either
+an all-parallel team with no handoffs or an entirely linear relay.**
 
-Treat the permanent project objective as shared across the workforce, not as a single scheduled task. The conductor maintains an evolving dependency graph and can give different specialists distinct ready work at once. Work whose inputs and write ownership are independent should proceed concurrently whenever the native service actually permits overlap; no worker is required to wait for another phase merely to fit a fixed pipeline. Necessary integration, acceptance, data dependencies, writer leases or resource constraints still impose real sequencing.
+The conductor maintains a dependency-aware **wave graph** over a permanent
+project objective. Nodes are substantive execution/milestone efforts; edges
+record *why* a later wave consumes an earlier artifact, a test verdict, a
+decision or an exclusive output lock. Valid edges include chronological
+continuation, dependency, review/repair, inheritance/handoff and integration.
+Different nodes may run at the same time when safe. A worker can also keep
+one large coherent effort across many scheduled invocations.
 
-**Adaptive control per authorized worker:** the conductor can inspect actual completed results, select/reassign an active milestone, set a suitable future `DTSTART`, adjust `RRULE:FREQ`/`INTERVAL`/`COUNT`/`UNTIL`, or enable/pause that task when permitted. Timing depends on urgency, predicted useful work, observed completion, dependencies, service delay and allowance, rather than a universal :00/:15/:30/:45 rotation. These are supported *schedule fields*, not a guarantee the scheduler starts precisely or that scheduled runs can be more frequent than the per-task hourly minimum. Prefer fewer idle invocations when waiting on an actual prerequisite; awaken already authorized roles at the next supported time when genuinely useful work becomes ready.
+Illustrative, **not a rigid schedule or mandatory set of roles**:
 
-**Actual parallelism must be verified:** several task schedules with 15-minute offsets provide a staggered **start plan** but do not, by themselves, prove overlapping model execution, separately isolated conversations, independent reviewer qualifications, or independent writing. A true parallel run needs distinct observed run IDs with overlapping start/finish intervals and real nonconflicting useful work; chat refs, writer ownership and tool-delivery/return receipts must be examined separately. Parallelism is the **goal**, not a capability established by the earlier scheduled tests.
+```text
+                       objective + acceptance criteria
+                        /                       \
+   Worker A: investigate -> build             Worker B: research -> validate
+               |              \               /
+               |               joint integration/test
+               |                    |
+               |         pass -> next milestone / finish
+               |         fail -> targeted repair to A or B
+               +----------> independent parallel follow-on work
+              (reassign existing task IDs; retain artifact lineage)
+```
 
-The conductor is **not** the mandatory gate for every worker action. Workers may continue coherent assigned work under their own saved prompts and the common immutable objective. The conductor periodically reconciles actual changes and revises work/timing only when evidence demands it. Review and testing can proceed concurrently with unrelated implementation; required qualified independent acceptance remains a gate only for the affected deliverable. Avoid unnecessary routine polling and duplicate planner messages.
+**Inheritance does not require child task creation.** Scheduled Chat Mode
+could not create descendant automations in the tested execution context,
+but it **can change existing tasks' complete prompts and schedules**.
+The conductor can transfer an evidence-backed follow-up to an already
+provisioned worker, or the same worker can continue an inherited assignment.
+The receiving wave reads the latest project checkpoint plus the exact
+prior output revision, rather than assuming the author chat is in context.
+The handoff is a logical link between work/results, not a claim that a
+new task or chat was physically spawned. A new authorization or other
+supported interface would be needed to expand beyond the existing pool.
 
-Distinct members may share the majority of the mission/safety brief, but **must have materially different assigned outputs or responsibilities**, with agreed merge/check ownership. The nominal five-role roster below is a bootstrap example, not a fixed sequential pipeline or permanent division of labor. Change role count and assignments from the actual project backlog, not a forced staffing number; no clones created solely to evade the once-hourly recurrence restriction.
+**Adaptive timing is per existing automation.** After checking actual
+completion, dependency readiness, plan limits and ownership, the conductor
+can, where authorized and supported, revise the worker's saved assignment,
+`DTSTART`, `RRULE:FREQ`/`INTERVAL`/`COUNT`/`UNTIL`, and enabled
+state. The timing should vary with what the work requires: independent
+workstreams may proceed at the same time; dependent tests run after a
+suitable prerequisite; long jobs can receive follow-up checks; idle
+assignments can pause or slow down. A fixed :00/:15/:30/:45 pattern is
+only an example, not a requirement or a mechanism to evade per-task
+hourly recurrence limits.
+
+**Preserve autonomy without losing coordination.** The conductor is not
+a mandatory gate at every step. An authorized worker can continue a
+coherent assignment and checkpoint its results while the conductor
+periodically reconciles independent and inherited waves. Multiple workers
+must not overwrite the same project file: use explicit output ownership,
+leases/revision fences, branches or one integrator. Review and testing
+can overlap unrelated implementation; qualified independent acceptance
+is still mandatory for the affected deliverable. The conductor chooses
+dependencies based on facts, not on titles such as "worker" or "reviewer."
+
+**Verify actual overlap and transfer separately.** Staggered requested
+times do not prove concurrent model execution; actual overlapping
+`started_at`–`completed_at` windows plus distinct run identities and
+nonconflicting work establish measured parallelism for those runs.
+A completed donor result, exact committed artifact/hash and the receiving
+worker's recorded use of it establish inheritance. A distinct task ID
+alone proves neither fresh conversation isolation nor qualified review;
+previous tests found several executions sharing one chat reference.
+
+Keep a concise per-wave lineage in the **existing** project handoff and
+evidence records, not a new verbose performance ledger: `wave_key`,
+assigned task ID, input artifact/commit and dependencies, output artifacts
+and verdicts, next consumers, last verified state. Do not retain every
+token, routine poll, complete chat transcript or copied textbook.
 
 ## Findings to use; limits to retain
 
