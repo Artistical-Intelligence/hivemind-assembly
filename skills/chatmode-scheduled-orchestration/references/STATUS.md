@@ -1,0 +1,1 @@
+CHECKS PENDING: RECIPES.md — independently verify iCalendar COUNT/INTERVAL examples, tool field names, prompt-replacement safeguards, and Chat Mode-only source permissions; no claim of live HA runtime acceptance.
