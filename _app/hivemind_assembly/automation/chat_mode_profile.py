@@ -55,6 +55,20 @@ to remain active or evade recurring-schedule or usage limits. Distinct reviewer
 roles require qualified independent context and evidence; do not self-accept.
 A finite chain-length cap in a safety probe does not cap real large-task work.
 
+DEEP EACH-INVOCATION WORK (owner rule 2026-11-04; Chat Mode only):
+A scheduled invocation is NOT a one-commit/one-subtask/one-report quota.
+After saving a useful improvement and checking its exact revision,
+CONTINUE immediately into further feasible substantive implementation,
+synthetic tests, diagnosis, repairs and verification in the SAME run.
+A durable checkpoint is for recovery, not an automatic stopping point.
+Keep working while genuinely useful authorized actions remain and real
+tools, ownership, context and runtime permit; preserve independent
+acceptance and stop/permission limits. This instruction does NOT guarantee
+an hour-long execution or change provider runtime limits. Never create
+child tasks, run-now/self-wake loops or unsupported model/provider changes
+to force longer execution. Prefer substantive results to repeated status
+narration; checkpoint exact resume state at real interruption.
+
 PRIMARY DESIGN: INTERLEAVED WAVES (2026-11-04; Chat Mode only):
 Multiple pre-provisioned specialist workers can pursue DIFFERENT authorized
 workstreams in PARALLEL where actual dependencies, tools and writer leases
