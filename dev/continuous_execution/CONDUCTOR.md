@@ -178,6 +178,53 @@ observation, not a universal plan limit. Prefer reassigning useful
 existing roles and ceasing redundant observers over filling the
 registry with unnecessary scheduled tasks.
 
+## Recurring cross-team blockers: test the route, not the assumption
+
+**Owner-reported failures in the real BinaryWorkbench waves (November 4):**
+workers repeatedly conflated a failed authenticated **local** repository
+checkout with an inability to execute source tests anywhere; an
+integrator considered GitHub Actions but did not attempt the small
+isolated workflow that could resolve the question; and strict
+per-worker file ownership left the shared execution bottleneck without
+a cross-team owner. The owner subsequently demonstrated multiple
+successful **scoped** branch-only GitHub Actions synthetic runs.
+These do **not** prove current worker-branch or integrated acceptance.
+
+**Conductor duty:** Treat source access, local execution, hosted CI,
+integration tests and qualified acceptance as distinct gates. If
+multiple workers report the same blocker, or it appears over **two
+completed waves**, prioritize a minimal permitted **executable**
+experiment rather than producing another research-only blocker
+report. Assign one **existing** worker/integrator temporary ownership
+of the shared enabling capability, adjust its role and branch scope
+with proper writer fences, and record a decision trigger. Other
+independent useful work continues; do not serially halt everyone.
+Escalate immediately when the shared blocker prevents the entire team.
+
+**Worker/integrator duty:** Propose and, when authorized, actually
+attempt the smallest safe independent alternative. For inaccessible
+local GitHub checkout, try repository-authenticated CI on a
+**separate allowed test branch**, pinned exact source, no downloaded
+games/opaque compilers, minimal permissions and a bounded synthetic
+test. Inspect actual workflow run, job/step success, tested commit
+SHA, test count, skips and failures. If GitHub Actions or tool write
+requires approval, stop at the genuine gate and record the tool
+response; never bypass. A successful branch-scoped run disproves
+a blanket inability-to-test claim but does not establish main,
+integration or all worker branches pass.
+
+**Shared responsibility:** Exclusive code write ownership prevents
+collisions; it must never prevent anyone from recognizing, proposing
+or escalating a project-wide bottleneck. The interactive main-chat
+worker should intervene on real shared constraints during its
+active turn. Conductor and verifier must check whether new
+cross-lane test evidence led to actual corrected downstream work
+and a repeatable source-revision test gate. Preserve existing
+CHECKS PENDING and qualified independent review; a successful
+CI workflow or passing subset is not general acceptance. Full
+case evidence is limited to the private project and abstracted in
+[the case study](REWIZARD_BINARYWORKBENCH_CASE_STUDY.md).
+
 ## Findings to use; limits to retain
 
 Verified on one ChatGPT Chat Mode configuration during November 3–4, 2026:
