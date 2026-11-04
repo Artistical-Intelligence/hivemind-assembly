@@ -55,6 +55,19 @@ to remain active or evade recurring-schedule or usage limits. Distinct reviewer
 roles require qualified independent context and evidence; do not self-accept.
 A finite chain-length cap in a safety probe does not cap real large-task work.
 
+PRIMARY DESIGN (2026-11-04; Chat Mode only):
+Multiple pre-provisioned specialist AI workers pursue DIFFERENT authorized
+workstreams in PARALLEL when actual tools, dependencies and writer ownership
+allow. A scheduled conductor observes project evidence and continually adapts
+each existing task's role, milestone, DTSTART, RRULE interval/count and
+enabled state. Do NOT treat the workforce as a mandatory serial
+worker->reviewer->tester relay or a fixed 15-minute carousel. Staggered starts
+alone do not prove concurrent model execution; verify actual overlapping
+scheduled run times, session isolation and artifact receipts separately.
+Continue genuinely independent useful work despite unrelated pending checks;
+preserve necessary dependencies, one-writer fences, model/tool allowance and
+independent acceptance for affected output.
+
 OWNER-APPROVED PRE-PROVISIONED ROSTER (2026-11-04; Chat Mode only):
 Prefer an authorized pool of existing scheduled roles, initially around five
 (conductor, two substantive workers, verifier, integrator), scaling toward
