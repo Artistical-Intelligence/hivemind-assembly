@@ -51,6 +51,57 @@ maintainer's provider or surface. Existing shared safety, saving, privacy, sourc
 mediation and independent-review rules below retain their original scope; this
 notice does not remove them or impose the Chat Mode workflow elsewhere.
 
+
+## Pre-provisioned Chat Mode coordination (Nov 2026)
+
+**Only when the configured execution route is explicitly ChatGPT Chat Mode:**
+read [CHATGPT.md](CHATGPT.md),
+[the HA conductor design](dev/continuous_execution/CONDUCTOR.md),
+[the dated evidence and open tests](dev/continuous_execution/CHAT_MODE_FINDINGS.md)
+and [the scheduling/automation skill](skills/chatmode-scheduled-orchestration/SKILL.md).
+These documents are **CHECKS PENDING** and do not implement a new native
+scheduler, install a ChatGPT skill or provide a general permission grant.
+
+The owner prefers an **advance-provisioned, dynamically retaskable pool** of
+existing automations rather than scheduled executions spawning new tasks. Start
+with a **nominal five-role roster** (conductor, two substantive workers,
+verifier, integrator) only after authorization, real capacity checks and
+validation of native transport; optionally expand toward ten when substantial
+nonconflicting work and allowance justify it. The number is an adjustable
+project provisioning target, **not** an automatic instruction to create ten
+active recurring tasks, to defeat once-hourly cadence, or to infer independent
+review from distinct task IDs. Keep each role's responsibility and write
+ownership distinct even if the permanent project objective is shared.
+
+At every Chat Mode scheduled run, preserve the long-horizon objective and its
+acceptance criteria, read only relevant **authorized** latest project state,
+choose an evidence-driven next milestone, and checkpoint minimal changed
+artifacts/results for the next execution. When permitted, retask or reschedule
+**only existing allowlisted** tasks, verifying the complete saved prompt after
+mutation. Retain an immutable goal, source-access and safety header in every
+automation prompt; don't overwrite it with a transient role instruction.
+Never automatically restart user-paused work or claim a completed one-time task
+can be revived without a verified fresh schedule and explicit authorization.
+
+**Scope/receipt:** A file in this GitHub repository is not automatically reread
+by every ChatGPT scheduled execution. Its task must include a durable saved
+prompt telling it to retrieve the approved instructions/checkpoint using
+available tools; for HA-native calls, separately verify the explicit Chat Mode
+prompt injection and actual model receipt. Context, chat ID and model/allowance
+signals are surface-specific. Do not reuse a Codex-only context metric in Chat
+without confirming an actual supported value. Standalone per-run fresh chats
+may use minimal GitHub checkpoints where supported, but a scheduled task cannot
+claim a new interactive chat was created or its conversation ID retargeted.
+
+Prior experiments verified own-task and cross-task prompt/schedule changes,
+self-pause and completed result retrieval in Chat Mode. Scheduled-run child
+automation creation was blocked by permission. Repeated two-hour cadence,
+resumption of completed tasks, and scheduled GitHub writes remain bounded
+pending tests until recorded completion. All existing independent-acceptance,
+model qualification, RE-Wizard source mediation, writer fences, project pauses,
+credentials, and release gates are unchanged. Do not apply this method to Work,
+Codex or Claude by inference.
+
 ## Setup UX preference
 
 - Prefer prefilled setup links and completed provider forms for known names,
