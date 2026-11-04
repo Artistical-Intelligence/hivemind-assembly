@@ -21,7 +21,7 @@ from hivemind_assembly.learning.scopes import KnowledgeScopes
 
 
 def test_chat_mode_policy_is_exact_and_does_not_route_by_model_or_host():
-    assert POLICY_REVISION == "chatgpt-chat-mode-adaptive-1.3"
+    assert POLICY_REVISION == "chatgpt-chat-mode-adaptive-1.4"
     chat = {"provider": "openai", "mode": "Chat", "model": "GPT-6",
             "conversation_url": "https://chatgpt.com/c/one"}
     assert guidance_for_native_route(chat) == CHAT_MODE_GUIDANCE
@@ -42,7 +42,7 @@ def test_chat_mode_policy_is_exact_and_does_not_route_by_model_or_host():
 
 
 def test_chat_mode_guidance_preserves_large_task_and_review_boundaries():
-    assert "owner policy 1.3" in CHAT_MODE_GUIDANCE
+    assert "owner policy 1.4" in CHAT_MODE_GUIDANCE
     for step in range(1, 11):
         assert f"\n{step}. " in CHAT_MODE_GUIDANCE
     for phrase in (
@@ -73,6 +73,41 @@ def test_adaptive_chain_is_evidence_driven_and_not_a_fixed_loop():
         assert phrase in CHAT_MODE_GUIDANCE
     assert guidance_for_native_route({"provider": "openai", "mode": "Work"}) == ""
     assert guidance_for_native_route({"provider": "claude", "mode": "native"}) == ""
+
+
+def test_owner_scheduled_roster_guidance_remains_chat_mode_only():
+    """Static policy expectations; not a live scheduler acceptance test."""
+    required = (
+        "OWNER-APPROVED PRE-PROVISIONED ROSTER",
+        "conductor, two substantive workers, verifier, integrator",
+        "prohibited from creating child automations",
+        "cross-task changes",
+        "IMMUTABLE project/owner/acceptance",
+        "Each scheduled execution reassesses real",
+        "NEVER",
+    )
+    for phrase in required[:-1]:
+        assert phrase in CHAT_MODE_GUIDANCE
+    for phrase in (
+        "These GitHub instruction files are NOT automatically reread",
+        "A task ID or run ID",
+        "No supported Chat Mode context-left percentage",
+        "GitHub writes through scheduled MCP are unverified",
+        "skills/chatmode-scheduled-orchestration/SKILL.md",
+        "Do not use distinct hourly roles as copies",
+    ):
+        assert phrase in CHAT_MODE_GUIDANCE
+    for route in (
+        {"provider": "openai", "mode": "Work"},
+        {"provider": "openai", "mode": "Codex"},
+        {"provider": "claude", "mode": "native"},
+        {"provider": "openai", "mode": "Chat", "model": "GPT-6"},
+    ):
+        result = guidance_for_native_route(route)
+        if route["mode"] == "Chat":
+            assert "OWNER-APPROVED PRE-PROVISIONED ROSTER" in result
+        else:
+            assert result == ""
 
 
 class CaptureNative:
