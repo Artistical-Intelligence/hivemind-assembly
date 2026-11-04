@@ -1,6 +1,6 @@
 # ChatGPT Chat Mode execution instructions for Hivemind Assembly
 
-Provider/surface scope: **ChatGPT in Chat Mode only**. Policy revision: 1.3 — 2026-11-03.
+Provider/surface scope: **ChatGPT in Chat Mode only**. Policy revision: 1.4 — 2026-11-04.
 
 Read `AGENTS.md` first, then the [ChatGPT Chat Mode adaptive execution process](dev/continuous_execution/PROCESS.md). The owner adopted the ten steps below only for the ChatGPT **Chat Mode** workflow being tested in ordinary chats and scheduled chat continuations. Do not apply or inject this profile into **ChatGPT Work**, **Codex**, Claude prompts, Claude coordinator/worker briefs, or any other provider/surface instructions. Evidence from Chat Mode does not establish capabilities in Work, Codex, Claude, or another surface/model configuration.
 
@@ -27,9 +27,74 @@ Scheduled ChatGPT **Chat Mode** executions may occur in another chat. Recover cu
 
 For ChatGPT **Chat Mode**, an owner-authorized large objective may progress through an **open-ended, evidence-driven chain** of distinct AI decisions and task executions. The logical chain ends when the objective reaches its required acceptance, an explicit owner stop/deadline, or a genuine unsupported/resource/authorization blocker; it does **not** end at an arbitrary count of tasks, handoffs, waves, or saved chunks. Each link must read the latest durable state and relevant fresh results (including qualified AI reviewer verdicts where available), evaluate what remains necessary, and decide whether any new useful next task is warranted. A successor may differ in method, size, timing, role or dependency. Do not pre-create a fixed script of tasks or mistake a recurring schedule that repeats the same plan for an adaptive chain. A chain is not a loop.
 
-A task may arrange a later *ad hoc one-time* successor only when the actual scheduler and authorization rules permit it, using a grounded next assignment, pinned inputs, explicit ownership/deduplication, and safe recovery. Do not assume that a five-minute delay, recursive task creation, or fresh reviewer context is supported; measure those capabilities separately. Follow the provider's scheduling and usage restrictions. No task creation solely to remain active or to work around recurrence limits, no uncontrolled spawning, and no premature claim that a scheduled child executed. Experiments can intentionally limit chain length for safety; such a test limit **must not** become a production WIP, chunk-size or total-chain cap.
+In the tested **scheduled Chat Mode** execution environment, creating additional automations was prohibited. Therefore, prefer **pre-provisioning** an explicitly authorized pool of existing tasks and adapting them via permitted updates to saved prompts/schedules, rather than proposing scheduled child creation. Creation of successors remains conditional on a different, explicitly supported execution surface and authorization; do not attempt alternative routes to bypass this restriction. A short delay, a new task ID, a notification or a fresh reviewer context is not proof of child creation or distinct interactive chats. Follow all scheduling and usage restrictions; do not manufacture copies to evade them. Experiments can intentionally limit chain length for safety; such a test limit **must not** become a production WIP, chunk-size or total-chain cap.
 
 AI-only coordination must not depend on the owner opening chats, running commands, copying reports or recruiting reviewers. Respect mandatory approval and stop gates. Revise this Chat Mode profile as the owner clarifies goals and verified findings accumulate.
+
+
+## Retaskable pre-provisioned scheduled workforce (owner update, November 4)
+
+See [HA conductor instructions](dev/continuous_execution/CONDUCTOR.md),
+[observed Chat Mode evidence](dev/continuous_execution/CHAT_MODE_FINDINGS.md)
+and [scheduling/automation SKILL.md](skills/chatmode-scheduled-orchestration/SKILL.md).
+These are instructions and **CHECKS PENDING** design artifacts, not a released
+scheduler extension or an approval to start autonomous HA workers.
+
+- **Provision deliberately:** The owner's suggested default is **five
+  existing project-owned automations**, expandable toward ten if useful,
+  within plan/active-task limits: one conductor, two complementary workers,
+  one verifier and one integrator. A team is not useful merely because all
+  slots are active. No scheduled child creation, no frequency-limit
+  circumvention, no automatic activation of unrelated or owner-paused tasks.
+- **Base assignments on the actual project:** The common 80% may consist of
+  owner objective, rules and source boundaries; the remaining role-specific
+  responsibilities must be meaningful and have separate output ownership.
+  The conductor reads real project outcomes and assigns the next useful
+  milestone, not an arbitrary fixed small task or repeating one-step script.
+  Preserve the **permanent acceptance objective** while revising the next
+  milestone, schedule and existing staff assignments as evidence changes.
+- **Exact receipts matter:** Own-task prompt/schedule updates, self-pause,
+  cross-task updates, target execution and completed-result retrieval have
+  completed Chat Mode experiments. Those tests did **not** prove independent
+  chats, detached live processes, independent acceptance or unlimited
+  execution. The earlier two-hour interval had one future occurrence;
+  multiple later intervals, resumption of disabled test-owned tasks and a
+  scheduled GitHub write remain pending until their bounded new runs finish.
+- **Read instructions explicitly:** ChatGPT scheduled executions receive
+  their persisted automation instructions and whatever chat context is
+  available; a **new GitHub commit does not automatically refresh the prompts
+  of existing ChatGPT automations**. Each saved task must retain a short
+  immutable header with project identity, stable objective, allowed work,
+  source mediation, safety/quality gates, and an explicit instruction to read
+  the authorized latest HA instructions and compact checkpoint *if tools
+  actually permit it*. When updating prompts, preserve and verify that header.
+  HA's own route-specific prompt injection applies only when the selected
+  provider and mode exactly match ChatGPT Chat; even then, verify real receipt.
+- **Manage task lifecycle carefully:** A completed one-time task normally
+  becomes disabled. The update API exposes `is_enabled=true`, but
+  reactivation with a fresh finite schedule must be verified for the precise
+  owner-authorized task. Never restart a user pause by default. `next_run_time`
+  is read-only; change `schedule`/`DTSTART` and verify scheduled-for plus
+  completed run results. Open-ended recurrence is not an always-running model.
+- **Cross-chat and context:** Existing tests found distinct runs that shared
+  one `chat_ref`. IDs can guide safe updates and evidence lookups, but the
+  available update operation cannot retarget a conversation. Codex-specific
+  context-left indicators are not established as Chat Mode variables. Prefer
+  owner-authorized standalone new-chat-per-run execution with a concise
+  durable GitHub handoff when available, not a forced-context reset, full
+  transcript replay, or an invented new chat.
+- **External tools and costs:** Connected GitHub or other MCP permissions must
+  be checked in the *actual scheduled environment*, including approvals.
+  Ordinary scheduled Chat runs may consume plan usage even if a dot coordinates
+  them; the free allowance for talking *to* a dot is not a free execution
+  grant to its delegates. No provider/API/Work/Codex substitution.
+
+For every run: verify exact task ID and scope; read relevant current state;
+choose a substantial justified action; execute with sole-writer fences;
+persist verified artifacts and concise handoff; check actual task results;
+only then revise authorized existing task assignments or timing. If the
+objective is independently accepted or a genuine stop gate applies, pause
+the appropriate owned tasks; do not self-publish or declare source approval.
 
 ## Harness routing and evidence boundary
 
