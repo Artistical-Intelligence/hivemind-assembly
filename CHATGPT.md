@@ -83,6 +83,20 @@ scheduler extension or an approval to start autonomous HA workers.
   verifies only its exact revision/tests, **not** integrated
   acceptance. See the [real BinaryWorkbench case study](dev/continuous_execution/REWIZARD_BINARYWORKBENCH_CASE_STUDY.md)
   and [skill](skills/chatmode-scheduled-orchestration/SKILL.md).
+- **Shift-manager corrective dispatch:** Treat an unfinished important shift as
+  grounds for a **new generalized corrective brief**, not a verbatim replay of
+  its previous invocation. The manager identifies actual missing evidence,
+  source/test revisions, next executable repair and downstream dependency,
+  and selects the **earliest eligible existing authorized worker**, not
+  necessarily the original author. Transfer ownership explicitly, change
+  that worker's saved assignment and next lawful DTSTART when beneficial,
+  then verify that the new run actually closes the gap. Reassign separate
+  corrective fragments concurrently where outputs do not conflict.
+  Changing a task's meaning does **not** exempt its existing automation
+  from the service's per-task hourly execution limit. Optimize the manager's
+  own hourly check-in against real critical-path completion times and
+  successor starts; do not claim an exact universal optimum for asynchronous
+  work or force a sixty-minute model runtime.
 - **Do several useful steps per invocation:** A scheduled worker's
   first saved improvement, commit, report, or checkpoint is **not a
   natural stopping point**. After saving an exact recovery revision,
