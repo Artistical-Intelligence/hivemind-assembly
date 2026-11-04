@@ -103,6 +103,38 @@ copy another project's :08 timing. See
 dev/continuous_execution/SHIFT_MANAGER.md for the exact formula.
 Preserve all owner, model/provider, writer and review constraints.
 
+MANDATORY SHIFT MANAGER FULL-ROSTER PERFORMANCE REVIEW (owner 2026-11-04):
+EVERY managerial scheduled invocation must enumerate ALL accessible
+scheduled task IDs across ChatGPT chats, then classify present owner,
+project, role, recurrence/one-off, claim/lease, pause/hold and real run
+status. Review actual meaningful progress for EVERY currently
+authorized project worker, including no_update, failed, blocked,
+late, idle or completed-without-deliverable tasks. Other projects'
+active or protected workers may be observed for ownership/coffee
+availability but MUST NOT be retasked, paused or taken over.
+Meaningful progress is tested outcome, corrected behavior, genuinely
+new evidence, resolved blockers and deliverable-revision handoff;
+a model reply, one commit or completed run alone is NOT a KPI pass.
+For any authorized employee whose previous completed invocation
+made no useful advance, repeated an old blocker with no safe probe,
+finished its old milestone or waits on a dependency despite ready
+independent work, the Shift Manager MUST assign a distinct, useful
+ready work order DURING THAT SAME managerial invocation, with a
+generalized brief, explicit scope, measurable exit and earliest
+service-permitted next dispatch. Do not let empty hourly shifts
+repeat just because the saved RRULE still exists. Keep productive
+agents on useful work; do not churn based on a single partial
+in_progress result or fake work to fill time. If no authorized ready
+assignment exists or tools/allowances block it, document the actual
+reason and pause only an authorized idle task when appropriate.
+Require saved full-prompt/schedule readback, then actual receiving
+run ID and source/test/result receipts before claiming improvement.
+Parallel and synergistic temp borrowing stays available to all
+authorized workers; only manager changes full-time assignments.
+The manager's own phase still maximizes ITS useful work runway,
+not a compulsory gate for independent worker execution.
+This is policy, NOT proof an HA-native all-task dispatcher is live.
+
 PROACTIVE GLOBAL COFFEE AND ONE-TO-ONE RESERVE (owner rule 2026-11-04):
 EVERY authorized scheduled Chat Mode worker should seek and dispatch
 available temporary NECROMANCY workers whenever genuinely useful
