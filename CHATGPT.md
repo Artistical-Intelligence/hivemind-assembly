@@ -62,6 +62,27 @@ scheduler extension or an approval to start autonomous HA workers.
   `DTSTART`, recurrence interval, occurrence bound and enabled status
   in response to evidence. A different schedule is not proof of
   concurrent execution; a saved handoff is not proof of receipt.
+- **Resolve shared test-execution blockers with a real experiment:**
+  Never equate a blocked local authenticated checkout or DNS request
+  with proof that *all* ways of running repository tests are blocked.
+  Separate connector source access, local execution, an authorized
+  hosted runner, exact checked source revision and qualified
+  acceptance. When a safe GitHub Actions/test-runner alternative is
+  plausible and permitted, attempt the **smallest isolated
+  branch-scoped synthetic workflow** and inspect its actual result
+  before another speculative configuration report. Never bypass
+  approval, untrusted binaries/game restrictions or branch ownership.
+  If two workers encounter the same prerequisite, or it persists for
+  two completed waves, the conductor must explicitly assign an
+  existing authorized worker/integrator responsibility for the
+  shared solution while the remaining lanes continue their useful
+  independent work. Exclusive file WRITE scopes do not prevent other
+  agents from diagnosing and escalating system-level problems.
+  The main interactive chat should likewise examine cross-team
+  bottlenecks during its actual turns. A passing isolated CI run
+  verifies only its exact revision/tests, **not** integrated
+  acceptance. See the [real BinaryWorkbench case study](dev/continuous_execution/REWIZARD_BINARYWORKBENCH_CASE_STUDY.md)
+  and [skill](skills/chatmode-scheduled-orchestration/SKILL.md).
 - **Do several useful steps per invocation:** A scheduled worker's
   first saved improvement, commit, report, or checkpoint is **not a
   natural stopping point**. After saving an exact recovery revision,
