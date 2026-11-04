@@ -7,7 +7,7 @@
 - Owner chose a *pre-provisioned* default five-role Chat Mode conductor/workforce approach, adaptable toward ten only when real work, plan capacity, permission and context independence warrant it.
 - Added the Chat Mode scheduling manual under `skills/chatmode-scheduled-orchestration/SKILL.md`, quick recipes, and conductor/evidence documentation. Root instructions, ChatGPT-specific process and the route-specific native guidance were updated; preserve all non-Chat Mode providers' policies.
 - A Chat Mode scheduled execution was **not permitted** to create a new automation. However, completed tests verified self-modification of instructions and schedule, self-pause, changing an existing other task, and a later task receiving updated instructions. Distinct run IDs shared a conversation ref, so that is **not** qualified independent review.
-- Additional bounded real-scheduler tests are scheduled to observe multiple consecutive two-hour occurrences, controlled reactivation of expired or test-self-paused automations, and a GitHub write to a throwaway branch. Do not claim those results until their exact run records are complete.
+- Final November 4 service experiments **verified** three completed consecutive two-hourly follow-ups; completed expired and previously self-paused task revival; two separate one-time same-ID resurrections; cross-conversation task-registry coordination; and scheduled GitHub write/readback with a separate auditor. The full evidence and remaining uncertainty are in `dev/continuous_execution/CHAT_MODE_SESSION_TEST_AUDIT_20261104.md`. Do not overwrite a now-production task merely because it once served as a test corpse.
 
 ## HA-only shift-manager correction, November 4
 
@@ -42,6 +42,14 @@ tests in CI, and do not claim live HA scheduling optimization or
 sub-hour one-time reactivation without a bounded service run.
 No owner-paused tasks, private source or live RE-Wizard orchestration
 was altered in this HA correction.
+
+## Final scheduled-Chat experiment evidence reconciliation
+
+Read the [completed multi-session audit](../../../dev/continuous_execution/CHAT_MODE_SESSION_TEST_AUDIT_20261104.md) before accepting earlier "pending" claims. Verified service features do **not** imply that HA's browser interface received the prompt, that an independent reviewer was qualified, or that the new shift-window optimizer is deployed. The private real-work team demonstrated overlapping completed sessions and an inherited corrective handoff, but broader hosted integration remains failing and the work is neither integrated nor published.
+
+HA's last full contract workflow at the prior head failed: Ubuntu logged **1,368 passed, 6 failed, 85 skipped** (Linux runtime/ABI regressions), and the browser-fixture job failed installing Playwright/Chromium; Windows contracts/package jobs passed. Investigate failures separately rather than representing the scheduling experiment as the cause or treating passing prompt assertions as live provider acceptance.
+
+The latest corrected instructions remain **ChatGPT Chat Mode only**. The critical remaining native questions are transport/receipt, model/effort/context controls, true independent review, service acceptance of earlier-than-hourly *distinct one-time* corrections, and an actual connected shift-manager schedule optimized for **its own available work runway**. None was proved by the bounded service tests. No RE-Wizard project, file, or scheduled task is authorized for modification through this HA handoff.
 
 ## Exact next action
 
