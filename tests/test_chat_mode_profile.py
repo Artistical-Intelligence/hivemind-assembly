@@ -98,8 +98,9 @@ def test_owner_scheduled_roster_guidance_remains_chat_mode_only():
         "These GitHub instruction files are NOT automatically reread",
         "A task ID or run ID",
         "No supported Chat Mode context-left percentage",
-        "GitHub writes through scheduled MCP are unverified",
+        "A Nov 4 scheduled Chat Mode GitHub connector test successfully wrote",
         "skills/chatmode-scheduled-orchestration/SKILL.md",
+        "private RE-Wizard BinaryWorkbench scheduling team",
         "Do not use distinct hourly roles as copies",
     ):
         assert phrase in CHAT_MODE_GUIDANCE
