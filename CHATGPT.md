@@ -32,6 +32,60 @@ In the tested **scheduled Chat Mode** execution environment, creating additional
 AI-only coordination must not depend on the owner opening chats, running commands, copying reports or recruiting reviewers. Respect mandatory approval and stop gates. Revise this Chat Mode profile as the owner clarifies goals and verified findings accumulate.
 
 
+## Single Shift Manager policy and temporary worker authority
+
+For HA's **ChatGPT Chat Mode** scheduled workforce, the
+[Shift Manager operating policy](dev/continuous_execution/SHIFT_MANAGER.md)
+is the sole procedural authority for employee classes, corrective
+overtime, stopped recurring tasks, shift exit criteria, shared coffee
+pool, claim/release, and manager check-in timing.
+
+**Full-time** employees are owner-authorized ongoing recurring roles:
+their complete prompt, schedule, recurrence and enabled state may be
+changed **only by the Shift Manager**, not by other scheduled workers.
+An otherwise healthy hourly role is not dormant just because its
+most recent invocation completed. **Temporary/coffee** employees
+are separately approved, pre-existing finite one-time task IDs:
+**any explicitly authorized scheduled Chat Mode worker** may claim an
+eligible idle temp and dispatch a genuinely distinct useful assignment
+without waiting for the manager, but only through an **exclusive
+create-if-absent private claim**, independently verified by readback.
+Reject collisions, ambiguous stopped state, user-paused/unregistered
+tasks and duplicate output ownership; after a task finishes, record
+actual results and release the exact claim only when the temp is
+safely disabled. Do not use a clock-only TTL to release running work.
+
+**Necromancy extends to genuinely stopped recurring employees**, not
+only expired one-offs; the manager alone may restore or repurpose a
+full-time task after diagnosing why it stopped. Preserve continuing
+responsibilities if converting a recurrence to a finite one-time
+correction. Two reuses of one completed one-off task ID were
+demonstrated; recovery of a genuinely stopped recurring full-time
+task and concurrent temp-claim contention are **not yet live-verified**.
+Don't pretend the documented pool is already deployed.
+
+**Corrective work:** A completed model invocation is not a completed
+deliverable. A failing test, missing mandatory result or blocked
+dependency deserves an immediate *generalized outcome-based*
+continuation brief (exact predecessor evidence, remaining deficit,
+acceptance, write owner, next eligible worker), not an identical
+rerun or narrow forced fix. Shared blockers escalate immediately
+when critical; two distinct affected lanes/two completed shifts is
+the **outer limit**, never an intentional waiting period. Continue
+useful independent work in parallel. Track schedule adherence and
+actual tested outputs as separate outcomes, not a token-intensive
+performance ledger.
+
+**Timing:** Keep the owner's HA requirement that the manager's phase
+maximizes **its own usable work runway** immediately after relevant
+outputs are ready, while other workers work independently. This is
+not the separate project's fixed phase, a universal mathematical
+optimum, or a permission to override runtime/cadence restrictions.
+A new legitimate one-time correction is logically distinct from
+an hourly RRULE recurrence; use the earliest *service-accepted*
+future event without inventing an hour-long per-ID cooldown, but do
+not promise untested sub-hour execution.
+
 ## Retaskable pre-provisioned scheduled workforce (owner update, November 4)
 
 See [HA conductor instructions](dev/continuous_execution/CONDUCTOR.md),
@@ -196,7 +250,7 @@ scheduler extension or an approval to start autonomous HA workers.
   retaining durable GitHub receipts. This is a project-specific cadence,
   not an instruction to replace finite experimental observations or
   modify Claude, Work, or Codex schedules.
-- **Reusable one-time slots ("necromancy"):** An authorized conductor
+- **Reusable one-time slots ("necromancy"):** An eligible, authorized dispatcher for a *claimed temp*, or the Shift Manager exclusively for a full-time role,
   may update the **same completed test/project-owned one-off task ID**
   with new future one-time DTSTART, complete prompt and enabled state.
   The first such revival and completed new run have been verified;
