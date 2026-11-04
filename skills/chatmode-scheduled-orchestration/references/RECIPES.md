@@ -51,6 +51,47 @@ Pseudo-call:
 
 Creation of one/many new tasks from a scheduled Chat Mode execution was blocked in tests. A newly scheduled one-time task from an authorized **interactive** chat is a different tested capability. Do not use multiple copies to evade the minimum hourly recurrence.
 
+## Repeated one-off reactivation ("necromancy") — bounded pattern
+
+Use **one existing completed one-time task ID** as the reusable slot and one
+already authorized hourly conductor. Do not create a fresh one-time automation
+on every continuation. Only act on a task the owner has delegated to the
+conductor; do not revive unrelated or deliberately user-paused tasks.
+
+- On each conductor run, read the original exact target ID, saved prompt marker,
+  one-time saved VEVENT (must have no RRULE), enabled state, last_run
+  recorded_status, completed_at, latest_result.run_id and the actual result text.
+  A completed first one-off is an eligible initial condition; being merely
+  scheduled or in_progress is not.
+- For an eligible disabled one-time target, update **that same ID** in ONE
+  supported operation with full preserved owner/project safeguards,
+  changed milestone marker, `is_enabled=true`, and a future single-event
+  DTSTART. When supported, `dtstart_offset_json: '{"minutes":20}'`
+  schedules a one-time occurrence relative to the update, avoiding stale
+  absolute dates. This is **not** changing a task's hourly recurrence.
+- Read the persisted task entry to verify the unchanged ID, saved new
+  instructions, new one-time schedule, and enabled status. Later inspect
+  the target's **different** last_run.id and completed result containing
+  that exact marker.
+- After the first revived execution finishes and the platform disables
+  the one-off again, the conductor may repeat the **same update-and-verify
+  operation** on the **same target ID**, only if the owner authorized
+  another revival. Never automatically resurrect a running, unknown,
+  failed, or user-paused task. A repeated-revival experiment is currently
+  scheduled and **not yet passed**; a single revival has been verified.
+- Stop once the final objective is accepted, the owner stops, or the
+  bounded revival count is reached. The conductor itself should run at
+  the service's minimum supported recurring interval if the specific
+  owner task requires hourly cadence. Do not use copies/descendants to
+  evade recurrence, usage, active task caps or approval gates.
+
+The documented Chat Mode update schema accepts an exact `jawbone_id`,
+`prompt`, `dtstart_offset_json`, `is_enabled` and optional `title`;
+a successful update does not prove future dispatch. A 15-active-task
+limit was observed in one plan at the time of the attempted test;
+this is not a universal subscriber limit. Revived targets count as
+active while enabled.
+
 ## Durable task prompt contract
 
 Every pre-provisioned task's saved prompt should include, at a minimum:
