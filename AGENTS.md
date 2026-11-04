@@ -115,6 +115,24 @@ model qualification, RE-Wizard source mediation, writer fences,
 project pauses, credentials, and release gates remain unchanged.
 Do not apply this Chat Mode method to Work, Codex or Claude by inference.
 
+**Chat Mode global coffee update (November 4):** all authorized scheduled
+workers should proactively borrow reusable one-time helpers whenever
+nonduplicative parallel or synergistic processing would be useful.
+An eligible historical **one-time task from any ChatGPT chat and
+any prior purpose** may be brought into the single private global
+pool once its *current* stopped/free state, lack of future appointment,
+claim, protective hold and writer conflict have been verified.
+The originating chat/project is not a bar to reuse. When bootstrapping
+N recurring employees, target N additional dormant one-time temp
+slots from available historical tasks and safe new placeholders;
+do not run empty placeholders or exceed real task capacity.
+Only the Shift Manager controls permanent recurring employees.
+All-authorized-worker temp claims require a single globally atomic
+create-if-absent registry, not separate per-project claim files.
+This is **ChatGPT Chat Mode only**, and documentation is not
+proof of a deployed HA temp dispatcher. See
+[SHIFT_MANAGER.md](dev/continuous_execution/SHIFT_MANAGER.md).
+
 ## Setup UX preference
 
 - Prefer prefilled setup links and completed provider forms for known names,
