@@ -51,46 +51,82 @@ Pseudo-call:
 
 Creation of one/many new tasks from a scheduled Chat Mode execution was blocked in tests. A newly scheduled one-time task from an authorized **interactive** chat is a different tested capability. Do not use multiple copies to evade the minimum hourly recurrence.
 
-## Repeated one-off reactivation ("necromancy") — bounded pattern
+## Reusable one-time task: actual demonstrated "necromancy"
 
-Use **one existing completed one-time task ID** as the reusable slot and one
-already authorized hourly conductor. Do not create a fresh one-time automation
-on every continuation. Only act on a task the owner has delegated to the
-conductor; do not revive unrelated or deliberately user-paused tasks.
+**Completed evidence, Nov 4:** One test-owned one-time task completed
+its original assignment and was then updated and re-enabled **twice**
+with distinct instructions. Both revived executions completed with
+new run IDs under the **same original automation ID**; the saved
+VEVENT remained single-use without an `RRULE`. This establishes
+repeated reuse of a slot, **not** unlimited executions, arbitrary
+sub-hour restart or a new conversation per revival.
 
-- On each conductor run, read the original exact target ID, saved prompt marker,
-  one-time saved VEVENT (must have no RRULE), enabled state, last_run
-  recorded_status, completed_at, latest_result.run_id and the actual result text.
-  A completed first one-off is an eligible initial condition; being merely
-  scheduled or in_progress is not.
-- For an eligible disabled one-time target, update **that same ID** in ONE
-  supported operation with full preserved owner/project safeguards,
-  changed milestone marker, `is_enabled=true`, and a future single-event
-  DTSTART. When supported, `dtstart_offset_json: '{"minutes":20}'`
-  schedules a one-time occurrence relative to the update, avoiding stale
-  absolute dates. This is **not** changing a task's hourly recurrence.
-- Read the persisted task entry to verify the unchanged ID, saved new
-  instructions, new one-time schedule, and enabled status. Later inspect
-  the target's **different** last_run.id and completed result containing
-  that exact marker.
-- After the first revived execution finishes and the platform disables
-  the one-off again, the conductor may repeat the **same update-and-verify
-  operation** on the **same target ID**, only if the owner authorized
-  another revival. Never automatically resurrect a running, unknown,
-  failed, or user-paused task. A repeated-revival experiment is currently
-  scheduled and **not yet passed**; a single revival has been verified.
-- Stop once the final objective is accepted, the owner stops, or the
-  bounded revival count is reached. The conductor itself should run at
-  the service's minimum supported recurring interval if the specific
-  owner task requires hourly cadence. Do not use copies/descendants to
-  evade recurrence, usage, active task caps or approval gates.
+A legitimate **corrective task instance** can reuse such a completed
+one-time slot instead of creating a fresh automation object:
 
-The documented Chat Mode update schema accepts an exact `jawbone_id`,
-`prompt`, `dtstart_offset_json`, `is_enabled` and optional `title`;
-a successful update does not prove future dispatch. A 15-active-task
-limit was observed in one plan at the time of the attempted test;
-this is not a universal subscriber limit. Revived targets count as
-active while enabled.
+1. Identify exactly one approved and **completed**, presently disabled
+   one-time automation; verify real completed `last_run`, its matching
+   `latest_result.run_id`, the original assignment, and no `RRULE`.
+   Never repurpose a user-paused or unrelated automation.
+2. Construct a **new corrective assignment** with precise missing
+   deliverable, committed source/test SHA, executable diagnosis/fix,
+   acceptance criterion, dependency and authorized writer scope.
+   Carry forward the complete immutable owner/safety header.
+3. Request the **earliest supported future single-event DTSTART**,
+   using one update call with the exact `jawbone_id`, new full
+   `prompt`, single future VEVENT/`dtstart_offset_json`, and
+   `is_enabled=true`. Do **not** infer a mandatory 60-minute gap
+   from the minimum hourly recurrence for repeating `RRULE` tasks.
+   The actual lower bound for a new one-time assignment is **untested**:
+   if the service rejects an early candidate, obey the returned
+   restriction and choose another authorized eligible worker/slot.
+   Earlier bounded experiments used a 20-minute offset as a
+   **test choice**, not as a product requirement or proven minimum.
+4. Re-peek the complete saved task ID, prompt, one-time event,
+   enabled status and previous run ID; a persisted update is
+   **not** evidence of new execution.
+5. After the scheduled execution, verify a **different** run ID,
+   `started_at`, `completed_at`, `recorded_status=completed`,
+   the exact corrective prompt marker, committed artifacts/tests,
+   and the receiving consumer's actual use of the work. Only
+   declare the slot eligible for another reactivation once the
+   service has finished and disabled it again.
+
+The new task's purpose does not create an unrestricted tool quota.
+The demonstrated product also enforced an active-task limit of
+**15 for the tested account at the time**; this is not a universal
+plan-specific number. Do not claim infinitely many simultaneous
+tasks, arbitrary recurrence bypass, approval bypass, or unlimited
+model runtime. Unlike a recurring `RRULE`, a new one-off task
+is governed by its actually accepted single-event update.
+
+## Shift-manager phase with maximum useful runway
+
+The manager's objective is **maximum time available to do its own
+work after relevant preceding results arrive**, not minimum latency
+for every worker to get managerial approval.
+
+For each hourly wave:
+- Identify the *relevant* last producer/test/integrator completion
+  using actual timestamps, with a conservative jitter/readiness
+  allowance `R`. Don't wait for unrelated late reports.
+- Identify the next major independent worker wave start `D`.
+  Workers should **not** wait for manager permission.
+- Evaluate hourly manager minute phases `m=0..59`. Keep only
+  candidates whose expected start `S(m)` is after `R`.
+  Compute `runway(m) = max(0, D - S(m) - update_margin)` and
+  choose `argmax runway(m)`. Ordinarily this is the **earliest
+  feasible phase after `R`**, because waiting later wastes
+  manager time before the next wave.
+- If dispatch is unpredictable, use a measured high-confidence
+  completion quantile or probability-of-readiness-weighted runway
+  instead of assuming an exact wall-clock optimum.
+- Treat `D` as a planning window, **not** a stop command; the
+  manager can continue within its actual service invocation
+  while other workers proceed independently.
+
+See [SHIFT_MANAGER.md](../../../dev/continuous_execution/SHIFT_MANAGER.md)
+for the full HA-only mathematical model and safety boundaries.
 
 ## Durable task prompt contract
 
