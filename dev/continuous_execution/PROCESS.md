@@ -142,6 +142,45 @@ Read [REWIZARD_BINARYWORKBENCH_CASE_STUDY.md](REWIZARD_BINARYWORKBENCH_CASE_STUD
 `RRULE`, task identity and handoff recipes. These docs are CHECKS PENDING
 until a separate qualified session reviews them.
 
+## Known issue: shared execution blocker left unresolved despite viable CI
+
+**Owner corrective finding from the live BinaryWorkbench Chat Mode team
+(November 4, 2026):** Workers confused inability to obtain a local
+authenticated private-repository checkout (sometimes with direct
+network DNS failures) with inability to execute source tests anywhere.
+The integrator repeatedly analyzed potential GitHub Actions setups
+without conducting the decisive minimal isolated branch experiment.
+Strict separate write ownership prevented conflicting edits but also
+left the shared test-execution prerequisite without a clear problem
+owner. The owner then demonstrated working **scoped synthetic CI**
+on isolated branches. Those successful runs do not prove current
+worker revisions or integration are accepted.
+
+**Enforced Chat Mode recovery rule:** A failed local route is not an
+overall impossibility proof. Identify the exact blocked operation,
+try the smallest supported/authorized executable alternative, and
+observe the real test result rather than writing a repeated
+feasibility report. An isolated, permission-scoped GitHub Actions
+workflow that checks out the required exact commit and runs
+no-game synthetic Python tests is one concrete option *where the
+connection and approval rules permit it*. The saved YAML file,
+successful API access or output report alone is not a test pass;
+compare actual workflow run ID, source SHA, run/job/step result,
+test count and failures/skips.
+
+If >=2 independently assigned work lanes share one blocker, or it
+remains across 2 completed waves, the conductor must designate an
+existing authorized owner for the **cross-lane enabling capability**
+and schedule the next minimal proof while unrelated independent
+work continues. Role-specific **write** boundaries do not restrict
+recognizing and reporting common bottlenecks. The main interactive
+worker should help resolve such problems during live turns rather
+than becoming another passive observer. Preserve tool approval,
+source mediation, single-writer ownership, check-pending markers,
+and the owner's prohibition on games and opaque compiler execution.
+Do not claim a repeatable current-revision CI gate until it has
+actually been tested on relevant producer and integration HEADs.
+
 ## 1. Read, reassess and decide at every wave
 
 Reconcile the actual current project revision with the existing queue/handoff, newly saved outputs, checker verdicts, interruptions, relevant explicit owner directions and authorized capabilities. Read changed and decision-relevant material plus required project instructions rather than repeatedly loading entire histories. Confirm what the previous wave intended and what actually persisted.
