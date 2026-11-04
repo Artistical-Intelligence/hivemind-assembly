@@ -14,3 +14,4 @@ CHECKS PENDING: test_beta_packaging.py — beta-only authorization, original ZIP
 CHECKS PENDING: test_chat_mode_profile.py — isolated Chat/Work/Claude route scope, native request-packet and evidence-driven open-ended chain versus loop semantic tests; run the complete checkout tests and obtain independent source review before acceptance. Short-delay ad hoc scheduling remains an unproven separate service capability.
 
 CHECKS PENDING: test_chat_mode_profile.py policy 1.4 static contract additions — run in a complete source checkout, ensure exact-route gating/no Work/Codex/Claude injection, no accidental syntax errors, and independent test review; fixtures are not live browser/provider acceptance.
+CHECKS PENDING: 2026-11-04 test_chat_mode_profile.py additional shared-blocker/probe-first instruction assertions — execute focused routing contracts and compare exact positive/negative Chat mode routes; passing fixture is not evidence of real scheduled worker behavior.
