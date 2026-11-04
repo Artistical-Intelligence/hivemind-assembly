@@ -74,6 +74,26 @@ samples, not a guaranteed physical or service-wide optimum.
 This is substantive deterministic planning code, **not yet a live
 service-connected scheduler**.
 
+## Real-work corrective handoff now observed
+
+A separate production Chat Mode shift manager **actually identified failing
+hosted synthetic-test evidence, replaced an existing authorized worker's
+corrective assignment, and a later completed receiving worker run
+consumed the evidence and committed corrective changes and tests**.
+This is a verified **inheritance/corrective dispatch** at the task-registry
+and source-artifact level. It does **not** demonstrate earlier-than-normal
+service dispatch, a guaranteed single-event sub-hour revival, successful
+integrated test closure, or a maximum-work-runway manager phase.
+
+For this HA design, evaluate manager positioning by **its own available
+substantive analysis/replanning window after relevant output readiness**,
+not by whether it happens to precede every other worker, nor by forcing
+other workers to wait. The pure
+[`shift_window.py`](../../_app/hivemind_assembly/automation/shift_window.py)
+is only a deterministic planning helper, not a connected live scheduler.
+The multi-session [service audit](CHAT_MODE_SESSION_TEST_AUDIT_20261104.md)
+provides the completed bounded-task evidence and the latest known gaps.
+
 ## Acceptance and evidence
 
 The mechanism is **not fully proven** by these instructions. Verify independently that a real HA-managed coordinator: (1) identifies a missing important deliverable, (2) issues a distinct corrective brief rather than replaying the old job, (3) reuses an authorized existing one-time task or suitable worker, (4) gets an earlier **actual** follow-up when permitted and confirms the service-accepted execution rather than inferring it from a saved prompt, (5) records corrected artifact/test acceptance, and (6) chooses a manager phase because it maximizes the observed work runway rather than because of an inherited fixed time. A bounded test may investigate whether a newly corrected *one-time* assignment can execute within an hour of the preceding one; its success is not assumed until the run finishes.
