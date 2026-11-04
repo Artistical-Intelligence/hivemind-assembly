@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "project": "hivemind-assembly",
+  "comment": "Only HA production tasks explicitly provisioned and authorized for this project belong here. Prior isolated Chat Mode experiments are evidence, not active HA workers.",
+  "pool_target_initial": 5,
+  "pool_optional_max": 10,
+  "active_project_tasks": [],
+  "auto_create_children_from_scheduled_chat": false,
+  "auto_restart_user_paused_tasks": false,
+  "approved_writable_state_paths": [
+    "projects/hivemind-assembly/state/"
+  ],
+  "private_conversation_ids": "do not store in public Git; use private supported coordinator registry only if needed",
+  "last_reviewed": "2026-11-04",
+  "review_status": "checks-pending"
+}
