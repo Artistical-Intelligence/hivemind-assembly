@@ -127,7 +127,7 @@ GitHub checkpoints for automated workers. Milestone reporting is not an
 instruction to send a message on every unchanged status poll, nor to
 replace work with narration.
 
-**Necromancy = reusing an expired one-time task ID.** A completed one-off
+**One-time Necromancy is the verified example, not the full current policy.** The [authoritative HA Shift Manager policy](../../dev/continuous_execution/SHIFT_MANAGER.md) also permits **manager-only recovery of genuinely stopped recurring full-time employees**, with separate approval and live acceptance required. Shared temps are registered finite one-time slots and may be borrowed by another authorized employee only through the exclusive private claim protocol.  A completed one-off
 normally becomes disabled. If authorized and the original task is
 test/project-owned (never a user-paused or unrelated task), a scheduled
 conductor can update that **same** task ID with its full replacement
