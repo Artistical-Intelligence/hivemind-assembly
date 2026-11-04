@@ -69,20 +69,39 @@ child tasks, run-now/self-wake loops or unsupported model/provider changes
 to force longer execution. Prefer substantive results to repeated status
 narration; checkpoint exact resume state at real interruption.
 
-SHIFT MANAGER CORRECTIVE WAVES (owner rule 2026-11-04, Chat Mode):
-An unfinished critical work package requires a NEW generalized corrective
-brief: missing outcome, exact prior source/test evidence, executable next
-step, acceptance criteria and downstream dependency. Choose the EARLIEST
-ELIGIBLE existing authorized worker, NOT automatically the previous
-author; retask its saved prompt and next supported DTSTART if useful.
-Allow different workers to take nonconflicting repair/test fragments in
-parallel. A modified task assignment is not a verbatim repeat but does
-NOT exempt the same automation from its service hourly frequency limit.
-Verify the receiving worker actually completes the corrective work.
-Choose the manager's hourly phase by observed critical-worker/verifier/
-integrator completion and successor start times, minimizing expected
-dependency delay with timing uncertainty; no guaranteed all-done slot.
-Preserve project permissions, independent checks and writer ownership.
+HA SHIFT MANAGER CORRECTIONS (owner clarification 2026-11-04):
+An important unfinished shift creates a NEW distinct corrective task
+instance, NOT a verbatim replay of the old RRULE recurrence. The
+manager writes a generalized brief with the precise gap, source/test
+evidence, executable next action, acceptance and dependencies; it
+assigns an existing qualified worker or reuses a completed single-
+event slot with its own new full prompt and future one-time DTSTART.
+An earlier test twice resurrected ONE single-event automation under
+the same task ID. The once-hourly minimum for a repeating RRULE
+does NOT establish an automatic 60-minute cooldown on all new
+ad hoc one-time corrections. Request the earliest service-accepted
+future single event, verifying the full saved update and the actual
+later completed run. Sub-hour one-off dispatch has NOT been validated;
+obey real permission, active-task and usage limits, and never use
+identical one-offs to emulate an unlawful sub-hour recurring loop.
+Don't duplicate in_progress tasks or disturb unrelated/user-paused
+tasks. The task's purpose and the scheduler's actual constraints
+must be verified separately, not assumed.
+
+MAXIMIZE THE MANAGER'S OWN USABLE WORK RUNWAY:
+Choose its hourly check-in time after relevant preceding work is
+expected to be ready, leaving the MOST TIME POSSIBLE for managerial
+analysis and retasking before the next major worker wave. Compare
+actual completed timestamps and jitter with next scheduled starts;
+evaluate each candidate minute phase 0..59 and select the earliest
+phase after a conservative high-confidence readiness threshold.
+This maximizes available preparation time under observed assumptions,
+NOT minimum worker latency and NOT a supervisory gate. Workers can
+continue independent work without awaiting the manager. No one
+phase guarantees all asynchronous work finished; don't blindly
+copy another project's :08 timing. See
+dev/continuous_execution/SHIFT_MANAGER.md for the exact formula.
+Preserve all owner, model/provider, writer and review constraints.
 
 SHARED BLOCKERS: PROBE FIRST, ASSIGN OWNER (owner rule 2026-11-04):
 Do not generalize a blocked route into a blocked objective: failure to
