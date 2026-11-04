@@ -250,16 +250,19 @@ scheduler extension or an approval to start autonomous HA workers.
   retaining durable GitHub receipts. This is a project-specific cadence,
   not an instruction to replace finite experimental observations or
   modify Claude, Work, or Codex schedules.
-- **Reusable one-time slots ("necromancy"):** An eligible, authorized dispatcher for a *claimed temp*, or the Shift Manager exclusively for a full-time role,
-  may update the **same completed test/project-owned one-off task ID**
-  with new future one-time DTSTART, complete prompt and enabled state.
-  The first such revival and completed new run have been verified;
-  **repeated** revival of the exact same one-off is undergoing a
-  bounded experiment and is not yet accepted. Check prior completion,
-  owner authorization, disabled status, full prompt, one-time VEVENT
-  and actual new run receipt on each cycle. Do not resurrect
-  user-paused or unrelated tasks, create descendants or evade active
-  task limits, recurrence/usage restrictions, or approvals.
+- **Reusable coffee slots ("necromancy"):** A completed, authorized
+  finite one-time task may receive a new generalized assignment and
+  single-event DTSTART under the *same* immutable task ID. Two
+  successive same-ID resurrections were verified with new completed
+  run IDs, not an infinite or guaranteed sub-hour restart. Any
+  authorized Chat Mode role may do this **only** to an expressly
+  registered dormant **temporary** after winning the private
+  exclusive claim; **only the Shift Manager** may revive, retask
+  or reschedule a stopped **full-time recurring** employee. Healthy
+  recurring roles, unrelated test IDs and user-paused workers are
+  not coffee. Require actual run/result evidence and release the
+  claim after checking that the temp is no longer running.
+
 - **External tools and costs:** Connected GitHub or other MCP permissions must
   be checked in the *actual scheduled environment*, including approvals.
   Ordinary scheduled Chat runs may consume plan usage even if a dot coordinates
