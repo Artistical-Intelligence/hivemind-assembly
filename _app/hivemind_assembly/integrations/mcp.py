@@ -213,8 +213,14 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 reject_remaining_media(child, depth + 1)
 
     reject_remaining_media(output)
-    # Metadata can also be oversized, even if the content blocks are small.
-    if len(canonical(output)) > max_chars + 32_768:
+    # Structured metadata is also an outbound payload. Bound its encoded
+    # UTF-8 size (not Unicode character count), and reject invalid surrogate
+    # strings or non-JSON encodings instead of passing malformed results on.
+    try:
+        result_bytes = canonical(output).encode("utf-8", errors="strict")
+    except (UnicodeEncodeError, TypeError, ValueError) as error:
+        raise Blocked("MCP inline result contains invalid UTF-8 or metadata") from error
+    if len(result_bytes) > max_chars + 32_768:
         raise Blocked(
             "MCP inline result exceeds the safe response limit. "
             "Read a smaller line range instead of an attachment."
