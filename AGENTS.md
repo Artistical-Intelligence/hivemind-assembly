@@ -31,6 +31,23 @@
   turns for routine polls. Follow any service-required heartbeat without
   presenting waiting as token-free model work.
 
+## GitHub MCP: avoid hosted file-materialization approvals
+
+**ChatGPT source-reading rule:** When reviewing GitHub source, use
+`GitHub.fetch_file` (`mcp__GitHub__fetch_file`) for a known path/ref and
+`GitHub.fetch` (`mcp__GitHub__fetch`) for directory/metadata JSON; both
+return inline UTF-8 text. Use bounded line ranges for large files.
+**Do not use `GitHub_MCP.get_file_contents` for ordinary files** when
+the inline GitHub tools are available: GitHub MCP can return a resource
+attachment that makes the ChatGPT host request **"Allow file
+materialization?"** despite the app being set to Allow all actions.
+Do not automatically materialize or download a binary, ZIP or file
+resource as a fallback. Report a real binary/size limitation instead.
+No hosted approval gate can be disabled by this repository. HA's own
+native MCP `get_file_contents` text normalizer is documented in
+[GitHub MCP text-only reads](dev/continuous_execution/GITHUB_MCP_TEXT_READS.md).
+This does not authorize additional GitHub, cross-project or tool scope.
+
 ## Provider-specific execution instructions
 
 **ChatGPT Chat Mode only:** read [CHATGPT.md](CHATGPT.md) for the owner-adopted
