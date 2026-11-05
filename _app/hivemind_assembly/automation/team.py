@@ -1029,6 +1029,26 @@ class NativeTeam:
                         task, route, receipt_id, self.native_event_inbox,
                         delivery_binding,
                     )
+                    validated = self.store.rows(
+                        """SELECT payload FROM messages
+                           WHERE id=? AND task_id=? AND route=?
+                             AND state='validated'""",
+                        (receipt_id, task_id, route),
+                    )
+                    if validated:
+                        # A fake browser response is not a model receipt.
+                        # Record the last native turn only when the existing
+                        # controller has persisted its exact validated request.
+                        retained = json.loads(validated[0]["payload"])
+                        if (not isinstance(retained, dict)
+                                or retained.get("task_id") != task_id
+                                or retained.get("project_id") != task["project_id"]):
+                            raise ContractError(
+                                "Validated native ticket turn has wrong scope"
+                            )
+                        self.native_event_inbox.record_ticket(
+                            task_id, "working", run_id=receipt_id
+                        )
             elif delivery_bridge is not None:
                 # Context resets, partial replies or ambiguous responses are
                 # not evidence that an event was processed successfully.
