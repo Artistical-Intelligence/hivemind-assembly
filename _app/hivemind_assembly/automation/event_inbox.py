@@ -167,6 +167,57 @@ class NativeEventInbox:
             )
         return self.ticket(task_id)
 
+    def reconcile_ticket(self, task_id: str) -> dict:
+        """Project the controller's durable task state, never a model claim.
+
+        A native ticket is a local view of existing work. An accepted model
+        answer alone is not acceptance: only the controller's accepted task
+        with a matching retained independent-verifier artifact can close it.
+        Repeatable after a crash, including one between Acceptance.evaluate()
+        and this optional ticket projection.
+        """
+        task = self.store.task(task_id)
+        state = task["status"]
+        if state == "accepted":
+            records = self.store.rows(
+                """SELECT payload FROM records
+                   WHERE kind='acceptance_result'
+                     AND json_extract(payload,'$.task_id')=?
+                   ORDER BY rowid DESC LIMIT 1""",
+                (task_id,),
+            )
+            if not records:
+                return self.record_ticket(task_id, "needs_check")
+            try:
+                result = json.loads(records[0]["payload"])
+            except (ValueError, TypeError) as error:
+                raise ContractError("Malformed retained acceptance evidence") from error
+            if (result.get("task_id") != task_id
+                    or result.get("status") != "accepted"
+                    or result.get("passed") is not True
+                    or not isinstance(result.get("artifact"), str)):
+                return self.record_ticket(task_id, "needs_check")
+            artifact = self.store.rows(
+                """SELECT sha256 FROM artifacts WHERE id=? AND project_id=?""",
+                (result["artifact"], task["project_id"]),
+            )
+            if not artifact:
+                return self.record_ticket(task_id, "needs_check")
+            return self.record_ticket(
+                task_id, "accepted", artifact_sha=artifact[0]["sha256"]
+            )
+        if state == "cancelled":
+            return self.record_ticket(task_id, "cancelled")
+        if state == "awaiting_acceptance":
+            return self.record_ticket(task_id, "needs_check")
+        if state in {"running"}:
+            return self.record_ticket(task_id, "working")
+        if state in {"queued"}:
+            return self.ensure_ticket(task_id)
+        # Quota, sign-in, dependencies and scheduled retry are reasons to
+        # review, not proof of a model failure or independent acceptance.
+        return self.record_ticket(task_id, "blocked")
+
     @staticmethod
     def _refill_initial(db, task_id: str, thread: str, *, limit: int = 20) -> None:
         """Bounded, durable first-subscription catch-up, never a resubscribe replay.
