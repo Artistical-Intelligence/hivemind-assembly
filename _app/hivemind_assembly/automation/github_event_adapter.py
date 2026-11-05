@@ -100,6 +100,29 @@ def _digest_from_payload(event_type: str, data: dict) -> tuple[str, str] | None:
     return "source_changed", f"GitHub push source revision {sha.lower()}"
 
 
+def _semantic_event_key(event_type: str, data: dict, repository: str) -> str:
+    """Deduplicate the same signed GitHub fact across transport retries.
+
+    GitHub delivery IDs are unsigned. The body can also be redelivered with
+    harmless JSON formatting or unrelated run metadata changed. Independent
+    attempts and changed CI conclusions retain distinct receipt identities.
+    """
+    if event_type in ("workflow_run", "check_run"):
+        run = data[event_type]
+        attempt = run.get("run_attempt", 1) if event_type == "workflow_run" else 1
+        if type(attempt) is not int or attempt < 1:
+            raise ContractError("Malformed GitHub run attempt")
+        identity = (repository, event_type, run["id"], attempt,
+                    run["head_sha"].lower(), run["conclusion"])
+    else:
+        ref, before = data.get("ref", ""), data.get("before", "")
+        if not isinstance(ref, str) or not isinstance(before, str):
+            raise ContractError("Malformed GitHub push reference")
+        identity = (repository, event_type, ref, before, data["after"].lower())
+    normalized = json.dumps(identity, separators=(",", ":"), ensure_ascii=True)
+    return "signed:" + hashlib.sha256(normalized.encode("ascii")).hexdigest()
+
+
 def admit_signed_github_event(inbox: NativeEventInbox, *, project_id: str,
                               repository: str, event_type: str,
                               delivery_id: str, payload: bytes,
@@ -138,16 +161,13 @@ def admit_signed_github_event(inbox: NativeEventInbox, *, project_id: str,
     kind, summary = result
     # The configured project/repository is an authorization from the host;
     # the signed payload's comment/body/commit messages are never forwarded.
-    # GitHub signs the *body*, not the X-GitHub-Delivery header. A captured
-    # authentic body can be replayed with a new delivery-id header by an
-    # intermediary that does not know the secret. Never use that changeable
-    # header alone as an idempotency key: bind the event key to the verified
-    # bytes and event type instead. The bounded delivery ID remains validated
-    # above, but is not trusted as event identity.
-    stable_id = hashlib.sha256(event_type.encode("ascii") + b"\0" + payload).hexdigest()
+    # The trusted host authenticates transport/event-type binding. The
+    # validated semantic identity, rather than redelivery headers or JSON
+    # byte formatting, gives the inbox a stable replay-protection key.
+    stable_id = _semantic_event_key(event_type, data, repository)
     return inbox.receive(
         project_id=project_id, source="github_webhook",
-        source_id="signed:" + stable_id,
+        source_id=stable_id,
         thread="project:" + project_id, kind=kind,
         summary=summary, verified=True,
     )
