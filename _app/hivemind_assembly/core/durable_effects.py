@@ -54,6 +54,30 @@ def _key(value: str, description: str) -> str:
     return value
 
 
+def _contains_exact_event(inputs: object, event) -> bool:
+    """Proof the browser request carried the scoped event, not just an ID.
+
+    A guessed local integer or mismatched source/kind/summary must not
+    acknowledge another event. NativeEventInbox.pending() provides these
+    immutable fields in the existing native request body.
+    """
+    if not isinstance(inputs, list):
+        return False
+    fields = {
+        "event_id": event["id"],
+        "source": event["source"],
+        "source_id": event["source_id"],
+        "thread": event["thread"],
+        "kind": event["kind"],
+        "summary": event["summary"],
+    }
+    return any(
+        isinstance(item, dict) and
+        all(item.get(name) == expected for name, expected in fields.items())
+        for item in inputs
+    )
+
+
 class DurableEventEffects:
     """Explicitly fenced, at-least-once *intent*, exactly-once *receipt*.
 
@@ -223,9 +247,11 @@ class DurableEventEffects:
             ):
                 raise Conflict("Stale or non-leased event effect")
             delivery = db.execute(
-                """SELECT d.read_at FROM ha_event_delivery d
-                   JOIN ha_event_trigger t ON t.id=d.event_id
-                   WHERE d.task_id=? AND d.event_id=? AND t.project_id=?""",
+                """SELECT d.read_at,e.id,e.source,e.source_id,e.thread,
+                          e.kind,e.summary
+                   FROM ha_event_delivery d
+                   JOIN ha_event_trigger e ON e.id=d.event_id
+                   WHERE d.task_id=? AND d.event_id=? AND e.project_id=?""",
                 (task_id, row["event_id"], row["project_id"]),
             ).fetchone()
             if delivery is None:
@@ -247,12 +273,11 @@ class DurableEventEffects:
                 ).get("event_inputs", [])
             except (TypeError, ValueError, AttributeError) as error:
                 raise ContractError("Malformed validated message payload") from error
-            if not isinstance(event_inputs, list) or not any(
-                isinstance(value, dict) and
-                value.get("event_id") == row["event_id"]
-                for value in event_inputs
-            ):
-                raise Blocked("Validated native browser turn never received this event")
+            if not _contains_exact_event(event_inputs, delivery):
+                raise Blocked(
+                    "Validated native browser turn never received the "
+                    "complete event envelope"
+                )
             db.execute(
                 """UPDATE ha_native_effect SET status='delivered',
                    receipt_id=?,lease_until=NULL,updated=?
@@ -348,7 +373,7 @@ class DurableEventEffects:
         with self.store.tx() as db:
             self._fence(db, task_id, owner, epoch)
             effect = db.execute(
-                """SELECT status,event_id,generation,claimed_at
+                """SELECT status,event_id,generation,claimed_at,project_id
                    FROM ha_native_effect WHERE task_id=? AND effect_key=?""",
                 (task_id, effect_key),
             ).fetchone()
@@ -362,6 +387,15 @@ class DurableEventEffects:
                 raise Blocked(
                     "Legacy uncertain claim has no confirmed start timestamp"
                 )
+            event = db.execute(
+                """SELECT e.id,e.source,e.source_id,e.thread,e.kind,e.summary
+                   FROM ha_event_trigger e
+                   JOIN ha_event_delivery d ON d.event_id=e.id
+                   WHERE d.task_id=? AND e.id=? AND e.project_id=?""",
+                (task_id, effect["event_id"], effect["project_id"]),
+            ).fetchone()
+            if event is None:
+                raise Conflict("Unsubscribed or unowned native event cannot reconcile")
             # Read only local validated request receipts, in bounded pages.
             # An active project can have many unrelated native Chat turns;
             # limiting to the FIRST 65 would permanently strand a legitimate
@@ -389,11 +423,7 @@ class DurableEventEffects:
                         inputs = body.get("body", {}).get("event_inputs", [])
                     except (TypeError, ValueError, AttributeError):
                         continue
-                    if isinstance(inputs, list) and any(
-                        isinstance(item, dict) and
-                        item.get("event_id") == effect["event_id"]
-                        for item in inputs
-                    ):
+                    if _contains_exact_event(inputs, event):
                         matches.append(message["id"])
                         if len(matches) > 1:
                             raise Blocked(
