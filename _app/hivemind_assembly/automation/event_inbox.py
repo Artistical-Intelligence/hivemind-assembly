@@ -212,8 +212,8 @@ class NativeEventInbox:
             return self.record_ticket(task_id, "needs_check")
         if state in {"running"}:
             return self.record_ticket(task_id, "working")
-        if state in {"queued"}:
-            return self.ensure_ticket(task_id)
+        if state == "queued":
+            return self.record_ticket(task_id, "open")
         # Quota, sign-in, dependencies and scheduled retry are reasons to
         # review, not proof of a model failure or independent acceptance.
         return self.record_ticket(task_id, "blocked")
