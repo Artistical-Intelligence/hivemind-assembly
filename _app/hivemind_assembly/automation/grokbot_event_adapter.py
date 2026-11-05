@@ -70,10 +70,16 @@ def admit_grokbot_event(
         raise ContractError("Grok Bot event target does not match authorized route")
     kind = event.get("event")
     status = event.get("status")
-    if kind not in _STATUS or status not in _STATUS[kind]:
+    # Remote JSON fields can be arrays or objects. Never let an unhashable
+    # event/status/exit_reason escape as TypeError instead of a deliberate
+    # invalid-event refusal at the authenticated adapter boundary.
+    if (not isinstance(kind, str) or not isinstance(status, str) or
+            kind not in _STATUS or status not in _STATUS[kind]):
         raise ContractError("Unsupported Grok Bot event/status combination")
-    if "exit_reason" in event and event["exit_reason"] not in _EXIT_REASONS[(kind, status)]:
-        raise ContractError("Grok Bot event has an inconsistent exit reason")
+    if "exit_reason" in event:
+        reason = event["exit_reason"]
+        if not isinstance(reason, str) or reason not in _EXIT_REASONS[(kind, status)]:
+            raise ContractError("Grok Bot event has an inconsistent exit reason")
     needs_input = event.get("needs_input")
     if kind == "needs_input" and isinstance(needs_input, dict):
         if "kind" in needs_input and needs_input["kind"] != status:
