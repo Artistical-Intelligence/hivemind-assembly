@@ -400,3 +400,40 @@ def test_upgrade_refuses_duplicate_legacy_event_effects_without_deleting_data(tm
         ]
     finally:
         store.close()
+
+
+def test_uncertain_recovery_finds_receipt_after_large_unrelated_native_history(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    effects.enqueue(task["id"], "history", event["event_id"])
+    claim = effects.claim(task["id"], "native.chat", epoch)
+    effects.interrupted(task["id"], "native.chat", epoch, "history",
+                        claim["generation"], definitely_not_sent=False)
+    for number in range(75):
+        _valid_receipt(controller, task["id"], event["event_id"] + 1000 + number,
+                       f"unrelated-{number:03d}")
+    match = _valid_receipt(controller, task["id"], event["event_id"],
+                           "matching-later")
+    # 65 earlier unrelated validated messages must not indefinitely block
+    # safe local receipt reconciliation for the original single event.
+    assert effects.reconcile_uncertain(
+        task["id"], "native.chat", epoch, "history"
+    ) == "delivered"
+    assert effects.status(task["id"])[0]["receipt_id"] == match
+
+
+def test_uncertain_recovery_detects_two_matching_receipts_across_many_pages(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    effects.enqueue(task["id"], "two-matches", event["event_id"])
+    claim = effects.claim(task["id"], "native.chat", epoch)
+    effects.interrupted(task["id"], "native.chat", epoch, "two-matches",
+                        claim["generation"], definitely_not_sent=False)
+    _valid_receipt(controller, task["id"], event["event_id"], "early-match")
+    for number in range(73):
+        _valid_receipt(controller, task["id"], event["event_id"] + 2000 + number,
+                       f"noise-{number:03d}")
+    _valid_receipt(controller, task["id"], event["event_id"], "late-match")
+    with pytest.raises(Blocked, match="Multiple validated"):
+        effects.reconcile_uncertain(
+            task["id"], "native.chat", epoch, "two-matches"
+        )
+    assert effects.status(task["id"])[0]["status"] == "uncertain"
