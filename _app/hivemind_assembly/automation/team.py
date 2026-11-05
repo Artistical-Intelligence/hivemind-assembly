@@ -924,9 +924,35 @@ class NativeTeam:
                     "task": task_id, "flow": flow["seq"],
                     "phase": flow["phase"], "route": route,
                 })[:32]
-                native_events, delivery_binding = delivery_bridge.prepare(
-                    task, route, receipt_id
+                # ask() may replace the caller's new payload with the saved
+                # context-reset handoff. Do not lease an event that the
+                # substituted request would never contain. Pending events
+                # remain in the inbox for the next real authorized intent.
+                resume = flow.get("context_reset_resume", {})
+                resume_active = (
+                    resume.get("route") == route
+                    and not resume.get("requires_rebrief")
+                    and resume.get("knowledge_scope")
+                    == self.scopes.fingerprint(task_id)
                 )
+                if resume_active:
+                    prior_payload = resume.get("payload", {})
+                    if (not isinstance(prior_payload, dict)
+                            or prior_payload.get("event_inputs")):
+                        raise Blocked(
+                            "Retained context reset contains unreconciled "
+                            "native event evidence; do not replay"
+                        )
+                    health = delivery_bridge.effects.health(task_id)
+                    if health["leased"] or health["uncertain"]:
+                        raise Blocked(
+                            "Context reset cannot bypass an unresolved "
+                            "native event browser delivery"
+                        )
+                else:
+                    native_events, delivery_binding = delivery_bridge.prepare(
+                        task, route, receipt_id
+                    )
             try:
                 response = await self.ask(
                     task,
