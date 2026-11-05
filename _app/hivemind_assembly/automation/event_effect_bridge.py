@@ -149,23 +149,19 @@ class NativeEventEffectBridge:
 
     def mark_interrupted(self, task: dict, route: str, receipt_id: str,
                          binding: dict | None) -> None:
-        """Requeue only proven pre-dispatch failure; quarantine every other case.
+        """Quarantine an interrupted exchange; never infer a safe resend.
 
-        NativeTeam._ask() persistently prepares the request BEFORE it can
-        invoke browser.exchange(). With no corresponding message at all,
-        dispatch was impossible and retry is safe. A prepared/validated or
-        otherwise existing saved message is not proof of non-delivery.
+        Even absence of a saved message is only a point-in-time observation:
+        another process holding the same task lease could be preparing the
+        original request concurrently. A positive *exclusive pre-dispatch*
+        cancellation fence is needed before retrying. This bridge does not
+        possess that proof, so any possibly outstanding browser effect is
+        deliberately uncertain and requires validated receipt reconciliation.
         """
         if not binding or not binding.get("fresh"):
             return
-        stored = self.store.rows(
-            """SELECT id FROM messages WHERE id=? AND task_id=? AND route=?""",
-            (receipt_id, task["id"], route),
-        )
-        definitely_not_sent = not bool(stored)
         self.effects.interrupted(
             task["id"], route, task["epoch"],
             binding["effect_key"], binding["generation"],
-            definitely_not_sent=definitely_not_sent,
-            delay_seconds=0 if definitely_not_sent else 30,
+            definitely_not_sent=False,
         )
