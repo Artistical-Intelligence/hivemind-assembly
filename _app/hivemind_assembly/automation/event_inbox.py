@@ -427,6 +427,14 @@ class NativeEventInbox:
         for item in delivered:
             if not any(field in item for field in proof_fields):
                 continue
+            # Pre-upgrade native receipts contained only an event ID. Once
+            # ANY modern event metadata appears it must include the ENTIRE
+            # immutable scoped envelope; a conveniently truthful subset
+            # must not bypass source/project binding.
+            if any(field not in item for field in proof_fields):
+                raise ContractError(
+                    "Malformed validated native event envelope: incomplete source proof"
+                )
             if (type(item["event_id"]) is not int or
                     item["event_id"] <= 0):
                 raise ContractError("Invalid saved native event identifier")
