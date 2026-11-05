@@ -588,3 +588,81 @@ def test_health_is_bounded_to_existing_task_and_rejects_bad_clock(owner):
     }
     with pytest.raises(ContractError, match="health time"):
         effects.health(task["id"], now=float("nan"))
+
+
+def test_uncertain_receipt_recovers_after_actual_sqlite_store_reopen(tmp_path):
+    """A new HA controller process can resume without replaying browser send."""
+    root = tmp_path / "persisted-ha"
+    first = Store(root)
+    try:
+        task = first.create_project("restart", "Retain exact native delivery")
+        inbox = NativeEventInbox(first)
+        inbox.subscribe(task["id"], "project:" + task["project_id"])
+        inbox.receive(
+            project_id=task["project_id"], source="native",
+            source_id="restart-case", thread="project:" + task["project_id"],
+            kind="ci_failed", summary="Pinned project CI failure",
+        )
+        event_id = inbox.pending(task["id"])[0]["event_id"]
+        epoch = Controller(first).acquire(task["id"], "native.chat")
+        effects = DurableEventEffects(first)
+        effects.enqueue(task["id"], "persist", event_id)
+        claim = effects.claim(task["id"], "native.chat", epoch)
+        effects.interrupted(
+            task["id"], "native.chat", epoch, "persist",
+            claim["generation"], definitely_not_sent=False
+        )
+        assert effects.health(task["id"])["uncertain"] == 1
+    finally:
+        first.close()
+
+    reopened = Store(root)
+    try:
+        restored = DurableEventEffects(reopened)
+        assert restored.health(task["id"])["uncertain"] == 1
+        assert restored.claim(task["id"], "native.chat", epoch) is None
+        assert restored.reconcile_uncertain(
+            task["id"], "native.chat", epoch, "persist"
+        ) == "pending"
+        receipt = _valid_receipt(Controller(reopened), task["id"], event_id,
+                                 "validated-after-restart")
+        assert restored.reconcile_uncertain(
+            task["id"], "native.chat", epoch, "persist"
+        ) == "delivered"
+        assert restored.status(task["id"])[0]["receipt_id"] == receipt
+        assert NativeEventInbox(reopened).pending(task["id"]) == []
+    finally:
+        reopened.close()
+
+
+def test_concurrent_sqlite_store_claims_never_dispatch_same_event_twice(tmp_path):
+    """Independent HA Store instances serialize the native event lease."""
+    from concurrent.futures import ThreadPoolExecutor
+    root = tmp_path / "concurrent-ha"
+    first = Store(root)
+    second = None
+    try:
+        task = first.create_project("race", "Prevent duplicate model turn")
+        inbox = NativeEventInbox(first)
+        inbox.subscribe(task["id"], "project:" + task["project_id"])
+        inbox.receive(
+            project_id=task["project_id"], source="native",
+            source_id="one-claim", thread="project:" + task["project_id"],
+            kind="ci_failed", summary="Only one browser exchange authorized",
+        )
+        epoch = Controller(first).acquire(task["id"], "native.chat")
+        initial = DurableEventEffects(first)
+        assert len(initial.stage_pending(task["id"])) == 1
+        second = Store(root)
+        challenger = DurableEventEffects(second)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            f1 = pool.submit(initial.claim, task["id"], "native.chat", epoch)
+            f2 = pool.submit(challenger.claim, task["id"], "native.chat", epoch)
+            results = [f1.result(), f2.result()]
+        assert sum(result is not None for result in results) == 1
+        assert initial.health(task["id"])["leased"] == 1
+        assert initial.status(task["id"])[0]["attempts"] == 1
+    finally:
+        if second is not None:
+            second.close()
+        first.close()
