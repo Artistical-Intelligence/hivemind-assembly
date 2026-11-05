@@ -60,9 +60,11 @@ class DurableEventEffects:
     def __init__(self, store):
         self.store = store
         with store.tx() as db:
-            db.executescript(_SCHEMA.replace(
-                "CREATE TABLE IF NOT EXISTS", "CREATE TABLE IF NOT EXISTS"
-            ))
+            # sqlite3.executescript() implicitly COMMITs an active transaction.
+            # Execute each fixed DDL statement under HA's own Store.tx fence.
+            for statement in _SCHEMA.split(";"):
+                if statement.strip():
+                    db.execute(statement)
 
     def enqueue(self, task_id: str, effect_key: str, event_id: int) -> str:
         """Idempotently queue an EXISTING project-matched local event.
