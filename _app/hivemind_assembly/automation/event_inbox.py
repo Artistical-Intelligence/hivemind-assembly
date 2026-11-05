@@ -320,27 +320,21 @@ class NativeEventInbox:
                    WHERE project_id=? AND task_id=? AND thread=?""",
                 (task["project_id"], task_id, thread),
             )
-            # Retain in-flight browser receipt evidence even after revocation.
-            # Hiding a revoked thread from pending() prevents further dispatch,
-            # while the durable record still supports safe reconciliation.
-            has_effects = db.execute(
-                """SELECT 1 FROM sqlite_master
-                   WHERE type='table' AND name='ha_native_effect'"""
-            ).fetchone()
-            in_flight_guard = (
-                """ AND NOT EXISTS (SELECT 1 FROM ha_native_effect f
-                      WHERE f.task_id=ha_event_delivery.task_id
-                        AND f.event_id=ha_event_delivery.event_id
-                        AND f.status IN ('leased','uncertain'))"""
-                if has_effects else ""
-            )
             removed = db.execute(
                 """DELETE FROM ha_event_delivery
                    WHERE task_id=? AND read_at IS NULL AND event_id IN
                        (SELECT id FROM ha_event_trigger
-                        WHERE project_id=? AND thread=?)""" + in_flight_guard,
+                        WHERE project_id=? AND thread=?)""",
                 (task_id, task["project_id"], thread),
             )
+            # Remove only never-claimed *queued* effect intents for the
+            # explicitly revoked thread. A leased/uncertain browser dispatch
+            # is irreversible evidence: retain it for reconciliation rather
+            # than silently erasing an external side effect.
+            has_effects = db.execute(
+                """SELECT 1 FROM sqlite_master
+                   WHERE type='table' AND name='ha_native_effect'"""
+            ).fetchone()
             if has_effects:
                 db.execute(
                     """DELETE FROM ha_native_effect
@@ -426,9 +420,6 @@ class NativeEventInbox:
                           e.summary,e.arrived
                    FROM ha_event_delivery d
                    JOIN ha_event_trigger e ON e.id=d.event_id
-                   JOIN ha_event_subscription sub
-                     ON sub.task_id=d.task_id AND sub.project_id=e.project_id
-                        AND sub.thread=e.thread
                    WHERE d.task_id=? AND d.read_at IS NULL AND e.project_id=?
                    ORDER BY e.id LIMIT ?""",
                 (task_id, task["project_id"], limit),
