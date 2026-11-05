@@ -263,6 +263,17 @@ class NativeEventInbox:
             raise ContractError("Cross-project or arbitrary thread subscription denied")
         self.ensure_ticket(task_id)
         with self.store.tx() as db:
+            current = db.execute(
+                "SELECT project_id,status FROM tasks WHERE id=?", (task_id,)
+            ).fetchone()
+            if (current is None or current["project_id"] != task["project_id"]):
+                raise ContractError("Native event subscription task binding changed")
+            if current["status"] in {
+                "paused", "cancelled", "accepted", "awaiting_acceptance"
+            }:
+                raise ContractError(
+                    "Stopped native work ticket cannot acquire a subscription"
+                )
             db.execute(
                 """INSERT OR IGNORE INTO ha_event_subscription
                    (project_id,task_id,thread) VALUES(?,?,?)""",
