@@ -1,0 +1,143 @@
+"""HA core durable-effect receipts, implementing DeepSeek-style effect safety.
+
+Real HA Store/controller/NativeEventInbox, no browser or model API.
+The main interactive chat owns this source/test lane; it does not edit
+the scheduled event worker's modules or verifier's existing test files.
+"""
+
+import json
+import time
+
+import pytest
+
+from hivemind_assembly.automation.event_inbox import NativeEventInbox
+from hivemind_assembly.core.common import Blocked, Conflict
+from hivemind_assembly.core.controller import Controller
+from hivemind_assembly.core.durable_effects import DurableEventEffects
+from hivemind_assembly.core.store import Store
+
+
+@pytest.fixture
+def owner(tmp_path):
+    store = Store(tmp_path)
+    task = store.create_project("durable", "Route existing permitted event")
+    inbox = NativeEventInbox(store)
+    inbox.subscribe(task["id"], "project:" + task["project_id"])
+    assert inbox.receive(
+        project_id=task["project_id"],
+        source="native", source_id="case-1",
+        thread="project:" + task["project_id"],
+        kind="ci_failed", summary="Source-bound CI failed",
+    ) == "stored"
+    e = inbox.pending(task["id"])[0]
+    controller = Controller(store)
+    epoch = controller.acquire(task["id"], "native.chat")
+    effects = DurableEventEffects(store)
+    try:
+        yield store, task, e, epoch, inbox, controller, effects
+    finally:
+        store.close()
+
+
+def _valid_receipt(controller, task_id, event_id, name="msg_native_valid"):
+    request = {
+        "project_id": controller.store.task(task_id)["project_id"],
+        "revision": 0,
+        "body": {
+            "event_inputs": [{"event_id": event_id, "kind": "ci_failed"}],
+        },
+    }
+    controller.prepare_message(
+        task_id, "native.chat", "https://example.invalid/chat",
+        request, name,
+    )
+    controller.message_state(
+        name, "validated", '{"request_id":"' + name +
+        '","type":"step_intent","intent":{"goal":"Use verified evidence"}}',
+    )
+    return name
+
+
+def test_queue_is_deduplicated_and_bound_to_existing_project_delivery(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    assert effects.enqueue(task["id"], "effect-v1", event["event_id"]) == "queued"
+    assert effects.enqueue(task["id"], "effect-v1", event["event_id"]) == "duplicate"
+    with pytest.raises(Conflict, match="different event"):
+        second = inbox.receive(
+            project_id=task["project_id"], source="native",
+            source_id="case-2", thread="project:" + task["project_id"],
+            kind="ci_failed", summary="Second run failed",
+        )
+        assert second == "stored"
+        second_id = inbox.pending(task["id"])[1]["event_id"]
+        effects.enqueue(task["id"], "effect-v1", second_id)
+    other = store.create_project("unrelated", "No event access")
+    with pytest.raises(Blocked, match="unauthorized"):
+        effects.enqueue(other["id"], "effect-v1", event["event_id"])
+
+
+def test_complete_requires_validated_browser_request_with_same_event(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    effects.enqueue(task["id"], "send-ci", event["event_id"])
+    lease = effects.claim(task["id"], "native.chat", epoch)
+    assert lease is not None
+    assert effects.claim(task["id"], "native.chat", epoch) is None
+    with pytest.raises(Blocked, match="validated"):
+        effects.finalize(task["id"], "native.chat", epoch, "send-ci",
+                         lease["generation"], "missing-msg")
+    controller.prepare_message(task["id"], "native.chat",
+                               "https://example.invalid/chat",
+                               {"body":{"event_inputs":[{"event_id":event["event_id"]}]}},
+                               "pending-msg")
+    with pytest.raises(Blocked, match="validated"):
+        effects.finalize(task["id"], "native.chat", epoch, "send-ci",
+                         lease["generation"], "pending-msg")
+    wrong = _valid_receipt(controller, task["id"], event["event_id"]+123,
+                           "wrong-msg")
+    with pytest.raises(Blocked, match="never received"):
+        effects.finalize(task["id"], "native.chat", epoch, "send-ci",
+                         lease["generation"], wrong)
+    receipt = _valid_receipt(controller, task["id"], event["event_id"])
+    assert effects.finalize(task["id"], "native.chat", epoch, "send-ci",
+                            lease["generation"], receipt) == "delivered"
+    assert effects.finalize(task["id"], "native.chat", epoch, "send-ci",
+                            lease["generation"], receipt) == "duplicate"
+    assert inbox.pending(task["id"]) == []
+    with pytest.raises(Conflict, match="different receipt"):
+        effects.finalize(task["id"], "native.chat", epoch, "send-ci",
+                         lease["generation"], wrong)
+
+
+def test_uncertain_delivery_is_not_retried_automatically(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    effects.enqueue(task["id"], "effect", event["event_id"])
+    first = effects.claim(task["id"], "native.chat", epoch)
+    assert effects.interrupted(task["id"], "native.chat", epoch, "effect",
+                               first["generation"],
+                               definitely_not_sent=False) == "uncertain"
+    assert effects.claim(task["id"], "native.chat", epoch) is None
+    assert effects.status(task["id"])[0]["status"] == "uncertain"
+    valid = _valid_receipt(controller, task["id"], event["event_id"])
+    assert effects.finalize(task["id"], "native.chat", epoch, "effect",
+                            first["generation"], valid) == "delivered"
+    assert inbox.pending(task["id"]) == []
+
+
+def test_pre_dispatch_failure_retry_and_stale_epoch_fail_closed(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    effects.enqueue(task["id"], "effect", event["event_id"])
+    first = effects.claim(task["id"], "native.chat", epoch)
+    assert effects.interrupted(task["id"], "native.chat", epoch, "effect",
+                               first["generation"], definitely_not_sent=True,
+                               delay_seconds=0) == "queued"
+    retry = effects.claim(task["id"], "native.chat", epoch,
+                          now=time.time()+0.1)
+    assert retry["generation"] == first["generation"]+1
+    with pytest.raises(Conflict, match="stale"):
+        effects.interrupted(task["id"], "native.chat", epoch, "effect",
+                            first["generation"], definitely_not_sent=True)
+    with pytest.raises(Conflict, match="live owner lease"):
+        effects.finalize(task["id"], "intruder", epoch, "effect",
+                         retry["generation"], "message")
+    assert DurableEventEffects(store).status(task["id"])[0]["generation"] == 2
+    assert effects.status(task["id"])[0]["attempts"] == 2
