@@ -121,6 +121,9 @@ class NativeTeam:
             self.progress_watchdog = ProgressWatchdog(
                 self.store, self.native_event_inbox
             )
+        # Keep the persistent ticket synchronized with controller evidence,
+        # not with a model's bare progress or completion claims.
+        self.native_event_inbox.reconcile_ticket(current["id"])
         self.native_event_inbox.subscribe(
             current["id"], "project:" + current["project_id"]
         )
@@ -156,6 +159,14 @@ class NativeTeam:
                 self.store, self.native_event_inbox
             )
         signals = []
+        # Include accepted/cancelled tasks still owned by an eligible Chat
+        # route. A crash between the independent verifier's commit and ticket
+        # projection must not leave a permanently "working" ticket.
+        for item in self.store.rows(
+            "SELECT id,owner,project_id FROM tasks WHERE owner IS NOT NULL"
+        ):
+            if item["owner"] in chat_routes and item["project_id"] in projects:
+                self.native_event_inbox.reconcile_ticket(item["id"])
         for project in sorted(projects):
             # A crashed native browser send can block the only worker without
             # producing further validated model turns. Inspect durable effect
@@ -1644,6 +1655,13 @@ class NativeTeam:
 
     def acceptance(self, task, response):
         result = Acceptance(self.controller, self.broker).evaluate(task, response)
+        if self.native_chat_route(task.get("owner")):
+            if self.native_event_inbox is None:
+                from .event_inbox import NativeEventInbox
+                self.native_event_inbox = NativeEventInbox(self.store)
+            # evaluate() has already committed the controller's verdict.
+            # A restart reruns this projection from the acceptance journal.
+            self.native_event_inbox.reconcile_ticket(task["id"])
         if result["status"] == "rejected":
             attempts = sum(
                 json.loads(row["payload"]).get("status") == "rejected"
