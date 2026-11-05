@@ -938,17 +938,12 @@ class NativeTeam:
                     "task": task_id, "flow": flow["seq"],
                     "phase": flow["phase"], "route": route,
                 })[:32]
-                receipts = self.store.rows(
-                    "SELECT payload FROM messages WHERE id=? AND state='validated'",
-                    (receipt_id,),
+                # Re-check the persisted request at the validated native
+                # receipt boundary. Neither a prepared response nor a fresh
+                # pending list can consume a different turn's events.
+                self.native_event_inbox.acknowledge_validated_request(
+                    task_id, receipt_id, route=route
                 )
-                if receipts:
-                    delivered = json.loads(receipts[0]["payload"]).get(
-                        "body", {}
-                    ).get("event_inputs", [])
-                    self.native_event_inbox.acknowledge(
-                        task_id, [row["event_id"] for row in delivered]
-                    )
             if response["type"] == "complete":
                 if await self.completion_waits(task):
                     return
