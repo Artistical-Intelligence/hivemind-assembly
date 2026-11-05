@@ -199,8 +199,12 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             if ("resource" in value and
                     isinstance(value["resource"], (dict, list))):
                 raise Blocked("MCP source result includes a nested file resource")
-            if (isinstance(value.get("uri"), str) and
-                    ("mimeType" in value or "mime_type" in value)):
+            # MCP resource links may omit both type and mimeType. A bare
+            # URI buried inside structuredContent cannot be distinguished
+            # from an attachable resource descriptor, so reject it for
+            # source-file reads rather than letting it escape normalization.
+            # Inline text resources already discard their URI on conversion.
+            if isinstance(value.get("uri"), str):
                 raise Blocked("MCP source result includes an unconverted resource URI")
             for child in value.values():
                 reject_remaining_media(child, depth + 1)
