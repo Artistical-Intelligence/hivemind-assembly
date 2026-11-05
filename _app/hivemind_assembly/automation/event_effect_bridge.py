@@ -94,7 +94,12 @@ class NativeEventEffectBridge:
             # request acknowledgment path ONLY when no effect references it.
             return events, {"legacy": True, "fresh": False}
 
-        self.effects.stage_pending(task_id, limit=20)
+        # Stage one event per native intent turn. The core currently orders
+        # equal-due work by string effect_key, not numeric event_id; staging
+        # many "event-2"/"event-10" keys at once could reorder project facts.
+        # The existing inbox remains durably queued and will be staged in
+        # chronological batches across subsequent authorized turns.
+        self.effects.stage_pending(task_id, limit=1)
         # Recover only from previously validated local evidence. If the old
         # exchange is still in-flight, or outcome is unknowable, do not start
         # an additional browser event exchange for this conversation.
