@@ -44,22 +44,26 @@ def secret_forms(secret):
 
 
 def inline_github_mcp_text(result, *, max_chars=240_000):
-    """Normalize GitHub MCP file reads to inline UTF-8 text, never attachments.
+    """Bound a text-file MCP tool result without producing an attachment.
 
-    GitHub MCP get_file_contents may return embedded MCP resources or file
-    links. This HA-local adapter consumes small UTF-8 embedded resources as
-    text; it never downloads links, materializes attachments, or silently
-    invokes another MCP tool. This does not alter ChatGPT's separate
-    platform-controlled materialization approval UI.
+    This runs for explicitly approved file-reading tool names regardless of
+    the user-supplied MCP server alias. A compatible embedded UTF-8 resource
+    is copied to a text block. Links, binary content and unknown media are
+    never fetched, materialized, or silently passed through.
+
+    It does not alter ChatGPT's separate hosted materialization approval gate.
     """
     if not isinstance(result, dict):
         raise ContractError("Expected a structured MCP result")
+    if type(max_chars) is not int or not 1 <= max_chars <= 1_000_000:
+        raise ContractError("Invalid MCP inline-text response limit")
+    total = 0
 
     def inline_blocks(blocks):
+        nonlocal total
         if not isinstance(blocks, list):
             raise ContractError("MCP file content blocks are invalid")
         converted = []
-        total = 0
         for block in blocks:
             if not isinstance(block, dict):
                 raise ContractError("MCP file content block is invalid")
@@ -68,8 +72,6 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 value = block.get("text")
                 if not isinstance(value, str):
                     raise ContractError("MCP text content is invalid")
-                converted.append({"type": "text", "text": value})
-                total += len(value)
             elif kind == "resource":
                 resource = block.get("resource", {})
                 if not isinstance(resource, dict):
@@ -78,44 +80,92 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 value = resource.get("text")
                 if (not isinstance(mime, str)
                     or not (mime.lower().startswith("text/")
-                            or mime.lower().split(";")[0] == "application/json")
-                    or not isinstance(value, str)):
+                            or mime.lower().split(";")[0].strip() == "application/json")
+                    or not isinstance(value, str)
+                    or "blob" in resource or "data" in resource):
                     raise Blocked(
-                        "GitHub MCP returned non-text file content; no automatic "
-                        "attachment materialization. Use a separately authorized "
-                        "binary-file workflow if the actual bytes are necessary."
+                        "MCP returned non-text or encoded file content. "
+                        "No automatic attachment materialization; use a separately "
+                        "authorized binary-file workflow if actual bytes are needed."
                     )
-                converted.append({"type": "text", "text": value})
-                total += len(value)
             elif kind == "resource_link":
                 raise Blocked(
-                    "GitHub MCP returned a downloadable file link instead of "
-                    "inline text. Use an authorized text-only GitHub contents "
-                    "read with bounded lines; no automatic materialization."
+                    "MCP returned a downloadable file link instead of inline text. "
+                    "Use an authorized text-only source read with bounded lines; "
+                    "no automatic materialization."
                 )
             else:
                 raise Blocked(
-                    "GitHub MCP returned non-text content; only inline UTF-8 "
-                    "source reads are accepted by this HA bridge."
+                    "MCP returned non-text content; only inline UTF-8 source reads "
+                    "are accepted by this HA bridge."
                 )
+            total += len(value)
             if total > max_chars:
                 raise Blocked(
-                    "GitHub MCP inline text exceeds the safe response limit. "
+                    "MCP inline text exceeds the safe response limit. "
                     "Read a smaller line range instead of an attachment."
                 )
+            converted.append({"type": "text", "text": value})
         return converted
 
     output = dict(result)
     if "content" in output:
         output["content"] = inline_blocks(output["content"])
-    # Some negotiated MCP versions mirror file blocks in structuredContent.
-    # Do not leak the original resource block through that parallel field.
+    # MCP structuredContent may mirror file blocks. Convert the usual mirror,
+    # and refuse unrecognized nested media rather than accidentally surfacing
+    # an unsanitized resource link through a parallel representation.
     for name in ("structuredContent", "structured_content"):
         original = output.get(name)
         if isinstance(original, dict) and "content" in original:
-            output[name] = {**original,
-                            "content": inline_blocks(original["content"])}
+            output[name] = {
+                **original,
+                "content": inline_blocks(original["content"]),
+            }
+
+    def reject_remaining_media(value, depth=0):
+        if depth > 24:
+            raise Blocked("Nested MCP source result exceeds the safe structure limit")
+        if isinstance(value, dict):
+            if value.get("type") in (
+                "resource", "resource_link", "image", "audio",
+            ):
+                raise Blocked(
+                    "MCP source result includes an unconverted resource or media "
+                    "block. No automatic attachment materialization."
+                )
+            if ("blob" in value or "data" in value) and (
+                "mimeType" in value or "mime_type" in value
+            ):
+                raise Blocked("MCP source result includes encoded media data")
+            for child in value.values():
+                reject_remaining_media(child, depth + 1)
+        elif isinstance(value, list):
+            for child in value:
+                reject_remaining_media(child, depth + 1)
+
+    reject_remaining_media(output)
+    # Metadata can also be oversized, even if the content blocks are small.
+    if len(canonical(output)) > max_chars + 32_768:
+        raise Blocked(
+            "MCP inline result exceeds the safe response limit. "
+            "Read a smaller line range instead of an attachment."
+        )
     return output
+
+
+# These are read operations, not provider identities. MCP connection aliases
+# are user-chosen and can be 'scm' or 'source-control' rather than 'github'.
+# File-read results from ANY approved server must not surface attachable
+# resource blocks. Other MCP tool calls retain their existing result behavior.
+_INLINE_SOURCE_READ_TOOLS = frozenset({
+    "get_file_contents", "get_file_content", "fetch_file",
+    "read_file", "read_text_file", "read_repository_file",
+})
+
+
+def inline_source_read_tool(tool):
+    return isinstance(tool, str) and tool in _INLINE_SOURCE_READ_TOOLS
+
 
 
 def redact(value, secrets):
@@ -617,7 +667,7 @@ class Connections:
                 value = result.model_dump(mode="json", by_alias=True)
                 # File text must not be surfaced as an MCP attachment or
                 # resource link during ordinary repository source reads.
-                if tool == "get_file_contents" and "github" in server.lower():
+                if inline_source_read_tool(tool):
                     value = inline_github_mcp_text(value)
                 if oauth_storage:
                     oauth_storage.check()
