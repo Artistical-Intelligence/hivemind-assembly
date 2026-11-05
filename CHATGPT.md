@@ -157,6 +157,25 @@ an hourly RRULE recurrence; use the earliest *service-accepted*
 future event without inventing an hour-long per-ID cooldown, but do
 not promise untested sub-hour execution.
 
+## Prevent GitHub MCP file-materialization approval prompts
+
+During ordinary HA GitHub research and maintenance, **use inline-text
+GitHub read operations by default**: `mcp__GitHub__fetch_file`
+for exact files (with optional line bounds), `mcp__GitHub__fetch`
+for repository metadata/directories, and `mcp__GitHub__fetch_workflow_job_logs`
+for CI logs. These provide text without generating a file attachment.
+Do **not** call `mcp__GitHub_MCP__get_file_contents` on a file,
+or download a GitHub artifact ZIP, merely to inspect UTF-8 source.
+Never automatically switch to resource-backed file materialization
+after a failed inline read. The ChatGPT plugin already has **Allow
+all actions**; an **"Allow file materialization?"** prompt is a
+separate host-level security gate, not a missing read permission.
+Do not promise that an HA change disables that platform safeguard.
+HA's own MCP bridge now converts bounded text resources into
+inline text and refuses attachments without silently downloading
+them. Read [GITHUB_MCP_TEXT_READS.md](dev/continuous_execution/GITHUB_MCP_TEXT_READS.md).
+This does not grant permissions for other files or providers.
+
 ## Retaskable pre-provisioned scheduled workforce (owner update, November 4)
 
 See [HA conductor instructions](dev/continuous_execution/CONDUCTOR.md),
