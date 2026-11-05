@@ -95,3 +95,31 @@ def test_watchdog_filters_non_chat_routes_and_rejects_bad_thresholds(env):
         watchdog.scan(task["project_id"], threshold=1)
     with pytest.raises(ContractError):
         watchdog.scan(task["project_id"], cooldown_seconds=-5)
+
+
+def test_watchdog_same_owner_new_lease_epoch_resets_stall_evidence(env):
+    """A renewed lease is a new observation epoch, even for the same route.
+
+    Old, validated model turns must not be counted toward a new lease's stall
+    threshold; watchdog remains advisory and never mutates the task owner.
+    """
+    store, task, inbox, watchdog = env
+    assert watchdog.scan(task["project_id"], threshold=2, now=100) == []
+    _turn(store, task["id"], 301)
+    _turn(store, task["id"], 302)
+    assert len(watchdog.scan(task["project_id"], threshold=2, now=101)) == 1
+    original = store.task(task["id"])
+    with store.tx() as db:
+        db.execute("UPDATE tasks SET epoch=epoch+1 WHERE id=?", (task["id"],))
+    assert watchdog.scan(task["project_id"], threshold=2, now=102) == []
+    _turn(store, task["id"], 303)
+    assert watchdog.scan(task["project_id"], threshold=2, now=103) == []
+    _turn(store, task["id"], 304)
+    assert len(watchdog.scan(task["project_id"], threshold=2, now=104)) == 1
+    current = store.task(task["id"])
+    assert current["epoch"] == original["epoch"] + 1
+    assert current["owner"] == original["owner"]
+    assert current["status"] == original["status"]
+    assert [x["kind"] for x in inbox.pending(task["id"])].count(
+        "possible_stall"
+    ) == 2
