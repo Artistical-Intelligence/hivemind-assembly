@@ -4,6 +4,8 @@ No model, API, browser, GitHub token, or scheduled automation is used.
 These tests intentionally check native integration and restart persistence.
 """
 
+import json
+
 import pytest
 
 from hivemind_assembly.automation.event_inbox import NativeEventInbox
@@ -128,3 +130,75 @@ def test_native_chat_adapter_uses_existing_browser_flow_without_api(scope):
     assert native.native_event_inbox is not None
     native.native_event_inbox.acknowledge(task["id"], [x["event_id"] for x in event_inputs])
     assert native.native_event_inputs(task, "worker.chat") == []
+
+
+def test_native_initial_subscription_receives_prior_unread_ci(scope):
+    """Issue #1: authenticated event pre-dating first native worker turn.
+
+    A durable trigger is not useful if the first worker subscription happens
+    after a CI failure was admitted. Catch-up must remain project-scoped,
+    bounded, and idempotent. This is expected to FAIL until Worker A repairs
+    subscription delivery; do not mark live-browser acceptance.
+    """
+    store, worker, other = scope
+    inbox = NativeEventInbox(store)
+    event = dict(
+        project_id=worker["project_id"], source="github_webhook",
+        source_id="signed:prior-workflow", verified=True,
+        thread="project:" + worker["project_id"],
+        kind="ci_failed", summary="CI failed at pinned source revision",
+    )
+    assert inbox.receive(**event) == "stored"
+    # This event occurred before the worker's *first* subscription.
+    inbox.subscribe(worker["id"], event["thread"])
+    inbox.subscribe(other["id"], "project:" + other["project_id"])
+    pending = inbox.pending(worker["id"])
+    assert [row["kind"] for row in pending] == ["ci_failed"]
+    assert inbox.pending(other["id"]) == []
+    assert inbox.acknowledge(worker["id"], [pending[0]["event_id"]]) == 1
+    inbox.subscribe(worker["id"], event["thread"])  # no replay after ACK
+    assert inbox.pending(worker["id"]) == []
+    assert inbox.receive(**event) == "duplicate"
+    assert inbox.pending(worker["id"]) == []
+
+
+def test_validated_receipt_replay_only_acknowledges_serialized_event_ids(scope):
+    """A second event after preparing a request cannot be consumed on replay."""
+    store, worker, other = scope
+    inbox = NativeEventInbox(store)
+    thread = "project:" + worker["project_id"]
+    inbox.subscribe(worker["id"], thread)
+    base = dict(project_id=worker["project_id"], source="native",
+                thread=thread, kind="ci_failed")
+    assert inbox.receive(**base, source_id="failure-1",
+                         summary="First pinned failure") == "stored"
+    first = inbox.pending(worker["id"])[0]
+    request = {"task_id": worker["id"], "project_id": worker["project_id"],
+               "body": {"event_inputs": [{"event_id": first["event_id"]}]}}
+    with store.tx() as db:
+        db.execute(
+            """INSERT INTO messages
+               (id, task_id, route, conversation, payload_hash, payload,
+                state, response, created, updated)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            ("msg_event_receipt", worker["id"], "worker.chat", "chat-A",
+             "serialized-1", json.dumps(request), "prepared", None, 1.0, 1.0),
+        )
+    assert inbox.receive(**base, source_id="failure-2",
+                         summary="Later pinned failure") == "stored"
+    assert inbox.acknowledge_validated_request(
+        worker["id"], "msg_event_receipt", route="worker.chat") == 0
+    assert len(inbox.pending(worker["id"])) == 2
+    with store.tx() as db:
+        db.execute("UPDATE messages SET state='validated' WHERE id=?",
+                   ("msg_event_receipt",))
+    with pytest.raises(ContractError, match="route"):
+        inbox.acknowledge_validated_request(
+            worker["id"], "msg_event_receipt", route="worker.adviser")
+    assert inbox.acknowledge_validated_request(
+        worker["id"], "msg_event_receipt", route="worker.chat") == 1
+    assert [row["summary"] for row in inbox.pending(worker["id"])] == [
+        "Later pinned failure"]
+    assert inbox.acknowledge_validated_request(
+        worker["id"], "msg_event_receipt", route="worker.chat") == 0
+    assert inbox.pending(other["id"]) == []
