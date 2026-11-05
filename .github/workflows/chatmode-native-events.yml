@@ -19,6 +19,12 @@ on:
       - 'tests/test_native_browser_event_transport.py'
       - 'tests/test_core_durable_effects.py'
       - 'tests/test_mcp_inline_text.py'
+      - '_app/hivemind_assembly/automation/browser_actions.py'
+      - '_app/hivemind_assembly/automation/native.py'
+      - '_app/hivemind_assembly/integrations/github.py'
+      - 'tests/test_browser_fixture.py'
+      - 'tests/test_dashboard_browser.py'
+      - 'tests/test_ha_browser_actions.py'
       - 'tests/test_mcp_connections.py'
   workflow_dispatch:
 permissions:
@@ -35,6 +41,8 @@ jobs:
     steps:
       # Pinned upstream v5: Node 24; avoid mutable tag and Node 20 deprecation.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
       # Pinned upstream v6: Node 24.
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
