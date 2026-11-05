@@ -6,6 +6,10 @@ Read `AGENTS.md` first, then the [ChatGPT Chat Mode adaptive execution process](
 
 Existing shared repository safety, saving, independent-review, privacy and source-access rules still apply to their existing audiences. This profile adds Chat Mode-specific operating instructions; it does not replace those shared rules or alter Work, Codex, or Claude behavior. A maintainer using another surface/provider may implement specifically assigned HA changes, but that does not make this execution profile their operating policy.
 
+## Workplace: permanent staffing and job openings
+
+The owner's November 5 permanent **Workplace** directive creates owner-level District Manager governance for all scheduled Chat Mode project teams. Read `dev/continuous_execution/workplace/WORKPLACE_POLICY.md`, `org_chart.json`, `job_openings.json` and `STAFFING_STATUS.md`. An **org chart** lists every planned position whether filled or empty; every vacancy has a distinct **job opening**. The single owner-level District Manager assumes *all* former HA and RE-Wizard Shift Manager functions and reviews vacancies for safe recruiting every hourly invocation. The previous HA Shift Manager employee now has a dedicated browser transport engineering assignment; it is not a parallel manager. Distinguish real engineering job completion from a finished scheduled run; preserve project permissions, code leases, owner stops and Chat Mode-only usage rules. No extra manager schedule is created.
+
 ## Core adaptive execution and incremental progress
 
 1. **Read, reassess, decide each wave:** reconcile current owner directions, repository state, outputs, verdicts, interruptions and real capabilities. Do not assume the authoring conversation is available.
