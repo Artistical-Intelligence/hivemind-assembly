@@ -249,3 +249,65 @@ def test_legacy_sqlite_table_adds_claim_timestamp_column_safely(tmp_path):
         assert len(store.rows("PRAGMA index_list(ha_native_effect)")) >= 2
     finally:
         store.close()
+
+
+
+def test_uncertain_recovery_uses_verified_receipt_without_new_browser_send(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    effects.enqueue(task["id"], "recover-me", event["event_id"])
+    claim = effects.claim(task["id"], "native.chat", epoch)
+    assert effects.interrupted(
+        task["id"], "native.chat", epoch, "recover-me",
+        claim["generation"], definitely_not_sent=False
+    ) == "uncertain"
+    assert effects.reconcile_uncertain(
+        task["id"], "native.chat", epoch, "recover-me"
+    ) == "pending"
+    # This is a stored request from the original attempt, not a new model call.
+    receipt = _valid_receipt(controller, task["id"], event["event_id"],
+                             "recover-validated")
+    assert effects.reconcile_uncertain(
+        task["id"], "native.chat", epoch, "recover-me"
+    ) == "delivered"
+    assert effects.reconcile_uncertain(
+        task["id"], "native.chat", epoch, "recover-me"
+    ) == "delivered"
+    assert effects.status(task["id"])[0]["receipt_id"] == receipt
+    assert inbox.pending(task["id"]) == []
+
+
+def test_ambiguous_recovery_refuses_to_choose_between_two_receipts(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    effects.enqueue(task["id"], "ambiguous", event["event_id"])
+    claim = effects.claim(task["id"], "native.chat", epoch)
+    assert effects.interrupted(
+        task["id"], "native.chat", epoch, "ambiguous",
+        claim["generation"], definitely_not_sent=False
+    ) == "uncertain"
+    _valid_receipt(controller, task["id"], event["event_id"], "dupe-msg-1")
+    _valid_receipt(controller, task["id"], event["event_id"], "dupe-msg-2")
+    with pytest.raises(Blocked, match="Multiple validated"):
+        effects.reconcile_uncertain(
+            task["id"], "native.chat", epoch, "ambiguous"
+        )
+    assert effects.status(task["id"])[0]["status"] == "uncertain"
+    assert effects.claim(task["id"], "native.chat", epoch) is None
+
+
+def test_recovery_is_fenced_against_wrong_owner_and_unconfirmed_phase(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    effects.enqueue(task["id"], "fenced", event["event_id"])
+    claim = effects.claim(task["id"], "native.chat", epoch)
+    with pytest.raises(Conflict, match="Only uncertain"):
+        effects.reconcile_uncertain(
+            task["id"], "native.chat", epoch, "fenced"
+        )
+    effects.interrupted(
+        task["id"], "native.chat", epoch, "fenced",
+        claim["generation"], definitely_not_sent=False
+    )
+    with pytest.raises(Conflict, match="live owner lease"):
+        effects.reconcile_uncertain(
+            task["id"], "intruder", epoch, "fenced"
+        )
+    assert effects.status(task["id"])[0]["status"] == "uncertain"
