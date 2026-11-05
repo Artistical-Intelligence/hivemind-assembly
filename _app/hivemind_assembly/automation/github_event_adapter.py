@@ -51,7 +51,9 @@ def _digest_from_payload(event_type: str, data: dict) -> tuple[str, str] | None:
         if run.get("status") != "completed":
             return None
         conclusion = run.get("conclusion")
-        if conclusion not in {"success", "failure", "cancelled", "timed_out",
+        # An authenticated but malformed JSON payload can contain lists or
+        # objects here. Reject without an unhandled unhashable-type crash.
+        if not isinstance(conclusion, str) or conclusion not in {"success", "failure", "cancelled", "timed_out",
                               "action_required", "skipped", "neutral"}:
             return None
         sha = run.get("head_sha")
