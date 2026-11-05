@@ -85,11 +85,28 @@ def test_real_native_browser_request_contains_scoped_event_and_can_be_acknowledg
             "SELECT payload,state FROM messages WHERE task_id=? ORDER BY created DESC LIMIT 1",
             (task["id"],),
         )
-        assert saved["state"] == "validated"
+        # A fake browser does not implement NativeTransport.exchange()'s
+        # separate validated-receipt persistence. Prepared alone must NOT
+        # acknowledge any event, even after a plausible response is returned.
+        assert saved["state"] == "prepared"
         assert json.loads(saved["payload"])["body"]["event_inputs"] == delivered
-        assert inbox.acknowledge(
-            task["id"], [x["event_id"] for x in delivered]
-        ) == len(delivered)
+        assert inbox.pending(task["id"])  # unread until real receipt
+        # Emulate the existing native.py response-validation boundary, not
+        # pretend that returning a dictionary is already trusted.
+        receipt_id = store.one(
+            "SELECT id FROM messages WHERE task_id=? ORDER BY created DESC LIMIT 1",
+            (task["id"],),
+        )["id"]
+        controller.message_state(
+            receipt_id, "validated", json.dumps(result)
+        )
+        verified = store.one(
+            "SELECT payload FROM messages WHERE id=? AND state='validated'",
+            (receipt_id,),
+        )
+        ids = [x["event_id"] for x in
+               json.loads(verified["payload"])["body"]["event_inputs"]]
+        assert inbox.acknowledge(task["id"], ids) == len(delivered)
         assert inbox.pending(task["id"]) == []
     finally:
         store.close()
