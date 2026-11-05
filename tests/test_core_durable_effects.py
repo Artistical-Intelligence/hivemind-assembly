@@ -666,3 +666,34 @@ def test_concurrent_sqlite_store_claims_never_dispatch_same_event_twice(tmp_path
         if second is not None:
             second.close()
         first.close()
+
+
+def test_claim_includes_exact_scoped_event_for_native_browser_payload(owner):
+    """Worker A can deliver the exact ticket envelope without rereading a short inbox page."""
+    store, task, event, epoch, inbox, controller, effects = owner
+    effects.stage_pending(task["id"])
+    claim = effects.claim(task["id"], "native.chat", epoch)
+    assert claim["event_id"] == event["event_id"]
+    assert claim["event_input"] == event
+    assert claim["event_input"]["thread"] == "project:" + task["project_id"]
+    # Actual controller/browser transport still controls delivery and ACK;
+    # claiming only assembles immutable local facts, without model/API call.
+    assert effects.health(task["id"])["leased"] == 1
+    assert inbox.pending(task["id"]) == [event]
+
+
+def test_cross_project_event_reference_cannot_be_returned_as_native_claim(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    effects.stage_pending(task["id"])
+    # No prior subscription/read/write authority to the other project's event.
+    outsider = store.create_project("outsider", "Unrelated work")
+    other_inbox = NativeEventInbox(store)
+    other_inbox.subscribe(outsider["id"], "project:" + outsider["project_id"])
+    other_inbox.receive(
+        project_id=outsider["project_id"], source="native",
+        source_id="other-ci", thread="project:" + outsider["project_id"],
+        kind="ci_failed", summary="Unrelated source secret",
+    )
+    claim = effects.claim(task["id"], "native.chat", epoch)
+    assert claim["event_input"]["summary"] == event["summary"]
+    assert "Unrelated source secret" not in str(claim)
