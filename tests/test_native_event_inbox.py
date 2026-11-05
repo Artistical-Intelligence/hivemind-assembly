@@ -281,3 +281,24 @@ def test_another_openai_chat_route_cannot_read_current_owners_inbox(scope):
                native.native_event_inputs(worker, "worker.primary"))
     assert inbox.pending(other["id"]) == []
     assert store.task(worker["id"])["owner"] == "worker.primary"
+
+
+def test_revocation_must_not_resurrect_previously_dropped_unread_events(scope):
+    """Issue #1 repair must not defeat an explicit subscription revocation."""
+    store, worker, other = scope
+    inbox = NativeEventInbox(store)
+    thread = "project:" + worker["project_id"]
+    inbox.subscribe(worker["id"], thread)
+    assert inbox.receive(
+        project_id=worker["project_id"], source="native",
+        source_id="before-revocation", thread=thread,
+        kind="ci_failed", summary="Prior event must not reappear",
+    ) == "stored"
+    assert len(inbox.pending(worker["id"])) == 1
+    assert inbox.unsubscribe(worker["id"], thread) == 1
+    assert inbox.pending(worker["id"]) == []
+    # Rejoining the thread must not retroactively resurrect a revoked inbox
+    # item. Catch-up for first-time subscribers needs a distinct durable rule.
+    inbox.subscribe(worker["id"], thread)
+    assert inbox.pending(worker["id"]) == []
+    assert inbox.pending(other["id"]) == []
