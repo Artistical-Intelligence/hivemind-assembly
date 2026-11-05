@@ -206,3 +206,46 @@ def test_retry_proof_flag_must_be_explicit_boolean(owner):
             first["generation"], definitely_not_sent=1,
         )
     assert effects.status(task["id"])[0]["status"] == "leased"
+
+
+def test_revoked_subscription_blocks_late_browser_receipt(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    effects.enqueue(task["id"], "revokable", event["event_id"])
+    lease = effects.claim(task["id"], "native.chat", epoch)
+    assert inbox.unsubscribe(task["id"], "project:" + task["project_id"]) == 1
+    receipt = _valid_receipt(controller, task["id"], event["event_id"],
+                             "late-after-revoke")
+    with pytest.raises(Conflict, match="revoked"):
+        effects.finalize(task["id"], "native.chat", epoch,
+                         "revokable", lease["generation"], receipt)
+    assert effects.status(task["id"])[0]["status"] == "leased"
+
+
+def test_legacy_sqlite_table_adds_claim_timestamp_column_safely(tmp_path):
+    store = Store(tmp_path)
+    try:
+        # Simulate a pre-upgrade HA installation with the first effect schema.
+        with store.tx() as db:
+            db.execute(
+                """CREATE TABLE ha_native_effect (
+                task_id TEXT NOT NULL,
+                effect_key TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                event_id INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                generation INTEGER NOT NULL DEFAULT 0,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                due_at REAL NOT NULL,
+                lease_until REAL,
+                receipt_id TEXT,
+                updated REAL NOT NULL,
+                PRIMARY KEY(task_id,effect_key))"""
+            )
+        DurableEventEffects(store)
+        columns = store.rows("PRAGMA table_info(ha_native_effect)")
+        assert "claimed_at" in {row["name"] for row in columns}
+        # Reconstructing a second time must not re-apply the migration.
+        DurableEventEffects(store)
+        assert len(store.rows("PRAGMA index_list(ha_native_effect)")) >= 2
+    finally:
+        store.close()
