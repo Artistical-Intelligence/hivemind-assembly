@@ -16,6 +16,8 @@ ChatGPT API calls, scheduler changes, filesystem writes or user approvals.
 from __future__ import annotations
 
 import json
+import math
+import sqlite3
 import time
 
 from hivemind_assembly.core.common import Blocked, Conflict, ContractError
@@ -67,7 +69,18 @@ class DurableEventEffects:
             # Execute each fixed DDL statement under HA's own Store.tx fence.
             for statement in _SCHEMA.split(";"):
                 if statement.strip():
-                    db.execute(statement)
+                    try:
+                        db.execute(statement)
+                    except sqlite3.IntegrityError as error:
+                        # Earlier HA revisions allowed different effect keys
+                        # for the SAME delivered event. Never erase either
+                        # uncertain attempt to force a uniqueness upgrade.
+                        if "ha_native_effect_one_per_event" in statement:
+                            raise Blocked(
+                                "Duplicate legacy event effects require "
+                                "manual reconciliation before migration"
+                            ) from error
+                        raise
             # Existing installations may have the original table without
             # claimed_at. Never invent a verified claim time for ambiguous
             # older 'uncertain' deliveries: require manual reconciliation.
@@ -279,6 +292,49 @@ class DurableEventEffects:
                 (state, time.time() + delay_seconds, time.time(), task_id, effect_key),
             )
             return state
+
+    def recover_expired_lease(self, task_id: str, owner: str, epoch: int,
+                              effect_key: str, generation: int,
+                              *, now: float | None = None) -> str:
+        """After a crash, quarantine an expired in-flight effect as uncertain.
+
+        The browser may have received the request even if no response was
+        journaled. Expiration is NOT proof it was unsent, so this method
+        never requeues it or initiates another exchange. A new current
+        task owner lease is mandatory, and old generations cannot recover.
+        Reconciliation must inspect retained exact native message receipts.
+        """
+        _key(effect_key, "effect key")
+        if (not isinstance(generation, int) or isinstance(generation, bool)
+                or generation < 1):
+            raise ContractError("Invalid effect generation")
+        current = time.time() if now is None else float(now)
+        if not math.isfinite(current) or current < 0:
+            raise ContractError("Invalid recovery time")
+        with self.store.tx() as db:
+            self._fence(db, task_id, owner, epoch)
+            row = db.execute(
+                """SELECT generation,status,lease_until
+                   FROM ha_native_effect WHERE task_id=? AND effect_key=?""",
+                (task_id, effect_key),
+            ).fetchone()
+            if row is None:
+                raise Conflict("Unknown native event effect")
+            if row["generation"] != generation:
+                raise Conflict("Stale effect generation for recovery")
+            if row["status"] in ("uncertain", "delivered"):
+                return row["status"]
+            if row["status"] != "leased" or row["lease_until"] is None:
+                raise Conflict("Effect has no outstanding browser delivery")
+            if current <= row["lease_until"]:
+                return "leased"
+            db.execute(
+                """UPDATE ha_native_effect
+                   SET status='uncertain',lease_until=NULL,updated=?
+                   WHERE task_id=? AND effect_key=? AND generation=?""",
+                (time.time(), task_id, effect_key, generation),
+            )
+            return "uncertain"
 
     def reconcile_uncertain(self, task_id: str, owner: str, epoch: int,
                             effect_key: str) -> str:
