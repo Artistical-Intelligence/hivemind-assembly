@@ -917,11 +917,24 @@ class NativeTeam:
                 },
             )
             if native_events and response.get("type") in ("step_intent", "complete"):
-                # Response has survived HA's existing validated native receipt.
-                # A cancelled or invalid turn must not lose unread events.
-                self.native_event_inbox.acknowledge(
-                    task_id, [item["event_id"] for item in native_events]
+                # Only acknowledge events in the EXACT stored native request.
+                # After a crash, ask() may replay a previously validated answer;
+                # newly arrived events were not seen by that model turn.
+                receipt_id = "msg_" + digest({
+                    "task": task_id, "flow": flow["seq"],
+                    "phase": flow["phase"], "route": route,
+                })[:32]
+                receipts = self.store.rows(
+                    "SELECT payload FROM messages WHERE id=? AND state='validated'",
+                    (receipt_id,),
                 )
+                if receipts:
+                    delivered = json.loads(receipts[0]["payload"]).get(
+                        "body", {}
+                    ).get("event_inputs", [])
+                    self.native_event_inbox.acknowledge(
+                        task_id, [row["event_id"] for row in delivered]
+                    )
             if response["type"] == "complete":
                 if await self.completion_waits(task):
                     return
