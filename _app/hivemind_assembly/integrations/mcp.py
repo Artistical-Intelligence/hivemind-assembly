@@ -91,11 +91,11 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 charset = []
                 for parameter in mime.split(";")[1:]:
                     part = parameter.strip()
-                    if re.match(r"^charset\\b", part, re.IGNORECASE):
+                    if re.match(r"^charset\b", part, re.IGNORECASE):
                         # Media types permit whitespace around '='. Never
                         # mistake 'charset = latin-1' for an absent charset.
                         match = re.fullmatch(
-                            r"charset\\s*=\\s*(.+)", part, re.IGNORECASE
+                            r"charset\s*=\s*(.+)", part, re.IGNORECASE
                         )
                         if not match:
                             raise Blocked("MCP text resource has an invalid charset")
