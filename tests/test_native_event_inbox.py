@@ -417,3 +417,129 @@ def test_partial_modern_validated_event_envelope_must_not_ack(scope):
     assert [row["event_id"] for row in inbox.pending(worker["id"])] == [
         item["event_id"]
     ]
+
+
+def test_stale_prior_chat_owner_receipt_cannot_consume_transferred_event(scope):
+    """A validated old-chat receipt cannot ACK the new owner's unread work.
+
+    This targets the legacy acknowledgment seam independently of the newer
+    durable-effect generation fence. No browser or external API is involved.
+    The event remains project-scoped, but ownership of its receipt changed.
+    """
+    store, worker, _ = scope
+    inbox = NativeEventInbox(store)
+    with store.tx() as db:
+        db.execute(
+            "UPDATE tasks SET owner=?,epoch=?,status='running' WHERE id=?",
+            ("worker.first", 1, worker["id"]),
+        )
+    thread = "project:" + worker["project_id"]
+    inbox.subscribe(worker["id"], thread)
+    assert inbox.receive(
+        project_id=worker["project_id"], source="native",
+        source_id="owner-epoch-fence", thread=thread,
+        kind="ci_failed", summary="Unacknowledged assignment evidence",
+    ) == "stored"
+    event = inbox.pending(worker["id"])[0]
+    packet = {
+        "task_id": worker["id"], "project_id": worker["project_id"],
+        "body": {"event_inputs": [event]},
+    }
+    with store.tx() as db:
+        db.execute(
+            """INSERT INTO messages
+               (id,task_id,route,conversation,payload_hash,payload,state,
+                response,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?)""",
+            ("late_old_chat_validated", worker["id"], "worker.first",
+             "old-conversation", "old-saved-packet", json.dumps(packet),
+             "validated", '{"type":"step_intent"}', 1.0, 1.0),
+        )
+        db.execute(
+            "UPDATE tasks SET owner=?,epoch=? WHERE id=?",
+            ("worker.second", 2, worker["id"]),
+        )
+    # The old route cannot consume an event now owned by another native Chat
+    # worker, even when its saved message is individually 'validated'.
+    with pytest.raises(ContractError):
+        inbox.acknowledge_validated_request(
+            worker["id"], "late_old_chat_validated", route="worker.first"
+        )
+    assert [item["event_id"] for item in inbox.pending(worker["id"])] == [
+        event["event_id"]
+    ]
+
+
+def test_late_validated_receipt_cannot_consume_event_after_hard_stop(scope):
+    """A hard task stop must fence delayed native receipt consumption."""
+    store, worker, _ = scope
+    inbox = NativeEventInbox(store)
+    thread = "project:" + worker["project_id"]
+    with store.tx() as db:
+        db.execute(
+            "UPDATE tasks SET owner=?,epoch=?,status='running' WHERE id=?",
+            ("worker.chat", 1, worker["id"]),
+        )
+    inbox.subscribe(worker["id"], thread)
+    inbox.receive(
+        project_id=worker["project_id"], source="native",
+        source_id="stopped-receipt", thread=thread, kind="ci_failed",
+        summary="Pending before cancellation",
+    )
+    event = inbox.pending(worker["id"])[0]
+    with store.tx() as db:
+        db.execute(
+            """INSERT INTO messages
+               (id,task_id,route,conversation,payload_hash,payload,state,
+                response,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?)""",
+            ("late_stopped_validated", worker["id"], "worker.chat",
+             "chat-before-stop", "stopped-packet",
+             json.dumps({
+                 "task_id": worker["id"],
+                 "project_id": worker["project_id"],
+                 "body": {"event_inputs": [event]},
+             }), "validated", '{"type":"step_intent"}', 1.0, 1.0),
+        )
+        db.execute("UPDATE tasks SET status='paused' WHERE id=?", (worker["id"],))
+    with pytest.raises(ContractError):
+        inbox.acknowledge_validated_request(
+            worker["id"], "late_stopped_validated", route="worker.chat"
+        )
+    assert [item["event_id"] for item in inbox.pending(worker["id"])] == [
+        event["event_id"]
+    ]
+
+
+def test_subscription_pruner_retains_never_assigned_and_revokes_orphaned_lease(scope):
+    """A new task's catch-up survives scanning; a former owner's does not."""
+    store, fresh, orphan = scope
+    inbox = NativeEventInbox(store)
+    first_thread = "project:" + fresh["project_id"]
+    orphan_thread = "project:" + orphan["project_id"]
+    inbox.subscribe(fresh["id"], first_thread)
+    inbox.subscribe(orphan["id"], orphan_thread)
+    inbox.subscribe(orphan["id"], "task:" + orphan["id"])
+    for task, thread, source_id in (
+        (fresh, first_thread, "new-unassigned"),
+        (orphan, orphan_thread, "orphan-project"),
+        (orphan, "task:" + orphan["id"], "orphan-task"),
+    ):
+        inbox.receive(
+            project_id=task["project_id"], source="native",
+            source_id=source_id, thread=thread, kind="ci_failed",
+            summary="Source metadata only, not authority",
+        )
+    # First assignment has epoch zero. Formerly owned task lost its lease.
+    with store.tx() as db:
+        db.execute(
+            "UPDATE tasks SET owner=NULL,epoch=2,status='running' WHERE id=?",
+            (orphan["id"],),
+        )
+    assert inbox.revoke_ineligible(frozenset({"worker.chat"}), limit=5) == 2
+    assert [x["source_id"] for x in inbox.pending(fresh["id"])] == [
+        "new-unassigned"
+    ]
+    assert inbox.pending(orphan["id"]) == []
+    # A later re-subscribe never recovers explicitly revoked old events.
+    inbox.subscribe(orphan["id"], orphan_thread)
+    inbox.subscribe(orphan["id"], "task:" + orphan["id"])
+    assert inbox.pending(orphan["id"]) == []
