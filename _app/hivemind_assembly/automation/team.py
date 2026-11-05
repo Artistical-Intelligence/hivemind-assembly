@@ -59,6 +59,7 @@ class NativeTeam:
         # Event intake and watchdog are local-only; create them lazily for the
         # exact OpenAI Chat route. They never call a model or an external API.
         self.native_event_inbox = None
+        self.native_event_effect_bridge = None
         self.progress_watchdog = None
         self._next_progress_scan = 0.0
         self.observations = {}
@@ -919,7 +920,15 @@ class NativeTeam:
             if self.native_chat_route(route):
                 self.native_event_inputs(task, route)  # scoped subscribe + journal
                 from .event_effect_bridge import NativeEventEffectBridge
-                delivery_bridge = NativeEventEffectBridge(self.store)
+                delivery_bridge = getattr(
+                    self, "native_event_effect_bridge", None
+                )
+                if delivery_bridge is None:
+                    delivery_bridge = NativeEventEffectBridge(self.store)
+                    # Store-derived effects hold no in-memory leased state.
+                    # Reuse this bridge to avoid DDL/PRAGMA migrations on
+                    # every ordinary native Chat intent turn.
+                    self.native_event_effect_bridge = delivery_bridge
                 receipt_id = "msg_" + digest({
                     "task": task_id, "flow": flow["seq"],
                     "phase": flow["phase"], "route": route,
@@ -973,8 +982,8 @@ class NativeTeam:
                 if delivery_bridge is not None:
                     # The browser may already have received this request.
                     # Never infer definitely_not_sent from an exception.
-                    delivery_bridge.mark_uncertain(
-                        task, route, delivery_binding
+                    delivery_bridge.mark_interrupted(
+                        task, route, receipt_id, delivery_binding
                     )
                 raise
             if response.get("type") in ("step_intent", "complete"):
@@ -991,8 +1000,8 @@ class NativeTeam:
             elif delivery_bridge is not None:
                 # Context resets, partial replies or ambiguous responses are
                 # not evidence that an event was processed successfully.
-                delivery_bridge.mark_uncertain(
-                    task, route, delivery_binding
+                delivery_bridge.mark_interrupted(
+                    task, route, receipt_id, delivery_binding
                 )
             if response["type"] == "complete":
                 if await self.completion_waits(task):
