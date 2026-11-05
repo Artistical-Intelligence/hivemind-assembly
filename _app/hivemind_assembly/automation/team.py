@@ -97,7 +97,21 @@ class NativeTeam:
         This supplements the existing browser request. It never invokes an
         API, launches a model, changes a scheduler or grants a tool.
         """
-        if not self.native_chat_route(route):
+        current = self.store.task(task["id"])
+        if current["project_id"] != task["project_id"]:
+            raise ContractError("Native event project binding changed")
+        owner = current["owner"]
+        owner_is_chat = bool(owner and self.native_chat_route(owner))
+        stopped = current["status"] in {"paused", "accepted", "cancelled"}
+        if (not self.native_chat_route(route) or stopped or
+                (owner is not None and owner != route)):
+            # Revocation is tied to the actual current owner/status, not to
+            # an adviser or stray caller that happens to use another route.
+            if (self.native_event_inbox is not None and
+                    (stopped or owner is not None and not owner_is_chat)):
+                self.native_event_inbox.unsubscribe(
+                    current["id"], "project:" + current["project_id"]
+                )
             return []
         if self.native_event_inbox is None:
             from .event_inbox import NativeEventInbox
@@ -107,10 +121,10 @@ class NativeTeam:
                 self.store, self.native_event_inbox
             )
         self.native_event_inbox.subscribe(
-            task["id"], "project:" + task["project_id"]
+            current["id"], "project:" + current["project_id"]
         )
-        self.native_event_inbox.bridge_native(task["project_id"])
-        return self.native_event_inbox.pending(task["id"], limit=6)
+        self.native_event_inbox.bridge_native(current["project_id"])
+        return self.native_event_inbox.pending(current["id"], limit=6)
 
     def scan_native_progress(self, now=None):
         """Deterministic watchdog: local evidence, no model or task mutations."""
