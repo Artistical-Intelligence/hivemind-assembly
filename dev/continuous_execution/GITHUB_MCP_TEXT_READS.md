@@ -37,3 +37,5 @@ The plugin's app-specific permission was independently checked and already showe
 - Live HA external MCP connection and hosted ChatGPT plugin behavior are separate acceptance tests. We cannot guarantee **all** future tool calls avoid platform approvals, since other operations and actual binary transfers can require them.
 
 **No RE-Wizard repository, scheduled task, permission setting or third-party GitHub MCP server was modified in this change.**
+
+**Focused verification:** [Actions run 42099862699](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/42099862699) at workflow commit `2d795b995f63a6cb434bf394506a09c8acf42395` completed **20 passed, 0 failed** in 0.47s (includes the seven inline-MCP tests plus existing native-event tests). These results verify the HA-local transformation, **not** managed GitHub MCP server modification or an end-to-end host UI bypass.
