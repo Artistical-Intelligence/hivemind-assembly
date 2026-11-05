@@ -109,7 +109,7 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             # otherwise supply lone surrogates or NUL-delimited binary data
             # disguised as a text block. Bound encoded bytes, not Unicode
             # code points, before returning anything to a hosted client.
-            if "\\x00" in value:
+            if "\x00" in value:
                 raise Blocked("MCP source contains binary NUL bytes")
             try:
                 encoded_size = len(value.encode("utf-8", errors="strict"))
