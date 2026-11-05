@@ -52,8 +52,10 @@ def _digest_from_payload(event_type: str, data: dict) -> tuple[str, str] | None:
             return None
         conclusion = run.get("conclusion")
         # An authenticated but malformed JSON payload can contain lists or
-        # objects here. Reject without an unhandled unhashable-type crash.
-        if not isinstance(conclusion, str) or conclusion not in {"success", "failure", "cancelled", "timed_out",
+        # objects here. Reject deliberately, not via unhashable-type crash.
+        if conclusion is not None and not isinstance(conclusion, str):
+            raise ContractError("Malformed workflow conclusion")
+        if conclusion not in {"success", "failure", "cancelled", "timed_out",
                               "action_required", "skipped", "neutral"}:
             return None
         sha = run.get("head_sha")
