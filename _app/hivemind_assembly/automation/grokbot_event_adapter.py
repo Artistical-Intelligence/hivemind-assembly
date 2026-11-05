@@ -12,7 +12,9 @@ Codex, opencode, a model API, or an external webhook.
 
 from __future__ import annotations
 
-from hivemind_assembly.core.common import ContractError
+import re
+
+from hivemind_assembly.core.common import ContractError, digest
 from .event_inbox import NativeEventInbox, _bounded
 
 
@@ -22,6 +24,23 @@ _STATUS = {
     "timeout": frozenset({"timeout"}),
     "needs_input": frozenset({"permission", "question"}),
 }
+
+# Upstream grokbot-kit docs/event.md and terminal.py: each completed or
+# failed event carries a reason with narrowly defined status combinations.
+# Old local fixtures may omit it, but a provided contradictory reason must
+# never silently become a trusted ticket outcome.
+_EXIT_REASONS = {
+    ("completed", "ok"): frozenset({"success"}),
+    ("completed", "denied"): frozenset({"permission_denied"}),
+    ("error", "failed"): frozenset({
+        "agent_error", "nonzero_exit", "result_invalid",
+    }),
+    ("error", "interrupted"): frozenset({"interrupted"}),
+    ("timeout", "timeout"): frozenset({"timeout"}),
+    ("needs_input", "permission"): frozenset({"needs_input"}),
+    ("needs_input", "question"): frozenset({"needs_input"}),
+}
+
 
 
 def admit_grokbot_event(
@@ -53,8 +72,19 @@ def admit_grokbot_event(
     status = event.get("status")
     if kind not in _STATUS or status not in _STATUS[kind]:
         raise ContractError("Unsupported Grok Bot event/status combination")
+    if "exit_reason" in event and event["exit_reason"] not in _EXIT_REASONS[(kind, status)]:
+        raise ContractError("Grok Bot event has an inconsistent exit reason")
+    needs_input = event.get("needs_input")
+    if kind == "needs_input" and isinstance(needs_input, dict):
+        if "kind" in needs_input and needs_input["kind"] != status:
+            raise ContractError("Grok Bot needs-input reason does not match status")
     external_id = event.get("task_id")
     _bounded(external_id, "external task id", 128)
+    # The external task ID appears in the native summary. Constrain it to an
+    # opaque identifier: unlike an arbitrary signed CLI result, it must never
+    # become an instruction-bearing text channel.
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", external_id):
+        raise ContractError("Invalid external Grok Bot task identifier")
     task = inbox.store.task(task_id)
     # Trigger is directed to the existing delegated work ticket, not every
     # subscribed project worker. It never creates or reassigns tasks.
@@ -67,10 +97,19 @@ def admit_grokbot_event(
         "needs_input": ("delegated_needs_input", "needs input " + status),
     }
     native_kind, outcome = mapped[kind]
+    if kind == "completed" and status == "denied":
+        # A terminal permission denial is NOT a successful completion.
+        native_kind = "delegated_denied"
     return inbox.receive(
         project_id=task["project_id"],
         source="grokbot_kit",
-        source_id=target + ":" + external_id + ":" + delivery_id,
+        # Canonical tuple hashing avoids delimiter collisions across targets
+        # and external IDs. Dedupe still requires one exact authenticated
+        # event and never creates a worker or changes its permissions.
+        source_id=digest({
+            "target": target, "external_task_id": external_id,
+            "delivery_id": delivery_id,
+        }),
         thread="task:" + task_id,
         kind=native_kind,
         summary="Delegated tool " + outcome + " for " + external_id,
