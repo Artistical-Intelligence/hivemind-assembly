@@ -302,3 +302,118 @@ def test_revocation_must_not_resurrect_previously_dropped_unread_events(scope):
     inbox.subscribe(worker["id"], thread)
     assert inbox.pending(worker["id"]) == []
     assert inbox.pending(other["id"]) == []
+
+
+def test_first_subscription_backfill_is_bounded_resumable_and_ordered(scope):
+    """A delayed subscriber catches >20 durable events without replay or reordering.
+
+    Synthetic SQLite only. In particular, a newer event arriving while the
+    initial historical cursor is still being consumed must remain last.
+    """
+    store, worker, other = scope
+    inbox = NativeEventInbox(store)
+    thread = "project:" + worker["project_id"]
+    for number in range(37):
+        assert inbox.receive(
+            project_id=worker["project_id"], source="native",
+            source_id=f"before-{number:02d}", thread=thread,
+            kind="ci_failed", summary=f"Pinned failure {number:02d}",
+        ) == "stored"
+    inbox.subscribe(worker["id"], thread)
+    inbox.subscribe(other["id"], "project:" + other["project_id"])
+    assert inbox.receive(
+        project_id=worker["project_id"], source="native",
+        source_id="after-37", thread=thread, kind="ci_passed",
+        summary="Newer source evidence",
+    ) == "stored"
+    seen = []
+    while True:
+        # Reconstructing the inbox after each bounded batch models restart.
+        pending = NativeEventInbox(store).pending(worker["id"], limit=6)
+        if not pending:
+            break
+        assert len(pending) <= 6
+        seen.extend(item["source_id"] for item in pending)
+        assert inbox.acknowledge(
+            worker["id"], [item["event_id"] for item in pending]
+        ) == len(pending)
+        assert len(seen) <= 38
+    assert seen == [f"before-{i:02d}" for i in range(37)] + ["after-37"]
+    assert inbox.pending(other["id"]) == []
+    inbox.subscribe(worker["id"], thread)
+    assert inbox.pending(worker["id"]) == []
+
+
+def test_revoked_subscription_cancels_unloaded_historical_pages(scope):
+    """Revocation defeats both already loaded and not-yet-loaded catch-up."""
+    store, worker, other = scope
+    inbox = NativeEventInbox(store)
+    thread = "project:" + worker["project_id"]
+    for number in range(45):
+        inbox.receive(
+            project_id=worker["project_id"], source="native",
+            source_id=f"old-{number:02d}", thread=thread,
+            kind="ci_failed", summary="Historical event",
+        )
+    inbox.subscribe(worker["id"], thread)
+    assert inbox.pending(worker["id"], limit=6)
+    # The first subscription has only filled its first 20 historical rows.
+    assert inbox.unsubscribe(worker["id"], thread) > 0
+    inbox.receive(
+        project_id=worker["project_id"], source="native",
+        source_id="during-revocation", thread=thread,
+        kind="ci_failed", summary="Should not backfill after rejoin",
+    )
+    inbox.subscribe(worker["id"], thread)
+    assert NativeEventInbox(store).pending(worker["id"], limit=20) == []
+    inbox.receive(
+        project_id=worker["project_id"], source="native",
+        source_id="after-rejoin", thread=thread,
+        kind="ci_passed", summary="Only future event",
+    )
+    assert [row["source_id"] for row in inbox.pending(worker["id"])] == [
+        "after-rejoin"
+    ]
+    assert inbox.pending(other["id"]) == []
+
+
+def test_partial_modern_validated_event_envelope_must_not_ack(scope):
+    """Regression: a partial modern envelope must not masquerade as legacy.
+
+    Legacy messages contain only event_id. Newer messages that add *any*
+    immutable source metadata must bind all source fields, not merely a
+    conveniently truthful subset. This is an expected failing security
+    regression until Worker A tightens the validated-receipt boundary.
+    """
+    store, worker, _ = scope
+    inbox = NativeEventInbox(store)
+    thread = "project:" + worker["project_id"]
+    inbox.subscribe(worker["id"], thread)
+    inbox.receive(
+        project_id=worker["project_id"], source="native",
+        source_id="scope-proof", thread=thread,
+        kind="ci_failed", summary="Authorized immutable event",
+    )
+    item = inbox.pending(worker["id"])[0]
+    forged_partial = {
+        "task_id": worker["id"], "project_id": worker["project_id"],
+        "body": {"event_inputs": [
+            {"event_id": item["event_id"], "summary": item["summary"]}
+        ]},
+    }
+    with store.tx() as db:
+        db.execute(
+            """INSERT INTO messages
+               (id,task_id,route,conversation,payload_hash,payload,state,
+                response,created,updated) VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            ("partial_modern_envelope", worker["id"], "worker.chat",
+             "chat-A", "partial-hash", json.dumps(forged_partial),
+             "validated", '{"type":"step_intent"}', 1.0, 1.0),
+        )
+    with pytest.raises(ContractError, match="envelope|Malformed|source"):
+        inbox.acknowledge_validated_request(
+            worker["id"], "partial_modern_envelope", route="worker.chat"
+        )
+    assert [row["event_id"] for row in inbox.pending(worker["id"])] == [
+        item["event_id"]
+    ]
