@@ -157,6 +157,32 @@ class NativeEventInbox:
                 (task["project_id"], task_id, thread),
             )
 
+    def unsubscribe(self, task_id: str, thread: str) -> int:
+        """Revoke delivery without discarding the immutable source journal.
+
+        Existing read receipts remain available for reconciliation. Unread
+        deliveries on this thread are dropped; an existing task cannot revive
+        them merely by re-subscribing after an owner/project route change.
+        """
+        task = self.store.task(task_id)
+        allowed = {"project:" + task["project_id"], "task:" + task_id}
+        if thread not in allowed:
+            raise ContractError("Cross-project or arbitrary thread unsubscription denied")
+        with self.store.tx() as db:
+            db.execute(
+                """DELETE FROM ha_event_subscription
+                   WHERE project_id=? AND task_id=? AND thread=?""",
+                (task["project_id"], task_id, thread),
+            )
+            removed = db.execute(
+                """DELETE FROM ha_event_delivery
+                   WHERE task_id=? AND read_at IS NULL AND event_id IN
+                       (SELECT id FROM ha_event_trigger
+                        WHERE project_id=? AND thread=?)""",
+                (task_id, task["project_id"], thread),
+            )
+            return removed.rowcount
+
     def receive(self, *, project_id: str, source: str, source_id: str,
                 thread: str, kind: str, summary: str,
                 verified: bool = False) -> str:
