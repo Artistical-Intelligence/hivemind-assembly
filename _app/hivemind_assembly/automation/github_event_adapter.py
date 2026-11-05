@@ -23,6 +23,24 @@ from .event_inbox import NativeEventInbox, _bounded
 _MAX_PAYLOAD_BYTES = 128 * 1024
 _ALLOWED = frozenset({"workflow_run", "check_run", "push"})
 
+_CI_FAILURE_CONCLUSIONS = frozenset({
+    "failure", "timed_out", "action_required", "startup_failure",
+})
+
+
+def _ci_kind(conclusion: str) -> str:
+    """Never mislabel cancelled/skipped/neutral CI as a test failure.
+
+    An inconclusive check is still relevant evidence, but an HA worker must
+    not treat it as failing acceptance or as permission to rerun a workflow.
+    """
+    if conclusion == "success":
+        return "ci_passed"
+    if conclusion in _CI_FAILURE_CONCLUSIONS:
+        return "ci_failed"
+    return "ci_inconclusive"
+
+
 
 def _digest_from_payload(event_type: str, data: dict) -> tuple[str, str] | None:
     """Produce bounded metadata-only summaries; discard remote free text."""
@@ -44,7 +62,7 @@ def _digest_from_payload(event_type: str, data: dict) -> tuple[str, str] | None:
         number = run.get("id")
         if not isinstance(number, int) or isinstance(number, bool) or number < 1:
             raise ContractError("Malformed workflow run ID")
-        kind = "ci_failed" if conclusion != "success" else "ci_passed"
+        kind = _ci_kind(conclusion)
         return kind, f"GitHub workflow run {number} {conclusion} at {sha.lower()}"
     if event_type == "check_run":
         run = data.get("check_run")
@@ -66,9 +84,15 @@ def _digest_from_payload(event_type: str, data: dict) -> tuple[str, str] | None:
         number = run.get("id")
         if not isinstance(number, int) or isinstance(number, bool) or number < 1:
             raise ContractError("Malformed check-run ID")
-        return ("ci_passed" if conclusion == "success" else "ci_failed",
+        return (_ci_kind(conclusion),
                 f"GitHub check run {number} {conclusion} at {sha.lower()}")
+    # GitHub uses forty zeroes for a deleted ref; this is not a source SHA
+    # and must not be routed to workers as a valid checkout target.
+    if data.get("deleted") is True:
+        return None
     sha = data.get("after")
+    if sha == "0" * 40:
+        return None
     if not isinstance(sha, str) or len(sha) != 40 or not all(
         ch in "0123456789abcdefABCDEF" for ch in sha
     ):
