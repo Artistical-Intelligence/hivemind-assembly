@@ -159,6 +159,14 @@ class NativeEventInbox:
                             and artifact_sha != prior["last_artifact"])):
                     raise ContractError("Conflicting terminal ticket evidence")
                 return self.ticket(task_id)
+            if (prior["state"] == state
+                    and (run_id is None or run_id == prior["last_run"])
+                    and (artifact_sha is None or
+                         artifact_sha == prior["last_artifact"])):
+                # A 120-second local watchdog scan is not a new task run.
+                # Reobserving identical evidence must not churn the ticket
+                # timestamp or masquerade as worker progress.
+                return self.ticket(task_id)
             db.execute(
                 """UPDATE ha_work_ticket SET state=?,last_run=COALESCE(?,last_run),
                    last_artifact=COALESCE(?,last_artifact),updated=?
