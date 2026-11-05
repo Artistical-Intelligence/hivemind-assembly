@@ -287,6 +287,22 @@ future non-recurrence is not yet empirically guaranteed.
 
 The owner is simultaneously running a **real** BinaryWorkbench improvement team in the separate, private RE-Wizard repository. Initially five roles, the reviewed team expanded to **eight hourly scheduled roles** (and later reused a test-owned one-off as another real worker) (conductor, four technical developers, provisional verifier, integrator and milestone reporter) with bounded branch/output ownership; a main-chat developer contributes during actual interactive turns. Their goal is meaningful program development and synthetic testing, **not** merely a scheduler demo. Subsequent November 4 receipts **confirmed four completed productive workers with a common recorded execution overlap and distinct chat references**, an earlier **completed integrator reading exact GitHub producer artifacts** for static checks, and a later **completed provisional verifier identifying an additional regression gap**. This verifies recorded parallel run intervals and source-level inheritance, later **executed authenticated source-bound CI with actionable failures**, but not a successful integrated CI gate, qualified independent review or release acceptance. Both **parallel work** and **inherited follow-up waves** matter; enabled tasks alone still prove neither. Do not copy proprietary private source, branch names, account identifiers or protected evidence into the public HA skill. Read the [public, deliberately privacy-limited case study](../../dev/continuous_execution/REWIZARD_BINARYWORKBENCH_CASE_STUDY.md) and [dated findings](../../dev/continuous_execution/CHAT_MODE_FINDINGS.md). A finite, **bounded** scheduled evidence-sync is authorized to examine real task run results and private GitHub evidence with read-only access, updating only HA public evidence/skill documentation when material changes are independently supported. Do not interfere with the private project's work or its conductor's schedule authority.
 
+## GitHub MCP inline-only source reads
+
+In ChatGPT, **prefer GitHub's `fetch_file` text tool** for a known
+repository file/ref and bounded line ranges; use the approved
+`fetch` tool for directory metadata/REST JSON. Avoid
+`GitHub_MCP.get_file_contents` for file contents: it can yield
+an embedded attachment and request "Allow file materialization?"
+even when that plugin is configured to Allow all actions. Do not
+automatically download binary assets/ZIPs or present materialization
+as mandatory for plain source inspection. When text cannot be read
+through the approved inline path, state the actual obstacle.
+A ChatGPT host approval is independent from HA's code and cannot
+be disabled through an agent prompt. See
+[GitHub MCP text-only reads](../../dev/continuous_execution/GITHUB_MCP_TEXT_READS.md).
+Keep owner-approved access, redaction and write-review restrictions.
+
 ## Goal and scope
 
 Continue useful project work across **separate scheduled Chat Mode executions**, using a retained top-level objective, narrowly scoped next milestones, versioned external evidence and checkpoint handoffs. A scheduled run is a finite model invocation, **not a persistent live agent process**. An automation can be reused; a run cannot be prolonged indefinitely by its schedule. Existing experiments demonstrate task-to-task **configuration updates** and retrieval of recorded results, not creation of child tasks or independent, unscheduled user messages.
