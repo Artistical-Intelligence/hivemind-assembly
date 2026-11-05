@@ -27,6 +27,7 @@ _SCHEMA = """CREATE TABLE IF NOT EXISTS ha_progress_watch(
     task_id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL,
     observed_owner TEXT NOT NULL DEFAULT '',
+    observed_epoch INTEGER NOT NULL DEFAULT 0,
     observed_turns INTEGER NOT NULL,
     observed_operations INTEGER NOT NULL,
     consecutive_unproductive_turns INTEGER NOT NULL,
@@ -53,6 +54,13 @@ class ProgressWatchdog:
             columns = {row[1] for row in db.execute("PRAGMA table_info(ha_progress_watch)")}
             if "observed_owner" not in columns:
                 db.execute("ALTER TABLE ha_progress_watch ADD COLUMN observed_owner TEXT NOT NULL DEFAULT ''")
+            if "observed_epoch" not in columns:
+                # A legacy observation cannot attest to the current owner
+                # lease generation, so its next scan must reset the baseline.
+                db.execute(
+                    "ALTER TABLE ha_progress_watch "
+                    "ADD COLUMN observed_epoch INTEGER NOT NULL DEFAULT -1"
+                )
 
     def scan(self, project_id: str, *, threshold: int = 3,
              cooldown_seconds: float = 300, now: float | None = None,
@@ -71,7 +79,7 @@ class ProgressWatchdog:
             raise ContractError("Watchdog clock must be finite and nonnegative")
         signals = []
         tasks = self.store.rows(
-            "SELECT id,project_id,status,owner,lease_until FROM tasks WHERE project_id=?",
+            "SELECT id,project_id,status,owner,epoch,lease_until FROM tasks WHERE project_id=?",
             (project_id,),
         )
         for task in tasks:
@@ -100,24 +108,28 @@ class ProgressWatchdog:
                 with self.store.tx() as db:
                     db.execute(
                         """INSERT OR IGNORE INTO ha_progress_watch
-                           (task_id,project_id,observed_owner,observed_turns,
-                            observed_operations,consecutive_unproductive_turns,updated_at)
-                           VALUES(?,?,?,?,?,0,?)""",
-                        (task_id, project_id, owner, turns, operations, current),
+                           (task_id,project_id,observed_owner,observed_epoch,
+                            observed_turns,observed_operations,
+                            consecutive_unproductive_turns,updated_at)
+                           VALUES(?,?,?,?,?,?,0,?)""",
+                        (task_id, project_id, owner, task["epoch"],
+                         turns, operations, current),
                     )
                 continue
             old = existing[0]
             if (old["observed_owner"] != owner
+                    or old["observed_epoch"] != task["epoch"]
                     or turns < old["observed_turns"]
                     or operations < old["observed_operations"]):
                 # Handoffs, journal upgrades and restorations do not prove stalls.
                 with self.store.tx() as db:
                     db.execute(
                         """UPDATE ha_progress_watch SET observed_owner=?,
-                           observed_turns=?,observed_operations=?,
+                           observed_epoch=?,observed_turns=?,
+                           observed_operations=?,
                            consecutive_unproductive_turns=0,
                            last_alert_at=NULL,updated_at=? WHERE task_id=?""",
-                        (owner, turns, operations, current, task_id),
+                        (owner, task["epoch"], turns, operations, current, task_id),
                     )
                 continue
             new_turns = turns - old["observed_turns"]
