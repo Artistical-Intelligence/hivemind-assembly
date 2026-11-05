@@ -144,6 +144,21 @@ class NativeTeam:
             key for key, cfg in self.config.get("routes", {}).items()
             if cfg.get("provider") == "openai" and cfg.get("mode") == "Chat"
         )
+        # Subscription journals survive process restart and an owner may
+        # switch to Work/Claude or stop without executing another Chat turn.
+        # Remove such old event subscriptions locally before any project
+        # progress scan; route and status checks are inside the inbox's
+        # SQLite transaction, not a stale read in this worker process.
+        # An installation with no prior native inbox remains untouched.
+        has_subscriptions = self.store.rows(
+            """SELECT 1 FROM sqlite_master
+               WHERE type='table' AND name='ha_event_subscription'"""
+        )
+        if has_subscriptions:
+            if self.native_event_inbox is None:
+                from .event_inbox import NativeEventInbox
+                self.native_event_inbox = NativeEventInbox(self.store)
+            self.native_event_inbox.revoke_ineligible(chat_routes)
         if not chat_routes:
             return []
         projects = {
