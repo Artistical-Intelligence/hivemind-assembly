@@ -62,6 +62,88 @@ class ProgressWatchdog:
                     "ADD COLUMN observed_epoch INTEGER NOT NULL DEFAULT -1"
                 )
 
+    def scan_delivery_health(self, project_id: str, *,
+                             allowed_owners: frozenset[str] | None = None,
+                             now: float | None = None) -> list[dict]:
+        """Flag unresolved native browser receipts without waking an agent.
+
+        Unlike model-turn stagnation, a crashed browser send might produce
+        zero new validated turns. A leased effect whose *effect* OR current
+        task-owner lease expired, or an explicitly uncertain effect, needs
+        reconciliation from existing evidence. Record one advisory project
+        event per effect generation; never retry, revoke or reassign a task.
+
+        Older installations do not have the optional effect table until a
+        native Chat event turn initializes its durable bridge. They remain
+        valid and simply have no delivery-health events to inspect.
+        """
+        self.store.project(project_id)
+        try:
+            current = time.time() if now is None else float(now)
+        except (TypeError, ValueError, OverflowError) as error:
+            raise ContractError("Invalid native receipt watchdog clock") from error
+        if not math.isfinite(current) or current < 0:
+            raise ContractError("Native receipt watchdog clock must be finite")
+        present = self.store.rows(
+            """SELECT 1 FROM sqlite_master
+               WHERE type='table' AND name='ha_native_effect'"""
+        )
+        if not present:
+            return []
+        rows = self.store.rows(
+            """SELECT t.id AS task_id,t.owner,t.lease_until,
+                      f.effect_key,f.generation,f.status AS effect_status,
+                      f.lease_until AS effect_lease_until
+               FROM ha_native_effect f
+               JOIN tasks t ON t.id=f.task_id
+               WHERE t.project_id=? AND f.project_id=?
+                 AND t.status NOT IN
+                   ('accepted','cancelled','paused','awaiting_acceptance',
+                    'waiting_setup','waiting_quota','waiting_signin')
+                 AND t.owner IS NOT NULL
+                 AND (f.status='uncertain' OR
+                      (f.status='leased' AND
+                       (f.lease_until<=? OR t.lease_until<=?)))
+               ORDER BY t.id,f.effect_key""",
+            (project_id, project_id, current, current),
+        )
+        result = []
+        for row in rows:
+            if allowed_owners is not None and row["owner"] not in allowed_owners:
+                continue
+            # The stable key survives process restart; repeated polls or
+            # a leased->uncertain transition cannot create repeated alarms.
+            # New attempts have a new generation and can be reported once.
+            identity = ":".join((
+                row["task_id"], row["effect_key"],
+                str(row["generation"]),
+            ))
+            source_id = "receipt:" + hashlib.sha256(
+                identity.encode("utf-8")
+            ).hexdigest()
+            outcome = self.inbox.receive(
+                project_id=project_id, source="watchdog", verified=True,
+                source_id=source_id, thread="project:" + project_id,
+                kind="native_receipt_uncertain",
+                summary=(
+                    "Native browser event delivery may be unresolved for task "
+                    + row["task_id"]
+                    + "; inspect exact saved message and effect receipts "
+                      "before any retry or reassignment"
+                ),
+            )
+            if outcome == "stored":
+                result.append({
+                    "task_id": row["task_id"],
+                    "status": "needs_reconciliation",
+                    "effect_generation": row["generation"],
+                    "running": bool(
+                        row["lease_until"] is not None
+                        and row["lease_until"] > current
+                    ),
+                })
+        return result
+
     def scan(self, project_id: str, *, threshold: int = 3,
              cooldown_seconds: float = 300, now: float | None = None,
              allowed_owners: frozenset[str] | None = None) -> list[dict]:
