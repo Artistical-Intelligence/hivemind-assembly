@@ -88,6 +88,12 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                         "No automatic attachment materialization; use a separately "
                         "authorized binary-file workflow if actual bytes are needed."
                     )
+                charset = [piece.split("=", 1)[1].strip().strip('"').lower()
+                           for piece in mime.split(";")[1:]
+                           if piece.strip().lower().startswith("charset=")]
+                if any(name not in ("utf-8", "utf8", "us-ascii")
+                       for name in charset):
+                    raise Blocked("MCP text resource declares a non-UTF-8 charset")
             elif kind == "resource_link":
                 raise Blocked(
                     "MCP returned a downloadable file link instead of inline text. "
@@ -99,7 +105,17 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                     "MCP returned non-text content; only inline UTF-8 source reads "
                     "are accepted by this HA bridge."
                 )
-            total += len(value)
+            # Literal text must be UTF-8 encodable. An MCP server can
+            # otherwise supply lone surrogates or NUL-delimited binary data
+            # disguised as a text block. Bound encoded bytes, not Unicode
+            # code points, before returning anything to a hosted client.
+            if "\\x00" in value:
+                raise Blocked("MCP source contains binary NUL bytes")
+            try:
+                encoded_size = len(value.encode("utf-8", errors="strict"))
+            except UnicodeEncodeError as error:
+                raise Blocked("MCP source is not valid UTF-8 text") from error
+            total += encoded_size
             if total > max_chars:
                 raise Blocked(
                     "MCP inline text exceeds the safe response limit. "
