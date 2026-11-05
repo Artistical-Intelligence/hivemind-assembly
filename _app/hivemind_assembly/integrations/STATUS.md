@@ -1,2 +1,3 @@
 CHECKS PENDING: remote_access.py — independent direct/hosted pairing, request boundaries, route lifecycle and device tests.
 CHECKS PENDING: hosted_connect.py — T3 signed protocol, OAuth, credential lifecycle, replay protection, interruption and real authorized hosted interoperability.
+CHECKS PENDING: mcp.py inline_github_mcp_text — scoped get_file_contents normalization for github-named outbound MCP servers converts text/plain and JSON embedded resources to inline text, rejects resource_link/binary/oversized content, leaves other MCP calls untouched. Focused test_mcp_inline_text.py CI and independent review required; does not modify installed ChatGPT GitHub MCP app or disable host-level materialization approval.
