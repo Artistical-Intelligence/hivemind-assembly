@@ -123,10 +123,19 @@ class NativeEventInbox:
         self.ensure_ticket(task_id)
         with self.store.tx() as db:
             prior = db.execute(
-                "SELECT state FROM ha_work_ticket WHERE task_id=?", (task_id,)
+                """SELECT state,last_run,last_artifact FROM ha_work_ticket
+                   WHERE task_id=?""", (task_id,)
             ).fetchone()
-            if prior[0] in _TERMINAL_TICKET_STATES and prior[0] != state:
-                raise ContractError("Terminal ticket cannot be reopened implicitly")
+            if prior["state"] in _TERMINAL_TICKET_STATES:
+                if prior["state"] != state:
+                    raise ContractError("Terminal ticket cannot be reopened implicitly")
+                # Replayed finalization is a read, not permission to rewrite
+                # accepted evidence or replace a cancelled work order.
+                if ((run_id is not None and run_id != prior["last_run"])
+                        or (artifact_sha is not None
+                            and artifact_sha != prior["last_artifact"])):
+                    raise ContractError("Conflicting terminal ticket evidence")
+                return self.ticket(task_id)
             db.execute(
                 """UPDATE ha_work_ticket SET state=?,last_run=COALESCE(?,last_run),
                    last_artifact=COALESCE(?,last_artifact),updated=?
@@ -247,23 +256,23 @@ class NativeEventInbox:
             (project_id,),
         )
         seen = cursor[0]["last_seq"] if cursor else 0
+        # Filter *inside SQLite* so unrelated projects or debug chatter
+        # cannot starve this project's bounded native event bridge.
+        kinds = tuple(sorted(_STATE_KINDS))
+        marks = ",".join("?" for _ in kinds)
         rows = self.store.rows(
-            "SELECT seq,entity,kind FROM events WHERE seq>? ORDER BY seq LIMIT ?",
-            (seen, limit),
+            """SELECT e.seq,e.entity,e.kind FROM events e
+               LEFT JOIN tasks t ON t.id=e.entity
+               WHERE e.seq>? AND (e.entity=? OR t.project_id=?)
+                 AND e.kind IN (""" + marks + """)
+               ORDER BY e.seq LIMIT ?""",
+            (seen, project_id, project_id, *kinds, limit),
         )
         if not rows:
             return 0
         admitted = 0
         for row in rows:
-            if row["kind"] not in _STATE_KINDS:
-                continue
             entity = row["entity"]
-            if entity != project_id:
-                task = self.store.rows(
-                    "SELECT project_id FROM tasks WHERE id=?", (entity,),
-                )
-                if not task or task[0]["project_id"] != project_id:
-                    continue
             outcome = self.receive(
                 project_id=project_id, source="native",
                 source_id="journal:" + str(row["seq"]),
