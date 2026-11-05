@@ -69,6 +69,10 @@ mediation and independent-review rules below retain their original scope; this
 notice does not remove them or impose the Chat Mode workflow elsewhere.
 
 
+## Workplace organization (permanent owner directive, November 5, 2026)
+
+For owner-authorized **ChatGPT Chat Mode scheduled engineering**, read `dev/continuous_execution/workplace/WORKPLACE_POLICY.md`, `org_chart.json`, `job_openings.json`, and `STAFFING_STATUS.md`. **Workplace** is the permanent project-staffing structure: an org chart retains every desired position, and a job opening tracks each unfilled role. The single owner-level **District Manager** performs the full previous HA and RE-Wizard Shift Manager job and continuously recruits safely released existing workers for open project positions. There is no separate HA Shift Manager role; the existing former manager's hourly seat now belongs to a distinct HA browser transport engineer. Work/Codex/Claude/API routing rules, all worker-owned source boundaries and independent review are unchanged. Do not place private RE-Wizard task IDs/code/claims into this public HA repository.
+
 ## Pre-provisioned Chat Mode coordination (Nov 2026)
 
 **Only when the configured execution route is explicitly ChatGPT Chat Mode:**
