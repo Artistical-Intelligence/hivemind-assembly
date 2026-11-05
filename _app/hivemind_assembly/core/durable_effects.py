@@ -118,6 +118,54 @@ class DurableEventEffects:
                        WHERE status='leased' AND claimed_at IS NULL"""
                 )
 
+    def stage_pending(self, task_id: str, *, limit: int = 20) -> list[int]:
+        """Stage bounded unread, project-scoped native inbox events.
+
+        DeepSeek-style event fanout already happens in NativeEventInbox.
+        This method only converts EXISTING unread delivery references into
+        stable, deduplicated local effect intents for a future authorized
+        browser exchange. It neither claims a worker lease nor launches a
+        model, task, HTTP call or background scheduler. Existing staged
+        events do not monopolize the next batch of genuinely new ones.
+        """
+        if (not isinstance(limit, int) or isinstance(limit, bool)
+                or not 1 <= limit <= 20):
+            raise ContractError("Native event staging limit out of range")
+        self.store.task(task_id)
+        with self.store.tx() as db:
+            task = db.execute(
+                "SELECT project_id,status FROM tasks WHERE id=?", (task_id,)
+            ).fetchone()
+            if task is None:
+                raise Conflict("Unknown local task")
+            if task["status"] in (
+                "paused", "cancelled", "accepted", "awaiting_acceptance"
+            ):
+                raise Blocked("Cannot stage events for a stopped task")
+            rows = db.execute(
+                """SELECT d.event_id FROM ha_event_delivery d
+                   JOIN ha_event_trigger e ON e.id=d.event_id
+                   WHERE d.task_id=? AND e.project_id=?
+                     AND d.read_at IS NULL
+                     AND NOT EXISTS (
+                       SELECT 1 FROM ha_native_effect f
+                       WHERE f.task_id=d.task_id AND f.event_id=d.event_id
+                     )
+                   ORDER BY e.id LIMIT ?""",
+                (task_id, task["project_id"], limit),
+            ).fetchall()
+            at = time.time()
+            for row in rows:
+                db.execute(
+                    """INSERT INTO ha_native_effect
+                       (task_id,effect_key,project_id,event_id,status,
+                        due_at,updated)
+                       VALUES(?,?,?,?,'queued',?,?)""",
+                    (task_id, "event-" + str(row["event_id"]),
+                     task["project_id"], row["event_id"], at, at),
+                )
+            return [row["event_id"] for row in rows]
+
     def enqueue(self, task_id: str, effect_key: str, event_id: int) -> str:
         """Idempotently queue an EXISTING project-matched local event.
 
