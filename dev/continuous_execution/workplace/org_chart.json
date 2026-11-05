@@ -1,0 +1,165 @@
+{
+  "schema": "workplace/org-chart/v1",
+  "project_id": "ha",
+  "project_name": "Hivemind Assembly native browser/MCP/event orchestration",
+  "repository": "Artistical-Intelligence/hivemind-assembly",
+  "manager": "WORKPLACE-DISTRICT-01 (owner-authorized external coordinator; NO separate HA Shift Manager)",
+  "as_of": "2026-11-05",
+  "target_positions": 10,
+  "filled_positions": 5,
+  "vacant_positions": 5,
+  "staffing_method": "Existing five hourly HA task IDs; previous HA manager seat repurposed to browser-transport engineer with exact-ID prompt/title/schedule readback",
+  "private_task_ids_excluded": true,
+  "positions": [
+    {
+      "position_id": "HA-01",
+      "title": "Native event and lifecycle engineer",
+      "purpose": "Ticket event inbox, ACK, watchdog, owner revocation and restart-safe event admission",
+      "priority": "P1",
+      "staffing_status": "FILLED_VERIFIED",
+      "occupant": {
+        "public_role_key": "HA-NATIVE-EVENT-A",
+        "automation_id_location": "private manager task record",
+        "recorded_state": "ENABLED_HOURLY; actual engineering acceptance independent"
+      },
+      "proposed_or_owned_scope": "_app/hivemind_assembly/automation/event_inbox.py, team.py, progress_watchdog.py and A-owned new event helpers",
+      "scope_status": "REGISTERED_EXCLUSIVE_SCOPE",
+      "management": "WORKPLACE-DISTRICT-01",
+      "acceptance": "Actual source-pinned CI, independent review, live native provider validation where applicable",
+      "notes": null
+    },
+    {
+      "position_id": "HA-02",
+      "title": "GitHub MCP and adapter engineer",
+      "purpose": "Bounded inline-text MCP, signed event source routing and Grokbot adapter",
+      "priority": "P1",
+      "staffing_status": "FILLED_VERIFIED",
+      "occupant": {
+        "public_role_key": "HA-GITHUB-MCP-B",
+        "automation_id_location": "private manager task record",
+        "recorded_state": "ENABLED_HOURLY; actual engineering acceptance independent"
+      },
+      "proposed_or_owned_scope": "_app/hivemind_assembly/integrations/mcp.py, github.py, automation/github_event_adapter.py, grokbot_event_adapter.py",
+      "scope_status": "REGISTERED_EXCLUSIVE_SCOPE",
+      "management": "WORKPLACE-DISTRICT-01",
+      "acceptance": "Actual source-pinned CI, independent review, live native provider validation where applicable",
+      "notes": null
+    },
+    {
+      "position_id": "HA-03",
+      "title": "Adversarial verifier",
+      "purpose": "Tests for event replay, source trust, idempotence, permission and isolation",
+      "priority": "P1",
+      "staffing_status": "FILLED_VERIFIED",
+      "occupant": {
+        "public_role_key": "HA-ADVERSARIAL-V",
+        "automation_id_location": "private manager task record",
+        "recorded_state": "ENABLED_HOURLY; actual engineering acceptance independent"
+      },
+      "proposed_or_owned_scope": "Tests already named in HA_NATIVE_SHIFT_TEAM_20261105.md, verifier-only",
+      "scope_status": "REGISTERED_EXCLUSIVE_SCOPE",
+      "management": "WORKPLACE-DISTRICT-01",
+      "acceptance": "Actual source-pinned CI, independent review, live native provider validation where applicable",
+      "notes": null
+    },
+    {
+      "position_id": "HA-04",
+      "title": "Integration and CI engineer",
+      "purpose": "Cross-platform focused/whole-suite verification and integration receipts",
+      "priority": "P1",
+      "staffing_status": "FILLED_VERIFIED",
+      "occupant": {
+        "public_role_key": "HA-INTEGRATION-I",
+        "automation_id_location": "private manager task record",
+        "recorded_state": "ENABLED_HOURLY; actual engineering acceptance independent"
+      },
+      "proposed_or_owned_scope": ".github/workflows/chatmode-native-events.yml and integrator-owned status/docs",
+      "scope_status": "REGISTERED_EXCLUSIVE_SCOPE",
+      "management": "WORKPLACE-DISTRICT-01",
+      "acceptance": "Actual source-pinned CI, independent review, live native provider validation where applicable",
+      "notes": null
+    },
+    {
+      "position_id": "HA-05",
+      "title": "Native browser transport engineer",
+      "purpose": "Browser result receipts, uncertain effect/replay and fail-closed browser transport",
+      "priority": "P1",
+      "staffing_status": "FILLED_VERIFIED",
+      "occupant": {
+        "public_role_key": "HA-BROWSER-TRANSPORT-C",
+        "automation_id_location": "private manager task record",
+        "recorded_state": "ENABLED_HOURLY; actual engineering acceptance independent"
+      },
+      "proposed_or_owned_scope": "automation/ha-workplace-browser-transport-20261105: _app/hivemind_assembly/automation/browser_actions.py and browser_engine/ plus new test_workplace_browser_transport_*",
+      "scope_status": "REGISTERED_EXCLUSIVE_SCOPE",
+      "management": "WORKPLACE-DISTRICT-01",
+      "acceptance": "Actual source-pinned CI, independent review, live native provider validation where applicable",
+      "notes": "Former HA Shift Manager hourly seat reclassified by actual scheduler update; District Manager now owns ALL former HA Shift Manager duties"
+    },
+    {
+      "position_id": "HA-06",
+      "title": "Restart and recovery specialist",
+      "purpose": "Durable recovery of paused tickets and crash-safe replay without duplicate side-effects",
+      "priority": "P1",
+      "staffing_status": "VACANT",
+      "occupant": null,
+      "proposed_or_owned_scope": "PROPOSED NEW automation/restart_recovery_*.py and tests; coordinate worker A first",
+      "scope_status": "PROPOSED_NOT_LEASED",
+      "management": "WORKPLACE-DISTRICT-01",
+      "acceptance": "Actual source-pinned CI, independent review, live native provider validation where applicable",
+      "notes": null
+    },
+    {
+      "position_id": "HA-07",
+      "title": "Worker allocation and queue specialist",
+      "purpose": "Resource-aware scheduling and shift task allocation under native browser process",
+      "priority": "P1",
+      "staffing_status": "VACANT",
+      "occupant": null,
+      "proposed_or_owned_scope": "PROPOSED NEW automation/worker_allocation_*.py and tests; District owns actual personnel transfers",
+      "scope_status": "PROPOSED_NOT_LEASED",
+      "management": "WORKPLACE-DISTRICT-01",
+      "acceptance": "Actual source-pinned CI, independent review, live native provider validation where applicable",
+      "notes": null
+    },
+    {
+      "position_id": "HA-08",
+      "title": "Cross-platform build specialist",
+      "purpose": "Fix Windows whole-suite Unicorn/Speakeasy runner issues without weakening checks",
+      "priority": "P1",
+      "staffing_status": "VACANT",
+      "occupant": null,
+      "proposed_or_owned_scope": "PROPOSED NEW standalone workflows workplace_windows_*.yml and tests/platform_*; integrator must approve shared CI changes",
+      "scope_status": "PROPOSED_NOT_LEASED",
+      "management": "WORKPLACE-DISTRICT-01",
+      "acceptance": "Actual source-pinned CI, independent review, live native provider validation where applicable",
+      "notes": null
+    },
+    {
+      "position_id": "HA-09",
+      "title": "Source and acceptance coverage analyst",
+      "purpose": "Source-bound contract coverage matrix and actual native provider acceptance gaps",
+      "priority": "P2",
+      "staffing_status": "VACANT",
+      "occupant": null,
+      "proposed_or_owned_scope": "PROPOSED dev/continuous_execution/workplace/acceptance/ only, no worker source files",
+      "scope_status": "PROPOSED_NOT_LEASED",
+      "management": "WORKPLACE-DISTRICT-01",
+      "acceptance": "Actual source-pinned CI, independent review, live native provider validation where applicable",
+      "notes": null
+    },
+    {
+      "position_id": "HA-10",
+      "title": "Runtime isolation and authorization specialist",
+      "purpose": "Cross-project scope, events and permission boundary hardening",
+      "priority": "P1",
+      "staffing_status": "VACANT",
+      "occupant": null,
+      "proposed_or_owned_scope": "PROPOSED NEW automation/runtime_isolation_*.py, own tests; preserve A/B/V/foreground core scopes",
+      "scope_status": "PROPOSED_NOT_LEASED",
+      "management": "WORKPLACE-DISTRICT-01",
+      "acceptance": "Actual source-pinned CI, independent review, live native provider validation where applicable",
+      "notes": null
+    }
+  ]
+}
