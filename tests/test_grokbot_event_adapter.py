@@ -134,3 +134,40 @@ def test_untrusted_delegation_task_identifier_cannot_be_prompt_channel(
         ) == []
     finally:
         store.close()
+
+@pytest.mark.parametrize(("field", "malformed"), [
+    ("event", []),
+    ("event", {"event": "completed"}),
+    ("status", []),
+    ("status", {"status": "ok"}),
+    ("exit_reason", []),
+    ("exit_reason", {"reason": "success"}),
+])
+def test_unhashable_grokbot_control_fields_rejected_without_ticket_mutation(
+        tmp_path, field, malformed):
+    """Authenticated is not the same as schema-valid.
+
+    Arbitrary JSON arrays/objects in control fields must fail as contract
+    errors, not uncaught TypeError during dict/set membership. An invalid
+    event must not create a ticket, subscribe a task, or emit a receipt.
+    """
+    store = Store(tmp_path)
+    try:
+        task = store.create_project("grok-malformed-control", "No unsolicited ticket")
+        inbox = NativeEventInbox(store)
+        event = _event("completed", "ok")
+        event[field] = malformed
+        with pytest.raises(ContractError):
+            admit_grokbot_event(
+                inbox, task_id=task["id"], target="delegated-bot",
+                verified=True, delivery_id="bad-control-field",
+                event=event,
+            )
+        assert inbox.pending(task["id"]) == []
+        assert inbox.ticket(task["id"]) is None
+        assert store.rows(
+            "SELECT * FROM ha_event_trigger WHERE project_id=?",
+            (task["project_id"],),
+        ) == []
+    finally:
+        store.close()
