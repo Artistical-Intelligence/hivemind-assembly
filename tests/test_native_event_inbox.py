@@ -202,3 +202,82 @@ def test_validated_receipt_replay_only_acknowledges_serialized_event_ids(scope):
     assert inbox.acknowledge_validated_request(
         worker["id"], "msg_event_receipt", route="worker.chat") == 0
     assert inbox.pending(other["id"]) == []
+
+
+def test_uncertain_or_malformed_native_message_cannot_ack_source(scope):
+    """Only a matching, validated native receipt can clear a source event."""
+    store, worker, _ = scope
+    inbox = NativeEventInbox(store)
+    thread = "project:" + worker["project_id"]
+    inbox.subscribe(worker["id"], thread)
+    inbox.receive(project_id=worker["project_id"], source="native",
+                  source_id="pre-ack", thread=thread, kind="ci_failed",
+                  summary="Pinned failure remains unread")
+    event_id = inbox.pending(worker["id"])[0]["event_id"]
+
+    def saved_message(msg_id, payload, state="validated"):
+        with store.tx() as db:
+            db.execute(
+                """INSERT INTO messages
+                   (id,task_id,route,conversation,payload_hash,payload,state,
+                    response,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                (msg_id, worker["id"], "worker.chat", "scoped-chat",
+                 "hash-" + msg_id, json.dumps(payload), state, None, 2, 2),
+            )
+
+    valid = {"task_id": worker["id"],
+             "project_id": worker["project_id"],
+             "body": {"event_inputs": [{"event_id": event_id}]}}
+    saved_message("msg_uncertain", valid, "uncertain")
+    assert inbox.acknowledge_validated_request(
+        worker["id"], "msg_uncertain", route="worker.chat") == 0
+
+    invalid_requests = [
+        {**valid, "project_id": "unrelated-project"},
+        {**valid, "task_id": "other-task"},
+        {**valid, "body": {"event_inputs": "not-a-list"}},
+        {**valid, "body": {"event_inputs": [{"bad": event_id}]}},
+    ]
+    for i, payload in enumerate(invalid_requests):
+        msg_id = "msg_malformed_" + str(i)
+        saved_message(msg_id, payload)
+        with pytest.raises(ContractError):
+            inbox.acknowledge_validated_request(
+                worker["id"], msg_id, route="worker.chat")
+        assert len(inbox.pending(worker["id"])) == 1
+
+    saved_message("msg_wrong_route", valid)
+    with pytest.raises(ContractError, match="route"):
+        inbox.acknowledge_validated_request(
+            worker["id"], "msg_wrong_route", route="worker.other")
+    assert [row["event_id"] for row in inbox.pending(worker["id"])] == [event_id]
+
+
+def test_another_openai_chat_route_cannot_read_current_owners_inbox(scope):
+    """A different Chat Mode conversation is not the assigned native worker."""
+    store, worker, other = scope
+    with store.tx() as db:
+        db.execute("UPDATE tasks SET owner=?,status='running' WHERE id=?",
+                   ("worker.primary", worker["id"]))
+    inbox = NativeEventInbox(store)
+    thread = "project:" + worker["project_id"]
+    inbox.subscribe(worker["id"], thread)
+    inbox.receive(project_id=worker["project_id"], source="native",
+                  source_id="owner-brief", thread=thread, kind="ci_failed",
+                  summary="Authorized project status, not cross-chat input")
+    native = NativeTeam.__new__(NativeTeam)
+    native.store = store
+    native.config = {"routes": {
+        "worker.primary": {"provider": "openai", "mode": "Chat"},
+        "worker.other": {"provider": "openai", "mode": "Chat"},
+        "worker.work": {"provider": "openai", "mode": "Work"},
+    }}
+    native.native_event_inbox = inbox
+    native.progress_watchdog = None
+    assert native.native_event_inputs(worker, "worker.other") == []
+    assert native.native_event_inputs(worker, "worker.work") == []
+    assert [e["kind"] for e in inbox.pending(worker["id"])] == ["ci_failed"]
+    assert any(e["kind"] == "ci_failed" for e in
+               native.native_event_inputs(worker, "worker.primary"))
+    assert inbox.pending(other["id"]) == []
+    assert store.task(worker["id"])["owner"] == "worker.primary"
