@@ -4,6 +4,12 @@
 
 **Standing objective:** Finish and independently validate the Python/native-browser integration of the open-source DeepSeek Harness / Super-agent and grokbot-kit techniques, plus eliminate **avoidable** GitHub MCP file-materialization approval prompts during ordinary UTF-8 source reads. Do not claim the ChatGPT platform consent dialog can be removed; prove that the supported inline GitHub text tools avoid it. No paid AI/model API, alternate model/provider, standalone headless agent CLI, hidden GitHub token, or owner manual relay. Keep HA's existing native subscription/browser route and original project-review gates.
 
+## Combined District oversight (separate from HA staffing)
+
+The owner decided on November 5 to combine cross-project **District Manager** oversight with the already-running RE-Wizard Shift Manager, rather than using a new permanent scheduled employee. This **does not replace or pause HA's five hourly roles**. The HA Shift Manager still controls HA's ordinary assignments and resumes; the combined District function may coordinate a transfer **only of a worker whose assigned job really finished or was safely handed off** with the appropriate current and destination project managers. An agent finishing one scheduled run is not automatically free to move.
+
+Treat District coordination as **owner-level metadata exchange only**. HA production agents retain their HA-only GitHub/source/project permissions and cannot access or alter private RE-Wizard content without separate explicit authorization and approved mediation. Transfers require exact task-ID and current run checks, proven work completion/remaining obligations, a nonconflicting scope, approved Chat Mode setting, a supported task update, exact-ID readback, and verification of next-run work. Owner-paused drafts, active file claims, in-progress workers and the original source/review gates are protected. No scheduler test or extra worker was created by this documentation change. Detailed procedure: `dev/continuous_execution/SHIFT_MANAGER.md` (combined district section). **CHECKS PENDING** until a genuine cross-project transfer and actual accepted output are observed.
+
 ## Team and sole-write boundaries
 
 | Role | Substantive work | Exclusive mutable file scope |
