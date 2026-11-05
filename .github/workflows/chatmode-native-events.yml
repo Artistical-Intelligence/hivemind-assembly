@@ -3,7 +3,9 @@ on:
   push:
     paths:
       - '.github/workflows/chatmode-native-events.yml'
-      - '_app/hivemind_assembly/automation/event_inbox.py'
+      # Include the event-effect bridge and later event/ticket modules.
+      - '_app/hivemind_assembly/automation/event_*.py'
+      - '_app/hivemind_assembly/automation/ticket_*.py'
       - '_app/hivemind_assembly/automation/progress_watchdog.py'
       - '_app/hivemind_assembly/automation/github_event_adapter.py'
       - '_app/hivemind_assembly/automation/grokbot_event_adapter.py'
@@ -30,8 +32,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      # Pinned upstream v5: Node 24; avoid mutable tag and Node 20 deprecation.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      # Pinned upstream v6: Node 24.
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: '3.12'
       - name: Install HA Python dependencies without model/API credentials
@@ -45,7 +49,8 @@ jobs:
           python -m pytest -q tests/test_native_event_inbox.py tests/test_progress_watchdog.py tests/test_github_event_adapter.py tests/test_grokbot_event_adapter.py tests/test_native_browser_event_transport.py tests/test_mcp_inline_text.py tests/test_core_durable_effects.py --junitxml=native-events.xml
       - name: Retain exact test results
         if: always()
-        uses: actions/upload-artifact@v4
+        # Pinned upstream v6: Node 24, preserved 7-day JUnit evidence.
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: native-event-contracts-${{ matrix.os }}-${{ github.run_id }}
           path: native-events.xml
