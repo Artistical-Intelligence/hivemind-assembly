@@ -138,6 +138,36 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 "content": inline_blocks(original["content"]),
             }
 
+    def normalize_nested_blocks(value, depth=0):
+        """Convert additional structuredContent mirrors without fetching a URI.
+
+        Some MCP servers nest CallToolResult-shaped content arrays below
+        structuredContent. Leaving them intact would expose attachable text
+        resources, while blocking them would needlessly reject safe inline
+        source text. Only recognizable MCP content arrays are normalized;
+        ordinary structured JSON stays unchanged.
+        """
+        if depth > 24:
+            raise Blocked("Nested MCP source result exceeds the safe structure limit")
+        if isinstance(value, dict):
+            cleaned = {}
+            for key, child in value.items():
+                if (key == "content" and isinstance(child, list) and
+                        any(isinstance(item, dict) and item.get("type") in
+                            ("text", "resource", "resource_link", "image", "audio")
+                            for item in child)):
+                    cleaned[key] = inline_blocks(child)
+                else:
+                    cleaned[key] = normalize_nested_blocks(child, depth + 1)
+            return cleaned
+        if isinstance(value, list):
+            return [normalize_nested_blocks(item, depth + 1) for item in value]
+        return value
+
+    for name in ("structuredContent", "structured_content"):
+        if name in output:
+            output[name] = normalize_nested_blocks(output[name])
+
     def reject_remaining_media(value, depth=0):
         if depth > 24:
             raise Blocked("Nested MCP source result exceeds the safe structure limit")
@@ -153,6 +183,16 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 "mimeType" in value or "mime_type" in value
             ):
                 raise Blocked("MCP source result includes encoded media data")
+            # An embedded resource may be represented as a bare descriptor
+            # (without type=resource) in arbitrary structured metadata.
+            # Reject it instead of returning an attachment-capable URI or
+            # base64 payload through an unrecognized nested structure.
+            if ("resource" in value and
+                    isinstance(value["resource"], (dict, list))):
+                raise Blocked("MCP source result includes a nested file resource")
+            if (isinstance(value.get("uri"), str) and
+                    ("mimeType" in value or "mime_type" in value)):
+                raise Blocked("MCP source result includes an unconverted resource URI")
             for child in value.values():
                 reject_remaining_media(child, depth + 1)
         elif isinstance(value, list):
