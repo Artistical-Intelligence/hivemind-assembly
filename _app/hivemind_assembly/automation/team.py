@@ -144,6 +144,11 @@ class NativeTeam:
             key for key, cfg in self.config.get("routes", {}).items()
             if cfg.get("provider") == "openai" and cfg.get("mode") == "Chat"
         )
+        # Never mutate inbox subscriptions for a non-Chat-only team.
+        # If Chat Mode is restored later, the first eligible scanner run
+        # reconciles durable subscriptions before any new event send.
+        if not chat_routes:
+            return []
         # Subscription journals survive process restart and an owner may
         # switch to Work/Claude or stop without executing another Chat turn.
         # Remove such old event subscriptions locally before any project
@@ -159,8 +164,6 @@ class NativeTeam:
                 from .event_inbox import NativeEventInbox
                 self.native_event_inbox = NativeEventInbox(self.store)
             self.native_event_inbox.revoke_ineligible(chat_routes)
-        if not chat_routes:
-            return []
         projects = {
             row["project_id"] for row in self.store.rows(
                 "SELECT project_id,owner FROM tasks WHERE owner IS NOT NULL"
