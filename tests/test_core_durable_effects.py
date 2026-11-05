@@ -311,3 +311,92 @@ def test_recovery_is_fenced_against_wrong_owner_and_unconfirmed_phase(owner):
             task["id"], "intruder", epoch, "fenced"
         )
     assert effects.status(task["id"])[0]["status"] == "uncertain"
+
+
+def test_crashed_leased_effect_becomes_uncertain_without_another_send(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    effects.enqueue(task["id"], "crash", event["event_id"])
+    first = effects.claim(task["id"], "native.chat", epoch,
+                          lease_seconds=30)
+    assert first is not None
+    assert effects.recover_expired_lease(
+        task["id"], "native.chat", epoch, "crash", first["generation"],
+        now=first["lease_until"] - 0.5
+    ) == "leased"
+    assert effects.status(task["id"])[0]["status"] == "leased"
+    assert effects.recover_expired_lease(
+        task["id"], "native.chat", epoch, "crash", first["generation"],
+        now=first["lease_until"] + 0.5
+    ) == "uncertain"
+    # Even if the saved lease timed out, do not treat an uncertain browser send
+    # as definitely not sent, and never auto-claim for a duplicate exchange.
+    assert effects.claim(task["id"], "native.chat", epoch) is None
+    assert effects.reconcile_uncertain(
+        task["id"], "native.chat", epoch, "crash"
+    ) == "pending"
+    original = _valid_receipt(controller, task["id"], event["event_id"],
+                              "late-valid-after-crash")
+    assert effects.reconcile_uncertain(
+        task["id"], "native.chat", epoch, "crash"
+    ) == "delivered"
+    assert effects.status(task["id"])[0]["receipt_id"] == original
+    assert inbox.pending(task["id"]) == []
+
+
+def test_expired_lease_recovery_cannot_use_wrong_owner_or_stale_generation(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    effects.enqueue(task["id"], "fence-expired", event["event_id"])
+    first = effects.claim(task["id"], "native.chat", epoch,
+                          lease_seconds=30)
+    with pytest.raises(Conflict, match="live owner lease"):
+        effects.recover_expired_lease(
+            task["id"], "unauthorized", epoch, "fence-expired",
+            first["generation"], now=first["lease_until"] + 1
+        )
+    with pytest.raises(Conflict, match="generation"):
+        effects.recover_expired_lease(
+            task["id"], "native.chat", epoch, "fence-expired",
+            first["generation"] + 1, now=first["lease_until"] + 1
+        )
+    assert effects.status(task["id"])[0]["status"] == "leased"
+
+
+def test_upgrade_refuses_duplicate_legacy_event_effects_without_deleting_data(tmp_path):
+    store = Store(tmp_path)
+    try:
+        task = store.create_project("legacy", "Preserve disputed send evidence")
+        with store.tx() as db:
+            db.execute(
+                """CREATE TABLE ha_native_effect (
+                  task_id TEXT NOT NULL,
+                  effect_key TEXT NOT NULL,
+                  project_id TEXT NOT NULL,
+                  event_id INTEGER NOT NULL,
+                  status TEXT NOT NULL,
+                  generation INTEGER NOT NULL DEFAULT 0,
+                  attempts INTEGER NOT NULL DEFAULT 0,
+                  due_at REAL NOT NULL,
+                  lease_until REAL,
+                  receipt_id TEXT,
+                  updated REAL NOT NULL,
+                  PRIMARY KEY(task_id,effect_key))"""
+            )
+            for key in ("first", "duplicate"):
+                db.execute(
+                    """INSERT INTO ha_native_effect
+                       (task_id,effect_key,project_id,event_id,status,
+                        generation,attempts,due_at,lease_until,updated)
+                       VALUES(?,?,?,7,'uncertain',1,1,0,NULL,0)""",
+                    (task["id"], key, task["project_id"]),
+                )
+        with pytest.raises(Blocked, match="manual reconciliation"):
+            DurableEventEffects(store)
+        unchanged = store.rows(
+            "SELECT effect_key,status FROM ha_native_effect ORDER BY effect_key"
+        )
+        assert unchanged == [
+            {"effect_key": "duplicate", "status": "uncertain"},
+            {"effect_key": "first", "status": "uncertain"},
+        ]
+    finally:
+        store.close()
