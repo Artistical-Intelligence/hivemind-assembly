@@ -41,6 +41,13 @@ _SCHEMA = (
        task_id TEXT NOT NULL,
        read_at REAL,
        PRIMARY KEY(event_id, task_id))""",
+    """CREATE TABLE IF NOT EXISTS ha_event_subscription_backfill(
+       project_id TEXT NOT NULL,
+       task_id TEXT NOT NULL,
+       thread TEXT NOT NULL,
+       cursor INTEGER NOT NULL DEFAULT 0,
+       upto INTEGER NOT NULL DEFAULT 0,
+       PRIMARY KEY(task_id, thread))""",
     """CREATE INDEX IF NOT EXISTS ha_event_delivery_unread
        ON ha_event_delivery(task_id, read_at, event_id)""",
     """CREATE TABLE IF NOT EXISTS ha_native_event_cursor(
@@ -89,6 +96,20 @@ class NativeEventInbox:
         with store.tx() as db:
             for statement in _SCHEMA:
                 db.execute(statement)
+            # When upgrading an existing HA database, existing active
+            # subscriptions must NOT retroactively replay old deliveries:
+            # historical ACKs and earlier revocations may already exist.
+            # Only genuinely first-time subscriptions perform catch-up.
+            db.execute(
+                """INSERT OR IGNORE INTO ha_event_subscription_backfill
+                   (project_id,task_id,thread,cursor,upto)
+                   SELECT s.project_id,s.task_id,s.thread,
+                          COALESCE(MAX(e.id),0),COALESCE(MAX(e.id),0)
+                   FROM ha_event_subscription s
+                   LEFT JOIN ha_event_trigger e ON
+                       e.project_id=s.project_id AND e.thread=s.thread
+                   GROUP BY s.project_id,s.task_id,s.thread"""
+            )
 
     def ensure_ticket(self, task_id: str) -> dict:
         task = self.store.task(task_id)
@@ -144,6 +165,44 @@ class NativeEventInbox:
             )
         return self.ticket(task_id)
 
+    @staticmethod
+    def _refill_initial(db, task_id: str, thread: str, *, limit: int = 20) -> None:
+        """Bounded, durable first-subscription catch-up, never a resubscribe replay.
+
+        The high watermark is pinned when the FIRST subscription is created.
+        A saved cursor makes long backlogs resumable without loading a full
+        project journal into memory or reissuing an acknowledged delivery.
+        """
+        state = db.execute(
+            """SELECT b.project_id,b.cursor,b.upto
+               FROM ha_event_subscription_backfill b
+               JOIN ha_event_subscription s ON s.task_id=b.task_id
+                  AND s.thread=b.thread AND s.project_id=b.project_id
+               WHERE b.task_id=? AND b.thread=?""",
+            (task_id, thread),
+        ).fetchone()
+        if not state or state["cursor"] >= state["upto"]:
+            return
+        found = db.execute(
+            """SELECT id FROM ha_event_trigger WHERE project_id=? AND thread=?
+               AND id>? AND id<=? ORDER BY id LIMIT ?""",
+            (state["project_id"], thread, state["cursor"], state["upto"], limit),
+        ).fetchall()
+        for event in found:
+            db.execute(
+                """INSERT OR IGNORE INTO ha_event_delivery(event_id,task_id)
+                   VALUES(?,?)""",
+                (event["id"], task_id),
+            )
+        # A one-time cursor advances through existing IDs only. An empty
+        # page completes the batch even if IDs were skipped by other threads.
+        cursor = found[-1]["id"] if found else state["upto"]
+        db.execute(
+            """UPDATE ha_event_subscription_backfill SET cursor=?
+               WHERE task_id=? AND thread=?""",
+            (cursor, task_id, thread),
+        )
+
     def subscribe(self, task_id: str, thread: str) -> None:
         task = self.store.task(task_id)
         valid = {"project:" + task["project_id"], "task:" + task_id}
@@ -156,6 +215,21 @@ class NativeEventInbox:
                    (project_id,task_id,thread) VALUES(?,?,?)""",
                 (task["project_id"], task_id, thread),
             )
+            # Only the first-ever subscription can catch previously admitted
+            # authenticated events. A re-subscription after explicit revocation
+            # inherits its old, already-consumed high watermark.
+            upto = db.execute(
+                """SELECT COALESCE(MAX(id),0) AS id FROM ha_event_trigger
+                   WHERE project_id=? AND thread=?""",
+                (task["project_id"], thread),
+            ).fetchone()["id"]
+            db.execute(
+                """INSERT OR IGNORE INTO ha_event_subscription_backfill
+                   (project_id,task_id,thread,cursor,upto)
+                   VALUES(?,?,?,0,?)""",
+                (task["project_id"], task_id, thread, upto),
+            )
+            self._refill_initial(db, task_id, thread)
 
     def unsubscribe(self, task_id: str, thread: str) -> int:
         """Revoke delivery without discarding the immutable source journal.
@@ -180,6 +254,14 @@ class NativeEventInbox:
                        (SELECT id FROM ha_event_trigger
                         WHERE project_id=? AND thread=?)""",
                 (task_id, task["project_id"], thread),
+            )
+            # An explicit unsubscribe revokes unfinished historic catch-up,
+            # including pages never previously loaded. Later rejoin must not
+            # reconstruct the revoked events from the immutable source journal.
+            db.execute(
+                """UPDATE ha_event_subscription_backfill SET cursor=upto
+                   WHERE task_id=? AND thread=? AND project_id=?""",
+                (task_id, thread, task["project_id"]),
             )
             return removed.rowcount
 
@@ -235,13 +317,23 @@ class NativeEventInbox:
         task = self.store.task(task_id)
         if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 20:
             raise ContractError("Event batch size out of range")
-        rows = self.store.rows(
-            """SELECT e.id,e.source,e.source_id,e.thread,e.kind,e.summary,e.arrived
-               FROM ha_event_delivery d JOIN ha_event_trigger e ON e.id=d.event_id
-               WHERE d.task_id=? AND d.read_at IS NULL AND e.project_id=?
-               ORDER BY e.id LIMIT ?""",
-            (task_id, task["project_id"], limit),
-        )
+        with self.store.tx() as db:
+            active = db.execute(
+                """SELECT thread FROM ha_event_subscription
+                   WHERE task_id=? AND project_id=?""",
+                (task_id, task["project_id"]),
+            ).fetchall()
+            for row in active:
+                self._refill_initial(db, task_id, row["thread"])
+            rows = db.execute(
+                """SELECT e.id,e.source,e.source_id,e.thread,e.kind,
+                          e.summary,e.arrived
+                   FROM ha_event_delivery d
+                   JOIN ha_event_trigger e ON e.id=d.event_id
+                   WHERE d.task_id=? AND d.read_at IS NULL AND e.project_id=?
+                   ORDER BY e.id LIMIT ?""",
+                (task_id, task["project_id"], limit),
+            ).fetchall()
         # Summaries are facts/data, not source instructions or permission grants.
         return [{"event_id": row["id"], "source": row["source"],
                  "source_id": row["source_id"], "thread": row["thread"],
