@@ -176,3 +176,42 @@ def test_external_source_read_never_returns_attachment_for_alias(
         assert calls == [(alias, "get_file_contents", project_id)]
     finally:
         store.close()
+
+
+@pytest.mark.parametrize("block,expected", [
+    ({"type": "text", "text": "source\\x00binary"}, "NUL"),
+    ({"type": "text", "text": "\\ud800"}, "UTF-8"),
+    ({"type": "resource", "resource": {
+        "mimeType": "text/plain; charset=iso-8859-1", "text": "plain",
+    }}, "charset"),
+    ({"type": "resource", "resource": {
+        "mimeType": "text/plain", "text": "safe", "blob": "YQ==",
+    }}, "non-text"),
+])
+def test_inline_source_read_rejects_non_utf8_binary_and_byte_overflow(
+        block, expected):
+    """Fake file-read blocks cannot disguise binary data as inline UTF-8."""
+    # Turn escaped fixture strings into the actual bytes/codepoints under test.
+    if block["type"] == "text":
+        value = block["text"]
+        if value == r"source\x00binary":
+            block = {"type": "text", "text": "source" + chr(0) + "binary"}
+        elif value == r"\ud800":
+            block = {"type": "text", "text": chr(0xD800)}
+    with pytest.raises(Blocked, match=expected):
+        inline_github_mcp_text({"content": [block]})
+
+
+def test_utf8_byte_budget_is_not_a_unicode_character_budget():
+    """Multibyte source text must obey encoded-byte bounds."""
+    value = {"content": [{"type": "text", "text": "é" * 8}]}
+    with pytest.raises(Blocked, match="smaller line range"):
+        inline_github_mcp_text(value, max_chars=15)
+    assert inline_github_mcp_text(value, max_chars=16) == value
+    # Binary-like embedded NUL fails even when well under the byte limit.
+    with pytest.raises(Blocked, match="NUL"):
+        inline_github_mcp_text({
+            "content": [{"type": "resource",
+                         "resource": {"mimeType": "application/json",
+                                      "text": '{"text":"bad' + chr(0) + '"}'}}],
+        }, max_chars=100)
