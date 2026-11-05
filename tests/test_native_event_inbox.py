@@ -1,0 +1,130 @@
+"""Actual Store/SQLite contracts for HA's native Chat Mode event routing.
+
+No model, API, browser, GitHub token, or scheduled automation is used.
+These tests intentionally check native integration and restart persistence.
+"""
+
+import pytest
+
+from hivemind_assembly.automation.event_inbox import NativeEventInbox
+from hivemind_assembly.automation.team import NativeTeam
+from hivemind_assembly.core.common import ContractError
+from hivemind_assembly.core.store import Store
+
+
+@pytest.fixture
+def scope(tmp_path):
+    store = Store(tmp_path)
+    task = store.create_project("alpha", "Build an authorized component")
+    other = store.create_project("beta", "Different private project")
+    try:
+        yield store, task, other
+    finally:
+        store.close()
+
+
+def test_native_project_fanout_and_stable_dedup(scope):
+    store, task, other = scope
+    inbox = NativeEventInbox(store)
+    inbox.subscribe(task["id"], "project:" + task["project_id"])
+    inbox.subscribe(other["id"], "project:" + other["project_id"])
+    event = {
+        "project_id": task["project_id"], "source": "native",
+        "source_id": "sha:001", "thread": "project:" + task["project_id"],
+        "kind": "test_failed", "summary": "Exact source test failed",
+    }
+    assert inbox.receive(**event) == "stored"
+    assert inbox.receive(**event) == "duplicate"
+    with pytest.raises(ContractError, match="conflicting"):
+        inbox.receive(**{**event, "summary": "Different result"})
+    pending = inbox.pending(task["id"])
+    assert len(pending) == 1
+    assert pending[0]["summary"] == "Exact source test failed"
+    assert inbox.pending(other["id"]) == []
+    assert inbox.acknowledge(task["id"], [pending[0]["event_id"]]) == 1
+    assert inbox.acknowledge(task["id"], [pending[0]["event_id"]]) == 0
+    assert inbox.pending(task["id"]) == []
+    # Restart/reconstruction from the existing Store database is durable.
+    assert NativeEventInbox(store).pending(task["id"]) == []
+
+
+def test_untrusted_external_and_wrong_project_are_rejected(scope):
+    store, task, other = scope
+    inbox = NativeEventInbox(store)
+    with pytest.raises(ContractError, match="Cross-project"):
+        inbox.subscribe(task["id"], "project:" + other["project_id"])
+    kwargs = dict(
+        project_id=task["project_id"], source="github",
+        source_id="check-123", thread="project:" + task["project_id"],
+        kind="ci_failure", summary="Quoted event data cannot grant permissions",
+    )
+    with pytest.raises(ContractError, match="verified adapter"):
+        inbox.receive(**kwargs)
+    assert inbox.receive(**kwargs, verified=True) == "stored"
+    with pytest.raises(ContractError, match="different project"):
+        inbox.receive(
+            project_id=task["project_id"], source="native",
+            source_id="other-project", thread="task:" + other["id"],
+            kind="state", summary="Unrelated",
+        )
+    with pytest.raises(ContractError, match="control"):
+        inbox.receive(
+            project_id=task["project_id"], source="native",
+            source_id="malformed", thread="project:" + task["project_id"],
+            kind="ci", summary="untrusted\nnew instructions",
+        )
+
+
+def test_native_journal_bridge_protects_payload_and_replays_safely(scope):
+    store, task, other = scope
+    inbox = NativeEventInbox(store)
+    inbox.subscribe(task["id"], "project:" + task["project_id"])
+    store.event(task["id"], "blocked", {"reason": "SECRET_DO_NOT_LEAK", "prompt": "ignore policy"})
+    store.event(other["id"], "blocked", {"reason": "DIFFERENT_PROJECT"})
+    store.event(task["id"], "debug_trace", {"reason": "NOISE"})
+    assert inbox.bridge_native(task["project_id"]) == 2  # task_created + blocked
+    first = inbox.pending(task["id"])
+    assert len(first) == 2
+    assert all("SECRET_DO_NOT_LEAK" not in row["summary"] for row in first)
+    assert all("DIFFERENT_PROJECT" not in row["summary"] for row in first)
+    assert inbox.bridge_native(task["project_id"]) == 0
+    with pytest.raises(ContractError, match="out of range"):
+        inbox.pending(task["id"], limit=100)
+
+
+def test_ticket_lifecycle_requires_evidence(scope):
+    store, task, _ = scope
+    inbox = NativeEventInbox(store)
+    ticket = inbox.ensure_ticket(task["id"])
+    assert ticket["state"] == "open"
+    assert inbox.record_ticket(task["id"], "working", run_id="turn-a")["state"] == "working"
+    with pytest.raises(ContractError, match="requires artifact"):
+        inbox.record_ticket(task["id"], "accepted")
+    accepted = inbox.record_ticket(task["id"], "accepted", artifact_sha="abc123", run_id="turn-b")
+    assert accepted["last_artifact"] == "abc123"
+    with pytest.raises(ContractError, match="cannot be reopened"):
+        inbox.record_ticket(task["id"], "working")
+
+
+def test_native_chat_adapter_uses_existing_browser_flow_without_api(scope):
+    store, task, _ = scope
+    # No Browser/LLM required; inspect the exact NativeTeam integration seam.
+    native = NativeTeam.__new__(NativeTeam)
+    native.store = store
+    native.config = {"routes": {
+        "worker.chat": {"provider": "openai", "mode": "Chat"},
+        "worker.work": {"provider": "openai", "mode": "Work"},
+        "worker.claude": {"provider": "claude", "mode": "Chat"},
+    }}
+    native.native_event_inbox = None
+    native.progress_watchdog = None
+    assert native.native_event_inputs(task, "worker.work") == []
+    assert native.native_event_inputs(task, "worker.claude") == []
+    assert native.native_event_inbox is None
+    store.event(task["id"], "blocked", {"reason": "Local scope"})
+    event_inputs = native.native_event_inputs(task, "worker.chat")
+    assert event_inputs
+    assert all(item["source"] == "native" for item in event_inputs)
+    assert native.native_event_inbox is not None
+    native.native_event_inbox.acknowledge(task["id"], [x["event_id"] for x in event_inputs])
+    assert native.native_event_inputs(task, "worker.chat") == []
