@@ -2,3 +2,4 @@ CHECKS PENDING: execution.py — bounded protocol, process lifecycle, cancellati
 CHECKS PENDING: jobs.py — shared operation ownership and authenticated internal execution routing; regression checks and independent review.
 CHECKS PENDING: patching.py — bounded in-memory planning, single-file scope and linked-path rejection; native Windows/Linux tests passed, independent source review remains.
 CHECKS PENDING: broker.py — optional patch input within existing writer authority, revision checks, retained artifacts and interrupted-write reconciliation; independent source review.
+CHECKS PENDING: durable_effects.py — new controller-fenced, local SQLite event-effect receipt and retry/reconciliation module. Focused CI Actions run 42102912620 passed 4/4 tests at commit 4241bc8ed92248180798547970b9e8193a421814; independent source/security review, actual NativeTeam/event_inbox integration and full suite acceptance remain pending. No model API or external scheduler added.
