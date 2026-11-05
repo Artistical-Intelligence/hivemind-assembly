@@ -128,6 +128,9 @@ def test_untrusted_delegation_task_identifier_cannot_be_prompt_channel(
                 event=_event("completed", "ok", external_task=external_id),
             )
         assert inbox.pending(task["id"]) == []
-        assert inbox.ticket(task["id"]) is None
+        assert store.rows(
+            "SELECT task_id FROM ha_work_ticket WHERE task_id=?",
+            (task["id"],),
+        ) == []
     finally:
         store.close()
