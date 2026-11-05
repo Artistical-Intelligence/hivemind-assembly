@@ -129,8 +129,6 @@ class NativeTeam:
 
     def scan_native_progress(self, now=None):
         """Deterministic watchdog: local evidence, no model or task mutations."""
-        if self.progress_watchdog is None:
-            return []
         chat_routes = frozenset(
             key for key, cfg in self.config.get("routes", {}).items()
             if cfg.get("provider") == "openai" and cfg.get("mode") == "Chat"
@@ -142,6 +140,21 @@ class NativeTeam:
                 "SELECT project_id,owner FROM tasks WHERE owner IS NOT NULL"
             ) if row["owner"] in chat_routes
         }
+        if not projects:
+            return []
+        if self.progress_watchdog is None:
+            # Process restart discards in-memory helpers, not SQLite effect
+            # receipts. A crash may have left an uncertain browser send
+            # before the next intent turn can reinitialize native_event_inputs.
+            # Rebuild only the local metadata readers when a currently owned
+            # Chat Mode project needs monitoring; do NOT wake its model.
+            if self.native_event_inbox is None:
+                from .event_inbox import NativeEventInbox
+                self.native_event_inbox = NativeEventInbox(self.store)
+            from .progress_watchdog import ProgressWatchdog
+            self.progress_watchdog = ProgressWatchdog(
+                self.store, self.native_event_inbox
+            )
         signals = []
         for project in sorted(projects):
             # A crashed native browser send can block the only worker without
