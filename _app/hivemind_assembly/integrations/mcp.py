@@ -43,6 +43,81 @@ def secret_forms(secret):
     return sorted({secret, *(f for f in forms if len(f) >= 8)}, key=len, reverse=True)
 
 
+def inline_github_mcp_text(result, *, max_chars=240_000):
+    """Normalize GitHub MCP file reads to inline UTF-8 text, never attachments.
+
+    GitHub MCP get_file_contents may return embedded MCP resources or file
+    links. This HA-local adapter consumes small UTF-8 embedded resources as
+    text; it never downloads links, materializes attachments, or silently
+    invokes another MCP tool. This does not alter ChatGPT's separate
+    platform-controlled materialization approval UI.
+    """
+    if not isinstance(result, dict):
+        raise ContractError("Expected a structured MCP result")
+
+    def inline_blocks(blocks):
+        if not isinstance(blocks, list):
+            raise ContractError("MCP file content blocks are invalid")
+        converted = []
+        total = 0
+        for block in blocks:
+            if not isinstance(block, dict):
+                raise ContractError("MCP file content block is invalid")
+            kind = block.get("type")
+            if kind == "text":
+                value = block.get("text")
+                if not isinstance(value, str):
+                    raise ContractError("MCP text content is invalid")
+                converted.append({"type": "text", "text": value})
+                total += len(value)
+            elif kind == "resource":
+                resource = block.get("resource", {})
+                if not isinstance(resource, dict):
+                    raise ContractError("MCP embedded resource is invalid")
+                mime = resource.get("mimeType", resource.get("mime_type", ""))
+                value = resource.get("text")
+                if (not isinstance(mime, str)
+                    or not (mime.lower().startswith("text/")
+                            or mime.lower().split(";")[0] == "application/json")
+                    or not isinstance(value, str)):
+                    raise Blocked(
+                        "GitHub MCP returned non-text file content; no automatic "
+                        "attachment materialization. Use a separately authorized "
+                        "binary-file workflow if the actual bytes are necessary."
+                    )
+                converted.append({"type": "text", "text": value})
+                total += len(value)
+            elif kind == "resource_link":
+                raise Blocked(
+                    "GitHub MCP returned a downloadable file link instead of "
+                    "inline text. Use an authorized text-only GitHub contents "
+                    "read with bounded lines; no automatic materialization."
+                )
+            else:
+                raise Blocked(
+                    "GitHub MCP returned non-text content; only inline UTF-8 "
+                    "source reads are accepted by this HA bridge."
+                )
+            if total > max_chars:
+                raise Blocked(
+                    "GitHub MCP inline text exceeds the safe response limit. "
+                    "Read a smaller line range instead of an attachment."
+                )
+        return converted
+
+    output = dict(result)
+    if "content" in output:
+        output["content"] = inline_blocks(output["content"])
+    # Some negotiated MCP versions mirror file blocks in structuredContent.
+    # Do not leak the original resource block through that parallel field.
+    for name in ("structuredContent", "structured_content"):
+        original = output.get(name)
+        if isinstance(original, dict) and "content" in original:
+            output[name] = {**original,
+                            "content": inline_blocks(original["content"])}
+    return output
+
+
 def redact(value, secrets):
     text = canonical(value)
     for secret in secrets:
@@ -540,6 +615,10 @@ class Connections:
                     return inventory
                 result = await client.call_tool(tool, arguments or {})
                 value = result.model_dump(mode="json", by_alias=True)
+                # File text must not be surfaced as an MCP attachment or
+                # resource link during ordinary repository source reads.
+                if tool == "get_file_contents" and "github" in server.lower():
+                    value = inline_github_mcp_text(value)
                 if oauth_storage:
                     oauth_storage.check()
                     value = oauth_storage.redact(value)
