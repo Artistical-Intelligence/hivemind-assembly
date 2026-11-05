@@ -56,7 +56,8 @@ def _digest_from_payload(event_type: str, data: dict) -> tuple[str, str] | None:
         if conclusion is not None and not isinstance(conclusion, str):
             raise ContractError("Malformed workflow conclusion")
         if conclusion not in {"success", "failure", "cancelled", "timed_out",
-                              "action_required", "skipped", "neutral"}:
+                              "action_required", "skipped", "neutral",
+                              "startup_failure"}:
             return None
         sha = run.get("head_sha")
         if not isinstance(sha, str) or len(sha) != 40 or not all(
