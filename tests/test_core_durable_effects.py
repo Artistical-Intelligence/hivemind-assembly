@@ -504,3 +504,42 @@ def test_recovery_ignores_forged_event_id_only_not_exact_saved_envelope(owner):
         task["id"], "native.chat", epoch, "strict-recovery"
     ) == "delivered"
     assert effects.status(task["id"])[0]["receipt_id"] == valid
+
+
+def test_staging_unread_native_events_is_bounded_idempotent_and_advances(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    for number in (2, 3):
+        assert inbox.receive(
+            project_id=task["project_id"], source="native",
+            source_id=f"new-{number}", thread="project:" + task["project_id"],
+            kind="ci_failed", summary=f"Failure {number}"
+        ) == "stored"
+    all_ids = [row["event_id"] for row in inbox.pending(task["id"])]
+    assert len(all_ids) == 3
+    assert effects.stage_pending(task["id"], limit=1) == [all_ids[0]]
+    assert effects.stage_pending(task["id"], limit=1) == [all_ids[1]]
+    assert effects.stage_pending(task["id"], limit=1) == [all_ids[2]]
+    assert effects.stage_pending(task["id"], limit=1) == []
+    assert [row["event_id"] for row in effects.status(task["id"])] == all_ids
+    # Staging only records local intent: it has not invoked the browser,
+    # executed a model, changed ownership or acknowledged any events.
+    assert len(inbox.pending(task["id"])) == 3
+    assert store.task(task["id"])["status"] == "running"
+
+
+def test_staging_ignores_other_projects_and_rejects_stopped_task(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    outsider = store.create_project("not-this-project", "No event ownership")
+    other_inbox = NativeEventInbox(store)
+    other_inbox.subscribe(outsider["id"], "project:" + outsider["project_id"])
+    other_inbox.receive(
+        project_id=outsider["project_id"], source="native",
+        source_id="other-ci", thread="project:" + outsider["project_id"],
+        kind="ci_failed", summary="Other project's private failure",
+    )
+    assert effects.stage_pending(task["id"]) == [event["event_id"]]
+    assert [x["event_id"] for x in effects.status(task["id"])] == [event["event_id"]]
+    store.state(task["id"], "paused")
+    with pytest.raises(Blocked, match="stopped"):
+        effects.stage_pending(task["id"])
+    assert effects.status(task["id"])[0]["status"] == "queued"
