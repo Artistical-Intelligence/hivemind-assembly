@@ -362,38 +362,63 @@ class DurableEventEffects:
                 raise Blocked(
                     "Legacy uncertain claim has no confirmed start timestamp"
                 )
-            # Bounded evidence read; even old chats can contain many messages.
-            # A full history must not be sent to an LLM as a recovery shortcut.
-            candidates = db.execute(
-                """SELECT id,payload FROM messages
-                   WHERE task_id=? AND route=? AND state='validated'
-                     AND created>=?
-                   ORDER BY created ASC,id ASC LIMIT 65""",
-                (task_id, owner, effect["claimed_at"]),
-            ).fetchall()
-            if len(candidates) == 65:
-                raise Blocked(
-                    "Too many validated native receipts for safe automatic "
-                    "reconciliation; inspect exact message IDs"
-                )
+            # Read only local validated request receipts, in bounded pages.
+            # An active project can have many unrelated native Chat turns;
+            # limiting to the FIRST 65 would permanently strand a legitimate
+            # matching receipt later in history. Bounded cursor pagination
+            # avoids loading the entire transcript into model context or RAM.
             matches = []
-            for message in candidates:
-                try:
-                    body = json.loads(message["payload"])
-                    inputs = body.get("body", {}).get("event_inputs", [])
-                except (TypeError, ValueError, AttributeError):
-                    continue
-                if isinstance(inputs, list) and any(
-                    isinstance(item, dict) and
-                    item.get("event_id") == effect["event_id"]
-                    for item in inputs
-                ):
-                    matches.append(message["id"])
-            if len(matches) > 1:
-                raise Blocked(
-                    "Multiple validated native receipts match this event; "
-                    "manual duplicate-delivery review required"
+            max_scan = 1024
+            page_size = 64
+            inspected = 0
+            after_created, after_id = effect["claimed_at"], ""
+            while inspected < max_scan:
+                batch = db.execute(
+                    """SELECT id,payload,created FROM messages
+                       WHERE task_id=? AND route=? AND state='validated'
+                         AND (created>? OR (created=? AND id>?))
+                       ORDER BY created ASC,id ASC LIMIT ?""",
+                    (task_id, owner, after_created, after_created, after_id,
+                     min(page_size, max_scan - inspected)),
+                ).fetchall()
+                if not batch:
+                    break
+                for message in batch:
+                    try:
+                        body = json.loads(message["payload"])
+                        inputs = body.get("body", {}).get("event_inputs", [])
+                    except (TypeError, ValueError, AttributeError):
+                        continue
+                    if isinstance(inputs, list) and any(
+                        isinstance(item, dict) and
+                        item.get("event_id") == effect["event_id"]
+                        for item in inputs
+                    ):
+                        matches.append(message["id"])
+                        if len(matches) > 1:
+                            raise Blocked(
+                                "Multiple validated native receipts match this event; "
+                                "manual duplicate-delivery review required"
+                            )
+                inspected += len(batch)
+                after_created, after_id = (
+                    batch[-1]["created"], batch[-1]["id"]
                 )
+                if len(batch) < min(page_size, max_scan - (inspected-len(batch))):
+                    break
+            if inspected == max_scan:
+                extra = db.execute(
+                    """SELECT 1 FROM messages
+                       WHERE task_id=? AND route=? AND state='validated'
+                         AND (created>? OR (created=? AND id>?))
+                       LIMIT 1""",
+                    (task_id, owner, after_created, after_created, after_id),
+                ).fetchone()
+                if extra:
+                    raise Blocked(
+                        "Validated native receipt history exceeds the bounded "
+                        "automatic reconciliation window; inspect saved exact IDs"
+                    )
             if not matches:
                 return "pending"
             receipt_id = matches[0]
