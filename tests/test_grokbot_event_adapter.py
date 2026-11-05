@@ -79,3 +79,55 @@ def test_bogus_target_and_schema_cannot_cross_dispatch(tmp_path):
             )
     finally:
         store.close()
+
+
+def test_delegation_receipt_id_conflict_does_not_replace_terminal_outcome(tmp_path):
+    """An authenticated duplicate may not rewrite the first task outcome."""
+    store = Store(tmp_path)
+    try:
+        a = store.create_project("original-delegation", "Review delegated result")
+        b = store.create_project("other-delegation", "No leaked notifications")
+        inbox = NativeEventInbox(store)
+        opts = dict(inbox=inbox, task_id=a["id"], target="delegated-bot",
+                    verified=True, delivery_id="same-delivery")
+        assert admit_grokbot_event(
+            **opts, event=_event("completed", "ok")
+        ) == "stored"
+        assert admit_grokbot_event(
+            **opts, event=_event("completed", "ok")
+        ) == "duplicate"
+        # Reusing the same authenticated delivery key with a denial should
+        # conflict, not turn an earlier status into a permission grant.
+        with pytest.raises(ContractError, match="conflicting"):
+            admit_grokbot_event(
+                **opts, event=_event("completed", "denied")
+            )
+        pending = inbox.pending(a["id"])
+        assert len(pending) == 1
+        assert pending[0]["kind"] == "delegated_completed"
+        assert inbox.pending(b["id"]) == []
+        assert inbox.ticket(a["id"])["state"] == "open"
+    finally:
+        store.close()
+
+
+@pytest.mark.parametrize("external_id", [
+    "external task with spaces", "../escape", "bad\\nline", "x" * 129,
+])
+def test_untrusted_delegation_task_identifier_cannot_be_prompt_channel(
+        tmp_path, external_id):
+    """An authenticated host event still treats external IDs as opaque data."""
+    store = Store(tmp_path)
+    try:
+        task = store.create_project("delegation-input", "No privilege transfer")
+        inbox = NativeEventInbox(store)
+        with pytest.raises(ContractError):
+            admit_grokbot_event(
+                inbox, task_id=task["id"], target="delegated-bot",
+                verified=True, delivery_id="incoming",
+                event=_event("completed", "ok", external_task=external_id),
+            )
+        assert inbox.pending(task["id"]) == []
+        assert inbox.ticket(task["id"]) is None
+    finally:
+        store.close()
