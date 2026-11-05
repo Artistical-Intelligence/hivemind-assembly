@@ -255,6 +255,18 @@ class DurableEventEffects:
             ).fetchone()
             if row is None:
                 return None
+            native_event = db.execute(
+                """SELECT e.id,e.source,e.source_id,e.thread,
+                          e.kind,e.summary,e.arrived
+                   FROM ha_event_trigger e
+                   JOIN tasks t ON t.project_id=e.project_id
+                   WHERE e.id=? AND t.id=?""",
+                (row["event_id"], task_id),
+            ).fetchone()
+            if native_event is None:
+                raise Conflict(
+                    "Claimed event lacks an immutable authorized project record"
+                )
             generation = row["generation"] + 1
             claimed_at = time.time()
             db.execute(
@@ -269,6 +281,18 @@ class DurableEventEffects:
                 "task_id": task_id, "effect_key": row["effect_key"],
                 "event_id": row["event_id"], "generation": generation,
                 "lease_until": claimed_at + lease_seconds,
+                # NativeTeam can use this exact existing event envelope
+                # instead of separately reading an unrelated short pending
+                # page. These fields remain UNTRUSTED DATA, not instructions.
+                "event_input": {
+                    "event_id": native_event["id"],
+                    "source": native_event["source"],
+                    "source_id": native_event["source_id"],
+                    "thread": native_event["thread"],
+                    "kind": native_event["kind"],
+                    "summary": native_event["summary"],
+                    "arrived": native_event["arrived"],
+                },
             }
 
     def finalize(self, task_id: str, owner: str, epoch: int,
