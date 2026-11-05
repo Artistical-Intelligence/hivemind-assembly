@@ -138,9 +138,16 @@ def admit_signed_github_event(inbox: NativeEventInbox, *, project_id: str,
     kind, summary = result
     # The configured project/repository is an authorization from the host;
     # the signed payload's comment/body/commit messages are never forwarded.
+    # GitHub signs the *body*, not the X-GitHub-Delivery header. A captured
+    # authentic body can be replayed with a new delivery-id header by an
+    # intermediary that does not know the secret. Never use that changeable
+    # header alone as an idempotency key: bind the event key to the verified
+    # bytes and event type instead. The bounded delivery ID remains validated
+    # above, but is not trusted as event identity.
+    stable_id = hashlib.sha256(event_type.encode("ascii") + b"\0" + payload).hexdigest()
     return inbox.receive(
         project_id=project_id, source="github_webhook",
-        source_id=event_type + ":" + delivery_id,
+        source_id="signed:" + stable_id,
         thread="project:" + project_id, kind=kind,
         summary=summary, verified=True,
     )
