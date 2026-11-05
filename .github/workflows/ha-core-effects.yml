@@ -1,0 +1,39 @@
+name: HA native durable effect receipts (no model API)
+
+on:
+  push:
+    paths:
+      - '_app/hivemind_assembly/core/durable_effects.py'
+      - 'tests/test_core_durable_effects.py'
+      - '.github/workflows/ha-core-effects.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  durability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install only test harness (no model/API provider)
+        run: python -m pip install pytest
+      - name: Check SQLite fencing, idempotency and browser ACK
+        env:
+          PYTHONPATH: _app
+          HA_SKIP_HELPER_REGISTRATION: '1'
+          HA_MEANING_SEARCH: '0'
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python -m pytest -q tests/test_core_durable_effects.py --junitxml=durable-effects.xml
+      - name: Retain verified JUnit test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: durable-effect-tests-${{ github.run_id }}
+          path: durable-effects.xml
+          retention-days: 7
+          if-no-files-found: warn
