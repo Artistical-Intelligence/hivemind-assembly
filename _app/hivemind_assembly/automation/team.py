@@ -103,16 +103,24 @@ class NativeTeam:
             raise ContractError("Native event project binding changed")
         owner = current["owner"]
         owner_is_chat = bool(owner and self.native_chat_route(owner))
-        stopped = current["status"] in {"paused", "accepted", "cancelled"}
+        stopped = current["status"] in {
+            "paused", "accepted", "cancelled", "awaiting_acceptance"
+        }
         if (not self.native_chat_route(route) or stopped or
                 (owner is not None and owner != route)):
             # Revocation is tied to the actual current owner/status, not to
             # an adviser or stray caller that happens to use another route.
             if (self.native_event_inbox is not None and
                     (stopped or owner is not None and not owner_is_chat)):
-                self.native_event_inbox.unsubscribe(
-                    current["id"], "project:" + current["project_id"]
-                )
+                # Task-specific Grokbot/delegation subscriptions are as
+                # sensitive as project broadcasts. Revoke both on a hard
+                # stop or owner switch to a non-Chat route; otherwise an old
+                # ticket thread continues accumulating private event data.
+                for thread in (
+                    "project:" + current["project_id"],
+                    "task:" + current["id"],
+                ):
+                    self.native_event_inbox.unsubscribe(current["id"], thread)
             return []
         if self.native_event_inbox is None:
             from .event_inbox import NativeEventInbox
