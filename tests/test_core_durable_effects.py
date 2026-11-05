@@ -11,7 +11,7 @@ import time
 import pytest
 
 from hivemind_assembly.automation.event_inbox import NativeEventInbox
-from hivemind_assembly.core.common import Blocked, Conflict
+from hivemind_assembly.core.common import Blocked, Conflict, ContractError
 from hivemind_assembly.core.controller import Controller
 from hivemind_assembly.core.durable_effects import DurableEventEffects
 from hivemind_assembly.core.store import Store
@@ -141,3 +141,68 @@ def test_pre_dispatch_failure_retry_and_stale_epoch_fail_closed(owner):
                          retry["generation"], "message")
     assert DurableEventEffects(store).status(task["id"])[0]["generation"] == 2
     assert effects.status(task["id"])[0]["attempts"] == 2
+
+
+def test_same_event_cannot_be_reissued_under_another_effect_key(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    eid = event["event_id"]
+    assert effects.enqueue(task["id"], "first", eid) == "queued"
+    with pytest.raises(Conflict, match="already bound"):
+        effects.enqueue(task["id"], "parallel-copy", eid)
+    first = effects.claim(task["id"], "native.chat", epoch)
+    receipt = _valid_receipt(controller, task["id"], eid, "once-msg")
+    assert effects.finalize(task["id"], "native.chat", epoch,
+                            "first", first["generation"], receipt) == "delivered"
+    assert effects.enqueue(task["id"], "first", eid) == "duplicate"
+    with pytest.raises(Blocked, match="already acknowledged"):
+        effects.enqueue(task["id"], "after-ack", eid)
+
+
+def test_same_task_browser_events_obey_per_conversation_order(owner):
+    store, task, first_event, epoch, inbox, controller, effects = owner
+    inbox.receive(
+        project_id=task["project_id"], source="native", source_id="case-2",
+        thread="project:" + task["project_id"], kind="ci_failed",
+        summary="A second source-bound check failed",
+    )
+    second_event = inbox.pending(task["id"])[1]
+    assert effects.enqueue(task["id"], "A", first_event["event_id"]) == "queued"
+    assert effects.enqueue(task["id"], "B", second_event["event_id"]) == "queued"
+    first = effects.claim(task["id"], "native.chat", epoch)
+    assert first["effect_key"] == "A"
+    assert effects.claim(task["id"], "native.chat", epoch) is None
+    msg = _valid_receipt(controller, task["id"], first_event["event_id"], "A-msg")
+    assert effects.finalize(task["id"], "native.chat", epoch, "A",
+                            first["generation"], msg) == "delivered"
+    second = effects.claim(task["id"], "native.chat", epoch)
+    assert second is not None and second["effect_key"] == "B"
+    assert second["event_id"] == second_event["event_id"]
+
+
+def test_old_validated_receipt_cannot_complete_new_effect_claim(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    eid = event["event_id"]
+    # A previously validated request for this event is not proof that the
+    # new effect's dispatch actually reached the browser.
+    old = _valid_receipt(controller, task["id"], eid, "pre-claim")
+    assert effects.enqueue(task["id"], "new-claim", eid) == "queued"
+    lease = effects.claim(task["id"], "native.chat", epoch)
+    with pytest.raises(Blocked, match="predates"):
+        effects.finalize(task["id"], "native.chat", epoch, "new-claim",
+                         lease["generation"], old)
+    assert effects.status(task["id"])[0]["status"] == "leased"
+    fresh = _valid_receipt(controller, task["id"], eid, "post-claim")
+    assert effects.finalize(task["id"], "native.chat", epoch, "new-claim",
+                            lease["generation"], fresh) == "delivered"
+
+
+def test_retry_proof_flag_must_be_explicit_boolean(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    effects.enqueue(task["id"], "flag-test", event["event_id"])
+    first = effects.claim(task["id"], "native.chat", epoch)
+    with pytest.raises(ContractError, match="explicit boolean"):
+        effects.interrupted(
+            task["id"], "native.chat", epoch, "flag-test",
+            first["generation"], definitely_not_sent=1,
+        )
+    assert effects.status(task["id"])[0]["status"] == "leased"
