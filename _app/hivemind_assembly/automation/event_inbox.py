@@ -303,57 +303,103 @@ class NativeEventInbox:
             )
             self._refill_initial(db, task_id, thread)
 
-    def unsubscribe(self, task_id: str, thread: str) -> int:
-        """Revoke delivery without discarding the immutable source journal.
+    @staticmethod
+    def _revoke_locked(db, task_id: str, project_id: str,
+                       thread: str) -> int:
+        """Revoke an existing scoped thread inside the caller's SQLite fence.
 
-        Existing read receipts remain available for reconciliation. Unread
-        deliveries on this thread are dropped; an existing task cannot revive
-        them merely by re-subscribing after an owner/project route change.
+        The effect row and immutable source trigger survive, but an in-flight
+        browser receipt must NOT finalize after a hard revocation: removing
+        the unread delivery is the original fail-closed authorization barrier.
+        """
+        db.execute(
+            """DELETE FROM ha_event_subscription
+               WHERE project_id=? AND task_id=? AND thread=?""",
+            (project_id, task_id, thread),
+        )
+        removed = db.execute(
+            """DELETE FROM ha_event_delivery
+               WHERE task_id=? AND read_at IS NULL AND event_id IN
+                   (SELECT id FROM ha_event_trigger
+                    WHERE project_id=? AND thread=?)""",
+            (task_id, project_id, thread),
+        )
+        has_effects = db.execute(
+            """SELECT 1 FROM sqlite_master
+               WHERE type='table' AND name='ha_native_effect'"""
+        ).fetchone()
+        if has_effects:
+            # Never delete leased/uncertain effects: retain their evidence
+            # for explicit investigation, without restoring revoked delivery
+            # authority or permitting automatic retries.
+            db.execute(
+                """DELETE FROM ha_native_effect
+                   WHERE task_id=? AND status='queued'
+                     AND event_id IN (
+                       SELECT id FROM ha_event_trigger
+                       WHERE project_id=? AND thread=?
+                     )""",
+                (task_id, project_id, thread),
+            )
+        db.execute(
+            """UPDATE ha_event_subscription_backfill SET cursor=upto
+               WHERE task_id=? AND thread=? AND project_id=?""",
+            (task_id, thread, project_id),
+        )
+        return removed.rowcount
+
+    def unsubscribe(self, task_id: str, thread: str) -> int:
+        """Revoke all unread deliveries, retaining only immutable evidence.
+
+        An old owner cannot revive rejected deliveries by resubscribing.
+        A possibly sent, late browser receipt is rejected after revocation.
         """
         task = self.store.task(task_id)
-        allowed = {"project:" + task["project_id"], "task:" + task_id}
-        if thread not in allowed:
+        if thread not in {"project:" + task["project_id"], "task:" + task_id}:
             raise ContractError("Cross-project or arbitrary thread unsubscription denied")
         with self.store.tx() as db:
-            db.execute(
-                """DELETE FROM ha_event_subscription
-                   WHERE project_id=? AND task_id=? AND thread=?""",
-                (task["project_id"], task_id, thread),
+            return self._revoke_locked(
+                db, task_id, task["project_id"], thread
             )
-            removed = db.execute(
-                """DELETE FROM ha_event_delivery
-                   WHERE task_id=? AND read_at IS NULL AND event_id IN
-                       (SELECT id FROM ha_event_trigger
-                        WHERE project_id=? AND thread=?)""",
-                (task_id, task["project_id"], thread),
-            )
-            # Remove only never-claimed *queued* effect intents for the
-            # explicitly revoked thread. A leased/uncertain browser dispatch
-            # is irreversible evidence: retain it for reconciliation rather
-            # than silently erasing an external side effect.
-            has_effects = db.execute(
-                """SELECT 1 FROM sqlite_master
-                   WHERE type='table' AND name='ha_native_effect'"""
-            ).fetchone()
-            if has_effects:
-                db.execute(
-                    """DELETE FROM ha_native_effect
-                       WHERE task_id=? AND status='queued'
-                         AND event_id IN (
-                           SELECT id FROM ha_event_trigger
-                           WHERE project_id=? AND thread=?
-                         )""",
-                    (task_id, task["project_id"], thread),
+
+    def revoke_ineligible(self, allowed_owners: frozenset[str], *,
+                          limit: int = 100) -> int:
+        """Prune stale native subscriptions atomically after restart/retasking.
+
+        A local watchdog calls this without starting a model turn. The exact
+        live task owner and status are inspected in the SAME transaction as
+        removal, so a stale scan cannot revoke a newly valid Chat Mode owner.
+        Batch size is bounded and later scans resume naturally.
+        """
+        if (not isinstance(allowed_owners, frozenset)
+                or any(not isinstance(owner, str) or not owner
+                       for owner in allowed_owners)):
+            raise ContractError("Invalid native Chat owner allowlist")
+        if (not isinstance(limit, int) or isinstance(limit, bool)
+                or not 1 <= limit <= 500):
+            raise ContractError("Invalid subscription prune batch size")
+        routes = tuple(sorted(allowed_owners))
+        predicate = (
+            " OR t.owner NOT IN (" + ",".join("?" for _ in routes) + ")"
+            if routes else " OR t.owner IS NOT NULL"
+        )
+        with self.store.tx() as db:
+            rows = db.execute(
+                """SELECT s.task_id,s.project_id,s.thread
+                   FROM ha_event_subscription s
+                   JOIN tasks t ON t.id=s.task_id
+                     AND t.project_id=s.project_id
+                   WHERE (t.status IN ('paused','cancelled','accepted',
+                                        'awaiting_acceptance')
+                          OR t.owner IS NULL""" + predicate + """)
+                   ORDER BY s.task_id,s.thread LIMIT ?""",
+                (*routes, limit),
+            ).fetchall()
+            for row in rows:
+                self._revoke_locked(
+                    db, row["task_id"], row["project_id"], row["thread"]
                 )
-            # An explicit unsubscribe revokes unfinished historic catch-up,
-            # including pages never previously loaded. Later rejoin must not
-            # reconstruct the revoked events from the immutable source journal.
-            db.execute(
-                """UPDATE ha_event_subscription_backfill SET cursor=upto
-                   WHERE task_id=? AND thread=? AND project_id=?""",
-                (task_id, thread, task["project_id"]),
-            )
-            return removed.rowcount
+            return len(rows)
 
     def receive(self, *, project_id: str, source: str, source_id: str,
                 thread: str, kind: str, summary: str,
