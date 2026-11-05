@@ -369,7 +369,10 @@ class NativeEventInbox:
         A local watchdog calls this without starting a model turn. The exact
         live task owner and status are inspected in the SAME transaction as
         removal, so a stale scan cannot revoke a newly valid Chat Mode owner.
-        Batch size is bounded and later scans resume naturally.
+        Batch size is bounded and later scans resume naturally. A new
+        epoch-zero, unassigned task is left subscribed: its pre-assignment
+        authenticated event belongs to first-subscription catch-up, whereas
+        a formerly owned task with no current owner must be fenced.
         """
         if (not isinstance(allowed_owners, frozenset)
                 or any(not isinstance(owner, str) or not owner
@@ -391,7 +394,7 @@ class NativeEventInbox:
                      AND t.project_id=s.project_id
                    WHERE (t.status IN ('paused','cancelled','accepted',
                                         'awaiting_acceptance')
-                          OR t.owner IS NULL""" + predicate + """)
+                          OR (t.owner IS NULL AND t.epoch > 0)""" + predicate + """)
                    ORDER BY s.task_id,s.thread LIMIT ?""",
                 (*routes, limit),
             ).fetchall()
