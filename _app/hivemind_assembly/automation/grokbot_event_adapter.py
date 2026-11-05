@@ -106,9 +106,20 @@ def admit_grokbot_event(
         # Canonical tuple hashing avoids delimiter collisions across targets
         # and external IDs. Dedupe still requires one exact authenticated
         # event and never creates a worker or changes its permissions.
+        # Upstream emits exactly ONE terminal event per external task. A
+        # retried terminal may have a new transport delivery ID; treating that
+        # header as identity would enqueue a second "completed" notification.
+        # Bind the terminal source ID to its delegated task identity instead.
+        # A contradictory later terminal outcome then fails closed through
+        # the inbox's immutable source-ID conflict check.
+        #
+        # needs_input can legitimately recur for one task, so it continues
+        # using the separately authenticated delivery identifier.
         source_id=digest({
-            "target": target, "external_task_id": external_id,
-            "delivery_id": delivery_id,
+            "target": target,
+            "external_task_id": external_id,
+            **({"delivery_id": delivery_id} if kind == "needs_input"
+               else {"terminal": True}),
         }),
         thread="task:" + task_id,
         kind=native_kind,
