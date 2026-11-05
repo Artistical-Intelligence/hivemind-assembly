@@ -164,7 +164,10 @@ def test_unhashable_grokbot_control_fields_rejected_without_ticket_mutation(
                 event=event,
             )
         assert inbox.pending(task["id"]) == []
-        assert inbox.ticket(task["id"]) is None
+        assert store.rows(
+            "SELECT * FROM ha_work_ticket WHERE task_id=?",
+            (task["id"],),
+        ) == []
         assert store.rows(
             "SELECT * FROM ha_event_trigger WHERE project_id=?",
             (task["project_id"],),
