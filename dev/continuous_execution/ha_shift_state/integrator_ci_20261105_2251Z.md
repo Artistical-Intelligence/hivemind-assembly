@@ -32,3 +32,15 @@
 3. Give the appropriate HA native-runtime owner the **two distinct Windows Unicorn/Speakeasy exceptions** with current pinned dependency versions; require isolation and completed source-bound CI. The full baseline is not accepted.
 4. Obtain a **different qualified assistant/session** to review new workflow and worker source security (event ACK/routing, provider API nonleakage, MCP text guard and GitHub action pins). STATUS/checks markers stay pending.
 5. Perform actual owner-authorized **native ChatGPT browser delivery, validated receipt, restart/replay, owner switching and external MCP host acceptance** with correct mode/model/usage verification. No simulation can substitute.
+
+## Final exact-source confirmation — 2026-11-05 22:55 UTC
+
+At workflow-only revision `4d99c79d6c028d85a5477503201d00b104bd2ce3`, the full [focused + supported local-browser Actions run **42124886635**](https://github.com/Artistical-Intelligence/hivemind-assembly/actions/runs/42124886635) **completed successfully on all three jobs**, checked directly in the job registry and execution logs:
+
+| Job | Job ID | Executed source-bound tests |
+| --- | --- | --- |
+| Ubuntu event/durable-effects/HA MCP SDK | `127586407367` | **110 passed, 0 failed** in 9.31 s |
+| Windows event/durable-effects/HA MCP SDK | `127586407329` | **110 passed, 0 failed** in 31.18 s |
+| Ubuntu 24.04 real **local Chromium DOM fixture** | `127586406992` | **30 passed, 0 failed** in 189.03 s |
+
+These include real local MCP SDK/stdio/localhost HTTP, but **not** a live external GitHub MCP host or ChatGPT hosted conversation, and the Chromium job is **local fixture**, not real provider acceptance. The last checked `main` was `022f8adcffa7f8b8761cfb633fabbb9f987c55ad`; exact GitHub compare `4d99c79...main` confirmed **three subsequent documentation/status/evidence commits only**, no product, test or workflow source changes. Therefore the successful 42124886635 results cover unchanged source code at the latest observed head; this does not certify broader `test.yml` or any independently unreviewed work. A different qualified checker must review these changes before acceptance.
