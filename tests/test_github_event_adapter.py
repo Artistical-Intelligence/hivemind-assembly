@@ -238,3 +238,41 @@ def test_signed_workflow_attempt_is_positive_integer(tmp_path, attempt):
         assert inbox.pending(task["id"]) == []
     finally:
         store.close()
+
+@pytest.mark.parametrize("malformed", [
+    [], ["failure"], {"conclusion": "failure"},
+])
+def test_signed_workflow_conclusion_container_is_rejected_without_side_effect(
+        tmp_path, malformed):
+    """Even signed JSON is untrusted data until it passes type validation.
+
+    A list/dict conclusion must not crash webhook intake with TypeError,
+    nor be interpreted as a valid failing CI run.
+    """
+    store = Store(tmp_path)
+    try:
+        task = store.create_project("ci-unhashable", "Reject bad CI schema")
+        inbox = NativeEventInbox(store)
+        secret = b"schema-test-key"
+        payload = {
+            "repository": {"full_name": "trusted/only"},
+            "workflow_run": {
+                "id": 1001, "head_sha": "a" * 40,
+                "status": "completed", "conclusion": malformed,
+            },
+        }
+        raw, signature = _signed(secret, payload)
+        with pytest.raises(ContractError):
+            admit_signed_github_event(
+                inbox, project_id=task["project_id"],
+                repository="trusted/only", event_type="workflow_run",
+                delivery_id="malformed-conclusion",
+                payload=raw, signature=signature, secret=secret,
+            )
+        assert inbox.pending(task["id"]) == []
+        assert store.rows(
+            "SELECT * FROM ha_event_trigger WHERE project_id=?",
+            (task["project_id"],),
+        ) == []
+    finally:
+        store.close()
