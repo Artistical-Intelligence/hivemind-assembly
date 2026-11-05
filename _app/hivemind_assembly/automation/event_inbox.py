@@ -415,6 +415,34 @@ class NativeEventInbox:
             ids = [row["event_id"] for row in delivered]
         except (ValueError, TypeError) as error:
             raise ContractError("Malformed validated native event request") from error
+
+        # Older saved native requests recorded only event_id. Keep that
+        # historical compatibility route without inventing a new source ACK.
+        # Newer native packets include immutable source/thread/kind/summary
+        # fields: refuse a partial or forged envelope that contradicts the
+        # original project-scoped event journal.
+        proof_fields = ("source", "source_id", "thread", "kind", "summary", "arrived")
+        for item in delivered:
+            if not any(field in item for field in proof_fields):
+                continue
+            if (type(item["event_id"]) is not int or
+                    item["event_id"] <= 0):
+                raise ContractError("Invalid saved native event identifier")
+            matched = self.store.rows(
+                """SELECT e.source,e.source_id,e.thread,e.kind,e.summary,
+                          e.arrived FROM ha_event_trigger e
+                   JOIN ha_event_delivery d ON d.event_id=e.id
+                   WHERE e.id=? AND e.project_id=? AND d.task_id=?""",
+                (item["event_id"], task["project_id"], task_id),
+            )
+            if not matched or any(
+                item.get(field) != matched[0][field]
+                for field in proof_fields if field in item
+            ):
+                raise ContractError(
+                    "Validated native event envelope does not match "
+                    "the immutable authorized project event"
+                )
         return self.acknowledge(task_id, ids)
 
     def bridge_native(self, project_id: str, limit: int = 100) -> int:
