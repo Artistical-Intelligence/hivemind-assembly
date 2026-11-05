@@ -88,9 +88,18 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                         "No automatic attachment materialization; use a separately "
                         "authorized binary-file workflow if actual bytes are needed."
                     )
-                charset = [piece.split("=", 1)[1].strip().strip('"').lower()
-                           for piece in mime.split(";")[1:]
-                           if piece.strip().lower().startswith("charset=")]
+                charset = []
+                for parameter in mime.split(";")[1:]:
+                    part = parameter.strip()
+                    if re.match(r"^charset\\b", part, re.IGNORECASE):
+                        # Media types permit whitespace around '='. Never
+                        # mistake 'charset = latin-1' for an absent charset.
+                        match = re.fullmatch(
+                            r"charset\\s*=\\s*(.+)", part, re.IGNORECASE
+                        )
+                        if not match:
+                            raise Blocked("MCP text resource has an invalid charset")
+                        charset.append(match.group(1).strip().strip('"').lower())
                 if any(name not in ("utf-8", "utf8", "us-ascii")
                        for name in charset):
                     raise Blocked("MCP text resource declares a non-UTF-8 charset")
