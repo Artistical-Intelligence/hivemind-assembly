@@ -57,3 +57,4 @@ Trusted connector-menu navigation and 0.37.4 evidence: [independent review](chec
 Bounded recovery, progress and target-reset restoration: [independent review](checks/2026-10-29-setup-progress-review.md). Live-provider acceptance remains unverified.
 
 Owner-enabled MCP screenshots and OCR: [independent review](checks/2026-10-29-debug-vision-review.md). Live-provider acceptance remains unverified.
+| 2026-11-05 whole-HA browser-fixture Ubuntu 24.04 runner pin (`test.yml`, 445faddc3e5380841d507a635b118741932a2599) | `.github/workflows/` | Source-bound post-pin Chromium fixture job and every whole-HA Linux/Windows job, independent CI/source review, live native browser/provider acceptance; preserve distinct Windows Unicorn and Linux whole-suite source failures |
