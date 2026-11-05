@@ -40,12 +40,24 @@ def owner(tmp_path):
 
 
 def _valid_receipt(controller, task_id, event_id, name="msg_native_valid"):
+    # NativeTeam includes the complete scoped event envelope in its actual
+    # browser request. A bare guessed integer is NOT evidence of receipt.
+    rows = controller.store.rows(
+        """SELECT id,source,source_id,thread,kind,summary,arrived
+           FROM ha_event_trigger WHERE id=?""", (event_id,),
+    )
+    envelope = (
+        {
+            "event_id": rows[0]["id"], "source": rows[0]["source"],
+            "source_id": rows[0]["source_id"], "thread": rows[0]["thread"],
+            "kind": rows[0]["kind"], "summary": rows[0]["summary"],
+            "arrived": rows[0]["arrived"],
+        } if rows else {"event_id": event_id, "kind": "ci_failed"}
+    )
     request = {
         "project_id": controller.store.task(task_id)["project_id"],
         "revision": 0,
-        "body": {
-            "event_inputs": [{"event_id": event_id, "kind": "ci_failed"}],
-        },
+        "body": {"event_inputs": [envelope]},
     }
     controller.prepare_message(
         task_id, "native.chat", "https://example.invalid/chat",
@@ -437,3 +449,58 @@ def test_uncertain_recovery_detects_two_matching_receipts_across_many_pages(owne
             task["id"], "native.chat", epoch, "two-matches"
         )
     assert effects.status(task["id"])[0]["status"] == "uncertain"
+
+
+def test_validated_request_with_only_guessed_event_id_does_not_prove_delivery(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    effects.enqueue(task["id"], "envelope", event["event_id"])
+    lease = effects.claim(task["id"], "native.chat", epoch)
+    fake = "guessed-int-only"
+    controller.prepare_message(
+        task["id"], "native.chat", "https://example.invalid/chat",
+        {"body": {"event_inputs": [{"event_id": event["event_id"]}]}},
+        fake,
+    )
+    controller.message_state(fake, "validated", '{"type":"step_intent"}')
+    with pytest.raises(Blocked, match="complete event envelope"):
+        effects.finalize(
+            task["id"], "native.chat", epoch, "envelope",
+            lease["generation"], fake
+        )
+    assert inbox.pending(task["id"])
+    verified = _valid_receipt(controller, task["id"], event["event_id"],
+                              "complete-event-envelope")
+    assert effects.finalize(
+        task["id"], "native.chat", epoch, "envelope",
+        lease["generation"], verified
+    ) == "delivered"
+
+
+def test_recovery_ignores_forged_event_id_only_not_exact_saved_envelope(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    effects.enqueue(task["id"], "strict-recovery", event["event_id"])
+    lease = effects.claim(task["id"], "native.chat", epoch)
+    effects.interrupted(
+        task["id"], "native.chat", epoch, "strict-recovery",
+        lease["generation"], definitely_not_sent=False
+    )
+    fake = "forged-envelope-on-recovery"
+    controller.prepare_message(
+        task["id"], "native.chat", "https://example.invalid/chat",
+        {"body": {"event_inputs": [
+            {"event_id": event["event_id"], "kind": "ci_failed",
+             "source": "unknown-mismatch", "summary": "Wrong event"}
+        ]}},
+        fake,
+    )
+    controller.message_state(fake, "validated", '{"type":"step_intent"}')
+    assert effects.reconcile_uncertain(
+        task["id"], "native.chat", epoch, "strict-recovery"
+    ) == "pending"
+    assert inbox.pending(task["id"])
+    valid = _valid_receipt(controller, task["id"], event["event_id"],
+                           "verified-envelope-on-recovery")
+    assert effects.reconcile_uncertain(
+        task["id"], "native.chat", epoch, "strict-recovery"
+    ) == "delivered"
+    assert effects.status(task["id"])[0]["receipt_id"] == valid
