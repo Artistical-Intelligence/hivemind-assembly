@@ -50,6 +50,8 @@ _SCHEMA = (
        PRIMARY KEY(task_id, thread))""",
     """CREATE INDEX IF NOT EXISTS ha_event_delivery_unread
        ON ha_event_delivery(task_id, read_at, event_id)""",
+    """CREATE INDEX IF NOT EXISTS ha_event_thread_cursor
+       ON ha_event_trigger(project_id, thread, id)""",
     """CREATE TABLE IF NOT EXISTS ha_native_event_cursor(
        project_id TEXT PRIMARY KEY,
        last_seq INTEGER NOT NULL DEFAULT 0)""",
