@@ -142,13 +142,21 @@ class NativeTeam:
                 "SELECT project_id,owner FROM tasks WHERE owner IS NOT NULL"
             ) if row["owner"] in chat_routes
         }
-        return [
-            signal for project in projects
-            for signal in self.progress_watchdog.scan(
-                project, allowed_owners=chat_routes,
-                now=now
-            )
-        ]
+        signals = []
+        for project in sorted(projects):
+            # A crashed native browser send can block the only worker without
+            # producing further validated model turns. Inspect durable effect
+            # receipts separately from ordinary turn-stagnation monitoring.
+            # These local watchdog reads create at most one advisory journal
+            # event per unresolved delivery generation; they never invoke a
+            # model, alter the owner lease or retry an uncertain browser send.
+            signals.extend(self.progress_watchdog.scan_delivery_health(
+                project, allowed_owners=chat_routes, now=now
+            ))
+            signals.extend(self.progress_watchdog.scan(
+                project, allowed_owners=chat_routes, now=now
+            ))
+        return signals
 
     @contextmanager
     def learning_budget(self, route, trial, observation):
