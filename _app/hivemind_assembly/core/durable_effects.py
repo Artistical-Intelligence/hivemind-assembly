@@ -507,6 +507,46 @@ class DurableEventEffects:
             task_id, owner, epoch, effect_key, generation, receipt_id
         )
 
+    def health(self, task_id: str, *, now: float | None = None) -> dict:
+        """Return local effect-state counts without exposing prompts or traces.
+
+        For deterministic host watchdog/Shift Manager inspection only. This
+        never reschedules, retries, sends, pauses or reassigns a worker.
+        An expired in-flight effect is *possible* unknown delivery, not
+        evidence that a previous browser request never reached its target.
+        """
+        self.store.task(task_id)  # only an existing task may be inspected
+        if now is not None and (
+            isinstance(now, bool) or not isinstance(now, (int, float))
+        ):
+            raise ContractError("Invalid durable effect health time")
+        current = time.time() if now is None else float(now)
+        if not math.isfinite(current) or current < 0:
+            raise ContractError("Invalid durable effect health time")
+        rows = self.store.rows(
+            """SELECT
+               SUM(CASE WHEN status='queued' THEN 1 ELSE 0 END) AS queued,
+               SUM(CASE WHEN status='leased' THEN 1 ELSE 0 END) AS leased,
+               SUM(CASE WHEN status='uncertain' THEN 1 ELSE 0 END) AS uncertain,
+               SUM(CASE WHEN status='delivered' THEN 1 ELSE 0 END) AS delivered,
+               SUM(CASE WHEN status='leased' AND lease_until IS NOT NULL
+                        AND lease_until<? THEN 1 ELSE 0 END) AS expired_leased
+               FROM ha_native_effect WHERE task_id=?""",
+            (current, task_id),
+        )
+        values = rows[0] if rows else {}
+        counts = {
+            key: int(values.get(key) or 0)
+            for key in ("queued", "leased", "uncertain",
+                        "delivered", "expired_leased")
+        }
+        return {
+            **counts,
+            "needs_reconciliation": bool(
+                counts["uncertain"] or counts["expired_leased"]
+            ),
+        }
+
     def status(self, task_id: str) -> list[dict]:
         self.store.task(task_id)
         return self.store.rows(
