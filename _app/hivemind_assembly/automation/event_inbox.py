@@ -255,6 +255,24 @@ class NativeEventInbox:
                         WHERE project_id=? AND thread=?)""",
                 (task_id, task["project_id"], thread),
             )
+            # Remove only never-claimed *queued* effect intents for the
+            # explicitly revoked thread. A leased/uncertain browser dispatch
+            # is irreversible evidence: retain it for reconciliation rather
+            # than silently erasing an external side effect.
+            has_effects = db.execute(
+                """SELECT 1 FROM sqlite_master
+                   WHERE type='table' AND name='ha_native_effect'"""
+            ).fetchone()
+            if has_effects:
+                db.execute(
+                    """DELETE FROM ha_native_effect
+                       WHERE task_id=? AND status='queued'
+                         AND event_id IN (
+                           SELECT id FROM ha_event_trigger
+                           WHERE project_id=? AND thread=?
+                         )""",
+                    (task_id, task["project_id"], thread),
+                )
             # An explicit unsubscribe revokes unfinished historic catch-up,
             # including pages never previously loaded. Later rejoin must not
             # reconstruct the revoked events from the immutable source journal.
