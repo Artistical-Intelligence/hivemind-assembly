@@ -4,12 +4,16 @@ These tests use only local JSON-shaped MCP responses. They do not call the
 external GitHub MCP, download files, change app permissions or use model APIs.
 """
 
+import asyncio
 from pathlib import Path
 
 import pytest
 
 from hivemind_assembly.core.common import Blocked, ContractError
-from hivemind_assembly.integrations.mcp import inline_github_mcp_text
+from hivemind_assembly.core.store import Store
+from hivemind_assembly.integrations.mcp import (
+    Connections, inline_github_mcp_text, inline_source_read_tool,
+)
 
 
 def test_small_embedded_text_file_becomes_plain_inline_text():
@@ -85,9 +89,90 @@ def test_normal_inline_text_preserves_existing_mcp_result():
     assert inline_github_mcp_text(value) == value
 
 
-def test_mcp_bridge_normalization_only_targets_github_get_file_contents():
+def test_source_read_selection_is_independent_of_server_alias():
+    # GitHub server display names are user-controlled and not identities.
+    for name in ("get_file_contents", "get_file_content", "fetch_file",
+                 "read_file", "read_text_file", "read_repository_file"):
+        assert inline_source_read_tool(name)
+    for name in ("create_file", "upload_file", "delete_file",
+                 "list_tools", "get_issue", None, 123):
+        assert not inline_source_read_tool(name)
+
+    # Guard the actual outbound result-processing seam, not obsolete spelling
+    # of a previous GitHub-name-specific conditional.
     source = (Path(__file__).resolve().parents[1] /
               "_app/hivemind_assembly/integrations/mcp.py").read_text()
-    assert 'if tool == "get_file_contents" and "github" in server.lower():' in source
+    assert "if inline_source_read_tool(tool):" in source
     assert "value = inline_github_mcp_text(value)" in source
     assert "await client.call_tool(tool, arguments or {})" in source
+
+
+@pytest.mark.parametrize("alias", ["github", "scm", "source-control"])
+@pytest.mark.parametrize("result_kind", ["inline", "linked", "binary", "nested"])
+def test_external_source_read_never_returns_attachment_for_alias(
+        tmp_path, monkeypatch, alias, result_kind):
+    # Exercise Connections._external via an in-process MCP client stub.
+    # It never starts a subprocess, external server, model, or API call.
+    import mcp
+
+    store = Store(tmp_path)
+    try:
+        conn = Connections(store)
+        conn.settings = lambda: {"servers": {
+            alias: {"transport": "stdio", "command": "/not-executed",
+                    "args": [], "timeout": 5},
+        }}
+        calls = []
+        conn.authorize = lambda server, tool, project: calls.append(
+            (server, tool, project))
+        text = {"type": "resource", "resource": {
+            "mimeType": "text/plain", "text": "safe source body"}}
+        link = {"type": "resource_link",
+                "uri": "repo://source/attachment", "name": "attachment"}
+        binary = {"type": "resource", "resource": {
+            "mimeType": "application/octet-stream", "blob": "YQ=="}}
+        payloads = {
+            "inline": {"content": [text]},
+            "linked": {"content": [link]},
+            "binary": {"content": [binary]},
+            "nested": {"content": [{"type": "text", "text": "ordinary"}],
+                       "structuredContent": {"extra": {"content": [link]}}},
+        }
+
+        class FakeResult:
+            def model_dump(self, **kwargs):
+                return payloads[result_kind]
+
+        class FakeMCPClient:
+            def __init__(self, target):
+                self.target = target
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            async def call_tool(self, tool, arguments):
+                assert tool == "get_file_contents"
+                assert arguments == {"path": "source.py"}
+                return FakeResult()
+
+        monkeypatch.setattr(mcp, "Client", FakeMCPClient)
+        project_id = "project-fixture-only"
+        async def call():
+            return await conn._external(
+                alias, "get_file_contents", {"path": "source.py"},
+                project_id, None,
+            )
+        if result_kind == "inline":
+            result = asyncio.run(call())
+            assert result["content"] == [
+                {"type": "text", "text": "safe source body"}]
+            assert "resource" not in str(result)
+        else:
+            with pytest.raises(Blocked):
+                asyncio.run(call())
+        assert calls == [(alias, "get_file_contents", project_id)]
+    finally:
+        store.close()
