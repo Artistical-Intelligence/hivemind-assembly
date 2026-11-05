@@ -543,3 +543,48 @@ def test_staging_ignores_other_projects_and_rejects_stopped_task(owner):
     with pytest.raises(Blocked, match="stopped"):
         effects.stage_pending(task["id"])
     assert effects.status(task["id"])[0]["status"] == "queued"
+
+
+def test_health_reports_blocked_receipts_without_reading_model_content(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    assert effects.stage_pending(task["id"]) == [event["event_id"]]
+    ready = effects.health(task["id"])
+    assert ready["queued"] == 1
+    assert ready["leased"] == 0
+    assert ready["uncertain"] == 0
+    assert ready["needs_reconciliation"] is False
+    first = effects.claim(task["id"], "native.chat", epoch,
+                          lease_seconds=30)
+    active = effects.health(task["id"], now=first["lease_until"] - 1)
+    assert active["leased"] == 1 and active["expired_leased"] == 0
+    assert active["needs_reconciliation"] is False
+    overdue = effects.health(task["id"], now=first["lease_until"] + 1)
+    assert overdue["expired_leased"] == 1
+    assert overdue["needs_reconciliation"] is True
+    assert effects.recover_expired_lease(
+        task["id"], "native.chat", epoch, first["effect_key"],
+        first["generation"], now=first["lease_until"] + 1
+    ) == "uncertain"
+    awaiting = effects.health(task["id"])
+    assert awaiting["uncertain"] == 1
+    assert awaiting["expired_leased"] == 0
+    assert awaiting["needs_reconciliation"] is True
+    assert set(awaiting) == {
+        "queued", "leased", "uncertain", "delivered",
+        "expired_leased", "needs_reconciliation"
+    }
+    assert not any(
+        "summary" in field or "prompt" in field for field in awaiting
+    )
+
+
+def test_health_is_bounded_to_existing_task_and_rejects_bad_clock(owner):
+    store, task, event, epoch, inbox, controller, effects = owner
+    other = store.create_project("unrelated-health", "Protected other project")
+    assert effects.health(other["id"]) == {
+        "queued": 0, "leased": 0, "uncertain": 0,
+        "delivered": 0, "expired_leased": 0,
+        "needs_reconciliation": False,
+    }
+    with pytest.raises(ContractError, match="health time"):
+        effects.health(task["id"], now=float("nan"))
