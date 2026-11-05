@@ -267,6 +267,46 @@ class NativeEventInbox:
                 count += cur.rowcount
         return count
 
+    def acknowledge_validated_request(self, task_id: str, message_id: str,
+                                      *, route: str) -> int:
+        """Acknowledge only event IDs actually present in a validated request.
+
+        Prepared/uncertain browser messages have no authority to consume
+        deliveries. A replay uses the persisted request rather than any
+        newly arrived event list supplied by the caller.
+        """
+        task = self.store.task(task_id)
+        _bounded(message_id, "native message id", 128)
+        _bounded(route, "native route", 128)
+        messages = self.store.rows(
+            """SELECT payload,route FROM messages
+               WHERE id=? AND task_id=? AND state='validated'""",
+            (message_id, task_id),
+        )
+        if not messages:
+            return 0
+        if messages[0]["route"] != route:
+            raise ContractError("Validated native receipt route mismatch")
+        try:
+            request = json.loads(messages[0]["payload"])
+            if (not isinstance(request, dict)
+                    or request.get("task_id") != task_id
+                    or request.get("project_id") != task["project_id"]):
+                raise ContractError("Validated native receipt project binding mismatch")
+            body = request.get("body", {})
+            if not isinstance(body, dict):
+                raise ContractError("Malformed validated event request body")
+            delivered = body.get("event_inputs", [])
+            if not isinstance(delivered, list):
+                raise ContractError("Malformed validated native event inputs")
+            if any(not isinstance(row, dict) or
+                   "event_id" not in row for row in delivered):
+                raise ContractError("Malformed validated native event receipt")
+            ids = [row["event_id"] for row in delivered]
+        except (ValueError, TypeError) as error:
+            raise ContractError("Malformed validated native event request") from error
+        return self.acknowledge(task_id, ids)
+
     def bridge_native(self, project_id: str, limit: int = 100) -> int:
         """Read the local Store event journal into this project's inbox.
 
