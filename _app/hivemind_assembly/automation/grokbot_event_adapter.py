@@ -100,6 +100,29 @@ def admit_grokbot_event(
     if kind == "completed" and status == "denied":
         # A terminal permission denial is NOT a successful completion.
         native_kind = "delegated_denied"
+    # Stable inbox identities are unique within a *project*, not merely a
+    # delegated target. Two HA tickets can legitimately reuse an upstream
+    # task identifier (for example after an external service restart). The
+    # native task is therefore part of the source key; otherwise the second
+    # ticket conflicts with the first one's immutable thread/summary.
+    legacy_parts = {
+        "target": target,
+        "external_task_id": external_id,
+        **({"delivery_id": delivery_id} if kind == "needs_input"
+           else {"terminal": True}),
+    }
+    legacy_key = digest(legacy_parts)
+    scoped_key = digest({**legacy_parts, "native_task_id": task_id})
+    # Retain replay protection for receipts persisted before task scoping was
+    # introduced. Only use the old identity when its recorded thread belongs
+    # to this exact ticket; another ticket never inherits that old receipt.
+    existing = inbox.store.rows(
+        """SELECT thread FROM ha_event_trigger
+           WHERE project_id=? AND source=? AND source_id=?""",
+        (task["project_id"], "grokbot_kit", legacy_key),
+    )
+    source_id = (legacy_key if existing and
+                 existing[0]["thread"] == "task:" + task_id else scoped_key)
     return inbox.receive(
         project_id=task["project_id"],
         source="grokbot_kit",
@@ -115,12 +138,7 @@ def admit_grokbot_event(
         #
         # needs_input can legitimately recur for one task, so it continues
         # using the separately authenticated delivery identifier.
-        source_id=digest({
-            "target": target,
-            "external_task_id": external_id,
-            **({"delivery_id": delivery_id} if kind == "needs_input"
-               else {"terminal": True}),
-        }),
+        source_id=source_id,
         thread="task:" + task_id,
         kind=native_kind,
         summary="Delegated tool " + outcome + " for " + external_id,
