@@ -280,6 +280,74 @@ class DurableEventEffects:
             )
             return state
 
+    def reconcile_uncertain(self, task_id: str, owner: str, epoch: int,
+                            effect_key: str) -> str:
+        """Reconcile an uncertain dispatch from an already validated receipt.
+
+        It never sends a native request or retries a model invocation.
+        Multiple matching responses indicate ambiguous duplicate dispatch,
+        requiring explicit inspection rather than choosing a receipt.
+        """
+        _key(effect_key, "effect key")
+        with self.store.tx() as db:
+            self._fence(db, task_id, owner, epoch)
+            effect = db.execute(
+                """SELECT status,event_id,generation,claimed_at
+                   FROM ha_native_effect WHERE task_id=? AND effect_key=?""",
+                (task_id, effect_key),
+            ).fetchone()
+            if not effect:
+                raise Conflict("Unknown native event effect")
+            if effect["status"] == "delivered":
+                return "delivered"
+            if effect["status"] != "uncertain":
+                raise Conflict("Only uncertain effects can be reconciled")
+            if effect["claimed_at"] is None:
+                raise Blocked(
+                    "Legacy uncertain claim has no confirmed start timestamp"
+                )
+            # Bounded evidence read; even old chats can contain many messages.
+            # A full history must not be sent to an LLM as a recovery shortcut.
+            candidates = db.execute(
+                """SELECT id,payload FROM messages
+                   WHERE task_id=? AND route=? AND state='validated'
+                     AND created>=?
+                   ORDER BY created ASC,id ASC LIMIT 65""",
+                (task_id, owner, effect["claimed_at"]),
+            ).fetchall()
+            if len(candidates) == 65:
+                raise Blocked(
+                    "Too many validated native receipts for safe automatic "
+                    "reconciliation; inspect exact message IDs"
+                )
+            matches = []
+            for message in candidates:
+                try:
+                    body = json.loads(message["payload"])
+                    inputs = body.get("body", {}).get("event_inputs", [])
+                except (TypeError, ValueError, AttributeError):
+                    continue
+                if isinstance(inputs, list) and any(
+                    isinstance(item, dict) and
+                    item.get("event_id") == effect["event_id"]
+                    for item in inputs
+                ):
+                    matches.append(message["id"])
+            if len(matches) > 1:
+                raise Blocked(
+                    "Multiple validated native receipts match this event; "
+                    "manual duplicate-delivery review required"
+                )
+            if not matches:
+                return "pending"
+            receipt_id = matches[0]
+            generation = effect["generation"]
+        # Recheck owner/epoch/generation/event and live delivery in finalize.
+        # A concurrent state change is rejected instead of replayed.
+        return self.finalize(
+            task_id, owner, epoch, effect_key, generation, receipt_id
+        )
+
     def status(self, task_id: str) -> list[dict]:
         self.store.task(task_id)
         return self.store.rows(
