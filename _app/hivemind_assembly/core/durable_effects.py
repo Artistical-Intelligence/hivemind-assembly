@@ -34,9 +34,12 @@ CREATE TABLE IF NOT EXISTS ha_native_effect(
     due_at REAL NOT NULL,
     lease_until REAL,
     receipt_id TEXT,
+    claimed_at REAL,
     updated REAL NOT NULL,
     PRIMARY KEY(task_id,effect_key)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS ha_native_effect_one_per_event
+ON ha_native_effect(task_id,event_id);
 CREATE INDEX IF NOT EXISTS ha_native_effect_due
 ON ha_native_effect(task_id,status,due_at);
 """
@@ -65,6 +68,18 @@ class DurableEventEffects:
             for statement in _SCHEMA.split(";"):
                 if statement.strip():
                     db.execute(statement)
+            # Existing installations may have the original table without
+            # claimed_at. Never invent a verified claim time for ambiguous
+            # older 'uncertain' deliveries: require manual reconciliation.
+            names = {column["name"] for column in db.execute(
+                "PRAGMA table_info(ha_native_effect)"
+            )}
+            if "claimed_at" not in names:
+                db.execute("ALTER TABLE ha_native_effect ADD COLUMN claimed_at REAL")
+                db.execute(
+                    """UPDATE ha_native_effect SET claimed_at=updated
+                       WHERE status='leased' AND claimed_at IS NULL"""
+                )
 
     def enqueue(self, task_id: str, effect_key: str, event_id: int) -> str:
         """Idempotently queue an EXISTING project-matched local event.
@@ -78,7 +93,7 @@ class DurableEventEffects:
         task = self.store.task(task_id)
         with self.store.tx() as db:
             event = db.execute(
-                """SELECT e.id FROM ha_event_delivery d
+                """SELECT e.id,d.read_at FROM ha_event_delivery d
                    JOIN ha_event_trigger e ON e.id=d.event_id
                    WHERE d.task_id=? AND d.event_id=? AND e.project_id=?""",
                 (task_id, event_id, task["project_id"]),
@@ -93,6 +108,15 @@ class DurableEventEffects:
                 if existing["event_id"] != event_id:
                     raise Conflict("Effect key reused for a different event")
                 return "duplicate"
+            if event["read_at"] is not None:
+                raise Blocked("Event delivery already acknowledged")
+            second = db.execute(
+                """SELECT effect_key FROM ha_native_effect
+                   WHERE task_id=? AND event_id=?""",
+                (task_id, event_id),
+            ).fetchone()
+            if second:
+                raise Conflict("Event delivery already bound to another effect key")
             db.execute(
                 """INSERT INTO ha_native_effect
                    (task_id,effect_key,project_id,event_id,status,due_at,updated)
@@ -125,26 +149,41 @@ class DurableEventEffects:
         clock = time.time() if now is None else float(now)
         with self.store.tx() as db:
             self._fence(db, task_id, owner, epoch)
+            # Native chat exchanges are ordered per task/conversation. Never
+            # start a second browser delivery while the first is in-flight or
+            # uncertain; a crash must be reconciled, not blindly replayed.
+            in_flight = db.execute(
+                """SELECT 1 FROM ha_native_effect WHERE task_id=?
+                   AND status IN ('leased','uncertain') LIMIT 1""",
+                (task_id,),
+            ).fetchone()
+            if in_flight:
+                return None
             row = db.execute(
-                """SELECT * FROM ha_native_effect WHERE task_id=?
-                   AND status='queued' AND due_at<=?
-                   ORDER BY due_at,effect_key LIMIT 1""",
+                """SELECT e.* FROM ha_native_effect e
+                   JOIN ha_event_delivery d ON d.task_id=e.task_id
+                     AND d.event_id=e.event_id
+                   WHERE e.task_id=? AND e.status='queued'
+                     AND e.due_at<=? AND d.read_at IS NULL
+                   ORDER BY e.due_at,e.effect_key LIMIT 1""",
                 (task_id, clock),
             ).fetchone()
             if row is None:
                 return None
             generation = row["generation"] + 1
+            claimed_at = time.time()
             db.execute(
                 """UPDATE ha_native_effect SET status='leased',
-                   generation=?,attempts=attempts+1,lease_until=?,updated=?
+                   generation=?,attempts=attempts+1,lease_until=?,
+                   claimed_at=?,updated=?
                    WHERE task_id=? AND effect_key=?""",
-                (generation, clock + lease_seconds, clock,
-                 task_id, row["effect_key"]),
+                (generation, claimed_at + lease_seconds, claimed_at,
+                 claimed_at, task_id, row["effect_key"]),
             )
             return {
                 "task_id": task_id, "effect_key": row["effect_key"],
                 "event_id": row["event_id"], "generation": generation,
-                "lease_until": clock + lease_seconds,
+                "lease_until": claimed_at + lease_seconds,
             }
 
     def finalize(self, task_id: str, owner: str, epoch: int,
@@ -170,13 +209,25 @@ class DurableEventEffects:
                 "leased", "uncertain",
             ):
                 raise Conflict("Stale or non-leased event effect")
+            delivery = db.execute(
+                """SELECT d.read_at FROM ha_event_delivery d
+                   JOIN ha_event_trigger t ON t.id=d.event_id
+                   WHERE d.task_id=? AND d.event_id=? AND t.project_id=?""",
+                (task_id, row["event_id"], row["project_id"]),
+            ).fetchone()
+            if delivery is None:
+                raise Conflict("Event delivery was revoked or is no longer authorized")
+            if delivery["read_at"] is not None:
+                raise Blocked("Event delivery already acknowledged outside this effect")
             receipt = db.execute(
-                """SELECT payload FROM messages
+                """SELECT payload,created FROM messages
                    WHERE id=? AND task_id=? AND route=? AND state='validated'""",
                 (receipt_id, task_id, owner),
             ).fetchone()
             if not receipt:
                 raise Blocked("No validated native browser response for this effect")
+            if row["claimed_at"] is None or receipt["created"] < row["claimed_at"]:
+                raise Blocked("Validated receipt predates this effect claim")
             try:
                 event_inputs = json.loads(receipt["payload"]).get(
                     "body", {},
@@ -207,6 +258,8 @@ class DurableEventEffects:
                     delay_seconds: int = 30) -> str:
         """Retry only proven pre-dispatch failure; otherwise require reconciliation."""
         _key(effect_key, "effect key")
+        if type(definitely_not_sent) is not bool:
+            raise ContractError("Pre-dispatch retry proof must be an explicit boolean")
         if (not isinstance(delay_seconds, int) or isinstance(delay_seconds, bool)
                 or not 0 <= delay_seconds <= 3600):
             raise ContractError("Invalid event retry delay")
