@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from donor_cache_gate import InvalidIntake, cache_key, cache_key_with_inventory, checked_candidate, main, verify_artifact, verify_complete_inventory
+from donor_cache_gate import InvalidIntake, cache_key, cache_key_with_inventory, checked_candidate, main, verify_artifact, verify_artifact_with_inventory, verify_complete_inventory
 
 
 def fixture():
@@ -290,6 +290,74 @@ class CacheGateTests(unittest.TestCase):
             inventory_file.write_text(json.dumps(inventory), encoding='utf-8')
             with self.assertRaises(InvalidIntake):
                 main(['verified-key', str(candidate_file), str(build_file), str(inventory_file)])
+
+
+
+    def test_verified_artifact_requires_complete_inventory_and_exact_bytes(self):
+        candidate, build = fixture()
+        def entry(name, sha, kind="blob", mode="100644"):
+            return {"path": name, "sha": sha, "kind": kind, "mode": mode,
+                    "size": None if kind == "tree" else 3,
+                    "submodule": False, "symlink": False}
+        inventory = {
+            "repository": candidate["repository"],
+            "commit_sha": candidate["commit_sha"],
+            "root_tree_sha": candidate["root_tree_sha"],
+            "complete": True, "next_cursor": None, "requests": 1,
+            "entries": [
+                entry("LICENSE", candidate["license"]["blob_sha"]),
+                entry("core", "e" * 40, "tree", "040000"),
+                entry("core/relinker", "f" * 40, "tree", "040000"),
+                entry(candidate["source_objects"][0]["path"],
+                      candidate["source_objects"][0]["blob_sha"]),
+            ],
+        }
+        body = b"public-synthetic-cache-byte-fixture-v1"
+        receipt = {
+            "cache_key": cache_key(candidate, build),
+            "artifact_sha256": hashlib.sha256(body).hexdigest(),
+            "artifact_size": len(body),
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact = Path(tmp) / "synthetic.bin"
+            artifact.write_bytes(body)
+            expected = {"artifact_identity_verified": True, "runtime_tested": False,
+                        "license_approved": False, "independently_accepted": False}
+            self.assertEqual(verify_artifact_with_inventory(
+                candidate, build, inventory, receipt, artifact), expected)
+            files = [Path(tmp) / name for name in ("candidate.json", "build.json",
+                                                  "inventory.json", "receipt.json")]
+            for dest, obj in zip(files, (candidate, build, inventory, receipt)):
+                dest.write_text(json.dumps(obj), encoding="utf-8")
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                main(["verified-verify", *(str(f) for f in files), str(artifact)])
+            self.assertEqual(json.loads(output.getvalue()), expected)
+            for mutate in (
+                lambda x: x.update(complete=False),
+                lambda x: x.update(commit_sha="0" * 40),
+                lambda x: x["entries"].pop(1),
+                lambda x: x["entries"][-1].update(sha="1" * 40),
+            ):
+                broken = copy.deepcopy(inventory)
+                mutate(broken)
+                with self.subTest(broken=broken["complete"], entries=len(broken["entries"])):
+                    with self.assertRaises(InvalidIntake):
+                        verify_artifact_with_inventory(
+                            candidate, build, broken, receipt, artifact)
+            artifact.write_bytes(body + b"!")
+            with self.assertRaises(InvalidIntake):
+                verify_artifact_with_inventory(
+                    candidate, build, inventory, receipt, artifact)
+            artifact.write_bytes(body)
+            wrong_receipt = dict(receipt, cache_key="0" * 64)
+            with self.assertRaises(InvalidIntake):
+                verify_artifact_with_inventory(
+                    candidate, build, inventory, wrong_receipt, artifact)
+            inventory["complete"] = False
+            files[2].write_text(json.dumps(inventory), encoding="utf-8")
+            with self.assertRaises(InvalidIntake):
+                main(["verified-verify", *(str(f) for f in files), str(artifact)])
 
 
 
