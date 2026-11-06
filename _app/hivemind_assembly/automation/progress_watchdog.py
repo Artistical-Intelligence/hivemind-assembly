@@ -94,6 +94,11 @@ class ProgressWatchdog:
         """
         _require_allowed_owners(allowed_owners)
         self.store.project(project_id)
+        # A boolean or numeric-looking string is not a measured clock.
+        # Never coerce an untrusted snapshot into a false lease-expiry
+        # observation (True would silently become timestamp 1.0).
+        if now is not None and type(now) not in (int, float):
+            raise ContractError("Invalid native receipt watchdog clock")
         try:
             current = time.time() if now is None else float(now)
         except (TypeError, ValueError, OverflowError) as error:
@@ -174,6 +179,9 @@ class ProgressWatchdog:
         self.store.project(project_id)
         if not isinstance(threshold, int) or isinstance(threshold, bool) or threshold < 2:
             raise ContractError("Watchdog threshold must be at least two completed model turns")
+        if (type(cooldown_seconds) not in (int, float)
+                or now is not None and type(now) not in (int, float)):
+            raise ContractError("Invalid watchdog time value")
         try:
             cooldown = float(cooldown_seconds)
             current = time.time() if now is None else float(now)
