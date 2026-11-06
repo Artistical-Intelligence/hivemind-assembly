@@ -133,10 +133,16 @@ class NativeTeam:
         # not with a model's bare progress or completion claims.
         self.native_event_inbox.reconcile_ticket(current["id"])
         self.native_event_inbox.subscribe(
-            current["id"], "project:" + current["project_id"]
+            current["id"], "project:" + current["project_id"],
+            route=route, epoch=current["epoch"],
         )
         self.native_event_inbox.bridge_native(current["project_id"])
-        return self.native_event_inbox.pending(current["id"], limit=6)
+        # The assignment may have changed while the journal/subscription
+        # work ran. Revalidate ownership and generation inside the inbox's
+        # read transaction before exposing any pending event to this route.
+        return self.native_event_inbox.pending(
+            current["id"], limit=6, route=route, epoch=current["epoch"]
+        )
 
     def scan_native_progress(self, now=None):
         """Deterministic watchdog: local evidence, no model or task mutations."""
