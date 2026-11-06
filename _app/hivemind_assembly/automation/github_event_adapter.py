@@ -15,12 +15,43 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import re
 
 from hivemind_assembly.core.common import ContractError
 from .event_inbox import NativeEventInbox, _bounded
 
 
 _MAX_PAYLOAD_BYTES = 128 * 1024
+_MAX_RUN_ID = (1 << 63) - 1
+
+
+def _is_sha(value):
+    return (isinstance(value, str) and
+            re.fullmatch(r"[0-9a-fA-F]{40}", value) is not None)
+
+
+def _checked_push(data):
+    """Require the actual GitHub push identity, not forged partial metadata.
+
+    Newly-created branches legitimately have a zero-valued *before* SHA.
+    Deleted branches have a zero-valued *after* SHA and are filtered.
+    """
+    for flag in ("created", "deleted", "forced"):
+        if flag in data and type(data[flag]) is not bool:
+            raise ContractError("Malformed GitHub push " + flag + " flag")
+    if data.get("deleted") is True or data.get("after") == "0" * 40:
+        return None
+    ref = data.get("ref")
+    before, after = data.get("before"), data.get("after")
+    if (not isinstance(ref, str) or not 1 <= len(ref) <= 320
+            or "\x00" in ref or "\n" in ref or "\r" in ref
+            or not (ref.startswith("refs/heads/") and len(ref) > 11
+                    or ref.startswith("refs/tags/") and len(ref) > 10)):
+        raise ContractError("Malformed GitHub push reference")
+    if not _is_sha(before) or not _is_sha(after):
+        raise ContractError("Malformed GitHub push revision")
+    return ref, before.lower(), after.lower()
+
 _ALLOWED = frozenset({"workflow_run", "check_run", "push"})
 
 _CI_FAILURE_CONCLUSIONS = frozenset({
@@ -60,12 +91,10 @@ def _digest_from_payload(event_type: str, data: dict) -> tuple[str, str] | None:
                               "startup_failure"}:
             return None
         sha = run.get("head_sha")
-        if not isinstance(sha, str) or len(sha) != 40 or not all(
-            ch in "0123456789abcdefABCDEF" for ch in sha
-        ):
+        if not _is_sha(sha):
             raise ContractError("Malformed workflow revision")
         number = run.get("id")
-        if not isinstance(number, int) or isinstance(number, bool) or number < 1:
+        if type(number) is not int or not 1 <= number <= _MAX_RUN_ID:
             raise ContractError("Malformed workflow run ID")
         kind = _ci_kind(conclusion)
         return kind, f"GitHub workflow run {number} {conclusion} at {sha.lower()}"
@@ -82,27 +111,19 @@ def _digest_from_payload(event_type: str, data: dict) -> tuple[str, str] | None:
         }:
             return None
         sha = run.get("head_sha")
-        if not isinstance(sha, str) or len(sha) != 40 or not all(
-            ch in "0123456789abcdefABCDEF" for ch in sha
-        ):
+        if not _is_sha(sha):
             raise ContractError("Malformed check-run revision")
         number = run.get("id")
-        if not isinstance(number, int) or isinstance(number, bool) or number < 1:
+        if type(number) is not int or not 1 <= number <= _MAX_RUN_ID:
             raise ContractError("Malformed check-run ID")
         return (_ci_kind(conclusion),
                 f"GitHub check run {number} {conclusion} at {sha.lower()}")
-    # GitHub uses forty zeroes for a deleted ref; this is not a source SHA
-    # and must not be routed to workers as a valid checkout target.
-    if data.get("deleted") is True:
+    # Validate the full source identity even though only the SHA enters the
+    # prompt. Incomplete push envelopes must not manufacture a source change.
+    push = _checked_push(data)
+    if push is None:
         return None
-    sha = data.get("after")
-    if sha == "0" * 40:
-        return None
-    if not isinstance(sha, str) or len(sha) != 40 or not all(
-        ch in "0123456789abcdefABCDEF" for ch in sha
-    ):
-        raise ContractError("Malformed pushed source revision")
-    return "source_changed", f"GitHub push source revision {sha.lower()}"
+    return "source_changed", f"GitHub push source revision {push[2]}"
 
 
 def _semantic_event_key(event_type: str, data: dict, repository: str) -> str:
@@ -120,10 +141,8 @@ def _semantic_event_key(event_type: str, data: dict, repository: str) -> str:
         identity = (repository, event_type, run["id"], attempt,
                     run["head_sha"].lower(), run["conclusion"])
     else:
-        ref, before = data.get("ref", ""), data.get("before", "")
-        if not isinstance(ref, str) or not isinstance(before, str):
-            raise ContractError("Malformed GitHub push reference")
-        identity = (repository, event_type, ref, before, data["after"].lower())
+        ref, before, after = _checked_push(data)
+        identity = (repository, event_type, ref, before, after)
     normalized = json.dumps(identity, separators=(",", ":"), ensure_ascii=True)
     return "signed:" + hashlib.sha256(normalized.encode("ascii")).hexdigest()
 
