@@ -39,7 +39,17 @@ def _checked_push(data):
     for flag in ("created", "deleted", "forced"):
         if flag in data and type(data[flag]) is not bool:
             raise ContractError("Malformed GitHub push " + flag + " flag")
-    if data.get("deleted") is True or data.get("after") == "0" * 40:
+    # GitHub represents a newly created ref with a zero before SHA and a
+    # deleted ref with a zero after SHA. Reject contradictory signed control
+    # flags instead of silently treating a malformed deletion as harmless.
+    zero = "0" * 40
+    if data.get("created") is True and (
+        data.get("deleted") is True or data.get("before") != zero
+    ):
+        raise ContractError("Contradictory GitHub push creation metadata")
+    if data.get("deleted") is True and data.get("after") != zero:
+        raise ContractError("Contradictory GitHub push deletion metadata")
+    if data.get("deleted") is True or data.get("after") == zero:
         return None
     ref = data.get("ref")
     before, after = data.get("before"), data.get("after")
