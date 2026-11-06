@@ -51,6 +51,10 @@ def test_cancelled_inflight_action_is_uncertain_durable_and_never_replayed(tmp_p
         assert actions.receipts[request['operation_id']]['state'] == 'uncertain'
         on_disk = json.loads(actions.path.read_text(encoding='utf-8'))
         assert on_disk[request['operation_id']]['state'] == 'uncertain'
+        same_process = await actions.run(request)
+        assert same_process['ok'] is False
+        assert same_process['error']['code'] == 'UNCERTAIN'
+        assert calls == [action]
 
         restarted = BrowserActions(_NoProviderBrowser(), tmp_path)
         async def forbidden_dispatch(_):
