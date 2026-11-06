@@ -45,7 +45,7 @@ def _checked_push(data):
     ref = data.get("ref")
     before, after = data.get("before"), data.get("after")
     if (not isinstance(ref, str) or not 1 <= len(ref) <= 320
-            or "\\x00" in ref or "\\n" in ref or "\\r" in ref
+            or "\x00" in ref or "\n" in ref or "\r" in ref
             or not (ref.startswith("refs/heads/") and len(ref) > 11
                     or ref.startswith("refs/tags/") and len(ref) > 10)):
         raise ContractError("Malformed GitHub push reference")
