@@ -3,7 +3,8 @@
 Consume a complete mapping from GitHubPublicSourceText.submodule_pins(). The
 mapping is not itself evidence that any remote commit still exists or is public.
 This adapter verifies that identity against the public GitHub commit API. It
-never fetches blob contents, executes donor code or follows archive redirects.
+only reads pinned `.gitmodules` text; never fetches other blob contents,
+executes donor code or follows archive redirects.
 """
 
 from __future__ import annotations
@@ -113,7 +114,8 @@ class GitHubPublicSubmoduleVerify:
         """Verify at most eight mapped public commit identities per invocation.
 
         gitlink_commit_verified means the remote public commit and its root
-        Git tree were read at the exact Gitlink SHA. No blob bytes, recursive
+        Git tree were read at the exact Gitlink SHA. Apart from the pinned
+        parent `.gitmodules`, no donor blob bytes, recursive
         submodules, upstream license text or runtime behavior are verified.
         """
         parent, parent_commit, selected, fingerprint = self._mapping(mapping)
