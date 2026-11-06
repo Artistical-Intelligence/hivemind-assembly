@@ -543,6 +543,29 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 if not isinstance(key, str):
                     continue
                 normalized_key = key.replace("_", "").replace("-", "").casefold()
+                # RFC 2231 extended declarations can also occur as separate
+                # structured metadata keys rather than MIME parameters.
+                # Do not let charset*0 or transferEncoding* conceal a
+                # non-text declaration beside legitimate inline source.
+                if "*" in normalized_key and normalized_key.split("*", 1)[0] in (
+                        "charset", "encoding", "contentencoding",
+                        "transferencoding", "contenttransferencoding"):
+                    raise Blocked(
+                        "MCP source result has extended charset or encoding metadata"
+                    )
+                if normalized_key == "charset":
+                    if (not isinstance(encoding, str) or len(encoding) > 64
+                            or any(ord(c) < 32 or ord(c) == 127 for c in encoding)):
+                        raise Blocked("MCP source result has malformed charset metadata")
+                    charset = encoding.strip().strip('"').casefold()
+                    if charset not in ("utf-8", "utf8", "us-ascii"):
+                        raise Blocked("MCP source result declares non-UTF-8 charset metadata")
+                    charset = "utf-8" if charset == "utf8" else charset
+                    if ("charset" in encoding_declarations and
+                            encoding_declarations["charset"] != charset):
+                        raise Blocked("MCP source result has conflicting charset metadata")
+                    encoding_declarations["charset"] = charset
+                    continue
                 if normalized_key not in (
                         "encoding", "contentencoding", "transferencoding",
                         "contenttransferencoding"):
