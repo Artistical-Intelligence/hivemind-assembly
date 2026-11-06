@@ -9,8 +9,24 @@ the session snapshot. No browser or provider is opened by this helper.
 import re
 
 
+MAX_SNAPSHOT_CHARS = 250_000
+MAX_REFERENCE_HANDLES = 1024
+
+
 class ElementInspectionError(RuntimeError):
     """The current DOM cannot supply unambiguous authorized action refs."""
+
+
+def require_bounded_snapshot(text):
+    """Reject malformed or oversized DOM text before it reaches a model reply.
+
+    This does not truncate a page into a misleading partial snapshot. The
+    caller retains its uncertain/no-replay receipt and may reconcile the page
+    without silently weakening its existing permission fence.
+    """
+    if not isinstance(text, str) or len(text) > MAX_SNAPSHOT_CHARS:
+        raise ElementInspectionError('The page snapshot is invalid or exceeds the safe read limit')
+    return text
 
 
 async def collect_authorized_refs(elements, session, check_authority, identity_script):
@@ -26,6 +42,10 @@ async def collect_authorized_refs(elements, session, check_authority, identity_s
     transferred = False
     try:
         check_authority(session)
+        # Playwright returns a list. Refuse pathological batches before
+        # inspecting any element; disposal in finally releases all handles.
+        if not isinstance(elements, list) or len(elements) > MAX_REFERENCE_HANDLES:
+            raise ElementInspectionError('The page returned too many or invalid action references')
         for element in elements:
             check_authority(session)
             ref = await element.get_attribute('data-ha-ref')
@@ -43,7 +63,7 @@ async def collect_authorized_refs(elements, session, check_authority, identity_s
         transferred = True
         return refs
     finally:
-        if not transferred:
+        if not transferred and isinstance(elements, list):
             for element in elements:
                 try:
                     await element.dispose()
