@@ -264,7 +264,35 @@ class NativeEventInbox:
             (cursor, task_id, thread),
         )
 
-    def subscribe(self, task_id: str, thread: str) -> None:
+    @staticmethod
+    def _require_current_native_reader(db, task_id: str, project_id: str,
+                                       route: str, epoch: int) -> None:
+        """Fence a Chat reader against ownership changes inside the read TX.
+
+        The calling NativeTeam may have inspected the task *before* a handoff.
+        An old owner must not see the successor's pending source summaries even
+        if the previous eligibility check was valid when it ran. Epoch zero is
+        retained solely for the pre-assignment, queued local catch-up path.
+        """
+        _bounded(route, "native reader route", 128)
+        if type(epoch) is not int or epoch < 0:
+            raise ContractError("Invalid native reader epoch")
+        current = db.execute(
+            """SELECT project_id,owner,epoch,status,lease_until
+               FROM tasks WHERE id=?""", (task_id,),
+        ).fetchone()
+        if (current is None or current["project_id"] != project_id
+                or current["epoch"] != epoch):
+            raise ContractError("Native event reader task or epoch changed")
+        if current["owner"] is None:
+            if epoch != 0 or current["status"] != "queued":
+                raise ContractError("Native event reader has no live owner")
+        elif (current["owner"] != route or current["status"] != "running"
+              or (epoch > 0 and current["lease_until"] <= time.time())):
+            raise ContractError("Native event reader lost current Chat owner lease")
+
+    def subscribe(self, task_id: str, thread: str, *,
+                  route: str | None = None, epoch: int | None = None) -> None:
         task = self.store.task(task_id)
         valid = {"project:" + task["project_id"], "task:" + task_id}
         if thread not in valid:
@@ -276,6 +304,10 @@ class NativeEventInbox:
             ).fetchone()
             if (current is None or current["project_id"] != task["project_id"]):
                 raise ContractError("Native event subscription task binding changed")
+            if route is not None:
+                self._require_current_native_reader(
+                    db, task_id, task["project_id"], route, epoch
+                )
             if current["status"] in {
                 "paused", "cancelled", "accepted", "awaiting_acceptance"
             }:
@@ -452,11 +484,21 @@ class NativeEventInbox:
             )
         return "stored"
 
-    def pending(self, task_id: str, limit: int = 6) -> list[dict]:
+    def pending(self, task_id: str, limit: int = 6, *,
+                route: str | None = None, epoch: int | None = None) -> list[dict]:
+        """Optionally bind a native worker's read to its current owner lease.
+
+        Unbound reads are still available for deterministic local inspection;
+        actual Chat Mode request assembly must supply its route and epoch.
+        """
         task = self.store.task(task_id)
         if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 20:
             raise ContractError("Event batch size out of range")
         with self.store.tx() as db:
+            if route is not None:
+                self._require_current_native_reader(
+                    db, task_id, task["project_id"], route, epoch
+                )
             active = db.execute(
                 """SELECT thread FROM ha_event_subscription
                    WHERE task_id=? AND project_id=?""",
