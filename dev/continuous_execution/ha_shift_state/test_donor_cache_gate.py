@@ -78,7 +78,8 @@ class CacheGateTests(unittest.TestCase):
         self.assertNotEqual(original, cache_key(cc, b))
 
     def test_reject_unsafe_source_path_and_windows_collision(self):
-        for bad in ("../secret", "src/../escape", "/etc/keys", "C:/Windows", "src\\a", "src//x", "src/./x", "bad\x00name"):
+        for bad in ("../secret", "src/../escape", "/etc/keys", "C:/Windows", "src\\a", "src//x", "src/./x", "bad\x00name",
+                    "CON", "aux.txt", "src/NUL.bin", "COM1", "LPT9.dat", "COM¹.cfg", "lpt².txt", "dir/file.", "dir/file "):
             c, b = fixture()
             c["source_objects"][0]["path"] = bad
             with self.subTest(bad=bad), self.assertRaises(InvalidIntake):
@@ -146,6 +147,8 @@ class CacheGateTests(unittest.TestCase):
         inventory = {"repository": c["repository"], "commit_sha": c["commit_sha"],
                      "root_tree_sha": c["root_tree_sha"], "complete": True,
                      "next_cursor": None, "requests": 1, "entries": [
+                         entry("core", "e" * 40, "tree", "040000"),
+                         entry("core/relinker", "f" * 40, "tree", "040000"),
                          entry("LICENSE", c["license"]["blob_sha"]),
                          entry(c["source_objects"][0]["path"], c["source_objects"][0]["blob_sha"]),
                      ]}
@@ -159,6 +162,10 @@ class CacheGateTests(unittest.TestCase):
             lambda x: x.update(commit_sha="f" * 40),
             lambda x: x["entries"][0].update(sha="f" * 40),
             lambda x: x["entries"].pop(0),
+            lambda x: x["entries"].pop(1),
+            lambda x: x["entries"][0].update(kind="blob", mode="100644"),
+            lambda x: x["entries"].append(entry("badflag", "f" * 40, submodule=1)),
+            lambda x: x["entries"].append(entry("badflag", "f" * 40, symlink="false")),
             lambda x: x["entries"].append(entry("link", "f" * 40, "blob", "120000", symlink=True)),
             lambda x: x["entries"].append(entry("external", "f" * 40, "commit", "160000", submodule=True)),
             lambda x: x["entries"].append(entry("license", "f" * 40)),
