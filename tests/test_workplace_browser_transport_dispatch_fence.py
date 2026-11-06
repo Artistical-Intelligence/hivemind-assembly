@@ -3,7 +3,9 @@ import asyncio
 
 import pytest
 
-from hivemind_assembly.automation.browser_engine.dispatch_fence import fenced_browser_dispatch
+from hivemind_assembly.automation.browser_engine.dispatch_fence import (
+    DispatchIndeterminate, fenced_browser_dispatch,
+)
 
 
 def test_same_origin_dispatch_completes_once():
@@ -38,7 +40,7 @@ def test_navigation_during_dispatch_cannot_be_reported_as_success():
         session['page_origin'] = 'https://other.invalid'
         return {'outcome': 'dispatched'}
 
-    with pytest.raises(RuntimeError, match='origin changed'):
+    with pytest.raises(DispatchIndeterminate, match='authority changed'):
         asyncio.run(fenced_browser_dispatch(session, verify, effect))
     assert calls == ['fill']
 
