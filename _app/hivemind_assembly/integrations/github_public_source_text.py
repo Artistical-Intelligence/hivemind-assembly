@@ -169,3 +169,79 @@ class GitHubPublicSourceText:
                     {"index": offset, "fingerprint": fingerprint} if offset < len(entries) else None
                 ), "selection_sha256": fingerprint,
                 "complete": offset == len(entries), "bytes": used}
+
+    def submodule_pins(self, pin, gitmodules_entry, gitlinks):
+        """Map Gitlinks to HTTPS public GitHub remotes without cloning anything.
+
+        The Gitlink SHA, not the mutable branch hint, is the revision to pin.
+        Submodule content/license and nested dependencies remain unverified.
+        """
+        from configparser import ConfigParser, Error as ConfigError
+        from urllib.parse import urlsplit
+
+        owner, repository, commit = self._pin(pin)
+        if not isinstance(gitlinks, (list, tuple)) or len(gitlinks) > 128:
+            raise ContractError("Invalid bounded public Gitlink selection")
+        indexed = {}
+        for entry in gitlinks:
+            if (not isinstance(entry, dict) or entry.get("kind") != "commit"
+                    or entry.get("mode") != "160000"
+                    or not GitHubPublicSourceInventory._sha(entry.get("sha"))):
+                raise Blocked("Malformed public Git submodule gitlink")
+            path = GitHubPublicSourceInventory._path(entry.get("path"))
+            if path in indexed:
+                raise Blocked("Duplicate public Git submodule gitlink")
+            indexed[path] = entry["sha"].lower()
+        if not indexed and gitmodules_entry is None:
+            return {"repository": f"{owner}/{repository}", "commit_sha": commit,
+                    "submodules": [], "complete_mapping": True, "content_verified": False}
+        if gitmodules_entry is None or self._eligible(gitmodules_entry)[0] != ".gitmodules":
+            raise Blocked("Public Gitlinks require pinned .gitmodules source text")
+        source = self.read(pin, gitmodules_entry)
+        if len(source["text"]) > 65536:
+            raise Blocked("Public .gitmodules file exceeds parsing limits")
+        config = ConfigParser(interpolation=None, strict=True)
+        try:
+            config.read_string(source["text"])
+        except ConfigError:
+            raise Blocked("Malformed public .gitmodules declaration") from None
+        if len(config.sections()) > 128:
+            raise Blocked("Public .gitmodules contains too many sections")
+        resolved = []
+        seen = set()
+        for section in config.sections():
+            if re.fullmatch(r'submodule "[^"\r\n]+"', section) is None:
+                raise Blocked("Unrecognized public .gitmodules section")
+            if not config.has_option(section, "path") or not config.has_option(section, "url"):
+                raise Blocked("Incomplete public .gitmodules section")
+            path = GitHubPublicSourceInventory._path(config.get(section, "path"))
+            if path not in indexed or path in seen:
+                raise Blocked("Public .gitmodules path does not match the pinned gitlinks")
+            seen.add(path)
+            url = config.get(section, "url")
+            try:
+                parsed = urlsplit(url)
+                if (parsed.scheme != "https" or parsed.netloc != "github.com"
+                        or parsed.query or parsed.fragment or parsed.username or parsed.password
+                        or parsed.port is not None):
+                    raise ValueError()
+                parts = parsed.path.strip("/").split("/")
+                if len(parts) != 2 or parsed.path.count("/") > 3:
+                    raise ValueError()
+                remote_owner = GitHubPublicSourceInventory._name(parts[0])
+                remote_repo = GitHubPublicSourceInventory._name(
+                    parts[1][:-4] if parts[1].endswith(".git") else parts[1]
+                )
+            except (ValueError, ContractError):
+                raise Blocked("Public submodule URL is not an approved GitHub HTTPS repository") from None
+            resolved.append({
+                "path": path, "repository": f"{remote_owner}/{remote_repo}",
+                "commit_sha": indexed[path], "source_url":
+                    f"https://github.com/{remote_owner}/{remote_repo}/tree/{indexed[path]}",
+                "content_verified": False, "license_review_required": True,
+            })
+        if seen != set(indexed):
+            raise Blocked("Public gitlinks and .gitmodules are not a complete matching set")
+        return {"repository": f"{owner}/{repository}", "commit_sha": commit,
+                "gitmodules_sha256": source["sha256"], "submodules": resolved,
+                "complete_mapping": True, "content_verified": False}
