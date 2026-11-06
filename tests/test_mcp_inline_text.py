@@ -291,3 +291,61 @@ def test_external_inline_source_result_is_withheld_after_grant_revocation(
         ]
     finally:
         store.close()
+
+
+@pytest.mark.parametrize("hidden", [
+    {"encoding": "base64"},
+    {"encoding": "gzip"},
+    {"contentEncoding": "base64"},
+    {"base64": "YmluYXJ5"},
+    {"base64Data": "YmluYXJ5"},
+    {"downloadUrl": "https://example.invalid/source.zip"},
+    {"resourceUrl": "https://example.invalid/source.zip"},
+    {"attachmentUrl": "https://example.invalid/source.zip"},
+])
+def test_inline_embedded_resource_refuses_encoded_or_linked_secondary_payload(hidden):
+    """A declared text field cannot launder an additional encoded/downloadable resource.
+
+    The source-read bridge must validate the *entire* embedded resource before
+    discarding its wrapper, not merely its mimeType and text. This is a purely
+    local JSON fixture; none of the URLs are fetched or materialized.
+    CHECKS PENDING / AWAITING CI: execution not claimed.
+    """
+    resource = {"mimeType": "text/plain; charset=utf-8", "text": "safe text"}
+    resource.update(hidden)
+    with pytest.raises(Blocked):
+        inline_github_mcp_text({
+            "content": [{"type": "resource", "resource": resource}]
+        })
+
+
+@pytest.mark.parametrize("descriptor", ["file", "attachment", "artifact"])
+def test_nested_mcp_file_descriptors_cannot_escape_as_structured_metadata(descriptor):
+    """Link-like file descriptors without type=resource_link are still unsafe.
+
+    Keep ordinary harmless JSON metadata usable, but do not return an
+    attachable file descriptor under a nonstandard structured-content key.
+    """
+    with pytest.raises(Blocked):
+        inline_github_mcp_text({
+            "content": [{"type": "text", "text": "inline source"}],
+            "structuredContent": {
+                "result": {
+                    descriptor: {
+                        "url": "https://example.invalid/private-attachment.zip",
+                        "mimeType": "application/zip",
+                    }
+                }
+            },
+        })
+
+
+def test_inline_mcp_safe_source_metadata_does_not_require_url_blacklisting():
+    """An ordinary informational URL is not a resource/download descriptor."""
+    value = {
+        "content": [{"type": "text", "text": "print('ok')"}],
+        "structuredContent": {
+            "metadata": {"documentation_url": "https://example.invalid/docs"}
+        },
+    }
+    assert inline_github_mcp_text(value) == value
