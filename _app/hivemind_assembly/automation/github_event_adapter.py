@@ -152,9 +152,25 @@ def admit_signed_github_event(inbox: NativeEventInbox, *, project_id: str,
     expected = "sha256=" + hmac.new(secret, payload, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, signature):
         raise ContractError("Webhook signature verification failed")
+    # GitHub emits strict JSON. Duplicate object names and non-JSON numeric
+    # constants would make a signed body's effective repository/run identity
+    # depend on parser-specific last-key-wins behavior. Reject ambiguity at
+    # admission rather than binding a webhook to an arbitrary interpretation.
+    def unique_object(pairs):
+        parsed = {}
+        for key, value in pairs:
+            if key in parsed:
+                raise ContractError("Duplicate key in signed webhook JSON")
+            parsed[key] = value
+        return parsed
+
+    def reject_constant(value):
+        raise ContractError("Non-JSON numeric constant in signed webhook")
+
     try:
-        data = json.loads(payload)
-    except (ValueError, UnicodeDecodeError) as error:
+        data = json.loads(payload, object_pairs_hook=unique_object,
+                          parse_constant=reject_constant)
+    except (ValueError, UnicodeDecodeError, RecursionError) as error:
         raise ContractError("Malformed signed webhook JSON") from error
     if not isinstance(data, dict) or not isinstance(data.get("repository"), dict):
         raise ContractError("Missing webhook repository")
