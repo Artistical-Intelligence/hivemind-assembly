@@ -143,7 +143,8 @@ class CacheGateTests(unittest.TestCase):
         c, _ = fixture()
         def entry(path, sha, kind="blob", mode="100644", submodule=False, symlink=False):
             return {"path": path, "sha": sha, "kind": kind, "mode": mode,
-                    "size": 3, "submodule": submodule, "symlink": symlink}
+                    "size": None if kind == "tree" else 3,
+                    "submodule": submodule, "symlink": symlink}
         inventory = {"repository": c["repository"], "commit_sha": c["commit_sha"],
                      "root_tree_sha": c["root_tree_sha"], "complete": True,
                      "next_cursor": None, "requests": 1, "entries": [
@@ -164,6 +165,7 @@ class CacheGateTests(unittest.TestCase):
             lambda x: x["entries"].pop(0),
             lambda x: x["entries"].pop(1),
             lambda x: x["entries"][0].update(kind="blob", mode="100644"),
+            lambda x: x["entries"][0].update(size=3),
             lambda x: x["entries"].append(entry("badflag", "f" * 40, submodule=1)),
             lambda x: x["entries"].append(entry("badflag", "f" * 40, symlink="false")),
             lambda x: x["entries"].append(entry("link", "f" * 40, "blob", "120000", symlink=True)),
