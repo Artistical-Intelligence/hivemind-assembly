@@ -1,12 +1,14 @@
 """Standard-library-only synthetic checks; never builds or runs donor code."""
+import contextlib
 import copy
 import hashlib
+import io
 import json
 import tempfile
 import unittest
 from pathlib import Path
 
-from donor_cache_gate import InvalidIntake, cache_key, checked_candidate, verify_artifact, verify_complete_inventory
+from donor_cache_gate import InvalidIntake, cache_key, cache_key_with_inventory, checked_candidate, main, verify_artifact, verify_complete_inventory
 
 
 def fixture():
@@ -226,6 +228,69 @@ class CacheGateTests(unittest.TestCase):
         c, b = fixture()
         c["source_objects"].append({"path": "other", "blob_sha": "G" * 40})
         with self.assertRaises(InvalidIntake): cache_key(c, b)
+
+
+    def test_win32_forbidden_names_characters_and_utf16_units(self):
+        # These are valid Git-like strings but unsafe as Windows output paths.
+        bad = ('CONIN, 'conout$.txt', '.git/config', 'src/.GIT/index',
+               'obj/loader?variant.c', 'obj/a*b', 'obj/a|b', 'obj/a"b',
+               'obj/a<b', 'obj/a>b', 'obj/' + 'x' * 256,
+               'obj/' + '\U0001f600' * 128)
+        for name in bad:
+            candidate, build = fixture()
+            candidate["source_objects"][0]["path"] = name
+            with self.subTest(path=name[:40]), self.assertRaises(InvalidIntake):
+                cache_key(candidate, build)
+        allowed = ('core/console.cpp', 'inc/interface+v2.hpp',
+                   'obj/' + '\U0001f600' * 127, 'src/conin_value.h')
+        for name in allowed:
+            candidate, build = fixture()
+            candidate["source_objects"][0]["path"] = name
+            with self.subTest(path=name[:40]):
+                self.assertEqual(len(cache_key(candidate, build)), 64)
+
+    def test_verified_cache_key_requires_structurally_complete_source(self):
+        c, b = fixture()
+        def entry(name, sha, kind='blob', mode='100644'):
+            return {'path': name, 'sha': sha, 'kind': kind, 'mode': mode,
+                    'size': None if kind == 'tree' else 3,
+                    'submodule': False, 'symlink': False}
+        inventory = {'repository': c['repository'], 'commit_sha': c['commit_sha'],
+                     'root_tree_sha': c['root_tree_sha'], 'complete': True,
+                     'next_cursor': None, 'requests': 1, 'entries': [
+                         entry('LICENSE', c['license']['blob_sha']),
+                         entry('core', 'e' * 40, 'tree', '040000'),
+                         entry('core/relinker', 'f' * 40, 'tree', '040000'),
+                         entry(c['source_objects'][0]['path'],
+                               c['source_objects'][0]['blob_sha'])]}
+        self.assertEqual(cache_key_with_inventory(c, b, inventory), cache_key(c, b))
+        for mutation in (
+                lambda x: x.update(complete=False),
+                lambda x: x.update(root_tree_sha='1' * 40),
+                lambda x: x['entries'].pop(1),
+                lambda x: x['entries'][-1].update(sha='1' * 40),
+                lambda x: x['entries'][1].update(mode='100644', kind='blob', size=3)):
+            broken = copy.deepcopy(inventory)
+            mutation(broken)
+            with self.subTest(entries=len(broken['entries'])), self.assertRaises(InvalidIntake):
+                cache_key_with_inventory(c, b, broken)
+        # The old key remains metadata-only; never confuse it with this gate.
+        self.assertEqual(cache_key(c, b), cache_key(c, b))
+        with tempfile.TemporaryDirectory() as tmp:
+            candidate_file = Path(tmp) / 'candidate.json'
+            build_file = Path(tmp) / 'build.json'
+            inventory_file = Path(tmp) / 'inventory.json'
+            for p, obj in ((candidate_file, c), (build_file, b), (inventory_file, inventory)):
+                p.write_text(json.dumps(obj), encoding='utf-8')
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                main(['verified-key', str(candidate_file), str(build_file), str(inventory_file)])
+            self.assertEqual(output.getvalue().strip(), cache_key(c, b))
+            inventory['complete'] = False
+            inventory_file.write_text(json.dumps(inventory), encoding='utf-8')
+            with self.assertRaises(InvalidIntake):
+                main(['verified-key', str(candidate_file), str(build_file), str(inventory_file)])
+
 
 
 if __name__ == "__main__":
