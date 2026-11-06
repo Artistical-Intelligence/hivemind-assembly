@@ -1,0 +1,28 @@
+{
+  "schema": "ha-public-donor-cache/v1",
+  "repository": "Djihads80/Eglantine",
+  "commit_sha": "0857e8b4a792ac99b87af6bb6f329127aa7df683",
+  "root_tree_sha": "c5c4c575c76f011f2255c7b8436b1ad0014c0000",
+  "license": {
+    "path": "LICENSE.txt",
+    "blob_sha": "f288702d2fa16d3cdf0035b15a9fcbc552cd88e7",
+    "spdx": "GPL-3.0-or-later",
+    "review": "PENDING"
+  },
+  "source_objects": [
+    {
+      "path": "NX2_GPU_THREAD_SPLIT.md",
+      "blob_sha": "75fd0e4105ffaba8dcf3242e562f2c4699e9307e"
+    },
+    {
+      "path": "src/video_core/gpu_split.cpp",
+      "blob_sha": "07ac984222808937a0eb1516a2515a322151c86f"
+    },
+    {
+      "path": "src/video_core/gpu_split.h",
+      "blob_sha": "836c46c79592693d2123d2699c10939a18d37612"
+    }
+  ],
+  "runtime_seam": "ordered GPU split SPSC ring/macro front mirror with serial fallback EDEN_NX2_SPLIT=0",
+  "integration_status": "SOURCE_ONLY_NOT_BUILT"
+}
