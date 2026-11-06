@@ -24,6 +24,7 @@ from .browser_engine.action_inspection import ActionInspectionError, inspect_act
 from .browser_engine.control_summaries import ControlSummaryError
 from .browser_engine.snapshot_publication import publish_authorized_snapshot
 from .browser_engine.cancellation_receipt import uncertain_on_cancellation
+from .browser_engine.handle_cleanup import PriorHandleCleanupError, dispose_prior_handles
 from .browser_engine.url_origin import canonical_https_origin
 
 ENGINE = Path(__file__).with_name('browser_engine') / 'browser_scripts.json'
@@ -286,8 +287,12 @@ class BrowserActions:
                 prior_handles = session['handles']
                 session['snapshot'] = None
                 session['handles'] = {}
-                for handle, _ in prior_handles.values():
-                    await handle.dispose()
+                try:
+                    await dispose_prior_handles(prior_handles)
+                except PriorHandleCleanupError as error:
+                    # Refuse a fresh read if cleanup could not release all
+                    # previous handles; no further DOM inspection occurs.
+                    raise Blocked(str(error)) from None
                 # Do not continue inspecting an already revoked profile after
                 # an awaited cleanup, DOM adjustment or stabilization.
                 self.require_current_browser_authority(session)
