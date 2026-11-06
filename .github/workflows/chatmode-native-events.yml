@@ -13,6 +13,8 @@ on:
       - '_app/hivemind_assembly/core/durable_effects.py'
       - '_app/hivemind_assembly/integrations/mcp.py'
       - 'tests/test_native_event_inbox.py'
+      # Verifier-owned scoped receipts are imported by the selected native inbox suite.
+      - 'tests/test_ha_event_*.py'
       - 'tests/test_progress_watchdog.py'
       - 'tests/test_github_event_adapter.py'
       - 'tests/test_grokbot_event_adapter.py'
