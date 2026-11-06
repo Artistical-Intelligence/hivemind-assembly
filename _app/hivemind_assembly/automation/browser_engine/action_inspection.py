@@ -7,6 +7,12 @@ This helper is pure transport validation: no browser, provider or login starts.
 """
 
 
+# Metadata joins page-controlled labels and attributes independently of the
+# bounded snapshot/control summaries. Never pass an unbounded DOM string to
+# the caller's sensitive-control classifier or use it to authorize dispatch.
+MAX_ACTION_METADATA_CHARS = 8192
+
+
 class ActionInspectionError(RuntimeError):
     """The selected element is no longer an unambiguous actionable control."""
 
@@ -37,6 +43,7 @@ async def inspect_action_target(element, expected, identity_script, metadata_scr
 
     metadata = await element.evaluate(metadata_script)
     check_authority(session)
-    if not isinstance(metadata, str):
-        raise ActionInspectionError('The selected element returned invalid metadata')
+    if (not isinstance(metadata, str) or len(metadata) > MAX_ACTION_METADATA_CHARS
+            or '\x00' in metadata):
+        raise ActionInspectionError('The selected element returned invalid or excessive metadata')
     return identity, metadata
