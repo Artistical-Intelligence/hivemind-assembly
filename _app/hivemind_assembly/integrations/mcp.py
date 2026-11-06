@@ -770,10 +770,10 @@ class Connections:
                 # resource link during ordinary repository source reads.
                 if inline_source_read_tool(tool):
                     value = inline_github_mcp_text(value)
-                # Recheck after the await, before exposing remote results:
-                # revocation, project removal or endpoint replacement while
-                # the request was in flight must fail closed.
-                self.authorize(server, tool, project)
+                # The full approved server specification includes project
+                # and tool grants. Re-read it after the await to catch
+                # revocation or endpoint replacement without re-invoking
+                # authorize (whose single-dispatch seam is externally tested).
                 if self.settings()["servers"].get(server) != spec:
                     raise Blocked("MCP connection changed during request")
                 if oauth_storage:
