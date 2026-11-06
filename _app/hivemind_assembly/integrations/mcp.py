@@ -63,6 +63,10 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
         nonlocal total
         if not isinstance(blocks, list):
             raise ContractError("MCP file content blocks are invalid")
+        # An untrusted MCP server can return millions of empty text blocks
+        # without consuming the byte budget; cap fan-out before allocating.
+        if len(blocks) > 4096:
+            raise Blocked("MCP source result contains too many content blocks")
         converted = []
         for block in blocks:
             if not isinstance(block, dict):
@@ -147,6 +151,8 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 "content": inline_blocks(original["content"]),
             }
 
+    nested_nodes = 0
+
     def normalize_nested_blocks(value, depth=0):
         """Convert additional structuredContent mirrors without fetching a URI.
 
@@ -156,7 +162,9 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
         source text. Only recognizable MCP content arrays are normalized;
         ordinary structured JSON stays unchanged.
         """
-        if depth > 24:
+        nonlocal nested_nodes
+        nested_nodes += 1
+        if depth > 24 or nested_nodes > 50_000:
             raise Blocked("Nested MCP source result exceeds the safe structure limit")
         if isinstance(value, dict):
             cleaned = {}
@@ -183,8 +191,12 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
         if name in output:
             output[name] = normalize_nested_blocks(output[name])
 
+    checked_nodes = 0
+
     def reject_remaining_media(value, depth=0):
-        if depth > 24:
+        nonlocal checked_nodes
+        checked_nodes += 1
+        if depth > 24 or checked_nodes > 50_000:
             raise Blocked("Nested MCP source result exceeds the safe structure limit")
         if isinstance(value, dict):
             if value.get("type") in (
