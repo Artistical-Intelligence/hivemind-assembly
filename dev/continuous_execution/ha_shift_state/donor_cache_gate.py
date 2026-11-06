@@ -176,6 +176,8 @@ def verify_complete_inventory(candidate, inventory):
             raise InvalidIntake("inventory: inconsistent blob mode")
         if entry["size"] is not None and (type(entry["size"]) is not int or entry["size"] < 0):
             raise InvalidIntake("inventory: invalid source object size")
+        if entry["kind"] == "tree" and entry["size"] is not None:
+            raise InvalidIntake("inventory: tree entry must not declare a blob size")
         if path in required:
             if entry["kind"] != "blob" or entry["sha"] != required[path]:
                 raise InvalidIntake("inventory: pinned source blob mismatch")
