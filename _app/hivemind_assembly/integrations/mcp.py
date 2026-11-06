@@ -56,7 +56,7 @@ def _validate_source_text_mime(mime):
         raise Blocked("MCP source result has malformed MIME declaration")
     media = mime.split(";", 1)[0].strip().casefold()
     if (media != "application/json" and
-            re.fullmatch(r"text/[a-z0-9!#def inline_github_mcp_text(result, *, max_chars=240_000):^_.+-]+", media) is None):
+            re.fullmatch(r"text/[a-z0-9!#$&^_.+-]+", media) is None):
         raise Blocked("MCP source result declares non-text MIME content")
     charsets = set()
     for parameter in mime.split(";")[1:]:
