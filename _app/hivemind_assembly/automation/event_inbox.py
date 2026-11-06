@@ -289,7 +289,9 @@ class NativeEventInbox:
             if epoch != 0 or current["status"] != "queued":
                 raise ContractError("Native event reader has no live owner")
         elif (current["owner"] != route or current["status"] != "running"
-              or (epoch > 0 and current["lease_until"] <= time.time())):
+              or epoch <= 0 or current["lease_until"] <= time.time()):
+            # Epoch zero is reserved for a never-assigned queued task.
+            # An owner stamped onto epoch zero must not bypass lease checks.
             raise ContractError("Native event reader lost current Chat owner lease")
 
     def subscribe(self, task_id: str, thread: str, *,
