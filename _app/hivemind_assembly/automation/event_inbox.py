@@ -451,7 +451,8 @@ class NativeEventInbox:
                 thread: str, kind: str, summary: str,
                 verified: bool = False,
                 expected_task: tuple[str, str, int, str] | None = None,
-                expected_effect: tuple[str, int, str, float] | None = None) -> str:
+                expected_effect: tuple[str, int, str, float] | None = None,
+                expected_progress: tuple[int, int] | None = None) -> str:
         """Record one stable trigger and enqueue it for current subscribers.
 
         `verified` must be literal True from an authenticated native adapter;
@@ -509,6 +510,18 @@ class NativeEventInbox:
                     or not isinstance(observed_at, (int, float))
                     or not math.isfinite(observed_at) or observed_at < 0):
                 raise ContractError("Invalid observed watchdog effect clock")
+        if expected_progress is not None:
+            # An advisory based on two stale counts is not actual progress
+            # evidence. Validate the complete snapshot before touching SQL;
+            # only the deterministic local watchdog may use this extra fence.
+            if (expected_task is None or source != "watchdog"
+                    or verified is not True
+                    or not isinstance(expected_progress, tuple)
+                    or len(expected_progress) != 2
+                    or any(type(number) is not int or number < 0
+                           for number in expected_progress)):
+                raise ContractError("Invalid fenced watchdog progress snapshot")
+            observed_turns, observed_operations = expected_progress
         with self.store.tx() as db:
             if expected_task is not None:
                 current = db.execute(
@@ -540,6 +553,25 @@ class NativeEventInbox:
                             or (current["lease_until"] is not None
                                 and current["lease_until"] <= observed_at)
                         )):
+                    return "stale"
+            if expected_progress is not None:
+                # The initial scan's owner/epoch/status can stay unchanged
+                # while an executed operation or a new validated turn appears.
+                # Recheck BOTH actual counters in this same admission TX.
+                # Reject an obsolete stall signal without recording any
+                # trigger or delivery; the next scan takes a new baseline.
+                latest = db.execute(
+                    """SELECT
+                         (SELECT COUNT(*) FROM messages
+                          WHERE task_id=? AND route=? AND state='validated')
+                            AS turns,
+                         (SELECT COUNT(*) FROM operations
+                          WHERE task_id=? AND owner=? AND state='completed')
+                            AS operations""",
+                    (task_id, owner, task_id, owner),
+                ).fetchone()
+                if (latest["turns"] != observed_turns
+                        or latest["operations"] != observed_operations):
                     return "stale"
             prior = db.execute(
                 """SELECT id,thread,kind,summary FROM ha_event_trigger
