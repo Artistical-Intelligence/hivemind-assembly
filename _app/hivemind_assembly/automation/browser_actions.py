@@ -206,8 +206,22 @@ class BrowserActions:
                 await page.route('**/*', guard)
 
             page = await self.browser.service_page(profile, url, {urlsplit(origin).hostname}, prepare=prepare)
-            if origin_of(page.url) != origin:
-                raise Blocked('The page left the selected site; HA did not read another origin')
+            # service_page is awaited: the configured profile may have been
+            # revoked while the page was opening, or the page may have
+            # redirected before we could install its session record.
+            # Never grant a session based only on the pre-await check.
+            try:
+                self.known_profile(profile)
+                if origin_of(page.url) != origin:
+                    raise Blocked('The page left the selected site')
+            except (ContractError, Blocked):
+                # Do not orphan an unauthorized page in the real browser.
+                # Receipt handling remains uncertain and will not retry.
+                try:
+                    await page.close()
+                except Exception:
+                    pass
+                raise Blocked('Browser profile or site authorization changed while opening; no session was granted') from None
             self.sessions[session_id] = {'profile': profile, 'origin': origin, 'page': page,
                                          'snapshot': None, 'handles': {}}
             return {'session': session_id, 'profile': profile, 'origin': origin,
