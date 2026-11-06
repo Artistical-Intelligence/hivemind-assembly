@@ -14,6 +14,7 @@ See dev/continuous_execution/DEEPSEEK_HARNESS_INTEGRATION.md.
 from __future__ import annotations
 
 import json
+import math
 import time
 from collections.abc import Iterable
 
@@ -439,7 +440,8 @@ class NativeEventInbox:
     def receive(self, *, project_id: str, source: str, source_id: str,
                 thread: str, kind: str, summary: str,
                 verified: bool = False,
-                expected_task: tuple[str, str, int, str] | None = None) -> str:
+                expected_task: tuple[str, str, int, str] | None = None,
+                expected_effect: tuple[str, int, str, float] | None = None) -> str:
         """Record one stable trigger and enqueue it for current subscribers.
 
         `verified` is supplied ONLY by an authenticated native adapter, never
@@ -478,6 +480,24 @@ class NativeEventInbox:
             if type(epoch) is not int or epoch < 0:
                 raise ContractError("Invalid observed watchdog epoch")
             _bounded(status, "observed watchdog status", 64)
+        if expected_effect is not None:
+            # A health-scan snapshot is not proof the browser effect remains
+            # unresolved when its advisory is admitted. Fence the exact
+            # effect generation and state inside the event write transaction.
+            if (expected_task is None or source != "watchdog" or not verified
+                    or not isinstance(expected_effect, tuple)
+                    or len(expected_effect) != 4):
+                raise ContractError("Invalid fenced watchdog effect admission")
+            effect_key, generation, effect_status, observed_at = expected_effect
+            _bounded(effect_key, "observed watchdog effect key", 180)
+            if type(generation) is not int or generation < 0:
+                raise ContractError("Invalid observed watchdog effect generation")
+            if effect_status not in ("uncertain", "leased"):
+                raise ContractError("Invalid observed watchdog effect status")
+            if (isinstance(observed_at, bool)
+                    or not isinstance(observed_at, (int, float))
+                    or not math.isfinite(observed_at) or observed_at < 0):
+                raise ContractError("Invalid observed watchdog effect clock")
         with self.store.tx() as db:
             if expected_task is not None:
                 current = db.execute(
@@ -491,6 +511,24 @@ class NativeEventInbox:
                         or current["status"] != status
                         or status in ("paused", "cancelled", "accepted",
                                       "awaiting_acceptance")):
+                    return "stale"
+            if expected_effect is not None:
+                effect = db.execute(
+                    """SELECT project_id,generation,status,lease_until
+                       FROM ha_native_effect WHERE task_id=? AND effect_key=?""",
+                    (task_id, effect_key),
+                ).fetchone()
+                if (effect is None or effect["project_id"] != project_id
+                        or effect["generation"] != generation
+                        or effect["status"] != effect_status):
+                    return "stale"
+                if (effect_status == "leased"
+                        and not (
+                            (effect["lease_until"] is not None
+                             and effect["lease_until"] <= observed_at)
+                            or (current["lease_until"] is not None
+                                and current["lease_until"] <= observed_at)
+                        )):
                     return "stale"
             prior = db.execute(
                 """SELECT id,thread,kind,summary FROM ha_event_trigger
