@@ -600,20 +600,22 @@ class NativeEventInbox:
                    ORDER BY e.id LIMIT ?""",
                 (task_id, task["project_id"], limit),
             ).fetchall()
+            # Build the read-only envelope inside the same fenced transaction,
+            # not after releasing its lock. A long materialization must not
+            # leak event summaries after the owning worker's lease expires.
+            events = [{"event_id": row["id"], "source": row["source"],
+                       "source_id": row["source_id"], "thread": row["thread"],
+                       "kind": row["kind"], "summary": row["summary"],
+                       "arrived": row["arrived"]} for row in rows]
             if route is not None:
-                # Event cursor hydration and the final SELECT may cross the
-                # lease deadline even without a competing SQLite writer.
-                # Revalidate after both, while the same read/write TX still
-                # holds the event and task state; never return source data to
-                # a route whose native ownership lease has since expired.
+                # Backfill, SELECT and envelope assembly can all span the
+                # lease deadline, even with no intervening database writer.
+                # Reject and roll back before returning any scoped data.
                 self._require_current_native_reader(
                     db, task_id, task["project_id"], route, epoch
                 )
         # Summaries are facts/data, not source instructions or permission grants.
-        return [{"event_id": row["id"], "source": row["source"],
-                 "source_id": row["source_id"], "thread": row["thread"],
-                 "kind": row["kind"], "summary": row["summary"],
-                 "arrived": row["arrived"]} for row in rows]
+        return events
 
     def acknowledge(self, task_id: str, event_ids: Iterable[int]) -> int:
         self.store.task(task_id)
