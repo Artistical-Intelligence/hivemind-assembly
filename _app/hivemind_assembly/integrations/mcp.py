@@ -211,6 +211,26 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 "mimeType" in value or "mime_type" in value
             ):
                 raise Blocked("MCP source result includes encoded media data")
+            # Encoded file payloads sometimes arrive through structured
+            # metadata without a MIME type or MCP resource wrapper. A
+            # base64/hex/etc representation is not an inline source read.
+            # Reject encoded bytes even when the wrapper lacks an explicit
+            # URI, rather than letting a pseudo-text file slip through.
+            if any(name in value for name in (
+                "base64", "base64Data", "base64_data",
+                "base64Content", "base64_content",
+            )):
+                raise Blocked("MCP source result includes encoded file content")
+            for name in ("encoding", "contentEncoding", "content_encoding"):
+                if name in value:
+                    encoding = value[name]
+                    if (not isinstance(encoding, str) or
+                            encoding.strip().lower() in (
+                                "base64", "base64url", "base64-url", "hex",
+                                "binary", "gzip", "deflate", "utf-16",
+                                "utf-16le", "utf-16be", "utf-32",
+                            )):
+                        raise Blocked("MCP source result declares encoded non-UTF-8 content")
             # An embedded resource may be represented as a bare descriptor
             # (without type=resource) in arbitrary structured metadata.
             # Reject it instead of returning an attachment-capable URI or
