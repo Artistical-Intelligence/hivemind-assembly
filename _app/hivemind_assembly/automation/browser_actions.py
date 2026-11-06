@@ -82,6 +82,22 @@ class BrowserActions:
         except OSError:
             pass
 
+    @staticmethod
+    def require_session_origin(session):
+        """Invalidate saved DOM authority if the page leaves its authorized origin.
+
+        Navigation can occur between awaited DOM inspections. A previous
+        snapshot/ref never authorizes a later action on a different site.
+        """
+        try:
+            permitted = origin_of(session['page'].url) == session['origin']
+        except (ContractError, AttributeError, KeyError, TypeError):
+            permitted = False
+        if not permitted:
+            session['snapshot'] = None
+            session['handles'] = {}
+            raise Blocked('The page left its authorized site. Refresh authorization before any browser action.')
+
     def known_profile(self, profile):
         profiles = {route['profile'] for route in self.browser.config['routes'].values()}
         if profile not in profiles:
@@ -193,20 +209,24 @@ class BrowserActions:
                 await page.close()
                 self.sessions.pop(data['session'], None)
                 return {'session': data['session'], 'outcome': 'closed'}
-            if origin_of(page.url) != session['origin']:
-                raise Blocked('The page left its authorized site. No action was performed.')
+            self.require_session_origin(session)
             if action == 'read':
+                # A prior ref ceases to be valid as soon as a new read starts.
+                session['snapshot'] = None
+                session['handles'] = {}
                 for handle, _ in session['handles'].values():
                     await handle.dispose()
                 await page.locator('[data-ha-ref]').evaluate_all("es=>es.forEach(e=>e.removeAttribute('data-ha-ref'))")
                 await page.evaluate(self.scripts['stable'])
                 text = await page.evaluate(self.scripts['snapshot'])
+                self.require_session_origin(session)
                 handles = {}
                 for element in await page.locator('[data-ha-ref]').element_handles():
                     ref = await element.get_attribute('data-ha-ref')
                     if ref in handles:
                         raise Blocked('The page contains ambiguous action references; HA will not choose one')
                     handles[ref] = (element, await element.evaluate(IDENTITY))
+                self.require_session_origin(session)
                 snapshot = secrets.token_hex(16)
                 session.update(snapshot=snapshot, handles=handles)
                 return {'session': data['session'], 'snapshot': snapshot,
@@ -219,6 +239,7 @@ class BrowserActions:
                 raise ContractError('Choose one element reference from the current page snapshot')
             element, expected = session['handles'][ref]
             identity = await element.evaluate(IDENTITY)
+            self.require_session_origin(session)
             if not identity['connected'] or identity != expected:
                 raise Blocked('The selected element changed; no action was performed')
             if not await element.is_visible() or not await element.is_enabled():
@@ -226,6 +247,9 @@ class BrowserActions:
             metadata = await element.evaluate("e=>[e.type,e.name,e.id,e.getAttribute('autocomplete'),e.getAttribute('aria-label'),e.getAttribute('placeholder'),...[...(e.labels||[])].map(l=>l.textContent)].filter(Boolean).join(' ')")
             if SENSITIVE.search(metadata):
                 raise Blocked('Complete credentials or verification directly in the website; HA does not fill or return those values')
+            # A page may have navigated during element/metadata inspection.
+            # Do not dispatch a click or fill based on a different site's DOM.
+            self.require_session_origin(session)
             session['snapshot'] = None
             if action == 'fill':
                 value = data.get('value')
