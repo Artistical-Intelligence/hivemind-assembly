@@ -17,6 +17,7 @@ from .browser_engine.outcomes import ReachError, envelope, BAD_INPUT, TIMEOUT
 from .browser_engine.redaction import scrub_url_credentials
 from .browser_engine.session_trust import live_browser_session
 from .browser_engine.dispatch_fence import fenced_browser_dispatch
+from .browser_engine.element_refs import ElementInspectionError, collect_authorized_refs
 
 ENGINE = Path(__file__).with_name('browser_engine') / 'browser_scripts.json'
 # Never silently age out a completed browser-write receipt: a forgotten
@@ -256,13 +257,17 @@ class BrowserActions:
                 # The configured route may be revoked while snapshot evaluation
                 # was awaited; origin equality alone does not authorize reads.
                 self.require_current_browser_authority(session)
-                handles = {}
-                for element in await page.locator('[data-ha-ref]').element_handles():
-                    ref = await element.get_attribute('data-ha-ref')
-                    if ref in handles:
-                        raise Blocked('The page contains ambiguous action references; HA will not choose one')
-                    handles[ref] = (element, await element.evaluate(IDENTITY))
-                self.require_current_browser_authority(session)
+                # A profile may be revoked while Playwright gathers handles or
+                # while any individual ref/identity await is pending. Validate
+                # after each await, and dispose the entire batch on failure.
+                elements = await page.locator('[data-ha-ref]').element_handles()
+                try:
+                    handles = await collect_authorized_refs(
+                        elements, session, self.require_current_browser_authority, IDENTITY)
+                except ElementInspectionError as error:
+                    raise Blocked(str(error)) from None
+                # The helper's final authorization check and this assignment
+                # have no intervening await: validated handles transfer once.
                 snapshot = secrets.token_hex(16)
                 session.update(snapshot=snapshot, handles=handles)
                 return {'session': data['session'], 'snapshot': snapshot,
