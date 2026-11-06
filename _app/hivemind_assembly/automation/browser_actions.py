@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 from hivemind_assembly.core.common import Blocked, ContractError, Conflict, atomic_write, canonical, digest
 from .browser_engine.outcomes import ReachError, envelope, BAD_INPUT, TIMEOUT
 from .browser_engine.redaction import scrub_url_credentials
+from .browser_engine.session_trust import live_browser_session
 
 ENGINE = Path(__file__).with_name('browser_engine') / 'browser_scripts.json'
 # Never silently age out a completed browser-write receipt: a forgotten
@@ -67,7 +68,7 @@ class BrowserActions:
         return {'available': state == 'ready', 'engine': 'built_in',
                 'state': state,
                 'sessions': [{'id': key, 'profile': value['profile'], 'origin': value['origin'],
-                              'open': not value['page'].is_closed()}
+                              'open': live_browser_session(value, origin_of)}
                              for key, value in list(self.sessions.items())]}
 
     def save(self):
@@ -89,11 +90,7 @@ class BrowserActions:
         Navigation can occur between awaited DOM inspections. A previous
         snapshot/ref never authorizes a later action on a different site.
         """
-        try:
-            permitted = origin_of(session['page'].url) == session['origin']
-        except (ContractError, AttributeError, KeyError, TypeError):
-            permitted = False
-        if not permitted:
+        if not live_browser_session(session, origin_of):
             session['snapshot'] = None
             session['handles'] = {}
             raise Blocked('The page left its authorized site. Refresh authorization before any browser action.')
@@ -139,13 +136,11 @@ class BrowserActions:
                     # origin and profile; never portray an off-site page as
                     # an approved, reusable session.
                     try:
-                        live_open = bool(
-                            session and not session['page'].is_closed()
-                            and session['profile'] == data.get('profile')
-                            and session['origin'] == origin_of(data.get('url'))
-                            and session['origin'] == origin_of(session['page'].url)
-                        )
-                    except (ContractError, AttributeError, KeyError, TypeError):
+                        live_open = live_browser_session(
+                            session, origin_of,
+                            expected_profile=data.get('profile'),
+                            expected_origin=origin_of(data.get('url')))
+                    except ContractError:
                         live_open = False
                     if not live_open:
                         return envelope(channel='browser', action=action, error=ReachError(
