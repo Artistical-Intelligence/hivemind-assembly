@@ -43,6 +43,21 @@ def secret_forms(secret):
     return sorted({secret, *(f for f in forms if len(f) >= 8)}, key=len, reverse=True)
 
 
+def _plain_source_encoding(value):
+    """Accept only bounded, explicit plain-text/identity source encodings."""
+    if (not isinstance(value, str) or not 1 <= len(value) <= 64
+            or any(ord(char) < 32 or ord(char) == 127 for char in value)):
+        raise Blocked("MCP source result has malformed encoding declaration")
+    normalized = value.strip().casefold()
+    aliases = {
+        "utf8": "utf-8", "ascii": "us-ascii", "none": "identity",
+    }
+    normalized = aliases.get(normalized, normalized)
+    if normalized not in ("utf-8", "us-ascii", "identity"):
+        raise Blocked("MCP source result declares encoded or non-UTF-8 content")
+    return normalized
+
+
 def _validate_source_text_mime(mime):
     """Reject encoded/non-UTF8 MIME metadata even in nested structuredContent.
 
@@ -59,6 +74,7 @@ def _validate_source_text_mime(mime):
             re.fullmatch(r"text/[a-z0-9!#$&^_.+-]+", media) is None):
         raise Blocked("MCP source result declares non-text MIME content")
     charsets = set()
+    encoding_parameters = {}
     for parameter in mime.split(";")[1:]:
         field, separator, value = parameter.partition("=")
         field = field.strip().replace("-", "").replace("_", "").casefold()
@@ -69,10 +85,13 @@ def _validate_source_text_mime(mime):
             charsets.add("utf-8" if charset == "utf8" else charset)
         elif field in ("encoding", "contentencoding",
                        "transferencoding", "contenttransferencoding"):
-            encoding = value.strip().strip('"').casefold()
-            if (not separator or encoding not in
-                    ("utf-8", "utf8", "us-ascii", "ascii", "identity", "none")):
+            if not separator:
                 raise Blocked("MCP source result declares encoded MIME payload")
+            encoding = _plain_source_encoding(value.strip().strip('"'))
+            if (field in encoding_parameters and
+                    encoding_parameters[field] != encoding):
+                raise Blocked("MCP source result has conflicting MIME encoding aliases")
+            encoding_parameters[field] = encoding
     if len(charsets) > 1:
         raise Blocked("MCP source result has contradictory text charsets")
 
@@ -375,7 +394,7 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             for mime_key, declared in value.items():
                 if (not isinstance(mime_key, str) or
                         mime_key.replace("_", "").replace("-", "").casefold()
-                        != "mimetype"):
+                        not in ("mimetype", "contenttype", "mediatype")):
                     continue
                 if (not isinstance(declared, str) or len(declared) > 256
                         or any(ord(c) < 32 or ord(c) == 127 for c in declared)):
@@ -499,20 +518,24 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 "hexdata", "hexcontent", "binarydata",
             }:
                 raise Blocked("MCP source result includes encoded file content")
+            # Treat separate structured metadata encoding fields exactly as
+            # MIME parameters: nested transfer encodings are not safe just
+            # because sibling text has been normalized. Check every spelling
+            # of each alias, including mixed-case/underscore/hyphen variants.
+            encoding_declarations = {}
             for key, encoding in value.items():
-                if (not isinstance(key, str) or
-                        key.replace("_", "").replace("-", "").casefold()
-                        not in ("encoding", "contentencoding")):
+                if not isinstance(key, str):
                     continue
-                # Whitelist only explicit plain-text encodings. A
-                # blacklist would allow binary, compressed or legacy
-                # encodings under mixed-case and separator aliases.
-                if (not isinstance(encoding, str) or
-                        encoding.strip().lower() not in (
-                            "utf-8", "utf8", "us-ascii", "ascii",
-                            "identity", "none",
-                        )):
-                    raise Blocked("MCP source result declares non-UTF-8 encoding")
+                normalized_key = key.replace("_", "").replace("-", "").casefold()
+                if normalized_key not in (
+                        "encoding", "contentencoding", "transferencoding",
+                        "contenttransferencoding"):
+                    continue
+                declared_encoding = _plain_source_encoding(encoding)
+                if (normalized_key in encoding_declarations and
+                        encoding_declarations[normalized_key] != declared_encoding):
+                    raise Blocked("MCP source result has conflicting encoding aliases")
+                encoding_declarations[normalized_key] = declared_encoding
             # An embedded resource may be represented as a bare descriptor
             # (without type=resource) in arbitrary structured metadata.
             # Reject it instead of returning an attachment-capable URI or
