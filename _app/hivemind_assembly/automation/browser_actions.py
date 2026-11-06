@@ -211,10 +211,12 @@ class BrowserActions:
                 return {'session': data['session'], 'outcome': 'closed'}
             self.require_session_origin(session)
             if action == 'read':
-                # A prior ref ceases to be valid as soon as a new read starts.
+                # Invalidate old refs before awaiting DOM work, while still
+                # disposing the old element handles instead of dropping them.
+                prior_handles = session['handles']
                 session['snapshot'] = None
                 session['handles'] = {}
-                for handle, _ in session['handles'].values():
+                for handle, _ in prior_handles.values():
                     await handle.dispose()
                 await page.locator('[data-ha-ref]').evaluate_all("es=>es.forEach(e=>e.removeAttribute('data-ha-ref'))")
                 await page.evaluate(self.scripts['stable'])
