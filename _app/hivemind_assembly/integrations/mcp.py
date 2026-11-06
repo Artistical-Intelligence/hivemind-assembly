@@ -91,6 +91,13 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                     )
                 if "uri" in resource and not isinstance(resource["uri"], str):
                     raise Blocked("MCP embedded source URI is invalid")
+                # A producer may expose both SDK and snake_case MIME keys.
+                # Never pick one and discard a contradictory declaration:
+                # doing so could hide a binary/legacy-charset payload under
+                # otherwise acceptable inline text.
+                if ("mimeType" in resource and "mime_type" in resource
+                        and resource["mimeType"] != resource["mime_type"]):
+                    raise Blocked("MCP embedded source has conflicting MIME declarations")
                 mime = resource.get("mimeType", resource.get("mime_type", ""))
                 value = resource.get("text")
                 if (not isinstance(mime, str)
@@ -312,7 +319,10 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             # from an attachable resource descriptor, so reject it for
             # source-file reads rather than letting it escape normalization.
             # Inline text resources already discard their URI on conversion.
-            if isinstance(value.get("uri"), str):
+            if "uri" in value:
+                # URI descriptors may be objects, arrays or null as well as
+                # strings. None of these is an inline source-text block, and
+                # an unknown wrapper must not bypass the resource/link gate.
                 raise Blocked("MCP source result includes an unconverted resource URI")
             for child in value.values():
                 reject_remaining_media(child, depth + 1)
