@@ -23,6 +23,21 @@ _STATES_WITHOUT_ACTION = frozenset({
     "waiting_setup", "waiting_quota", "waiting_signin",
 })
 
+
+def _require_allowed_owners(allowed_owners: frozenset[str] | None) -> None:
+    """Fail closed on ambiguous owner filters before any watchdog scan.
+
+    None means no owner restriction; an empty frozenset deliberately selects
+    no owners. Match the native inbox's owner-allowlist contract to prevent
+    substring matches on strings or accidental iterable coercion.
+    """
+    if (allowed_owners is not None
+            and (not isinstance(allowed_owners, frozenset)
+                 or any(not isinstance(owner, str) or not owner
+                        for owner in allowed_owners))):
+        raise ContractError("Invalid watchdog owner allowlist")
+
+
 _SCHEMA = """CREATE TABLE IF NOT EXISTS ha_progress_watch(
     task_id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL,
@@ -77,6 +92,7 @@ class ProgressWatchdog:
         native Chat event turn initializes its durable bridge. They remain
         valid and simply have no delivery-health events to inspect.
         """
+        _require_allowed_owners(allowed_owners)
         self.store.project(project_id)
         try:
             current = time.time() if now is None else float(now)
@@ -154,6 +170,7 @@ class ProgressWatchdog:
     def scan(self, project_id: str, *, threshold: int = 3,
              cooldown_seconds: float = 300, now: float | None = None,
              allowed_owners: frozenset[str] | None = None) -> list[dict]:
+        _require_allowed_owners(allowed_owners)
         self.store.project(project_id)
         if not isinstance(threshold, int) or isinstance(threshold, bool) or threshold < 2:
             raise ContractError("Watchdog threshold must be at least two completed model turns")
