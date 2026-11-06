@@ -298,7 +298,8 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 count_output_string(key)
             if value.get("type") in (
                 "resource", "resource_link", "image", "audio",
-                "file", "attachment",
+                "file", "attachment", "artifact", "download",
+                "binary", "blob",
             ):
                 raise Blocked(
                     "MCP source result includes an unconverted resource or media "
