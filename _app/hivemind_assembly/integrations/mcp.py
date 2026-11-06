@@ -232,6 +232,29 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 "mimeType" in value or "mime_type" in value
             ):
                 raise Blocked("MCP source result includes encoded media data")
+            # Third-party servers can wrap a downloadable file in a
+            # structuredContent.file/attachment/artifact object instead of
+            # the standard MCP resource block. Refuse such descriptors before
+            # they can escape as ordinary-looking source metadata.
+            for name in (
+                "file", "attachment", "artifact",
+                "files", "attachments", "artifacts",
+            ):
+                descriptor = value.get(name)
+                if (isinstance(descriptor, (dict, list)) or
+                        (isinstance(descriptor, str) and
+                         re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", descriptor))):
+                    raise Blocked(
+                        "MCP source result includes an unconverted file descriptor"
+                    )
+            # A MIME-typed URL/href is another resource descriptor even when
+            # its producer does not use an MCP resource/link field name.
+            # Preserve ordinary metadata such as documentation_url.
+            if (("url" in value or "href" in value) and
+                    ("mimeType" in value or "mime_type" in value)):
+                raise Blocked(
+                    "MCP source result includes an unconverted typed resource URL"
+                )
             # Encoded file payloads sometimes arrive through structured
             # metadata without a MIME type or MCP resource wrapper. A
             # base64/hex/etc representation is not an inline source read.
