@@ -65,10 +65,14 @@ class BrowserActions:
     def status(self):
         state = ('receipts_need_recovery' if self.receipts_error else
                  'reconciliation_required' if len(self.receipts) >= MAX_RETAINED_RECEIPTS else 'ready')
+        try:
+            profiles = {route['profile'] for route in self.browser.config['routes'].values()}
+        except (AttributeError, KeyError, TypeError):
+            profiles = set()
         return {'available': state == 'ready', 'engine': 'built_in',
                 'state': state,
                 'sessions': [{'id': key, 'profile': value['profile'], 'origin': value['origin'],
-                              'open': live_browser_session(value, origin_of)}
+                              'open': value.get('profile') in profiles and live_browser_session(value, origin_of)}
                              for key, value in list(self.sessions.items())]}
 
     def save(self):
@@ -136,11 +140,14 @@ class BrowserActions:
                     # origin and profile; never portray an off-site page as
                     # an approved, reusable session.
                     try:
+                        # A profile removed from current routes is no longer
+                        # authorized merely because its old page stays open.
+                        self.known_profile(data.get('profile'))
                         live_open = live_browser_session(
                             session, origin_of,
                             expected_profile=data.get('profile'),
                             expected_origin=origin_of(data.get('url')))
-                    except ContractError:
+                    except (ContractError, AttributeError, KeyError, TypeError):
                         live_open = False
                     if not live_open:
                         return envelope(channel='browser', action=action, error=ReachError(
