@@ -19,7 +19,7 @@ from .browser_engine.session_trust import live_browser_session
 from .browser_engine.route_binding import profile_route_binding, bound_route_is_current
 from .browser_engine.route_policy import route_policy_fingerprint, route_policy_is_current
 from .browser_engine.dispatch_fence import fenced_browser_dispatch
-from .browser_engine.element_refs import ElementInspectionError, collect_authorized_refs
+from .browser_engine.element_refs import ElementInspectionError, collect_authorized_refs, require_bounded_snapshot
 from .browser_engine.action_inspection import ActionInspectionError, inspect_action_target
 from .browser_engine.url_origin import canonical_https_origin
 
@@ -293,6 +293,12 @@ class BrowserActions:
                 # The configured route may be revoked while snapshot evaluation
                 # was awaited; origin equality alone does not authorize reads.
                 self.require_current_browser_authority(session)
+                # Reject pathological or malformed snapshots before returning
+                # text or allocating action refs. Never return a partial DOM.
+                try:
+                    text = require_bounded_snapshot(text)
+                except ElementInspectionError as error:
+                    raise Blocked(str(error)) from None
                 # A profile may be revoked while Playwright gathers handles or
                 # while any individual ref/identity await is pending. Validate
                 # after each await, and dispose the entire batch on failure.
