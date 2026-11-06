@@ -133,12 +133,15 @@ def test_cached_open_receipt_requires_live_original_session_even_after_restart(t
 
     class Page:
         closed = False
+        url = "https://example.invalid/setup"
 
         def is_closed(self):
             return self.closed
 
     page = Page()
-    actions.sessions["session-already-opened"] = {"page": page}
+    actions.sessions["session-already-opened"] = {
+        "page": page, "profile": "fixture", "origin": "https://example.invalid"
+    }
     dispatched = []
 
     async def forbidden_dispatch(data):
@@ -159,4 +162,61 @@ def test_cached_open_receipt_requires_live_original_session_even_after_restart(t
     restarted = asyncio.run(restored.run(request))
     assert restarted["ok"] is False
     assert restarted["error"]["code"] == "NEED_ATTENTION"
+    assert dispatched == []
+
+
+
+def test_completed_open_does_not_replay_after_off_origin_navigation(tmp_path):
+    """A still-open page is not proof its prior origin authorization survives."""
+    request = {
+        "action": "open", "operation_id": "open-origin-fence-001",
+        "profile": "fixture", "url": "https://example.invalid/setup"
+    }
+    receipt = _completed(request, outcome="opened")
+    receipt["result"]["items"][0]["session"] = "session-origin-fence"
+
+    class Page:
+        url = "https://example.invalid/setup"
+        def is_closed(self):
+            return False
+
+    page = Page()
+    actions = BrowserActions(_NotARealBrowser(), tmp_path)
+    actions.receipts[request["operation_id"]] = receipt
+    actions.sessions["session-origin-fence"] = {
+        "page": page, "origin": "https://example.invalid", "profile": "fixture"
+    }
+    actions.save()
+    dispatched = []
+
+    async def forbidden_dispatch(data):
+        dispatched.append(data)
+        raise AssertionError("cached open operation was unexpectedly reissued")
+
+    actions._run = forbidden_dispatch
+    assert asyncio.run(actions.run(request)) == receipt["result"]
+
+    # Same-origin navigation remains reusable.
+    page.url = "https://example.invalid/another-page"
+    assert asyncio.run(actions.run(request)) == receipt["result"]
+
+    # A live but redirected page is not the authorized old browser page.
+    for invalid in (
+        "https://other.invalid/redirected",
+        "http://example.invalid/insecure",
+        "https://user:password@example.invalid/",
+    ):
+        page.url = invalid
+        response = asyncio.run(actions.run(request))
+        assert response["ok"] is False
+        assert response["error"]["code"] == "NEED_ATTENTION"
+
+    page.url = "https://example.invalid/setup"
+    actions.sessions["session-origin-fence"]["profile"] = "different-profile"
+    rejected = asyncio.run(actions.run(request))
+    assert rejected["error"]["code"] == "NEED_ATTENTION"
+    actions.sessions["session-origin-fence"]["profile"] = "fixture"
+    actions.sessions["session-origin-fence"]["origin"] = "https://other.invalid"
+    rejected = asyncio.run(actions.run(request))
+    assert rejected["error"]["code"] == "NEED_ATTENTION"
     assert dispatched == []
