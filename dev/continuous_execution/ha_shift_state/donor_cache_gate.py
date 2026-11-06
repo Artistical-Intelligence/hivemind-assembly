@@ -17,6 +17,8 @@ SHA1 = re.compile(r"[0-9a-f]{40}\Z")
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 REPO = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*\Z")
 OPT = re.compile(r"[A-Z][A-Z0-9_]*\Z")
+# Win32 device basenames resolve specially even when given a file extension.
+WINDEV = re.compile(r"(?:CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])\Z", re.IGNORECASE)
 MAX_OBJECTS = 4096
 
 
@@ -45,9 +47,15 @@ def _hex(value, pattern, where):
 
 def _path(value, where):
     value = _text(value, where, 1024)
+    parts = value.split("/")
     if ("\\" in value or ":" in value or value.startswith("/")
-            or any(part in ("", ".", "..") for part in value.split("/"))):
+            or any(part in ("", ".", "..") for part in parts)):
         raise InvalidIntake(f"{where}: unsafe relative path")
+    # Avoid divergent cache/source identities across Linux and Windows hosts:
+    # Win32 collapses trailing dot/space and reserves device names.
+    if any(part.endswith((" ", ".")) or WINDEV.fullmatch(part.split(".", 1)[0])
+           for part in parts):
+        raise InvalidIntake(f"{where}: nonportable Windows source path")
     return value
 
 
@@ -144,17 +152,20 @@ def verify_complete_inventory(candidate, inventory):
         raise InvalidIntake("inventory: missing or excessive source entries")
     required = {obj["path"]: obj["blob_sha"] for obj in c["source_objects"]}
     required[c["license"]["path"]] = c["license"]["blob_sha"]
-    found, seen = set(), set()
+    found, seen, by_path = set(), set(), {}
     for entry in entries:
         _record(entry, "inventory.entry", [
             "path", "sha", "kind", "mode", "size", "submodule", "symlink",
         ])
         path = _path(entry["path"], "inventory.path")
         _hex(entry["sha"], SHA1, "inventory.entry.sha")
+        if type(entry["submodule"]) is not bool or type(entry["symlink"]) is not bool:
+            raise InvalidIntake("inventory: source flags must be Boolean")
         lowered = path.casefold()
         if lowered in seen:
             raise InvalidIntake("inventory: duplicate/case-colliding source paths")
         seen.add(lowered)
+        by_path[path] = (entry["kind"], entry["mode"])
         if entry["kind"] == "commit" or entry["mode"] in ("160000", "120000") or entry["submodule"] is True or entry["symlink"] is True:
             raise InvalidIntake("inventory: unresolved submodule or symlink source")
         if entry["kind"] not in ("tree", "blob") or entry["mode"] not in ("040000", "100644", "100755"):
@@ -169,6 +180,13 @@ def verify_complete_inventory(candidate, inventory):
             if entry["kind"] != "blob" or entry["sha"] != required[path]:
                 raise InvalidIntake("inventory: pinned source blob mismatch")
             found.add(path)
+    # A complete Git tree listing must contain the tree entries for every
+    # nested source path. Reject orphaned blobs and a file posing as a parent.
+    for path in by_path:
+        parts = path.split("/")
+        for depth in range(1, len(parts)):
+            if by_path.get("/".join(parts[:depth])) != ("tree", "040000"):
+                raise InvalidIntake("inventory: missing or non-tree source parent")
     if len(found) != len(required):
         raise InvalidIntake("inventory: missing required public source objects")
     return {"source_paths_verified": len(found), "complete_inventory": True,
