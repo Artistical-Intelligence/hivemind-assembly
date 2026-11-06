@@ -384,8 +384,11 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                         "MCP source result includes an unconverted resource or media "
                         "block. No automatic attachment materialization."
                     )
+            # All MIME-label aliases represent the same resource-content
+            # contract. Do not reject blob/data only when named mimeType:
+            # contentType/mediaType can otherwise smuggle a typed payload.
             if ({"blob", "data"} & normalized_keys and
-                    "mimetype" in normalized_keys):
+                    {"mimetype", "contenttype", "mediatype"} & normalized_keys):
                 raise Blocked("MCP source result includes encoded media data")
             # MIME metadata is untrusted even outside an embedded resource.
             # Reject malformed controls and excessive declarations anywhere
