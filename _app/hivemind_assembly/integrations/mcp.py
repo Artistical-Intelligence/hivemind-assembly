@@ -569,7 +569,10 @@ class Connections:
         return value["token"]
 
     def authorize(self, server, tool, project):
-        spec = self.settings()["servers"].get(server)
+        cfg = self.settings()
+        if cfg.get("enabled") is False:
+            raise Blocked("MCP access is disabled")
+        spec = cfg["servers"].get(server)
         if (
             not spec
             or tool not in spec.get("tools", [])
@@ -665,7 +668,11 @@ class Connections:
         if not spec:
             raise Blocked("MCP connection is not configured")
         if tool is not None:
-            self.authorize(server, tool, project)
+            # A request must use the same endpoint and permission snapshot
+            # that was approved. A concurrent connection edit must not let
+            # an old project grant authorize a replacement server.
+            if self.authorize(server, tool, project) != spec:
+                raise Blocked("MCP authorization changed before dispatch")
         secret = None
         oauth_storage = None
         if spec["transport"] == "http":
@@ -734,6 +741,10 @@ class Connections:
                         if cursor in seen:
                             raise Blocked("MCP discovery repeated a cursor")
                         seen.add(cursor)
+                    # Do not cache a stale tool inventory when the owner
+                    # replaces this connection during remote discovery.
+                    if self.settings()["servers"].get(server) != spec:
+                        raise Blocked("MCP connection changed during discovery")
                     if secret:
                         inventory = redact(inventory, [secret])
                     if oauth_storage:
@@ -761,6 +772,11 @@ class Connections:
                 # resource link during ordinary repository source reads.
                 if inline_source_read_tool(tool):
                     value = inline_github_mcp_text(value)
+                # Recheck after the await, before exposing remote results:
+                # revocation, project removal or endpoint replacement while
+                # the request was in flight must fail closed.
+                if self.authorize(server, tool, project) != spec:
+                    raise Blocked("MCP authorization changed during request")
                 if oauth_storage:
                     oauth_storage.check()
                     value = oauth_storage.redact(value)
