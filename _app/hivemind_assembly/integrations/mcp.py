@@ -78,6 +78,18 @@ def _validate_source_text_mime(mime):
     for parameter in mime.split(";")[1:]:
         field, separator, value = parameter.partition("=")
         field = field.strip().replace("-", "").replace("_", "").casefold()
+        # RFC 2231 supports charset*= and split charset*0*=/charset*1*=
+        # parameters. A MIME reader may decode these into the effective
+        # charset even when the simple field name is absent. A remote MCP
+        # source must not hide non-UTF-8 or encoded metadata this way.
+        # Refuse extended charset/transfer declarations, including
+        # continuations, instead of silently treating them as harmless.
+        if "*" in field and field.split("*", 1)[0] in (
+                "charset", "encoding", "contentencoding",
+                "transferencoding", "contenttransferencoding"):
+            raise Blocked(
+                "MCP source result has an extended charset or encoding parameter"
+            )
         if field == "charset":
             charset = value.strip().strip('"').casefold()
             if not separator or charset not in ("utf-8", "utf8", "us-ascii"):
