@@ -13,6 +13,7 @@ import re
 
 from hivemind_assembly.core.common import Blocked, ContractError
 from .github_public_source_inventory import GitHubPublicSourceInventory
+from .github_public_source_text import GitHubPublicSourceText
 
 
 class GitHubPublicSubmoduleVerify:
@@ -76,6 +77,38 @@ class GitHubPublicSubmoduleVerify:
         ).hexdigest()
         return f"{parent_owner}/{parent_repo}", parent_commit.lower(), selected, fingerprint
 
+    def _verify_parent_mapping(self, mapping, parent, parent_sha, selected):
+        """Bind the supplied Gitlinks and URLs to the actual pinned parent tree.
+
+        The one explicitly allowed source-text read is pinned `.gitmodules`;
+        all other operations read public Git commit/tree metadata only.
+        """
+        owner, repository = parent.split("/")
+        pin = self.inventory.pin(owner, repository, ref=parent_sha)
+        if pin.get("commit_sha") != parent_sha:
+            raise Blocked("Parent public commit differs from the pinned mapping")
+        manifest = self.inventory.fast_manifest(pin)
+        if manifest.get("complete") is not True:
+            raise Blocked("Public parent Git tree inventory is incomplete")
+        records = manifest.get("entries")
+        if not isinstance(records, list):
+            raise Blocked("Public parent Git tree is malformed")
+        gitlinks = [item for item in records if item.get("submodule") is True]
+        gitmodules = [item for item in records if item.get("path") == ".gitmodules"]
+        if len(gitmodules) > 1 or len(gitlinks) > self.MAX_SUBMODULES:
+            raise Blocked("Public parent Git tree contains inconsistent submodule metadata")
+        module_entry = gitmodules[0] if gitmodules else None
+        canonical = GitHubPublicSourceText(http=self.inventory.http).submodule_pins(
+            pin, module_entry, gitlinks
+        )
+        expected = {(p, r, s) for p, r, s in selected}
+        actual = {(item["path"], item["repository"], item["commit_sha"])
+                  for item in canonical["submodules"]}
+        if (len(expected) != len(selected) or expected != actual
+                or canonical.get("gitmodules_sha256") != mapping.get("gitmodules_sha256")):
+            raise Blocked("Public Gitlink mapping does not match the pinned parent source")
+        return canonical.get("gitmodules_sha256")
+
     def page(self, mapping, *, cursor=None, limit=4):
         """Verify at most eight mapped public commit identities per invocation.
 
@@ -94,6 +127,9 @@ class GitHubPublicSubmoduleVerify:
             offset = cursor["index"]
         else:
             raise Blocked("Submodule verification cursor is stale or inconsistent")
+        parent_gitmodules_sha = self._verify_parent_mapping(
+            mapping, parent, parent_commit, selected
+        )
         verified = []
         for path, remote, sha in selected[offset:offset + limit]:
             owner, repo = remote.split("/")
@@ -108,6 +144,7 @@ class GitHubPublicSubmoduleVerify:
                 "source_url": f"https://github.com/{remote}/tree/{sha}",
                 "license_spdx_metadata": pinned.get("license_spdx_metadata"),
                 "gitlink_commit_verified": True,
+                "parent_gitlink_mapping_verified": True,
                 "source_bytes_verified": False,
                 "full_tree_inventory_verified": False,
                 "nested_submodules_verified": False,
@@ -123,6 +160,8 @@ class GitHubPublicSubmoduleVerify:
             "next_cursor": (None if next_index == len(selected)
                             else {"index": next_index, "fingerprint": fingerprint}),
             "verified_count": len(verified),
-            "max_public_metadata_requests": 2 * len(verified),
-            "source_bytes_fetched": 0,
+            "parent_gitmodules_sha256": parent_gitmodules_sha,
+            "parent_gitmodules_text_verified": parent_gitmodules_sha is not None,
+            "max_public_requests": 4 + 2 * len(verified),
+            "donor_binary_or_archive_fetched": False,
         }
