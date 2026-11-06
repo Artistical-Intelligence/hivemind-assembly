@@ -555,3 +555,13 @@ from test_ha_event_receipt_scope import (  # noqa: E402
     test_validated_native_effect_rejects_bad_modern_owner_binding,
     test_validated_native_effect_rejects_extra_same_project_event,
 )
+
+
+# Preserve no-Actions owner override: this import only makes the new adversarial
+# uncertain-recovery cases discoverable by the existing focused test command.
+# CHECKS PENDING / AWAITING CI; no runner or provider acceptance is claimed.
+from test_ha_event_uncertain_reconciliation import (  # noqa: E402
+    uncertain_delivery,
+    test_uncertain_reconciliation_rejects_mismatched_retained_request,
+    test_uncertain_reconciliation_accepts_one_exact_current_owner_packet,
+)
