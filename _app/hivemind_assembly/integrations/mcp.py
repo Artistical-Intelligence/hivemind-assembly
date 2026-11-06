@@ -455,23 +455,28 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             # base64/hex/etc representation is not an inline source read.
             # Reject encoded bytes even when the wrapper lacks an explicit
             # URI, rather than letting a pseudo-text file slip through.
-            if any(name in value for name in (
-                "base64", "base64Data", "base64_data",
-                "base64Content", "base64_content",
-            )):
+            # JSON metadata key names are untrusted: BASE64_DATA and
+            # Content-Encoding=gzip are encoded payloads even when the
+            # source has a safe-looking sibling text field.
+            if normalized_keys & {
+                "base64", "base64data", "base64content", "base64encoded",
+                "hexdata", "hexcontent", "binarydata",
+            }:
                 raise Blocked("MCP source result includes encoded file content")
-            for name in ("encoding", "contentEncoding", "content_encoding"):
-                if name in value:
-                    encoding = value[name]
-                    # Whitelist only explicit plain-text encodings. A
-                    # blacklist would let uncommon spellings of binary,
-                    # legacy charset, or compression modes pass through.
-                    if (not isinstance(encoding, str) or
-                            encoding.strip().lower() not in (
-                                "utf-8", "utf8", "us-ascii", "ascii",
-                                "identity", "none",
-                            )):
-                        raise Blocked("MCP source result declares non-UTF-8 encoding")
+            for key, encoding in value.items():
+                if (not isinstance(key, str) or
+                        key.replace("_", "").replace("-", "").casefold()
+                        not in ("encoding", "contentencoding")):
+                    continue
+                # Whitelist only explicit plain-text encodings. A
+                # blacklist would allow binary, compressed or legacy
+                # encodings under mixed-case and separator aliases.
+                if (not isinstance(encoding, str) or
+                        encoding.strip().lower() not in (
+                            "utf-8", "utf8", "us-ascii", "ascii",
+                            "identity", "none",
+                        )):
+                    raise Blocked("MCP source result declares non-UTF-8 encoding")
             # An embedded resource may be represented as a bare descriptor
             # (without type=resource) in arbitrary structured metadata.
             # Reject it instead of returning an attachment-capable URI or
