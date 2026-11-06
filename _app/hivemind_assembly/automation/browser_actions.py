@@ -23,6 +23,7 @@ from .browser_engine.element_refs import ElementInspectionError, collect_authori
 from .browser_engine.action_inspection import ActionInspectionError, inspect_action_target
 from .browser_engine.control_summaries import ControlSummaryError
 from .browser_engine.snapshot_publication import publish_authorized_snapshot
+from .browser_engine.cancellation_receipt import uncertain_on_cancellation
 from .browser_engine.url_origin import canonical_https_origin
 
 ENGINE = Path(__file__).with_name('browser_engine') / 'browser_scripts.json'
@@ -202,7 +203,10 @@ class BrowserActions:
             self.receipts[operation] = {'hash': request_hash, 'state': 'dispatching'}
             self.save()
             try:
-                result = await asyncio.wait_for(self._run(data), timeout=40)
+                # Caller cancellation is BaseException, not handled below. Keep
+                # a durable no-replay uncertainty fence before it propagates.
+                with uncertain_on_cancellation(self.receipts, operation, self.save):
+                    result = await asyncio.wait_for(self._run(data), timeout=40)
             except Exception as error:
                 self.receipts[operation]['state'] = 'uncertain'
                 self.save()
