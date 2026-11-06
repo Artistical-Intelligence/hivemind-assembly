@@ -170,8 +170,19 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                     raise Blocked(
                         "MCP embedded source contains an unexpected resource field"
                     )
-                if "uri" in resource and not isinstance(resource["uri"], str):
-                    raise Blocked("MCP embedded source URI is invalid")
+                if "uri" in resource:
+                    uri = resource["uri"]
+                    # Resource wrappers are removed from the outbound text, but
+                    # a malicious server must not smuggle a huge or malformed
+                    # attachment reference through that discarded wrapper.
+                    if (not isinstance(uri, str) or not 1 <= len(uri) <= 2048
+                            or any(ord(char) < 32 or ord(char) == 127 for char in uri)):
+                        raise Blocked("MCP embedded source URI is invalid")
+                    try:
+                        if len(uri.encode("utf-8", errors="strict")) > 4096:
+                            raise Blocked("MCP embedded source URI is too large")
+                    except UnicodeEncodeError as error:
+                        raise Blocked("MCP embedded source URI is invalid UTF-8") from error
                 # A producer may expose both SDK and snake_case MIME keys.
                 # Never pick one and discard a contradictory declaration:
                 # doing so could hide a binary/legacy-charset payload under
@@ -216,6 +227,10 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 if any(name not in ("utf-8", "utf8", "us-ascii")
                        for name in charset):
                     raise Blocked("MCP text resource declares a non-UTF-8 charset")
+                # UTF-8 transport does not make a non-ASCII source string
+                # compatible with an explicit US-ASCII resource declaration.
+                if "us-ascii" in charset and not value.isascii():
+                    raise Blocked("MCP text resource contradicts its US-ASCII charset")
             elif kind == "resource_link":
                 raise Blocked(
                     "MCP returned a downloadable file link instead of inline text. "
