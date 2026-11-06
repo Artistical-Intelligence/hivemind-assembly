@@ -16,6 +16,7 @@ from hivemind_assembly.core.common import Blocked, ContractError, Conflict, atom
 from .browser_engine.outcomes import ReachError, envelope, BAD_INPUT, TIMEOUT
 from .browser_engine.redaction import scrub_url_credentials
 from .browser_engine.session_trust import live_browser_session
+from .browser_engine.dispatch_fence import fenced_browser_dispatch
 
 ENGINE = Path(__file__).with_name('browser_engine') / 'browser_scripts.json'
 # Never silently age out a completed browser-write receipt: a forgotten
@@ -103,6 +104,16 @@ class BrowserActions:
         profiles = {route['profile'] for route in self.browser.config['routes'].values()}
         if profile not in profiles:
             raise ContractError('Choose a configured HA browser profile; no fallback profile is used')
+
+    def require_current_browser_authority(self, session):
+        """Recheck the live page AND its configured profile after awaited work."""
+        try:
+            self.known_profile(session['profile'])
+        except (ContractError, AttributeError, KeyError, TypeError):
+            session['snapshot'] = None
+            session['handles'] = {}
+            raise Blocked('The browser profile was revoked or is unavailable') from None
+        self.require_session_origin(session)
 
     async def run(self, data):
         if self.receipts_error:
@@ -260,10 +271,16 @@ class BrowserActions:
                 if not isinstance(value, str) or len(value) > 4000 or '\x00' in value:
                     raise ContractError('Use a non-secret setup value of at most 4000 characters')
                 if identity["tag"] == "SELECT":
-                    await element.select_option(label=value, timeout=15000)
+                    await fenced_browser_dispatch(
+                        session, self.require_current_browser_authority,
+                        lambda: element.select_option(label=value, timeout=15000))
                 else:
-                    await element.fill(value, timeout=15000)
+                    await fenced_browser_dispatch(
+                        session, self.require_current_browser_authority,
+                        lambda: element.fill(value, timeout=15000))
             else:
-                await element.click(timeout=15000)
+                await fenced_browser_dispatch(
+                    session, self.require_current_browser_authority,
+                    lambda: element.click(timeout=15000))
             return {'session': data['session'], 'outcome': 'dispatched',
                     'verification': 'read_page_required'}
