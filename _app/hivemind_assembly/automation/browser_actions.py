@@ -17,6 +17,9 @@ from .browser_engine.outcomes import ReachError, envelope, BAD_INPUT, TIMEOUT
 from .browser_engine.redaction import scrub_url_credentials
 
 ENGINE = Path(__file__).with_name('browser_engine') / 'browser_scripts.json'
+# Never silently age out a completed browser-write receipt: a forgotten
+# operation_id would make an old click/fill eligible to run a second time.
+MAX_RETAINED_RECEIPTS = 1000
 IDENTITY = """e => ({tag:e.tagName,type:e.getAttribute('type')||'',id:e.id||'',name:e.getAttribute('name')||'',label:e.getAttribute('aria-label')||'',text:e.tagName==='BUTTON'?(e.innerText||'').slice(0,100):'',connected:e.isConnected})"""
 SENSITIVE = re.compile(r'password|passwd|secret|(?:api|auth|access|refresh)[-_ ]?(?:key|token)|one[-_ ]?time|verification[-_ ]?code|security[-_ ]?code|credit[-_ ]?card|\botp\b', re.I)
 
@@ -59,8 +62,10 @@ class BrowserActions:
         self.scripts = json.loads(ENGINE.read_text(encoding='utf-8'))
 
     def status(self):
-        return {'available': not self.receipts_error, 'engine': 'built_in',
-                'state': 'receipts_need_recovery' if self.receipts_error else 'ready',
+        state = ('receipts_need_recovery' if self.receipts_error else
+                 'reconciliation_required' if len(self.receipts) >= MAX_RETAINED_RECEIPTS else 'ready')
+        return {'available': state == 'ready', 'engine': 'built_in',
+                'state': state,
                 'sessions': [{'id': key, 'profile': value['profile'], 'origin': value['origin'],
                               'open': not value['page'].is_closed()}
                              for key, value in list(self.sessions.items())]}
@@ -69,9 +74,8 @@ class BrowserActions:
         if self.receipts_error:
             raise Blocked('Browser automation receipts need recovery; their original file was preserved.')
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        completed = [key for key, receipt in self.receipts.items() if receipt['state'] == 'completed']
-        for key in completed[:-200]:
-            del self.receipts[key]
+        # Completed writes are still idempotency fences. Retain them rather than
+        # pruning to the newest 200; at capacity, reject new operations safely.
         atomic_write(self.path, canonical(self.receipts))
         try:
             self.path.chmod(0o600)
@@ -107,8 +111,8 @@ class BrowserActions:
                     return envelope(channel='browser', action=action, error=ReachError(
                         'UNCERTAIN', 'The previous operation may have reached the page. Read the current page before deciding what to do; HA will not repeat it.'))
                 return old['result']
-            if len(self.receipts) > 1000:
-                raise Blocked('Too many unresolved browser operations; reconcile them before starting more')
+            if len(self.receipts) >= MAX_RETAINED_RECEIPTS:
+                raise Blocked('Browser receipts are full; existing operation IDs must be preserved for owner-guided reconciliation before new dispatch')
             self.receipts[operation] = {'hash': request_hash, 'state': 'dispatching'}
             self.save()
             try:
