@@ -260,6 +260,10 @@ class ProgressWatchdog:
                            ":" + str(turns)),
                 thread="project:" + project_id, kind="possible_stall",
                 expected_task=(task_id, owner, epoch, status),
+                # A completed operation or newer validated native answer can
+                # appear after our scan without changing owner/epoch/status.
+                # An obsolete stall sample must not produce a new alert.
+                expected_progress=(turns, operations),
                 summary=summary,
             )
             if outcome == "stored":
@@ -275,9 +279,16 @@ class ProgressWatchdog:
                                SELECT 1 FROM tasks t
                                WHERE t.id=ha_progress_watch.task_id
                                  AND t.project_id=? AND t.owner=?
-                                 AND t.epoch=? AND t.status=?)""",
+                                 AND t.epoch=? AND t.status=?)
+                             AND (SELECT COUNT(*) FROM messages m
+                                  WHERE m.task_id=? AND m.route=?
+                                    AND m.state='validated')=?
+                             AND (SELECT COUNT(*) FROM operations o
+                                  WHERE o.task_id=? AND o.owner=?
+                                    AND o.state='completed')=?""",
                         (current, task_id, project_id, owner, epoch,
-                         turns, operations, project_id, owner, epoch, status),
+                         turns, operations, project_id, owner, epoch, status,
+                         task_id, owner, turns, task_id, owner, operations),
                     )
                 if updated.rowcount:
                     signals.append({
