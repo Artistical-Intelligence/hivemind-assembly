@@ -17,6 +17,7 @@ from .browser_engine.outcomes import ReachError, envelope, BAD_INPUT, TIMEOUT
 from .browser_engine.redaction import scrub_url_credentials
 from .browser_engine.session_trust import live_browser_session
 from .browser_engine.route_binding import profile_route_binding, bound_route_is_current
+from .browser_engine.route_policy import route_policy_fingerprint, route_policy_is_current
 from .browser_engine.dispatch_fence import fenced_browser_dispatch
 from .browser_engine.element_refs import ElementInspectionError, collect_authorized_refs
 
@@ -113,8 +114,15 @@ class BrowserActions:
         if not isinstance(session, dict):
             return False
         binding = session.get('route_binding')
-        return (binding is None or bound_route_is_current(
-            self.browser.config, session.get('profile'), binding))
+        policy = session.get('route_policy_binding')
+        # Synthetic legacy fixtures have neither binding. A real route-bound
+        # page must also prove its *full* original route policy is unchanged;
+        # reusing a route ID/profile after changing its prompt or permissions
+        # cannot silently preserve an old browser-action authorization.
+        if binding is None:
+            return policy is None
+        return (bound_route_is_current(self.browser.config, session.get('profile'), binding)
+                and route_policy_is_current(self.browser.config, session.get('profile'), policy))
 
     def known_profile(self, profile):
         binding = profile_route_binding(self.browser.config, profile)
@@ -209,6 +217,9 @@ class BrowserActions:
         if action == 'open':
             profile, url = data.get('profile'), data.get('url')
             original_route_binding = self.known_profile(profile)
+            original_route_policy = route_policy_fingerprint(self.browser.config, profile)
+            if original_route_policy is None:
+                raise Blocked('The configured browser route policy is invalid')
             origin = origin_of(url)
             session_id = secrets.token_hex(12)
 
@@ -232,7 +243,8 @@ class BrowserActions:
             # redirected before we could install its session record.
             # Never grant a session based only on the pre-await check.
             try:
-                if self.known_profile(profile) != original_route_binding:
+                if (self.known_profile(profile) != original_route_binding
+                        or not route_policy_is_current(self.browser.config, profile, original_route_policy)):
                     raise Blocked('The original browser route authorization changed')
                 if origin_of(page.url) != origin:
                     raise Blocked('The page left the selected site')
@@ -246,6 +258,7 @@ class BrowserActions:
                 raise Blocked('Browser profile or site authorization changed while opening; no session was granted') from None
             self.sessions[session_id] = {'profile': profile, 'origin': origin, 'page': page,
                                          'route_binding': original_route_binding,
+                                         'route_policy_binding': original_route_policy,
                                          'snapshot': None, 'handles': {}}
             return {'session': session_id, 'profile': profile, 'origin': origin,
                     'outcome': 'opened', 'identity': 'profile_bound_not_site_login_verified'}
