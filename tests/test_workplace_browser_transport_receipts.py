@@ -116,3 +116,47 @@ def test_uncertain_receipt_is_not_aged_out_by_completed_operations(tmp_path):
     assert not response["ok"]
     assert response["error"]["code"] == "UNCERTAIN"
     assert calls == []
+
+
+
+def test_cached_open_receipt_requires_live_original_session_even_after_restart(tmp_path):
+    request = {
+        "action": "open",
+        "operation_id": "open-browser-0001",
+        "profile": "fixture",
+        "url": "https://example.invalid/setup",
+    }
+    actions = BrowserActions(_NotARealBrowser(), tmp_path)
+    receipt = _completed(request, outcome="opened")
+    receipt["result"]["items"][0]["session"] = "session-already-opened"
+    actions.receipts[request["operation_id"]] = receipt
+
+    class Page:
+        closed = False
+
+        def is_closed(self):
+            return self.closed
+
+    page = Page()
+    actions.sessions["session-already-opened"] = {"page": page}
+    dispatched = []
+
+    async def forbidden_dispatch(data):
+        dispatched.append(data)
+        raise AssertionError("an old open operation reached the browser")
+
+    actions._run = forbidden_dispatch
+    assert asyncio.run(actions.run(request)) == receipt["result"]
+    page.closed = True
+    closed = asyncio.run(actions.run(request))
+    assert closed["ok"] is False
+    assert closed["error"]["code"] == "NEED_ATTENTION"
+    assert dispatched == []
+
+    actions.save()
+    restored = BrowserActions(_NotARealBrowser(), tmp_path)
+    restored._run = forbidden_dispatch
+    restarted = asyncio.run(restored.run(request))
+    assert restarted["ok"] is False
+    assert restarted["error"]["code"] == "NEED_ATTENTION"
+    assert dispatched == []
