@@ -226,6 +226,13 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             if any(key in value for key in (
                 "resourceUri", "resource_uri", "resourceLink", "resource_link",
                 "downloadUri", "download_uri",
+                # Non-MCP wrappers often use URL rather than URI fields.
+                # These are still attachment/download descriptors, not text.
+                "resourceUrl", "resourceURL", "resource_url",
+                "downloadUrl", "downloadURL", "download_url",
+                "fileUrl", "fileURL", "file_url",
+                "attachmentUrl", "attachmentURL", "attachment_url",
+                "artifactUrl", "artifact_url",
             )):
                 raise Blocked("MCP source result includes an unconverted resource link")
             # MCP resource links may omit both type and mimeType. A bare
