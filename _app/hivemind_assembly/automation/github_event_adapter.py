@@ -166,8 +166,14 @@ def admit_signed_github_event(inbox: NativeEventInbox, *, project_id: str,
         raise ContractError("Unbounded or non-byte webhook payload")
     if not isinstance(secret, bytes) or not secret:
         raise ContractError("Missing privately configured signing secret")
-    if not isinstance(signature, str) or not signature.startswith("sha256="):
-        raise ContractError("Missing signed webhook digest")
+    # The signature is a transport header, not signed payload data. Check its
+    # exact canonical ASCII syntax before compare_digest: non-ASCII header
+    # strings otherwise raise TypeError instead of a controlled refusal, and
+    # arbitrary-length strings needlessly reach the comparison boundary.
+    if not isinstance(signature, str) or not re.fullmatch(
+        r"sha256=[0-9a-f]{64}", signature
+    ):
+        raise ContractError("Missing or malformed signed webhook digest")
     expected = "sha256=" + hmac.new(secret, payload, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, signature):
         raise ContractError("Webhook signature verification failed")
