@@ -359,19 +359,50 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                     raise Blocked(
                         "MCP source result includes an unconverted file descriptor"
                     )
-            # Hypermedia links may name their download role with rel rather
-            # than a downloadUri or MIME field. A URL with rel=help/docs is
-            # informational; rel=download/attachment/file is not source text.
-            relation = value.get("rel", value.get("relation"))
-            if (isinstance(relation, str) and
-                    relation.strip().lower().replace("_", "").replace("-", "")
-                    in {"download", "attachment", "artifact", "file",
-                        "resource", "binary", "blob"} and
-                    any(field in value for field in
-                        ("href", "url", "uri", "path", "location"))):
-                raise Blocked(
-                    "MCP source result includes a downloadable resource relation"
-                )
+            # Hypermedia relations can be lists or whitespace-separated tokens.
+            # Examine BOTH rel and relation: choosing the first key could
+            # conceal an attachable download under an apparently safe role.
+            # Unknown harmless roles and documentation links remain valid.
+            link_fields = ("href", "url", "uri", "path", "location")
+            if any(field in value for field in link_fields) and (
+                "rel" in value or "relation" in value
+            ):
+                blocked_roles = {
+                    "download", "attachment", "artifact", "file",
+                    "resource", "binary", "blob",
+                }
+                relation_sets = {}
+                for relation_key in ("rel", "relation"):
+                    if relation_key not in value:
+                        continue
+                    declared = value[relation_key]
+                    if isinstance(declared, str):
+                        declared = [declared]
+                    elif not isinstance(declared, list):
+                        raise Blocked("MCP source result has malformed link relations")
+                    if not declared or len(declared) > 32:
+                        raise Blocked("MCP source result has malformed link relations")
+                    tokens = set()
+                    for entry in declared:
+                        if not isinstance(entry, str) or len(entry) > 256:
+                            raise Blocked("MCP source result has malformed link relations")
+                        parts = [
+                            part.casefold()
+                            for part in re.split(r"[\s,;|/_-]+", entry) if part
+                        ]
+                        if not parts or len(parts) > 64:
+                            raise Blocked("MCP source result has malformed link relations")
+                        tokens.update(parts)
+                        if len(tokens) > 64:
+                            raise Blocked("MCP source result has too many link relations")
+                    if tokens & blocked_roles:
+                        raise Blocked(
+                            "MCP source result includes a downloadable resource relation"
+                        )
+                    relation_sets[relation_key] = tokens
+                if ("rel" in relation_sets and "relation" in relation_sets and
+                        relation_sets["rel"] != relation_sets["relation"]):
+                    raise Blocked("MCP source result has conflicting link relations")
             # A MIME-typed URL/href is another resource descriptor even when
             # its producer does not use an MCP resource/link field name.
             # Preserve ordinary metadata such as documentation_url.
