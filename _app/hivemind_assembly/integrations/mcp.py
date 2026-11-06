@@ -59,8 +59,9 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
         raise ContractError("Invalid MCP inline-text response limit")
     total = 0
 
-    def inline_blocks(blocks):
+    def inline_blocks(blocks, *, count=True):
         nonlocal total
+        local_total = 0
         if not isinstance(blocks, list):
             raise ContractError("MCP file content blocks are invalid")
         # An untrusted MCP server can return millions of empty text blocks
@@ -161,13 +162,15 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 encoded_size = len(value.encode("utf-8", errors="strict"))
             except UnicodeEncodeError as error:
                 raise Blocked("MCP source is not valid UTF-8 text") from error
-            total += encoded_size
-            if total > max_chars:
+            local_total += encoded_size
+            if local_total > max_chars or (count and total + local_total > max_chars):
                 raise Blocked(
                     "MCP inline text exceeds the safe response limit. "
                     "Read a smaller line range instead of an attachment."
                 )
             converted.append({"type": "text", "text": value})
+        if count:
+            total += local_total
         return converted
 
     output = dict(result)
@@ -184,9 +187,14 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             # once, not twice: both copies still leave as normalized text,
             # and the final serialized-response bound accounts for the
             # actual duplicated outbound bytes.
-            if ("content" in result and
-                    original["content"] == result["content"]):
-                mirror_blocks = output["content"]
+            if "content" in result:
+                # Compare only validated, bounded inline text rather than
+                # recursively comparing untrusted raw MCP block metadata.
+                # Two different resource wrappers can contain the same safe
+                # source text; neither should consume the text budget twice.
+                mirror_blocks = inline_blocks(original["content"], count=False)
+                if mirror_blocks != output["content"]:
+                    mirror_blocks = inline_blocks(original["content"])
             else:
                 mirror_blocks = inline_blocks(original["content"])
             output[name] = {
@@ -311,17 +319,22 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             # Some servers emit camelCase/underscored resource-link fields
             # without the standard type=resource_link wrapper. They are
             # still resource descriptors, not safe inline source text.
-            if any(key in value for key in (
-                "resourceUri", "resource_uri", "resourceLink", "resource_link",
-                "downloadUri", "download_uri",
-                # Non-MCP wrappers often use URL rather than URI fields.
-                # These are still attachment/download descriptors, not text.
-                "resourceUrl", "resourceURL", "resource_url",
-                "downloadUrl", "downloadURL", "download_url",
-                "fileUrl", "fileURL", "file_url",
-                "attachmentUrl", "attachmentURL", "attachment_url",
-                "artifactUrl", "artifact_url",
-            )):
+            # Treat casing and separators as presentation details: a remote
+            # server can use attachmentURL, fileUri or download-link, none
+            # of which may evade the resource gate by changing its spelling.
+            # This deliberately leaves informational documentation_url alone.
+            resource_link_keys = {
+                "resourceuri", "resourcelink", "resourceurl",
+                "downloaduri", "downloadlink", "downloadurl",
+                "fileuri", "filelink", "fileurl",
+                "attachmenturi", "attachmentlink", "attachmenturl",
+                "artifacturi", "artifactlink", "artifacturl",
+            }
+            if any(
+                isinstance(key, str) and
+                key.replace("_", "").replace("-", "").lower() in resource_link_keys
+                for key in value
+            ):
                 raise Blocked("MCP source result includes an unconverted resource link")
             # MCP resource links may omit both type and mimeType. A bare
             # URI buried inside structuredContent cannot be distinguished
