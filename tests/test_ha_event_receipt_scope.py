@@ -130,3 +130,79 @@ def test_validated_native_effect_rejects_unrelated_second_event(
     assert [item["event_id"] for item in inbox.pending(foreign["id"])] == [
         unrelated["event_id"]
     ]
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        {"owner": "worker.other", "epoch": 1},
+        {"owner": "worker.chat", "epoch": 2},
+        None,
+    ],
+    ids=["different-chat-owner", "stale-epoch", "null-owner-stamp"],
+)
+def test_validated_native_effect_rejects_bad_modern_owner_binding(
+    claimed_delivery, binding
+):
+    """A current task lease cannot validate a different saved Chat owner epoch.
+
+    NativeTeam stamps new event requests with native_event_owner. The legacy
+    inbox ACK path rejects contradictory or null stamps, but the core effect
+    finalizer must enforce that independently before consuming any event.
+    This uses a saved synthetic 'validated' message, not a live provider.
+    """
+    store, task, _, inbox, effects, claim = claimed_delivery
+    identifier = "invalid_owner_" + (
+        "null" if binding is None else
+        binding["owner"].replace(".", "_") + "_" + str(binding["epoch"])
+    )
+    packet = _persist_validated(
+        store, task, claim,
+        {"event_inputs": [claim["event_input"]]},
+        identifier=identifier,
+    )
+    packet["native_event_owner"] = binding
+    with store.tx() as db:
+        db.execute(
+            "UPDATE messages SET payload=? WHERE id=?",
+            (json.dumps(packet), identifier),
+        )
+    with pytest.raises((Blocked, Conflict, ContractError)):
+        _finalize(effects, task, claim, identifier)
+    assert effects.status(task["id"])[0]["status"] == "leased"
+    assert [row["event_id"] for row in inbox.pending(task["id"])] == [
+        claim["event_id"]
+    ]
+
+
+def test_validated_native_effect_rejects_extra_same_project_event(
+    claimed_delivery,
+):
+    """One claimed event cannot ACK a browser packet containing other work.
+
+    A second valid event from the same project is still unclaimed by this
+    one-event bridge; accepting it would hide a scope/ordering violation.
+    """
+    store, task, _, inbox, effects, claim = claimed_delivery
+    thread = "project:" + task["project_id"]
+    assert inbox.receive(
+        project_id=task["project_id"], source="native",
+        source_id="unclaimed-second-work", thread=thread,
+        kind="ci_failed", summary="A later distinct source event",
+    ) == "stored"
+    unclaimed = next(
+        row for row in inbox.pending(task["id"])
+        if row["event_id"] != claim["event_id"]
+    )
+    identifier = "extra_same_project_event"
+    _persist_validated(
+        store, task, claim,
+        {"event_inputs": [claim["event_input"], unclaimed]},
+        identifier=identifier,
+    )
+    with pytest.raises((Blocked, Conflict, ContractError)):
+        _finalize(effects, task, claim, identifier)
+    assert effects.status(task["id"])[0]["status"] == "leased"
+    assert {row["event_id"] for row in inbox.pending(task["id"])} == {
+        claim["event_id"], unclaimed["event_id"]
+    }
