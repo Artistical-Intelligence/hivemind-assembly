@@ -1,0 +1,28 @@
+{
+  "schema": "ha-public-donor-cache/v1",
+  "repository": "KytyPS5/KytyPS5",
+  "commit_sha": "182161eb3e31439d97433607a8aa95463c56a9cc",
+  "root_tree_sha": "80598506283b8088a75c009d9979fc60deefad0e",
+  "license": {
+    "path": "LICENSE",
+    "blob_sha": "ecbc0593737be657aef92e3adcf3bcbd6fdb812e",
+    "spdx": "GPL-2.0",
+    "review": "PENDING"
+  },
+  "source_objects": [
+    {
+      "path": "CMakeLists.txt",
+      "blob_sha": "78d4963f128b061c0a92c8d75fd3119f38cb3336"
+    },
+    {
+      "path": "README.md",
+      "blob_sha": "f32bc85307dfcae64df380024c1ae4cc4081861a"
+    },
+    {
+      "path": "src/graphics/shader/recompiler/ShaderRecompiler.cpp",
+      "blob_sha": "843894a79323b17fa46f1b195ca442db6fa245fc"
+    }
+  ],
+  "runtime_seam": "Vulkan SPIR-V shader recompiler and guest/host GPU; requires supported GPU and clang-cl",
+  "integration_status": "SOURCE_ONLY_NOT_BUILT"
+}
