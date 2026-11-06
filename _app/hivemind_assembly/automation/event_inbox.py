@@ -785,6 +785,15 @@ class NativeEventInbox:
                     (now, task_id, event_id),
                 )
                 count += updated.rowcount
+            # The lease is time-based even when no other SQLite writer can
+            # alter this task during our transaction. A slow batch of ACK
+            # writes may cross its deadline after the earlier validation.
+            # Reject before COMMIT so *all* read markers roll back together.
+            if (current["owner"] is not None
+                    and current["lease_until"] <= time.time()):
+                raise ContractError(
+                    "Validated native receipt owner lease expired during ACK"
+                )
             return count
 
     def bridge_native(self, project_id: str, limit: int = 100) -> int:
