@@ -285,7 +285,14 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 # Two different resource wrappers can contain the same safe
                 # source text; neither should consume the text budget twice.
                 mirror_blocks = inline_blocks(original["content"], count=False)
-                if mirror_blocks != output["content"]:
+                # Compare only normalized source text. SDK annotations and
+                # _meta are untrusted nested objects; raw dict comparison can
+                # recurse deeply *before* the bounded metadata walk below.
+                # Different wrappers with the same text are still mirrors;
+                # all their metadata is validated and byte-bounded afterward.
+                if (len(mirror_blocks) != len(output["content"]) or
+                        any(left["text"] != right["text"]
+                            for left, right in zip(mirror_blocks, output["content"]))):
                     mirror_blocks = inline_blocks(original["content"])
             else:
                 mirror_blocks = inline_blocks(original["content"])
