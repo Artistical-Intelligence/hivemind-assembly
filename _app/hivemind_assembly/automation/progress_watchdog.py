@@ -91,8 +91,8 @@ class ProgressWatchdog:
         if not present:
             return []
         rows = self.store.rows(
-            """SELECT t.id AS task_id,t.owner,t.lease_until,
-                      f.effect_key,f.generation,f.status AS effect_status,
+            """SELECT t.id AS task_id,t.owner,t.epoch,t.status AS task_status,
+                      t.lease_until,f.effect_key,f.generation,f.status AS effect_status,
                       f.lease_until AS effect_lease_until
                FROM ha_native_effect f
                JOIN tasks t ON t.id=f.task_id
@@ -125,6 +125,8 @@ class ProgressWatchdog:
                 project_id=project_id, source="watchdog", verified=True,
                 source_id=source_id, thread="project:" + project_id,
                 kind="native_receipt_uncertain",
+                expected_task=(row["task_id"], row["owner"], row["epoch"],
+                               row["task_status"]),
                 summary=(
                     "Native browser event delivery may be unresolved for task "
                     + row["task_id"]
@@ -218,6 +220,10 @@ class ProgressWatchdog:
             progress = operations > old["observed_operations"]
             consecutive = (0 if progress
                            else old["consecutive_unproductive_turns"] + new_turns)
+            # A read-only poll is not fresh worker activity. Preserve the
+            # last real observation timestamp and avoid SQLite write churn.
+            if new_turns == 0 and not progress:
+                continue
             # Zero new turns is not progress and does not increment a stall.
             last_alert = old["last_alert_at"]
             with self.store.tx() as db:
@@ -245,6 +251,7 @@ class ProgressWatchdog:
                            hashlib.sha256(owner.encode("utf-8")).hexdigest()[:16] +
                            ":" + str(turns)),
                 thread="project:" + project_id, kind="possible_stall",
+                expected_task=(task_id, owner, task["epoch"], task["status"]),
                 summary=summary,
             )
             if outcome == "stored":
