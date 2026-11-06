@@ -16,6 +16,7 @@ from hivemind_assembly.core.common import Blocked, ContractError, Conflict, atom
 from .browser_engine.outcomes import ReachError, envelope, BAD_INPUT, TIMEOUT
 from .browser_engine.redaction import scrub_url_credentials
 from .browser_engine.session_trust import live_browser_session
+from .browser_engine.route_binding import profile_route_binding, bound_route_is_current
 from .browser_engine.dispatch_fence import fenced_browser_dispatch
 from .browser_engine.element_refs import ElementInspectionError, collect_authorized_refs
 
@@ -74,7 +75,9 @@ class BrowserActions:
         return {'available': state == 'ready', 'engine': 'built_in',
                 'state': state,
                 'sessions': [{'id': key, 'profile': value['profile'], 'origin': value['origin'],
-                              'open': value.get('profile') in profiles and live_browser_session(value, origin_of)}
+                              'open': (value.get('profile') in profiles and
+                                        self.session_route_is_authorized(value) and
+                                        live_browser_session(value, origin_of))}
                              for key, value in list(self.sessions.items())]}
 
     def save(self):
@@ -101,10 +104,23 @@ class BrowserActions:
             session['handles'] = {}
             raise Blocked('The page left its authorized site. Refresh authorization before any browser action.')
 
+    def session_route_is_authorized(self, session):
+        """An opened page stays bound to the routes that originally granted access.
+
+        Existing in-memory synthetic fixtures lack route_binding; only a real
+        successful open allocates a new, route-bound live session.
+        """
+        if not isinstance(session, dict):
+            return False
+        binding = session.get('route_binding')
+        return (binding is None or bound_route_is_current(
+            self.browser.config, session.get('profile'), binding))
+
     def known_profile(self, profile):
-        profiles = {route['profile'] for route in self.browser.config['routes'].values()}
-        if profile not in profiles:
+        binding = profile_route_binding(self.browser.config, profile)
+        if not binding:
             raise ContractError('Choose a configured HA browser profile; no fallback profile is used')
+        return binding
 
     def require_current_browser_authority(self, session):
         """Recheck the live page AND its configured profile after awaited work."""
@@ -114,6 +130,10 @@ class BrowserActions:
             session['snapshot'] = None
             session['handles'] = {}
             raise Blocked('The browser profile was revoked or is unavailable') from None
+        if not self.session_route_is_authorized(session):
+            session['snapshot'] = None
+            session['handles'] = {}
+            raise Blocked('The original browser route authorization was changed or revoked')
         self.require_session_origin(session)
 
     async def run(self, data):
@@ -155,7 +175,7 @@ class BrowserActions:
                         # A profile removed from current routes is no longer
                         # authorized merely because its old page stays open.
                         self.known_profile(data.get('profile'))
-                        live_open = live_browser_session(
+                        live_open = self.session_route_is_authorized(session) and live_browser_session(
                             session, origin_of,
                             expected_profile=data.get('profile'),
                             expected_origin=origin_of(data.get('url')))
@@ -188,7 +208,7 @@ class BrowserActions:
         action = data['action']
         if action == 'open':
             profile, url = data.get('profile'), data.get('url')
-            self.known_profile(profile)
+            original_route_binding = self.known_profile(profile)
             origin = origin_of(url)
             session_id = secrets.token_hex(12)
 
@@ -212,7 +232,8 @@ class BrowserActions:
             # redirected before we could install its session record.
             # Never grant a session based only on the pre-await check.
             try:
-                self.known_profile(profile)
+                if self.known_profile(profile) != original_route_binding:
+                    raise Blocked('The original browser route authorization changed')
                 if origin_of(page.url) != origin:
                     raise Blocked('The page left the selected site')
             except (ContractError, Blocked):
@@ -224,6 +245,7 @@ class BrowserActions:
                     pass
                 raise Blocked('Browser profile or site authorization changed while opening; no session was granted') from None
             self.sessions[session_id] = {'profile': profile, 'origin': origin, 'page': page,
+                                         'route_binding': original_route_binding,
                                          'snapshot': None, 'handles': {}}
             return {'session': session_id, 'profile': profile, 'origin': origin,
                     'outcome': 'opened', 'identity': 'profile_bound_not_site_login_verified'}
