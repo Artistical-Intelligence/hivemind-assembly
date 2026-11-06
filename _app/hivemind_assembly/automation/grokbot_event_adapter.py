@@ -59,7 +59,9 @@ def admit_grokbot_event(
     untrusted `event["target"]` as an authorization. The raw summary,
     resume_hint, paths, models, prompts and plugin result are discarded.
     """
-    if not verified:
+    # Only a host-produced boolean True is an authentication receipt.
+    # Truthy input such as 1 or "verified" must never grant intake authority.
+    if verified is not True:
         raise ContractError("Grok Bot event needs an authenticated adapter")
     _bounded(task_id, "task id", 128)
     _bounded(target, "target", 128)
@@ -81,7 +83,12 @@ def admit_grokbot_event(
         if not isinstance(reason, str) or reason not in _EXIT_REASONS[(kind, status)]:
             raise ContractError("Grok Bot event has an inconsistent exit reason")
     needs_input = event.get("needs_input")
-    if kind == "needs_input" and isinstance(needs_input, dict):
+    if kind == "needs_input":
+        # Upstream v1 always supplies a needs_input object for permission or
+        # question events. A missing or malformed object cannot be trusted as
+        # evidence that an agent genuinely requested human input.
+        if not isinstance(needs_input, dict):
+            raise ContractError("Grok Bot needs-input event lacks its detail object")
         if "kind" in needs_input and needs_input["kind"] != status:
             raise ContractError("Grok Bot needs-input reason does not match status")
     external_id = event.get("task_id")
