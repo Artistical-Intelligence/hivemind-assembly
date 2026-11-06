@@ -215,3 +215,79 @@ def test_utf8_byte_budget_is_not_a_unicode_character_budget():
                          "resource": {"mimeType": "application/json",
                                       "text": '{"text":"bad' + chr(0) + '"}'}}],
         }, max_chars=100)
+
+
+@pytest.mark.parametrize(
+    "revocation", ["remove-tool", "remove-project", "replace-endpoint", "delete-server"]
+)
+def test_external_inline_source_result_is_withheld_after_grant_revocation(
+    tmp_path, monkeypatch, revocation
+):
+    """A formerly authorized source read cannot return after a lost MCP grant.
+
+    The fake MCP response is ordinary inline text; a media-format rejection
+    must not mask a revoked grant. Revocation happens *during* the awaited
+    result, never through an actual network/server/process or model API.
+    """
+    import mcp
+
+    store = Store(tmp_path)
+    try:
+        conn = Connections(store)
+        spec = {
+            "transport": "stdio", "command": "/not-executed",
+            "args": [], "timeout": 5,
+            "tools": ["get_file_contents"], "projects": ["granted-project"],
+        }
+        state = {"servers": {"scm": spec}}
+        conn.settings = lambda: state
+        calls = []
+        original_authorize = conn.authorize
+
+        def counted_authorize(server, tool, project):
+            calls.append(("authorize", server, tool, project))
+            return original_authorize(server, tool, project)
+
+        conn.authorize = counted_authorize
+
+        class FakeResult:
+            def model_dump(self, **kwargs):
+                return {"content": [{"type": "text", "text": "private source result"}]}
+
+        class FakeClient:
+            def __init__(self, target):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+            async def call_tool(self, tool, arguments):
+                calls.append(("dispatch", tool, arguments))
+                if revocation == "delete-server":
+                    state["servers"] = {}
+                else:
+                    replacement = dict(spec)
+                    if revocation == "remove-tool":
+                        replacement["tools"] = []
+                    elif revocation == "remove-project":
+                        replacement["projects"] = []
+                    else:
+                        replacement["command"] = "/other-never-executed"
+                    state["servers"]["scm"] = replacement
+                return FakeResult()
+
+        monkeypatch.setattr(mcp, "Client", FakeClient)
+        with pytest.raises(Blocked, match="connection changed"):
+            asyncio.run(conn._external(
+                "scm", "get_file_contents", {"path": "source.py"},
+                "granted-project", None,
+            ))
+        assert calls == [
+            ("authorize", "scm", "get_file_contents", "granted-project"),
+            ("dispatch", "get_file_contents", {"path": "source.py"}),
+        ]
+    finally:
+        store.close()
