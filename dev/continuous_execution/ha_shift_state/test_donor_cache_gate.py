@@ -232,7 +232,7 @@ class CacheGateTests(unittest.TestCase):
 
     def test_win32_forbidden_names_characters_and_utf16_units(self):
         # These are valid Git-like strings but unsafe as Windows output paths.
-        bad = ('CONIN, 'conout$.txt', '.git/config', 'src/.GIT/index',
+        bad = ('CONIN$', 'conout$.txt', '.git/config', 'src/.GIT/index',
                'obj/loader?variant.c', 'obj/a*b', 'obj/a|b', 'obj/a"b',
                'obj/a<b', 'obj/a>b', 'obj/' + 'x' * 256,
                'obj/' + '\U0001f600' * 128)
