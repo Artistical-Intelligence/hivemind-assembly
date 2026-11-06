@@ -569,10 +569,7 @@ class Connections:
         return value["token"]
 
     def authorize(self, server, tool, project):
-        cfg = self.settings()
-        if cfg.get("enabled") is False:
-            raise Blocked("MCP access is disabled")
-        spec = cfg["servers"].get(server)
+        spec = self.settings()["servers"].get(server)
         if (
             not spec
             or tool not in spec.get("tools", [])
@@ -671,8 +668,9 @@ class Connections:
             # A request must use the same endpoint and permission snapshot
             # that was approved. A concurrent connection edit must not let
             # an old project grant authorize a replacement server.
-            if self.authorize(server, tool, project) != spec:
-                raise Blocked("MCP authorization changed before dispatch")
+            self.authorize(server, tool, project)
+            if self.settings()["servers"].get(server) != spec:
+                raise Blocked("MCP connection changed before dispatch")
         secret = None
         oauth_storage = None
         if spec["transport"] == "http":
@@ -775,8 +773,9 @@ class Connections:
                 # Recheck after the await, before exposing remote results:
                 # revocation, project removal or endpoint replacement while
                 # the request was in flight must fail closed.
-                if self.authorize(server, tool, project) != spec:
-                    raise Blocked("MCP authorization changed during request")
+                self.authorize(server, tool, project)
+                if self.settings()["servers"].get(server) != spec:
+                    raise Blocked("MCP connection changed during request")
                 if oauth_storage:
                     oauth_storage.check()
                     value = oauth_storage.redact(value)
