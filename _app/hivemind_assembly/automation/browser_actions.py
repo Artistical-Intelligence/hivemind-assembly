@@ -20,6 +20,7 @@ from .browser_engine.route_binding import profile_route_binding, bound_route_is_
 from .browser_engine.route_policy import route_policy_fingerprint, route_policy_is_current
 from .browser_engine.dispatch_fence import fenced_browser_dispatch
 from .browser_engine.element_refs import ElementInspectionError, collect_authorized_refs
+from .browser_engine.url_origin import canonical_https_origin
 
 ENGINE = Path(__file__).with_name('browser_engine') / 'browser_scripts.json'
 # Never silently age out a completed browser-write receipt: a forgotten
@@ -31,11 +32,10 @@ SENSITIVE = re.compile(r'password|passwd|secret|(?:api|auth|access|refresh)[-_ ]
 
 def origin_of(url):
     try:
-        parsed = urlsplit(url)
-        if parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password or parsed.port not in (None, 443):
-            raise ValueError()
-        return 'https://' + parsed.hostname.lower()
+        return canonical_https_origin(url)
     except (ValueError, TypeError):
+        # Keep the public HA contract while rejecting cross-parser ambiguities
+        # before the native service creates or authorizes a browser page.
         raise ContractError('Use an HTTPS website without credentials or a custom port') from None
 
 
