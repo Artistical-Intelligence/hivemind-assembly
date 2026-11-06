@@ -157,9 +157,19 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
     for name in ("structuredContent", "structured_content"):
         original = output.get(name)
         if isinstance(original, dict) and "content" in original:
+            # Many MCP servers mirror the very same file blocks under both
+            # content and structuredContent.content. Count that file text
+            # once, not twice: both copies still leave as normalized text,
+            # and the final serialized-response bound accounts for the
+            # actual duplicated outbound bytes.
+            if ("content" in result and
+                    original["content"] == result["content"]):
+                mirror_blocks = output["content"]
+            else:
+                mirror_blocks = inline_blocks(original["content"])
             output[name] = {
                 **original,
-                "content": inline_blocks(original["content"]),
+                "content": mirror_blocks,
             }
 
     nested_nodes = 0
