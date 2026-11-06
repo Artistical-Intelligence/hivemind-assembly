@@ -164,7 +164,7 @@ class GitHubPublicSourceInventory:
         if type(limit) is not int or not 1 <= limit <= 500:
             raise ContractError("Public source inventory page limit must be 1..500")
         if type(max_requests) is not int or not 1 <= max_requests <= 48:
-            raise ContractError("Public source inventory request limit must be 1..32")
+            raise ContractError("Public source inventory request limit must be 1..48")
         if not isinstance(pin, dict) or not self._sha(pin.get("commit_sha")) or not self._sha(pin.get("root_tree_sha")):
             raise ContractError("Public source inventory requires a pinned commit and tree")
         repo = pin.get("repository")
