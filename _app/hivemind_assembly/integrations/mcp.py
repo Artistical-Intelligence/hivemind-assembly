@@ -96,11 +96,13 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 # doing so could hide a binary/legacy-charset payload under
                 # otherwise acceptable inline text.
                 if ("mimeType" in resource and "mime_type" in resource
-                        and resource["mimeType"] != resource["mime_type"]):
+                        and (not isinstance(resource["mimeType"], str)
+                             or not isinstance(resource["mime_type"], str)
+                             or resource["mimeType"] != resource["mime_type"])):
                     raise Blocked("MCP embedded source has conflicting MIME declarations")
                 mime = resource.get("mimeType", resource.get("mime_type", ""))
                 value = resource.get("text")
-                if (not isinstance(mime, str)
+                if (not isinstance(mime, str) or len(mime) > 256
                     or not (mime.lower().startswith("text/")
                             or mime.lower().split(";")[0].strip() == "application/json")
                     or not isinstance(value, str)
@@ -140,6 +142,13 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             # otherwise supply lone surrogates or NUL-delimited binary data
             # disguised as a text block. Bound encoded bytes, not Unicode
             # code points, before returning anything to a hosted client.
+            # A Unicode character needs at least one UTF-8 byte. Reject an
+            # oversize string before allocating its encoded byte copy.
+            if len(value) > max_chars:
+                raise Blocked(
+                    "MCP inline text exceeds the safe response limit. "
+                    "Read a smaller line range instead of an attachment."
+                )
             if "\x00" in value:
                 raise Blocked("MCP source contains binary NUL bytes")
             # UTF-8 encodability alone does not distinguish source text from
