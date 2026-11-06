@@ -407,7 +407,7 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             # contract. Do not reject blob/data only when named mimeType:
             # contentType/mediaType can otherwise smuggle a typed payload.
             if ({"blob", "data"} & normalized_keys and
-                    {"mimetype", "contenttype", "mediatype"} & normalized_keys):
+                    {"mimetype", "contenttype", "mediatype", "mime"} & normalized_keys):
                 raise Blocked("MCP source result includes encoded media data")
             # MIME metadata is untrusted even outside an embedded resource.
             # Reject malformed controls and excessive declarations anywhere
@@ -416,7 +416,7 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             for mime_key, declared in value.items():
                 if (not isinstance(mime_key, str) or
                         mime_key.replace("_", "").replace("-", "").casefold()
-                        not in ("mimetype", "contenttype", "mediatype")):
+                        not in ("mimetype", "contenttype", "mediatype", "mime")):
                     continue
                 if (not isinstance(declared, str) or len(declared) > 256
                         or any(ord(c) < 32 or ord(c) == 127 for c in declared)):
