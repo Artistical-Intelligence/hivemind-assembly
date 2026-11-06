@@ -1,1 +1,11 @@
-CHECKS PENDING: automation assets — independent source review and browser/privacy acceptance.
+CHECKS PENDING / AWAITING CI — browser engine independent source review and live browser/privacy acceptance.
+
+Offline route-binding milestone (2026-11-06), dedicated branch automation/ha-workplace-browser-transport-20261105:
+- BrowserActions source blob 299452a0b2e13dbfd6486f2af58e7c0ce0046f21, introduced by e6a7d4ad261021407d6a43b3608951e9eba76891.
+- New browser_engine/route_binding.py blob f3746b30c05aa482a11f8d16d5111937977079b4. Page sessions created by open retain exact configured route IDs authorizing the profile; an intervening route removal, addition or reassignment refuses post-await open authorization, live-session read, active status and completed-open receipt reuse. This is not proof of website login or external write completion.
+- Isolated exact-blob tests/test_workplace_browser_transport_route_binding.py blob c81c4e6363dd3007c94600d1ed073edea5032a05: 6/6 executed locally with Python pytest; 0 failed/errors/skips, no website/API/browser. Command: PYTHONPATH=<isolated package root> python -m pytest -q tests/test_workplace_browser_transport_route_binding.py.
+- Full-HA tests/test_workplace_browser_transport_route_binding_integration.py blob 069e506ed0b85a1addc98a6283f835083cb5c5eb: 4 cases authored and Python syntax-compiled locally; 0/4 executed because full HA package/dependencies absent from permitted local environment. Future full repo command, only when permitted: PYTHONPATH=_app python -m pytest -q tests/test_workplace_browser_transport_route_binding*.py.
+- Static check: 9/9 expected browser-action callsites/retention properties observed in latest fetched UTF-8 source; this is not Python execution.
+- Security limitations: route identity is tracked by route ID/profile assignment, not an immutable content hash of every route field. A config mutation restored before a check can evade the fence. Existing synthetic fixtures without a route_binding retain compatibility; real new opens now supply one. External effects remain uncertain until independent provider receipts.
+- No new GitHub Actions invocation was requested; owner temporary no-Actions override remains active. Historical CI does not validate this revision.
+- Required gates: full module and Linux/Windows suite; independent security/integration review; issue #3 durable-effect ACK integration by its other owners; real native ChatGPT browser/provider route acceptance. Draft PR #8 unmerged; do not override branch protection or owner consent.
