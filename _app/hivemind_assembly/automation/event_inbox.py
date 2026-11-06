@@ -77,6 +77,7 @@ _STATE_KINDS = frozenset({
 })
 
 _TERMINAL_TICKET_STATES = frozenset({"accepted", "cancelled"})
+_MAX_EVENT_ID = (1 << 63) - 1  # SQLite INTEGER PRIMARY KEY / bound parameters
 
 
 def _bounded(value: str, name: str, limit: int = 512) -> str:
@@ -663,7 +664,7 @@ class NativeEventInbox:
         except TypeError as error:
             raise ContractError("Invalid bounded delivery acknowledgement") from error
         if len(ids) > 20 or any(not isinstance(i, int) or isinstance(i, bool)
-                               or i < 1 for i in ids):
+                               or i < 1 or i > _MAX_EVENT_ID for i in ids):
             raise ContractError("Invalid bounded delivery acknowledgement")
         if len(set(ids)) != len(ids):
             raise ContractError("Duplicate event acknowledgement")
@@ -742,7 +743,7 @@ class NativeEventInbox:
                 for item in delivered:
                     if (not isinstance(item, dict)
                             or type(item.get("event_id")) is not int
-                            or item["event_id"] <= 0):
+                            or not 1 <= item["event_id"] <= _MAX_EVENT_ID):
                         raise ContractError("Malformed validated native event receipt")
                     ids.append(item["event_id"])
             except (ValueError, TypeError) as error:
