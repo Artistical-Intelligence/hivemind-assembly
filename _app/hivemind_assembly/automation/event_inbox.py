@@ -335,6 +335,14 @@ class NativeEventInbox:
                 (task["project_id"], task_id, thread, upto),
             )
             self._refill_initial(db, task_id, thread)
+            if route is not None:
+                # Backfill may be long-running. Recheck the *live* lease at
+                # the final subscription transition; an expired worker must
+                # not commit either the subscription or hydrated deliveries.
+                # Store.tx() rolls both inserts back when this fence fails.
+                self._require_current_native_reader(
+                    db, task_id, task["project_id"], route, epoch
+                )
 
     @staticmethod
     def _revoke_locked(db, task_id: str, project_id: str,
@@ -592,6 +600,15 @@ class NativeEventInbox:
                    ORDER BY e.id LIMIT ?""",
                 (task_id, task["project_id"], limit),
             ).fetchall()
+            if route is not None:
+                # Event cursor hydration and the final SELECT may cross the
+                # lease deadline even without a competing SQLite writer.
+                # Revalidate after both, while the same read/write TX still
+                # holds the event and task state; never return source data to
+                # a route whose native ownership lease has since expired.
+                self._require_current_native_reader(
+                    db, task_id, task["project_id"], route, epoch
+                )
         # Summaries are facts/data, not source instructions or permission grants.
         return [{"event_id": row["id"], "source": row["source"],
                  "source_id": row["source_id"], "thread": row["thread"],
