@@ -80,6 +80,17 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 resource = block.get("resource", {})
                 if not isinstance(resource, dict):
                     raise ContractError("MCP embedded resource is invalid")
+                # Embedded source resources may carry an original URI, MIME
+                # declaration and inline text. We drop the wrapper after
+                # conversion, so validate the entire resource *before* doing
+                # so: otherwise a second encoded payload or download URL
+                # could hide in discarded fields without failing closed.
+                if set(resource) - {"uri", "mimeType", "mime_type", "text"}:
+                    raise Blocked(
+                        "MCP embedded source contains an unexpected resource field"
+                    )
+                if "uri" in resource and not isinstance(resource["uri"], str):
+                    raise Blocked("MCP embedded source URI is invalid")
                 mime = resource.get("mimeType", resource.get("mime_type", ""))
                 value = resource.get("text")
                 if (not isinstance(mime, str)
