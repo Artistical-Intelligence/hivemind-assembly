@@ -11,6 +11,7 @@ import time
 import pytest
 
 from hivemind_assembly.automation.event_inbox import NativeEventInbox
+from hivemind_assembly.automation.progress_watchdog import ProgressWatchdog
 from hivemind_assembly.automation.team import NativeTeam
 from hivemind_assembly.core.common import ContractError
 from hivemind_assembly.core.store import Store
@@ -157,3 +158,79 @@ def test_explicit_modern_receipt_cannot_downgrade_to_legacy_source_proof(setup):
         assert [row["event_id"] for row in inbox.pending(task["id"])] == [
             event["event_id"]
         ]
+
+
+def test_watchdog_admission_fences_current_generation_and_replay(setup):
+    store, task, inbox, thread = setup
+    _assign(store, task, "worker.first", 1)
+    original = (task["id"], "worker.first", 1, "running")
+    args = dict(
+        project_id=task["project_id"], source="watchdog", verified=True,
+        thread=thread, kind="possible_stall", summary="Advisory local review",
+        expected_task=original,
+    )
+    assert inbox.receive(source_id="watchdog-valid", **args) == "stored"
+    assert inbox.receive(source_id="watchdog-valid", **args) == "duplicate"
+    _assign(store, task, "worker.second", 2)
+    assert inbox.receive(source_id="watchdog-stale-owner", **args) == "stale"
+    assert store.one(
+        "SELECT COUNT(*) AS n FROM ha_event_trigger WHERE source_id=?",
+        ("watchdog-stale-owner",),
+    )["n"] == 0
+    assert inbox.receive(
+        source_id="watchdog-successor",
+        **{**args, "expected_task": (task["id"], "worker.second", 2, "running")},
+    ) == "stored"
+    with store.tx() as db:
+        db.execute(
+            "UPDATE tasks SET status='paused' WHERE id=?", (task["id"],)
+        )
+    assert inbox.receive(
+        source_id="watchdog-stopped",
+        **{**args, "expected_task": (task["id"], "worker.second", 2, "running")},
+    ) == "stale"
+    assert store.one(
+        "SELECT COUNT(*) AS n FROM ha_event_trigger WHERE source_id=?",
+        ("watchdog-stopped",),
+    )["n"] == 0
+
+
+def test_stall_scan_transfer_during_admission_emits_no_stale_signal(
+    setup, monkeypatch
+):
+    store, task, inbox, thread = setup
+    _assign(store, task, "worker.first", 1)
+    watchdog = ProgressWatchdog(store, inbox)
+    assert watchdog.scan(task["project_id"], threshold=2, now=100) == []
+    baseline = store.one(
+        "SELECT updated_at FROM ha_progress_watch WHERE task_id=?", (task["id"],)
+    )["updated_at"]
+    assert watchdog.scan(task["project_id"], threshold=2, now=110) == []
+    # A no-new-evidence poll is not a new progress observation.
+    assert store.one(
+        "SELECT updated_at FROM ha_progress_watch WHERE task_id=?", (task["id"],)
+    )["updated_at"] == baseline
+    with store.tx() as db:
+        for index in (1, 2):
+            db.execute(
+                """INSERT INTO messages
+                   (id,task_id,route,conversation,payload_hash,payload,state,
+                    response,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                (f"watch-turn-{index}", task["id"], "worker.first",
+                 "local-fixture", f"hash-watch-{index}", "{}",
+                 "validated", '{"type":"step_intent"}',
+                 float(index), float(index)),
+            )
+    original_receive = inbox.receive
+
+    def transfer_before_admission(**kwargs):
+        _assign(store, task, "worker.second", 2)
+        return original_receive(**kwargs)
+
+    monkeypatch.setattr(inbox, "receive", transfer_before_admission)
+    assert watchdog.scan(task["project_id"], threshold=2, now=120) == []
+    assert store.one(
+        "SELECT COUNT(*) AS n FROM ha_event_trigger WHERE source='watchdog'"
+    )["n"] == 0
+    # Re-observing the successor starts a fresh, non-stalling baseline.
+    assert watchdog.scan(task["project_id"], threshold=2, now=130) == []
