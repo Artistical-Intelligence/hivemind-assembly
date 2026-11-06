@@ -248,11 +248,22 @@ def verify_artifact(candidate, build, receipt, artifact_path):
             "license_approved": False, "independently_accepted": False}
 
 
+def verify_artifact_with_inventory(candidate, build, inventory, receipt, artifact_path):
+    """Verify exact cached artifact bytes only after pinned source-tree validation.
+
+    This performs offline structural checks, not remote GitHub attestation,
+    independent license review, donor execution or runtime parity testing.
+    The legacy verify command remains metadata-only for compatibility.
+    """
+    verify_complete_inventory(candidate, inventory)
+    return verify_artifact(candidate, build, receipt, artifact_path)
+
+
 def main(argv=None):
     args = sys.argv[1:] if argv is None else argv
-    arity = {"validate": 2, "inventory": 3, "key": 3, "verified-key": 4, "verify": 5}
+    arity = {"validate": 2, "inventory": 3, "key": 3, "verified-key": 4, "verify": 5, "verified-verify": 6}
     if not args or args[0] not in arity or len(args) != arity[args[0]]:
-        raise SystemExit("usage: donor_cache_gate.py validate CANDIDATE.json | inventory CANDIDATE.json INVENTORY.json | key CANDIDATE.json BUILD.json | verified-key CANDIDATE.json BUILD.json INVENTORY.json | verify CANDIDATE.json BUILD.json RECEIPT.json ARTIFACT")
+        raise SystemExit("usage: donor_cache_gate.py validate CANDIDATE.json | inventory CANDIDATE.json INVENTORY.json | key CANDIDATE.json BUILD.json | verified-key CANDIDATE.json BUILD.json INVENTORY.json | verify CANDIDATE.json BUILD.json RECEIPT.json ARTIFACT | verified-verify CANDIDATE.json BUILD.json INVENTORY.json RECEIPT.json ARTIFACT")
     with open(args[1], encoding="utf-8") as f:
         c = json.load(f)
     if args[0] == "validate":
@@ -271,6 +282,13 @@ def main(argv=None):
         with open(args[3], encoding="utf-8") as stream:
             inventory = json.load(stream)
         print(cache_key_with_inventory(c, b, inventory))
+        return
+    if args[0] == "verified-verify":
+        with open(args[3], encoding="utf-8") as stream:
+            inventory = json.load(stream)
+        with open(args[4], encoding="utf-8") as stream:
+            receipt = json.load(stream)
+        print(json.dumps(verify_artifact_with_inventory(c, b, inventory, receipt, args[5]), sort_keys=True))
         return
     with open(args[3], encoding="utf-8") as f:
         receipt = json.load(f)
