@@ -776,6 +776,12 @@ class Connections:
                 # authorize (whose single-dispatch seam is externally tested).
                 if self.settings()["servers"].get(server) != spec:
                     raise Blocked("MCP connection changed during request")
+                # Rotating or forgetting an HTTP bearer credential leaves the
+                # server's transport/grant spec unchanged. Fence the in-flight
+                # response against that separate credential revocation too.
+                # Do not log or return either token.
+                if secret is not None and self.bearer(server, spec) != secret:
+                    raise Blocked("MCP credential changed during request")
                 if oauth_storage:
                     oauth_storage.check()
                     value = oauth_storage.redact(value)
