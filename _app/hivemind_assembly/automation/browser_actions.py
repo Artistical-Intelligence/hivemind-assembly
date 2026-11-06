@@ -118,10 +118,23 @@ class BrowserActions:
                         isinstance(previous, list) and previous and
                         isinstance(previous[0], dict)) else None
                     session = self.sessions.get(previous_id)
-                    if not session or session['page'].is_closed():
+                    # A live page can navigate after its original open. Only
+                    # replay the receipt if it is still the *same* authorized
+                    # origin and profile; never portray an off-site page as
+                    # an approved, reusable session.
+                    try:
+                        live_open = bool(
+                            session and not session['page'].is_closed()
+                            and session['profile'] == data.get('profile')
+                            and session['origin'] == origin_of(data.get('url'))
+                            and session['origin'] == origin_of(session['page'].url)
+                        )
+                    except (ContractError, AttributeError, KeyError, TypeError):
+                        live_open = False
+                    if not live_open:
                         return envelope(channel='browser', action=action, error=ReachError(
                             'NEED_ATTENTION',
-                            'The original browser session has ended. No page was reopened; inspect the site and authorize a fresh operation ID.'))
+                            'The original browser session is unavailable or left its authorized site. No page was reopened; inspect the site and authorize a fresh operation ID.'))
                 return old['result']
             if len(self.receipts) >= MAX_RETAINED_RECEIPTS:
                 raise Blocked('Browser receipts are full; existing operation IDs must be preserved for owner-guided reconciliation before new dispatch')
