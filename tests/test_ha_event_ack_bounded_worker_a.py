@@ -4,6 +4,8 @@ No ChatGPT browser, provider call, model API or external event listener.
 These tests remain CHECKS PENDING until run against the actual HA checkout.
 """
 
+import json
+
 import pytest
 
 from hivemind_assembly.automation.event_inbox import NativeEventInbox
@@ -66,7 +68,8 @@ def test_exactly_twenty_iterator_receipts_persist_and_replay_idempotently(inbox_
 
 @pytest.mark.parametrize(
     "candidate",
-    [None, 13, [1, 1], [True], [0], [1.0], list(range(1, 22))],
+    [None, 13, [1, 1], [True], [0], [1.0], list(range(1, 22)),
+     [1 << 63], [10 ** 100]],
 )
 def test_invalid_ack_input_is_fail_closed(inbox_scope, candidate):
     _, task, inbox = inbox_scope
@@ -74,4 +77,30 @@ def test_invalid_ack_input_is_fail_closed(inbox_scope, candidate):
     unread = inbox.pending(task["id"])
     with pytest.raises(ContractError, match="(bounded|Duplicate)"):
         inbox.acknowledge(task["id"], candidate)
+    assert inbox.pending(task["id"]) == unread
+
+
+@pytest.mark.parametrize("oversized_id", [1 << 63, 10 ** 100])
+def test_validated_saved_receipt_rejects_oversized_sqlite_id(inbox_scope, oversized_id):
+    store, task, inbox = inbox_scope
+    _admit(inbox, task, 1)
+    unread = inbox.pending(task["id"])
+    packet = {
+        "task_id": task["id"], "project_id": task["project_id"],
+        "body": {"event_inputs": [{"event_id": oversized_id}]},
+    }
+    with store.tx() as db:
+        db.execute(
+            """INSERT INTO messages
+               (id,task_id,route,conversation,payload_hash,payload,state,
+                response,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?)""",
+            ("ack_out_of_range", task["id"], "worker.chat", "chat-A",
+             "oversized-hash", json.dumps(packet), "validated",
+             '{"type":"step_intent"}', 1.0, 1.0),
+        )
+    # ContractError, not sqlite3.OverflowError or a partially consumed inbox.
+    with pytest.raises(ContractError, match="Malformed validated native event receipt"):
+        inbox.acknowledge_validated_request(
+            task["id"], "ack_out_of_range", route="worker.chat"
+        )
     assert inbox.pending(task["id"]) == unread
