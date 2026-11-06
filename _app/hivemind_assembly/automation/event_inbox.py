@@ -422,10 +422,10 @@ class NativeEventInbox:
             rows = db.execute(
                 """SELECT s.task_id,s.project_id,s.thread
                    FROM ha_event_subscription s
-                   JOIN tasks t ON t.id=s.task_id
-                     AND t.project_id=s.project_id
-                   WHERE (t.status IN ('paused','cancelled','accepted',
-                                        'awaiting_acceptance')
+                   LEFT JOIN tasks t ON t.id=s.task_id
+                   WHERE (t.id IS NULL OR t.project_id!=s.project_id
+                          OR t.status IN ('paused','cancelled','accepted',
+                                          'awaiting_acceptance')
                           OR (t.owner IS NULL AND t.epoch > 0)""" + predicate + """)
                    ORDER BY s.task_id,s.thread LIMIT ?""",
                 (*routes, limit),
@@ -476,10 +476,18 @@ class NativeEventInbox:
                    VALUES(?,?,?,?,?,?,?)""",
                 (project_id, source, source_id, thread, kind, summary, time.time()),
             )
+            # A retained subscription is not authority by itself: after an
+            # owner stop or an interrupted cleanup it may refer to an orphaned
+            # task or a task in a different project. Fence fan-out to the
+            # *current* task row in this same admission transaction.
             db.execute(
                 """INSERT OR IGNORE INTO ha_event_delivery(event_id,task_id)
-                   SELECT ?,task_id FROM ha_event_subscription
-                   WHERE project_id=? AND thread=?""",
+                   SELECT ?,s.task_id FROM ha_event_subscription s
+                   JOIN tasks t ON t.id=s.task_id
+                     AND t.project_id=s.project_id
+                   WHERE s.project_id=? AND s.thread=?
+                     AND t.status NOT IN ('paused','cancelled','accepted',
+                                          'awaiting_acceptance')""",
                 (cur.lastrowid, project_id, thread),
             )
         return "stored"
@@ -674,6 +682,13 @@ class NativeEventInbox:
                         "the immutable authorized project event"
                     )
             now = time.time()
+            # The task row is writer-fenced for this transaction, but wall
+            # clock time can advance during the envelope/source queries.
+            # Never ACK after the owner's lease expires mid-validation.
+            if current["owner"] is not None and current["lease_until"] <= now:
+                raise ContractError(
+                    "Validated native receipt owner lease expired before ACK"
+                )
             count = 0
             for event_id in ids:
                 updated = db.execute(
