@@ -501,7 +501,7 @@ class NativeEventInbox:
         with self.store.tx() as db:
             if expected_task is not None:
                 current = db.execute(
-                    """SELECT project_id,owner,epoch,status FROM tasks
+                    """SELECT project_id,owner,epoch,status,lease_until FROM tasks
                        WHERE id=?""", (task_id,)
                 ).fetchone()
                 if (current is None
