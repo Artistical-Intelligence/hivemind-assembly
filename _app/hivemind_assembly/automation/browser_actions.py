@@ -21,7 +21,8 @@ from .browser_engine.route_policy import route_policy_fingerprint, route_policy_
 from .browser_engine.dispatch_fence import fenced_browser_dispatch
 from .browser_engine.element_refs import ElementInspectionError, collect_authorized_refs, require_bounded_snapshot
 from .browser_engine.action_inspection import ActionInspectionError, inspect_action_target
-from .browser_engine.control_summaries import ControlSummaryError, bounded_control_summaries
+from .browser_engine.control_summaries import ControlSummaryError
+from .browser_engine.snapshot_publication import publish_authorized_snapshot
 from .browser_engine.url_origin import canonical_https_origin
 
 ENGINE = Path(__file__).with_name('browser_engine') / 'browser_scripts.json'
@@ -315,21 +316,17 @@ class BrowserActions:
                 # Until validation succeeds, transferred refs must be disposed
                 # on error; no new session snapshot may be published.
                 try:
-                    controls = bounded_control_summaries(handles, scrub_url_credentials)
+                    # Transfer ownership of provisional DOM handles only after
+                    # control redaction and the final live-profile/route/origin
+                    # check. The helper disposes every uncommitted handle if
+                    # permission is revoked or output preparation fails.
+                    snapshot, safe_text, controls = await publish_authorized_snapshot(
+                        session, handles, text, self.require_current_browser_authority,
+                        scrub_url_credentials, lambda: secrets.token_hex(16))
                 except ControlSummaryError as error:
-                    for handle, _ in handles.values():
-                        try:
-                            await handle.dispose()
-                        except Exception:
-                            pass
                     raise Blocked(str(error)) from None
-                # All authority checks and control construction have completed
-                # with no await between this authorization and the assignment.
-                self.require_current_browser_authority(session)
-                snapshot = secrets.token_hex(16)
-                session.update(snapshot=snapshot, handles=handles)
                 return {'session': data['session'], 'snapshot': snapshot,
-                        'text': scrub_url_credentials(text), 'origin': session['origin'],
+                        'text': safe_text, 'origin': session['origin'],
                         'controls': controls}
             if not session['snapshot'] or data.get('snapshot') != session['snapshot']:
                 raise Blocked('Read the page again before acting; the saved snapshot is stale')
