@@ -73,6 +73,21 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             if not isinstance(block, dict):
                 raise ContractError("MCP file content block is invalid")
             kind = block.get("type")
+            # MCP text/resource content can carry optional SDK annotations
+            # and _meta. Never silently strip arbitrary outer fields: a
+            # malicious server can attach a blob or download URL beside an
+            # otherwise harmless text value. Keep approved metadata visible
+            # to the recursive media and outbound-size checks below.
+            if kind in ("text", "resource"):
+                permitted = (
+                    {"type", "text", "annotations", "_meta"}
+                    if kind == "text"
+                    else {"type", "resource", "annotations", "_meta"}
+                )
+                if set(block) - permitted:
+                    raise Blocked(
+                        "MCP source content block includes unexpected fields"
+                    )
             if kind == "text":
                 value = block.get("text")
                 if not isinstance(value, str):
@@ -102,6 +117,13 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                              or resource["mimeType"] != resource["mime_type"])):
                     raise Blocked("MCP embedded source has conflicting MIME declarations")
                 mime = resource.get("mimeType", resource.get("mime_type", ""))
+                # An embedded MIME wrapper disappears after conversion, so
+                # reject NUL/CR/LF/DEL and other C0 controls first. Prefix
+                # matching text/ alone is not sufficient validation.
+                if isinstance(mime, str) and any(
+                    ord(char) < 32 or ord(char) == 127 for char in mime
+                ):
+                    raise Blocked("MCP embedded source MIME contains control characters")
                 value = resource.get("text")
                 if (not isinstance(mime, str) or len(mime) > 256
                     or not (mime.lower().startswith("text/")
@@ -168,7 +190,11 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                     "MCP inline text exceeds the safe response limit. "
                     "Read a smaller line range instead of an attachment."
                 )
-            converted.append({"type": "text", "text": value})
+            converted_block = {"type": "text", "text": value}
+            for metadata_key in ("annotations", "_meta"):
+                if metadata_key in block:
+                    converted_block[metadata_key] = block[metadata_key]
+            converted.append(converted_block)
         if count:
             total += local_total
         return converted
@@ -262,6 +288,15 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 "mimeType" in value or "mime_type" in value
             ):
                 raise Blocked("MCP source result includes encoded media data")
+            # MIME metadata is untrusted even outside an embedded resource.
+            # Reject malformed controls and excessive declarations anywhere
+            # in the outbound source representation, including annotations.
+            for mime_key in ("mimeType", "mime_type"):
+                if mime_key in value:
+                    declared = value[mime_key]
+                    if (not isinstance(declared, str) or len(declared) > 256
+                            or any(ord(c) < 32 or ord(c) == 127 for c in declared)):
+                        raise Blocked("MCP source result has malformed MIME declaration")
             # Third-party servers can wrap a downloadable file in a
             # structuredContent.file/attachment/artifact object instead of
             # the standard MCP resource block. Refuse such descriptors before
@@ -336,6 +371,18 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 for key in value
             ):
                 raise Blocked("MCP source result includes an unconverted resource link")
+            # File-system and download paths are attachment-capable source
+            # descriptors even without a scheme or URL. Normalize casing,
+            # hyphens and underscores as with resource-link aliases.
+            path_keys = {
+                "filepath", "attachmentpath", "artifactpath", "downloadpath",
+            }
+            if any(
+                isinstance(key, str) and
+                key.replace("_", "").replace("-", "").lower() in path_keys
+                for key in value
+            ):
+                raise Blocked("MCP source result includes an unconverted file path")
             # MCP resource links may omit both type and mimeType. A bare
             # URI buried inside structuredContent cannot be distinguished
             # from an attachable resource descriptor, so reject it for
