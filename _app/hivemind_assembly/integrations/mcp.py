@@ -296,28 +296,46 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
         if isinstance(value, dict):
             for key in value:
                 count_output_string(key)
-            if value.get("type") in (
-                "resource", "resource_link", "image", "audio",
+            # Nested structuredContent is untrusted: alias spelling must not
+            # bypass media refusal (RESOURCE, Resource-Link, MIME_TYPE, URI).
+            # Keep documentation_url as informational metadata, not a URI key.
+            normalized_keys = {
+                key.replace("_", "").replace("-", "").casefold()
+                for key in value if isinstance(key, str)
+            }
+            kind = value.get("type")
+            normalized_kind = (
+                kind.replace("_", "").replace("-", "").casefold()
+                if isinstance(kind, str) else kind
+            )
+            if normalized_kind in (
+                "resource", "resourcelink", "image", "audio",
                 "file", "attachment", "artifact", "download",
-                "binary", "blob",
+                "binary", "blob", "filelink", "downloadlink",
+                "attachmentlink", "artifactlink", "binarylink", "bloblink",
             ):
                 raise Blocked(
                     "MCP source result includes an unconverted resource or media "
                     "block. No automatic attachment materialization."
                 )
-            if ("blob" in value or "data" in value) and (
-                "mimeType" in value or "mime_type" in value
-            ):
+            if ({"blob", "data"} & normalized_keys and
+                    "mimetype" in normalized_keys):
                 raise Blocked("MCP source result includes encoded media data")
             # MIME metadata is untrusted even outside an embedded resource.
             # Reject malformed controls and excessive declarations anywhere
             # in the outbound source representation, including annotations.
-            for mime_key in ("mimeType", "mime_type"):
-                if mime_key in value:
-                    declared = value[mime_key]
-                    if (not isinstance(declared, str) or len(declared) > 256
-                            or any(ord(c) < 32 or ord(c) == 127 for c in declared)):
-                        raise Blocked("MCP source result has malformed MIME declaration")
+            mime_values = []
+            for mime_key, declared in value.items():
+                if (not isinstance(mime_key, str) or
+                        mime_key.replace("_", "").replace("-", "").casefold()
+                        != "mimetype"):
+                    continue
+                if (not isinstance(declared, str) or len(declared) > 256
+                        or any(ord(c) < 32 or ord(c) == 127 for c in declared)):
+                    raise Blocked("MCP source result has malformed MIME declaration")
+                mime_values.append(declared)
+            if len(set(mime_values)) > 1:
+                raise Blocked("MCP source result has conflicting MIME aliases")
             # Nonstandard MCP wrappers can hide file handles in bare
             # strings, not only object/list descriptors or URI schemes.
             # Fail closed on attachment/artifact/download/blob descriptors,
@@ -416,8 +434,7 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             # A MIME-typed URL/href is another resource descriptor even when
             # its producer does not use an MCP resource/link field name.
             # Preserve ordinary metadata such as documentation_url.
-            if (("url" in value or "href" in value) and
-                    ("mimeType" in value or "mime_type" in value)):
+            if ({"url", "href"} & normalized_keys and mime_values):
                 raise Blocked(
                     "MCP source result includes an unconverted typed resource URL"
                 )
@@ -489,7 +506,7 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             # from an attachable resource descriptor, so reject it for
             # source-file reads rather than letting it escape normalization.
             # Inline text resources already discard their URI on conversion.
-            if "uri" in value:
+            if "uri" in normalized_keys:
                 # URI descriptors may be objects, arrays or null as well as
                 # strings. None of these is an inline source-text block, and
                 # an unknown wrapper must not bypass the resource/link gate.
