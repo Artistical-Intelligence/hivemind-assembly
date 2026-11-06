@@ -148,6 +148,56 @@ class NativeEventInbox:
             _bounded(run_id, "run id", 128)
         self.ensure_ticket(task_id)
         with self.store.tx() as db:
+            # A ticket is a projection of controller state, never authority
+            # granted by a caller-supplied digest or model completion claim.
+            # Fence terminal promotion to the retained controller evidence
+            # in the SAME transaction as the ticket update.
+            if state in _TERMINAL_TICKET_STATES:
+                live = db.execute(
+                    "SELECT project_id,status FROM tasks WHERE id=?",
+                    (task_id,),
+                ).fetchone()
+                if live is None or live["status"] != state:
+                    raise ContractError(
+                        "Terminal ticket requires matching controller state"
+                    )
+                if state == "accepted":
+                    evidence = db.execute(
+                        """SELECT payload FROM records
+                           WHERE kind='acceptance_result'
+                             AND CASE WHEN json_valid(payload)
+                                      THEN json_extract(payload,'$.task_id')
+                                 END=?
+                           ORDER BY rowid DESC LIMIT 1""",
+                        (task_id,),
+                    ).fetchone()
+                    if evidence is None:
+                        raise ContractError(
+                            "Accepted ticket requires retained controller acceptance"
+                        )
+                    try:
+                        result = json.loads(evidence["payload"])
+                    except (TypeError, ValueError) as error:
+                        raise ContractError(
+                            "Malformed retained controller acceptance"
+                        ) from error
+                    if (not isinstance(result, dict)
+                            or result.get("task_id") != task_id
+                            or result.get("status") != "accepted"
+                            or result.get("passed") is not True
+                            or not isinstance(result.get("artifact"), str)):
+                        raise ContractError(
+                            "Accepted ticket requires verified acceptance result"
+                        )
+                    artifact = db.execute(
+                        """SELECT sha256 FROM artifacts
+                           WHERE id=? AND project_id=?""",
+                        (result["artifact"], live["project_id"]),
+                    ).fetchone()
+                    if artifact is None or artifact["sha256"] != artifact_sha:
+                        raise ContractError(
+                            "Accepted ticket artifact must match retained evidence"
+                        )
             prior = db.execute(
                 """SELECT state,last_run,last_artifact FROM ha_work_ticket
                    WHERE task_id=?""", (task_id,)
