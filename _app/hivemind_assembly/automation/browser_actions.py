@@ -245,8 +245,13 @@ class BrowserActions:
                 session['handles'] = {}
                 for handle, _ in prior_handles.values():
                     await handle.dispose()
+                # Do not continue inspecting an already revoked profile after
+                # an awaited cleanup, DOM adjustment or stabilization.
+                self.require_current_browser_authority(session)
                 await page.locator('[data-ha-ref]').evaluate_all("es=>es.forEach(e=>e.removeAttribute('data-ha-ref'))")
+                self.require_current_browser_authority(session)
                 await page.evaluate(self.scripts['stable'])
+                self.require_current_browser_authority(session)
                 text = await page.evaluate(self.scripts['snapshot'])
                 # The configured route may be revoked while snapshot evaluation
                 # was awaited; origin equality alone does not authorize reads.
