@@ -135,6 +135,12 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             # code points, before returning anything to a hosted client.
             if "\x00" in value:
                 raise Blocked("MCP source contains binary NUL bytes")
+            # UTF-8 encodability alone does not distinguish source text from
+            # binary disguised as a string. Refuse C0/DEL controls while
+            # preserving ordinary source whitespace and form feeds.
+            if any((ord(ch) < 32 and ch not in "\t\n\r\f") or
+                   ord(ch) == 127 for ch in value):
+                raise Blocked("MCP source contains binary control characters")
             try:
                 encoded_size = len(value.encode("utf-8", errors="strict"))
             except UnicodeEncodeError as error:
