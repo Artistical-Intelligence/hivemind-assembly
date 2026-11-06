@@ -136,7 +136,10 @@ def _semantic_event_key(event_type: str, data: dict, repository: str) -> str:
     if event_type in ("workflow_run", "check_run"):
         run = data[event_type]
         attempt = run.get("run_attempt", 1) if event_type == "workflow_run" else 1
-        if type(attempt) is not int or attempt < 1:
+        # The run attempt participates in a durable event identity. Keep it
+        # within GitHub's bounded integer domain rather than allowing an
+        # unbounded signed JSON integer to consume storage/CPU on replay.
+        if type(attempt) is not int or not 1 <= attempt <= _MAX_RUN_ID:
             raise ContractError("Malformed GitHub run attempt")
         identity = (repository, event_type, run["id"], attempt,
                     run["head_sha"].lower(), run["conclusion"])
