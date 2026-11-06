@@ -43,6 +43,40 @@ def secret_forms(secret):
     return sorted({secret, *(f for f in forms if len(f) >= 8)}, key=len, reverse=True)
 
 
+def _validate_source_text_mime(mime):
+    """Reject encoded/non-UTF8 MIME metadata even in nested structuredContent.
+
+    Inline source-file reads cannot treat a structured metadata MIME label
+    as less trustworthy than an embedded resource's disappearing wrapper.
+    Unknown harmless MIME parameters remain informational; encoded payload
+    declarations and ambiguous charsets do not.
+    """
+    if (not isinstance(mime, str) or len(mime) > 256
+            or any(ord(c) < 32 or ord(c) == 127 for c in mime)):
+        raise Blocked("MCP source result has malformed MIME declaration")
+    media = mime.split(";", 1)[0].strip().casefold()
+    if (media != "application/json" and
+            re.fullmatch(r"text/[a-z0-9!#def inline_github_mcp_text(result, *, max_chars=240_000):^_.+-]+", media) is None):
+        raise Blocked("MCP source result declares non-text MIME content")
+    charsets = set()
+    for parameter in mime.split(";")[1:]:
+        field, separator, value = parameter.partition("=")
+        field = field.strip().replace("-", "").replace("_", "").casefold()
+        if field == "charset":
+            charset = value.strip().strip('"').casefold()
+            if not separator or charset not in ("utf-8", "utf8", "us-ascii"):
+                raise Blocked("MCP source result declares non-UTF-8 charset")
+            charsets.add("utf-8" if charset == "utf8" else charset)
+        elif field in ("encoding", "contentencoding",
+                       "transferencoding", "contenttransferencoding"):
+            encoding = value.strip().strip('"').casefold()
+            if (not separator or encoding not in
+                    ("utf-8", "utf8", "us-ascii", "ascii", "identity", "none")):
+                raise Blocked("MCP source result declares encoded MIME payload")
+    if len(charsets) > 1:
+        raise Blocked("MCP source result has contradictory text charsets")
+
+
 def inline_github_mcp_text(result, *, max_chars=240_000):
     """Bound a text-file MCP tool result without producing an attachment.
 
@@ -117,6 +151,7 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                              or resource["mimeType"] != resource["mime_type"])):
                     raise Blocked("MCP embedded source has conflicting MIME declarations")
                 mime = resource.get("mimeType", resource.get("mime_type", ""))
+                _validate_source_text_mime(mime)
                 # An embedded MIME wrapper disappears after conversion, so
                 # reject NUL/CR/LF/DEL and other C0 controls first. Prefix
                 # matching text/ alone is not sufficient validation.
@@ -345,6 +380,7 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 if (not isinstance(declared, str) or len(declared) > 256
                         or any(ord(c) < 32 or ord(c) == 127 for c in declared)):
                     raise Blocked("MCP source result has malformed MIME declaration")
+                _validate_source_text_mime(declared)
                 mime_values.append(declared)
             if len(set(mime_values)) > 1:
                 raise Blocked("MCP source result has conflicting MIME aliases")
