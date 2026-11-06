@@ -125,6 +125,33 @@ class GitHubPublicSourceInventory:
             "next_cursor": None, "requests": 1,
         }
 
+    @classmethod
+    def _validate_cursor_chain(cls, frames, cache):
+        """Verify resumed DFS ancestry against actual pinned parent Git trees.
+
+        The client-controlled cursor cannot invent a child tree SHA or path.
+        Indexes still describe a caller-provided traversal offset, not an
+        independently certified full-inventory receipt.
+        """
+        for depth, parent in enumerate(frames[:-1]):
+            children = cache[parent["sha"]]
+            previous_index = parent["index"] - 1
+            if previous_index < 0 or previous_index >= len(children):
+                raise Blocked("Public source inventory cursor has invalid parent offset")
+            record = children[previous_index]
+            child = frames[depth + 1]
+            if not isinstance(record, dict):
+                raise Blocked("Public source inventory cursor has malformed ancestor")
+            part = record.get("path")
+            if not isinstance(part, str) or "/" in part:
+                raise Blocked("Public source inventory cursor has malformed ancestor")
+            expected_path = cls._path(parent["path"] + "/" + part if parent["path"] else part)
+            if (record.get("type") != "tree" or record.get("mode") != "040000"
+                    or not isinstance(record.get("sha"), str)
+                    or record["sha"].lower() != child["sha"]
+                    or expected_path != child["path"]):
+                raise Blocked("Public source inventory cursor ancestry differs from pinned tree")
+
     def page(self, pin, cursor=None, *, limit=200, max_requests=12):
         """Enumerate a deterministic bounded DFS page of pinned Git objects.
 
@@ -136,7 +163,7 @@ class GitHubPublicSourceInventory:
 
         if type(limit) is not int or not 1 <= limit <= 500:
             raise ContractError("Public source inventory page limit must be 1..500")
-        if type(max_requests) is not int or not 1 <= max_requests <= 32:
+        if type(max_requests) is not int or not 1 <= max_requests <= 48:
             raise ContractError("Public source inventory request limit must be 1..32")
         if not isinstance(pin, dict) or not self._sha(pin.get("commit_sha")) or not self._sha(pin.get("root_tree_sha")):
             raise ContractError("Public source inventory requires a pinned commit and tree")
@@ -169,6 +196,27 @@ class GitHubPublicSourceInventory:
         entries = []
         cache = {}
         requests = 0
+        if cursor is not None and len(frames) > 1:
+            # Check the full ancestor chain before emitting records. A forged
+            # cursor may name a valid but unrelated tree in the same repository.
+            # This bounded revalidation consumes request budget on resume.
+            if len(frames) > max_requests:
+                raise Blocked("Public source inventory cursor ancestry exceeds the request budget; raise max_requests")
+            for ancestor in frames[:-1]:
+                sha = ancestor["sha"]
+                if sha in cache:
+                    continue
+                payload = self.http.request(
+                    "GET", f"/repos/{owner}/{name}/git/trees/{quote(sha, safe='')}", token=None
+                )
+                requests += 1
+                tree = payload.get("tree")
+                if (payload.get("truncated") is not False or not self._sha(payload.get("sha"))
+                        or payload["sha"].lower() != sha or not isinstance(tree, list)
+                        or len(tree) > self.MAX_TREE_ITEMS):
+                    raise Blocked("Public GitHub ancestor tree is truncated or inconsistent")
+                cache[sha] = tree
+            self._validate_cursor_chain(frames, cache)
         while frames and len(entries) < limit:
             frame = frames[-1]
             sha = frame["sha"]
