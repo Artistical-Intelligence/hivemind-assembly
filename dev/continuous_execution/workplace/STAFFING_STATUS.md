@@ -1,3 +1,17 @@
+## District current HA audit — November 6, 2026 (offline-checks)
+
+The Workplace continues with **five verified hourly HA engineering positions** and **five genuinely vacant permanent positions**. All five existing engineers have continuing responsibilities and exclusive leases; no safe named-owner handoff established a qualified permanent transfer or justified hiring a sixth person. There is still only **one Workplace District Manager**, with no extra HA manager or private RE-Wizard task metadata in this public record.
+
+**New actual engineering receipts:** Event Worker A committed watchdog stale-progress admission fencing `be694480`, `f665cc73`, `c75271d9`; five standalone SQLite/source-shaped checks passed, but fourteen added actual HA regression cases were **not executed**. GitHub MCP Worker B committed [`0991224b`](https://github.com/Artistical-Intelligence/hivemind-assembly/commit/0991224b1c26d3ff42ee190834dfb308550a8bcc), rejecting concealed binary/download metadata, unsafe attachment paths and invalid MIME controls; 22 standalone synthetic checks passed, imported HA tests remain unexecuted. HA Integrator I committed [`f4d705f5`](https://github.com/Artistical-Intelligence/hivemind-assembly/commit/f4d705f58fb8015840f9945638a767a45c215b30), registering Worker A's fourteen watchdog cases in the focused selection and trigger paths, **without running Actions**.
+
+The HA verifier produced fifteen *additional* watchdog-admission negative-case drafts; local syntax and patch checks passed, but zero HA pytest methods ran because the local runtime was unavailable. Its next saved corrective assignment now requires reconstructing/committing only nonduplicative cases within its existing verifier-owned test files, after reading current `main`, or recording the exact unsupported-tool blocker. This configuration is not evidence that the receiving execution has completed.
+
+Browser transport's exclusive engineering branch advanced to [`a2a89d43`](https://github.com/Artistical-Intelligence/hivemind-assembly/commit/a2a89d431fa9353bf4dedaaf4c5f73fd883175e4), with stronger ambiguous-URL rejection; **39/39** source-matching offline Python checks passed, seven full-HA integration cases are **NOT RUN**. Draft [PR #8](https://github.com/Artistical-Intelligence/hivemind-assembly/pull/8) remains unmerged. The protected foreground receipt-authorization source lease is unchanged; prior failed native-event receipts remain unresolved on current source until genuinely retested. GitHub Actions remain **PAUSED** for HA. No games, external provider/model APIs, owner-paused work, mandatory approval bypasses or unreviewed main merges.
+
+**Next HA gates:** commit and consume distinct verifier regression fixtures, inspect current source/worker receipt differences, preserve normal authorization gates, then execute source-pinned Linux/Windows/native browser tests when genuinely authorized. Overall **CHECKS PENDING / AWAITING CI**.
+
+---
+
 ## District S49 — current cross-platform receipt-authorization failures (November 6, 2026 UTC)
 
 Five permanent HA engineering positions remain filled with distinct hourly Chat Mode employees; five remain genuine open permanent positions. A temporary run or foreground contribution does not fill those vacancies. No cross-project permanent transfer qualifies without actual engineering-job completion or a named-owner accepted handoff. The sole District Manager retains all HA managerial responsibilities; no separate manager was created.
