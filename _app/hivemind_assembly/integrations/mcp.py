@@ -450,22 +450,23 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             # Hypermedia relations can be lists or whitespace-separated tokens.
             # Examine BOTH rel and relation: choosing the first key could
             # conceal an attachable download under an apparently safe role.
-            # Unknown harmless roles and documentation links remain valid.
+            # Unknown harmless roles and documentation links remain valid;
+            # unsafe or contradictory roles are refused even without a URL.
             # Relation and URL metadata keys can also have mixed case or
             # separator aliases. Check every key, not only the first spelling:
             # a safe rel must not mask a second, unsafe REL/relation entry.
-            link_fields = {"href", "url", "uri", "path", "location"}
-            has_link_target = False
+            # A download relation is itself a resource descriptor even if
+            # its producer omits href/url or disguises the destination under
+            # documentation_url. Validate all declared roles, not only links
+            # with a recognized target field.
             declared_roles = []
             for key, entry in value.items():
                 if not isinstance(key, str):
                     continue
                 normalized_key = key.replace("_", "").replace("-", "").casefold()
-                if normalized_key in link_fields:
-                    has_link_target = True
                 if normalized_key in ("rel", "relation"):
                     declared_roles.append((normalized_key, entry))
-            if has_link_target and declared_roles:
+            if declared_roles:
                 blocked_roles = {
                     "download", "attachment", "artifact", "file",
                     "resource", "binary", "blob",
