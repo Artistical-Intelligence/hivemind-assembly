@@ -14,6 +14,7 @@ from hivemind_assembly.automation.event_inbox import NativeEventInbox
 from hivemind_assembly.automation.progress_watchdog import ProgressWatchdog
 from hivemind_assembly.automation.team import NativeTeam
 from hivemind_assembly.core.common import ContractError
+from hivemind_assembly.core.durable_effects import DurableEventEffects
 from hivemind_assembly.core.store import Store
 
 
@@ -234,3 +235,48 @@ def test_stall_scan_transfer_during_admission_emits_no_stale_signal(
     )["n"] == 0
     # Re-observing the successor starts a fresh, non-stalling baseline.
     assert watchdog.scan(task["project_id"], threshold=2, now=130) == []
+
+
+def test_receipt_health_monitor_rechecks_owner_before_alert(
+    setup, monkeypatch
+):
+    store, task, inbox, thread = setup
+    _assign(store, task, "worker.first", 1)
+    inbox.subscribe(task["id"], thread, route="worker.first", epoch=1)
+    _event(inbox, task, thread, "unresolved-delivery")
+    effect = DurableEventEffects(store)
+    pending = inbox.pending(task["id"], route="worker.first", epoch=1)
+    assert effect.stage_pending(task["id"]) == [pending[0]["event_id"]]
+    with store.tx() as db:
+        db.execute(
+            """UPDATE ha_native_effect SET status='uncertain',
+               generation=1,lease_until=? WHERE task_id=?""",
+            (time.time() - 30, task["id"]),
+        )
+    watchdog = ProgressWatchdog(store, inbox)
+    original_receive = inbox.receive
+
+    def transfer_before_receipt_alarm(**kwargs):
+        _assign(store, task, "worker.second", 2)
+        return original_receive(**kwargs)
+
+    monkeypatch.setattr(inbox, "receive", transfer_before_receipt_alarm)
+    assert watchdog.scan_delivery_health(
+        task["project_id"],
+        allowed_owners=frozenset({"worker.first", "worker.second"}),
+    ) == []
+    assert store.one(
+        "SELECT COUNT(*) AS n FROM ha_event_trigger WHERE source='watchdog'"
+    )["n"] == 0
+
+    # A later fresh current-owner inspection may warn once; this is an
+    # advisory, not permission to resend the uncertain browser exchange.
+    monkeypatch.setattr(inbox, "receive", original_receive)
+    assert len(watchdog.scan_delivery_health(
+        task["project_id"],
+        allowed_owners=frozenset({"worker.first", "worker.second"}),
+    )) == 1
+    assert watchdog.scan_delivery_health(
+        task["project_id"],
+        allowed_owners=frozenset({"worker.first", "worker.second"}),
+    ) == []
