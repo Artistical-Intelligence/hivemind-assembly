@@ -256,7 +256,9 @@ def verify_artifact_with_inventory(candidate, build, inventory, receipt, artifac
     The legacy verify command remains metadata-only for compatibility.
     """
     verify_complete_inventory(candidate, inventory)
-    return verify_artifact(candidate, build, receipt, artifact_path)
+    result = verify_artifact(candidate, build, receipt, artifact_path)
+    return {**result, "source_inventory_structurally_verified": True,
+            "remote_source_authenticated": False}
 
 
 def main(argv=None):
