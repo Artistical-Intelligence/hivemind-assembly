@@ -162,83 +162,86 @@ class ProgressWatchdog:
         if not math.isfinite(current) or current < 0:
             raise ContractError("Watchdog clock must be finite and nonnegative")
         signals = []
-        tasks = self.store.rows(
-            "SELECT id,project_id,status,owner,epoch,lease_until FROM tasks WHERE project_id=?",
-            (project_id,),
+        # Task IDs are hints only. Recheck the owner, epoch and evidence in
+        # the same SQLite write transaction as the watchdog baseline update.
+        # A stale scan must never overwrite a successor's progress counters.
+        candidates = self.store.rows(
+            "SELECT id FROM tasks WHERE project_id=?", (project_id,)
         )
-        for task in tasks:
-            if allowed_owners is not None and task["owner"] not in allowed_owners:
-                continue
-            if task["status"] in _STATES_WITHOUT_ACTION or task["owner"] is None:
-                continue
-            task_id = task["id"]
-            # Review current-owner evidence, not unrelated adviser/reviewer
-            # turns or operations made by a previous worker.
-            owner = task["owner"]
-            turns = self.store.one(
-                """SELECT COUNT(*) AS n FROM messages
-                   WHERE task_id=? AND route=? AND state='validated'""",
-                (task_id, owner),
-            )["n"]
-            operations = self.store.one(
-                """SELECT COUNT(*) AS n FROM operations
-                   WHERE task_id=? AND owner=? AND state='completed'""",
-                (task_id, owner),
-            )["n"]
-            existing = self.store.rows(
-                "SELECT * FROM ha_progress_watch WHERE task_id=?", (task_id,),
-            )
-            if not existing:
-                with self.store.tx() as db:
+        for candidate in candidates:
+            task_id = candidate["id"]
+            with self.store.tx() as db:
+                task = db.execute(
+                    """SELECT id,project_id,status,owner,epoch,lease_until
+                       FROM tasks WHERE id=? AND project_id=?""",
+                    (task_id, project_id),
+                ).fetchone()
+                if (task is None or task["owner"] is None
+                        or task["status"] in _STATES_WITHOUT_ACTION
+                        or allowed_owners is not None
+                        and task["owner"] not in allowed_owners):
+                    continue
+                owner = task["owner"]
+                epoch = task["epoch"]
+                status = task["status"]
+                lease_until = task["lease_until"]
+                turns = db.execute(
+                    """SELECT COUNT(*) AS n FROM messages
+                       WHERE task_id=? AND route=? AND state='validated'""",
+                    (task_id, owner),
+                ).fetchone()["n"]
+                operations = db.execute(
+                    """SELECT COUNT(*) AS n FROM operations
+                       WHERE task_id=? AND owner=? AND state='completed'""",
+                    (task_id, owner),
+                ).fetchone()["n"]
+                old = db.execute(
+                    "SELECT * FROM ha_progress_watch WHERE task_id=?", (task_id,)
+                ).fetchone()
+                if old is None:
                     db.execute(
                         """INSERT OR IGNORE INTO ha_progress_watch
                            (task_id,project_id,observed_owner,observed_epoch,
                             observed_turns,observed_operations,
                             consecutive_unproductive_turns,updated_at)
                            VALUES(?,?,?,?,?,?,0,?)""",
-                        (task_id, project_id, owner, task["epoch"],
+                        (task_id, project_id, owner, epoch,
                          turns, operations, current),
                     )
-                continue
-            old = existing[0]
-            if (old["observed_owner"] != owner
-                    or old["observed_epoch"] != task["epoch"]
-                    or turns < old["observed_turns"]
-                    or operations < old["observed_operations"]):
-                # Handoffs, journal upgrades and restorations do not prove stalls.
-                with self.store.tx() as db:
+                    continue
+                if (old["observed_owner"] != owner
+                        or old["observed_epoch"] != epoch
+                        or turns < old["observed_turns"]
+                        or operations < old["observed_operations"]):
                     db.execute(
                         """UPDATE ha_progress_watch SET observed_owner=?,
                            observed_epoch=?,observed_turns=?,
                            observed_operations=?,
                            consecutive_unproductive_turns=0,
                            last_alert_at=NULL,updated_at=? WHERE task_id=?""",
-                        (owner, task["epoch"], turns, operations, current, task_id),
+                        (owner, epoch, turns, operations, current, task_id),
                     )
-                continue
-            new_turns = turns - old["observed_turns"]
-            progress = operations > old["observed_operations"]
-            consecutive = (0 if progress
-                           else old["consecutive_unproductive_turns"] + new_turns)
-            # A read-only poll is not fresh worker activity. Preserve the
-            # last real observation timestamp and avoid SQLite write churn.
-            if new_turns == 0 and not progress:
-                continue
-            # Zero new turns is not progress and does not increment a stall.
-            last_alert = old["last_alert_at"]
-            with self.store.tx() as db:
+                    continue
+                new_turns = turns - old["observed_turns"]
+                progress = operations > old["observed_operations"]
+                consecutive = (0 if progress else
+                               old["consecutive_unproductive_turns"] + new_turns)
+                # Idle scans do not assert new progress or move timestamps.
+                if new_turns == 0 and not progress:
+                    continue
                 db.execute(
                     """UPDATE ha_progress_watch SET observed_turns=?,
                        observed_operations=?,consecutive_unproductive_turns=?,
                        updated_at=? WHERE task_id=?""",
                     (turns, operations, consecutive, current, task_id),
                 )
-            if (consecutive < threshold or new_turns == 0
-                    or last_alert is not None and current - last_alert < cooldown):
-                continue
-            # A recent live lease is not itself progress; it does mean we
-            # must not interrupt the ongoing worker or claim completion.
-            # Signal the manager to review *after* the current turn instead.
+                last_alert = old["last_alert_at"]
+                if (consecutive < threshold or new_turns == 0
+                        or last_alert is not None
+                        and current - last_alert < cooldown):
+                    continue
+            # Admission is a separate fenced transaction. A transfer or stop
+            # after sampling results in 'stale', never an unauthorized alert.
             summary = (
                 "Possible lack of executed-operation evidence for task "
                 + task_id + " after " + str(consecutive)
@@ -251,17 +254,30 @@ class ProgressWatchdog:
                            hashlib.sha256(owner.encode("utf-8")).hexdigest()[:16] +
                            ":" + str(turns)),
                 thread="project:" + project_id, kind="possible_stall",
-                expected_task=(task_id, owner, task["epoch"], task["status"]),
+                expected_task=(task_id, owner, epoch, status),
                 summary=summary,
             )
             if outcome == "stored":
+                # Handoff after admission must not poison the successor's
+                # cooldown. Keep the stamp only on the sampled generation.
                 with self.store.tx() as db:
-                    db.execute(
-                        "UPDATE ha_progress_watch SET last_alert_at=? WHERE task_id=?",
-                        (current, task_id),
+                    updated = db.execute(
+                        """UPDATE ha_progress_watch SET last_alert_at=?
+                           WHERE task_id=? AND project_id=?
+                             AND observed_owner=? AND observed_epoch=?
+                             AND observed_turns=? AND observed_operations=?
+                             AND EXISTS (
+                               SELECT 1 FROM tasks t
+                               WHERE t.id=ha_progress_watch.task_id
+                                 AND t.project_id=? AND t.owner=?
+                                 AND t.epoch=? AND t.status=?)""",
+                        (current, task_id, project_id, owner, epoch,
+                         turns, operations, project_id, owner, epoch, status),
                     )
-                signals.append({
-                    "task_id": task_id, "unproductive_turns": consecutive,
-                    "status": "needs_review", "running": task["lease_until"] > current,
-                })
+                if updated.rowcount:
+                    signals.append({
+                        "task_id": task_id, "unproductive_turns": consecutive,
+                        "status": "needs_review",
+                        "running": lease_until is not None and lease_until > current,
+                    })
         return signals
