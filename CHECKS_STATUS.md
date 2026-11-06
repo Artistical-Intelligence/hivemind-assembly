@@ -1,3 +1,4 @@
+CHECKS PENDING / AWAITING CI — 2026-11-06 HA integrator at source ecbd3217f8fb8277d9c7c51616334d7d07b9882d: new Worker B MCP bare-mime and bounded-mirror source fixes audited; no dedicated current-module regression cases, core strict receipt typing/scope still unresolved. 10 isolated predicate cases: 5 expected, 4 confirmed strict negatives plus 1 extra-field policy hypothesis; 0 HA tests, 0 Actions, 0 live ChatGPT browser. dev/continuous_execution/ha_shift_state/integrator_actionless_mcp_delta_receipt_scope_20261106_1843Z.md.
 # Checks status
 
 Unified HA implementation is in progress. Missing markers alone do not prove approval; compare current files with retained check evidence. Live-provider and Windows acceptance remain distinct from source approval.
