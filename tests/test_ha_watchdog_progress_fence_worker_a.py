@@ -189,3 +189,71 @@ def test_late_operation_does_not_poison_successor_cooldown(tmp_path):
         )) == 1
     finally:
         store.close()
+
+
+@pytest.mark.parametrize(
+    "invalid_allowlist",
+    [
+        "worker.chat",                    # String is a substring container.
+        "prefix-worker.chat-suffix",      # Formerly accepted this owner.
+        ["worker.chat"],                  # Wrong container despite exact match.
+        {"worker.chat"},                  # Wrong container.
+        {"worker.chat": True},            # Dictionary-key membership.
+        (), {}, 1, True,
+        frozenset({""}),                   # Empty owner is never valid.
+        frozenset({None}), frozenset({1}),
+        frozenset({b"worker.chat"}),
+    ],
+)
+@pytest.mark.parametrize("method", ["scan", "scan_delivery_health"])
+def test_watchdog_owner_filters_reject_nonexact_allowlist_contract(
+    tmp_path, method, invalid_allowlist
+):
+    store, task, inbox = _scope(tmp_path)
+    try:
+        watchdog = ProgressWatchdog(store, inbox)
+        # Reject BEFORE any progress baseline or effect scan, including if the
+        # optional durable-effect table was never initialized by native chat.
+        with pytest.raises(ContractError, match="owner allowlist"):
+            getattr(watchdog, method)(
+                task["project_id"], allowed_owners=invalid_allowlist, now=100
+            )
+        assert store.rows(
+            "SELECT task_id FROM ha_progress_watch WHERE project_id=?",
+            (task["project_id"],),
+        ) == []
+    finally:
+        store.close()
+
+
+@pytest.mark.parametrize(
+    ("allowed_owners", "expected_baseline"),
+    [
+        (None, True),                                # Explicit no-filter contract.
+        (frozenset(), False),                        # No authorized owners.
+        (frozenset({"worker.chat"}), True),           # Exact route allowed.
+        (frozenset({"chat"}), False),                 # Substring is not enough.
+        (frozenset({"worker.work"}), False),
+    ],
+)
+def test_watchdog_accepts_exact_frozenset_without_coercion(
+    tmp_path, allowed_owners, expected_baseline
+):
+    store, task, inbox = _scope(tmp_path)
+    try:
+        watchdog = ProgressWatchdog(store, inbox)
+        # Both entrypoints share the same input contract. No effect table
+        # means there are no delivery-health advisories to report.
+        assert watchdog.scan_delivery_health(
+            task["project_id"], allowed_owners=allowed_owners, now=100
+        ) == []
+        assert watchdog.scan(
+            task["project_id"], allowed_owners=allowed_owners, now=100
+        ) == []
+        baseline = store.rows(
+            "SELECT task_id FROM ha_progress_watch WHERE project_id=?",
+            (task["project_id"],),
+        )
+        assert bool(baseline) is expected_baseline
+    finally:
+        store.close()
