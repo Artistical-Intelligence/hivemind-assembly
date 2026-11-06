@@ -363,19 +363,27 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             # Examine BOTH rel and relation: choosing the first key could
             # conceal an attachable download under an apparently safe role.
             # Unknown harmless roles and documentation links remain valid.
-            link_fields = ("href", "url", "uri", "path", "location")
-            if any(field in value for field in link_fields) and (
-                "rel" in value or "relation" in value
-            ):
+            # Relation and URL metadata keys can also have mixed case or
+            # separator aliases. Check every key, not only the first spelling:
+            # a safe rel must not mask a second, unsafe REL/relation entry.
+            link_fields = {"href", "url", "uri", "path", "location"}
+            has_link_target = False
+            declared_roles = []
+            for key, entry in value.items():
+                if not isinstance(key, str):
+                    continue
+                normalized_key = key.replace("_", "").replace("-", "").casefold()
+                if normalized_key in link_fields:
+                    has_link_target = True
+                if normalized_key in ("rel", "relation"):
+                    declared_roles.append((normalized_key, entry))
+            if has_link_target and declared_roles:
                 blocked_roles = {
                     "download", "attachment", "artifact", "file",
                     "resource", "binary", "blob",
                 }
                 relation_sets = {}
-                for relation_key in ("rel", "relation"):
-                    if relation_key not in value:
-                        continue
-                    declared = value[relation_key]
+                for relation_key, declared in declared_roles:
                     if isinstance(declared, str):
                         declared = [declared]
                     elif not isinstance(declared, list):
@@ -399,6 +407,8 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                         raise Blocked(
                             "MCP source result includes a downloadable resource relation"
                         )
+                    if relation_key in relation_sets and relation_sets[relation_key] != tokens:
+                        raise Blocked("MCP source result has conflicting link relation aliases")
                     relation_sets[relation_key] = tokens
                 if ("rel" in relation_sets and "relation" in relation_sets and
                         relation_sets["rel"] != relation_sets["relation"]):
