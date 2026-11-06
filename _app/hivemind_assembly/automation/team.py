@@ -564,6 +564,17 @@ class NativeTeam:
             ],
         }
         request["knowledge_scope"] = context
+        if (self.native_chat_route(route) and flow["phase"] == "intent"
+                and isinstance(payload, dict) and payload.get("event_inputs")):
+            # The saved, controller-validated native request must identify the
+            # lease generation which actually prepared its event inputs.
+            # A later browser receipt cannot consume a successor owner's
+            # inbox even if the route name is subsequently reused. This is
+            # only metadata on the EXISTING Chat Mode browser request, not
+            # a new turn, scheduler action or provider/API route.
+            request["native_event_owner"] = {
+                "owner": task["owner"], "epoch": task["epoch"]
+            }
         if classification:
             request = {
                 "task_id": task["id"],
