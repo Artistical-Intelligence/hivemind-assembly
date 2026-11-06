@@ -6,7 +6,6 @@ between these awaits must stop further DOM inspection and prevent dispatch.
 This helper is pure transport validation: no browser, provider or login starts.
 """
 
-
 # Metadata joins page-controlled labels and attributes independently of the
 # bounded snapshot/control summaries. Never pass an unbounded DOM string to
 # the caller's sensitive-control classifier or use it to authorize dispatch.
