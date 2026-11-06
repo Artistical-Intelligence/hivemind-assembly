@@ -12,7 +12,8 @@ from hivemind_assembly.automation.browser_actions import BrowserActions, IDENTIT
 
 
 class FakeBrowser:
-    config = {'routes': {'fixture-route': {'profile': 'fixture'}}}
+    def __init__(self):
+        self.config = {'routes': {'fixture-route': {'profile': 'fixture'}}}
 
     @asynccontextmanager
     async def profile_lock(self, profile):
@@ -116,3 +117,21 @@ def test_same_origin_effect_still_reports_dispatch_only(tmp_path):
     assert element.calls == ['click']
     assert actions.receipts[request['operation_id']]['state'] == 'completed'
     assert page.url == 'https://example.invalid/next'
+
+def test_profile_revocation_during_effect_is_uncertain(tmp_path):
+    actions, page, element, request = make_request(
+        tmp_path, 'click', 'https://example.invalid/still-here')
+    original_click = element.click
+
+    async def click_then_revoke(**kwargs):
+        await original_click(**kwargs)
+        actions.browser.config['routes'].clear()
+
+    element.click = click_then_revoke
+    result = asyncio.run(actions.run(request))
+    assert result['ok'] is False
+    assert result['error']['code'] == 'NEED_ATTENTION'
+    assert element.calls == ['click']
+    assert actions.receipts[request['operation_id']]['state'] == 'uncertain'
+    assert actions.sessions['session-a']['snapshot'] is None
+    assert actions.sessions['session-a']['handles'] == {}
