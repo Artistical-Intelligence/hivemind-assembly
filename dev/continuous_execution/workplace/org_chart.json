@@ -4,7 +4,7 @@
   "project_name": "Hivemind Assembly native browser/MCP/event orchestration",
   "repository": "Artistical-Intelligence/hivemind-assembly",
   "manager": "WORKPLACE-DISTRICT-01 (owner-authorized external coordinator; NO separate HA Shift Manager)",
-  "as_of": "2026-11-05",
+  "as_of": "2026-11-06",
   "target_positions": 10,
   "filled_positions": 5,
   "vacant_positions": 5,
@@ -94,7 +94,7 @@
       "scope_status": "REGISTERED_EXCLUSIVE_SCOPE",
       "management": "WORKPLACE-DISTRICT-01",
       "acceptance": "Actual source-pinned CI, independent review, live native provider validation where applicable",
-      "notes": "Former HA Shift Manager hourly seat reclassified by actual scheduler update; District Manager now owns ALL former HA Shift Manager duties"
+      "notes": "Post-reclassification actual same-ID HA browser-transport engineering execution completed; dedicated branch 84947ba23d016d02e458e0acb95279ddc6430f89 and draft PR #8 (not merged). Four new synthetic regression tests authored, source-pinned final-source workflow run pending/incomplete at manager check; qualified independent review and live native provider acceptance CHECKS PENDING. Does not fill another permanent opening."
     },
     {
       "position_id": "HA-06",
