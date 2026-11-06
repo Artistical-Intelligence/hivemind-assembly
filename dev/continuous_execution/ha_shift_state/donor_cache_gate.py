@@ -18,7 +18,7 @@ SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 REPO = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*\Z")
 OPT = re.compile(r"[A-Z][A-Z0-9_]*\Z")
 # Win32 device basenames resolve specially even when given a file extension.
-WINDEV = re.compile(r"(?:CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])\Z", re.IGNORECASE)
+WINDEV = re.compile(r"(?:CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[1-9¹²³]|LPT[1-9¹²³])\Z", re.IGNORECASE)
 MAX_OBJECTS = 4096
 
 
@@ -54,7 +54,8 @@ def _path(value, where):
     # Avoid divergent cache/source identities across Linux and Windows hosts:
     # Win32 collapses trailing dot/space and reserves device names.
     if any(part.endswith((" ", ".")) or WINDEV.fullmatch(part.split(".", 1)[0])
-           for part in parts):
+           or any(c in '<>"|?*' for c in part) or part.casefold() == ".git"
+           or len(part.encode("utf-16-le")) > 510 for part in parts):
         raise InvalidIntake(f"{where}: nonportable Windows source path")
     return value
 
@@ -194,6 +195,16 @@ def verify_complete_inventory(candidate, inventory):
     return {"source_paths_verified": len(found), "complete_inventory": True,
             "license_approved": False, "runtime_tested": False}
 
+def cache_key_with_inventory(candidate, build, inventory):
+    """Cache identity only after a structurally complete pinned source inventory.
+
+    Caller must independently establish the inventory came from trusted GitHub
+    reads: matching JSON alone does not authenticate upstream source or license.
+    """
+    verify_complete_inventory(candidate, inventory)
+    return cache_key(candidate, build)
+
+
 def cache_key(candidate, build):
     """Stable across JSON key order, sensitive to source/toolchain/flag/dep drift."""
     c, b = checked_candidate(candidate), checked_build(build)
@@ -239,8 +250,9 @@ def verify_artifact(candidate, build, receipt, artifact_path):
 
 def main(argv=None):
     args = sys.argv[1:] if argv is None else argv
-    if not args or args[0] not in ("validate", "inventory", "key", "verify") or len(args) != {"validate": 2, "inventory": 3, "key": 3, "verify": 5}[args[0]]:
-        raise SystemExit("usage: donor_cache_gate.py validate CANDIDATE.json | inventory CANDIDATE.json INVENTORY.json | key CANDIDATE.json BUILD.json | verify CANDIDATE.json BUILD.json RECEIPT.json ARTIFACT")
+    arity = {"validate": 2, "inventory": 3, "key": 3, "verified-key": 4, "verify": 5}
+    if not args or args[0] not in arity or len(args) != arity[args[0]]:
+        raise SystemExit("usage: donor_cache_gate.py validate CANDIDATE.json | inventory CANDIDATE.json INVENTORY.json | key CANDIDATE.json BUILD.json | verified-key CANDIDATE.json BUILD.json INVENTORY.json | verify CANDIDATE.json BUILD.json RECEIPT.json ARTIFACT")
     with open(args[1], encoding="utf-8") as f:
         c = json.load(f)
     if args[0] == "validate":
@@ -254,6 +266,11 @@ def main(argv=None):
         return
     if args[0] == "key":
         print(cache_key(c, b))
+        return
+    if args[0] == "verified-key":
+        with open(args[3], encoding="utf-8") as stream:
+            inventory = json.load(stream)
+        print(cache_key_with_inventory(c, b, inventory))
         return
     with open(args[3], encoding="utf-8") as f:
         receipt = json.load(f)
