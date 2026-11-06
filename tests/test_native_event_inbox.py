@@ -543,3 +543,13 @@ def test_subscription_pruner_retains_never_assigned_and_revokes_orphaned_lease(s
     inbox.subscribe(orphan["id"], orphan_thread)
     inbox.subscribe(orphan["id"], "task:" + orphan["id"])
     assert inbox.pending(orphan["id"]) == []
+
+
+# The dedicated HA adversarial fixture is also collected by the existing
+# focused Ubuntu/Windows native-event workflow, which selects this module
+# explicitly. This is not a browser/provider acceptance test.
+from test_ha_event_receipt_scope import (  # noqa: E402
+    claimed_delivery,
+    test_validated_native_effect_rejects_mismatched_request_scope,
+    test_validated_native_effect_rejects_unrelated_second_event,
+)
