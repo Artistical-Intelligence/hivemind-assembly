@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from donor_cache_gate import InvalidIntake, cache_key, checked_candidate, verify_artifact
+from donor_cache_gate import InvalidIntake, cache_key, checked_candidate, verify_artifact, verify_complete_inventory
 
 
 def fixture():
@@ -129,9 +129,45 @@ class CacheGateTests(unittest.TestCase):
             with self.assertRaises(InvalidIntake):
                 verify_artifact(c, b, wrong, file)
             sym = Path(d) / "sym.bin"
-            sym.symlink_to(file)
-            with self.assertRaises(InvalidIntake):
-                verify_artifact(c, b, receipt, sym)
+            try:
+                sym.symlink_to(file)
+            except (OSError, NotImplementedError):
+                pass  # Windows without symlink privilege; checksum negatives still executed.
+            else:
+                with self.assertRaises(InvalidIntake):
+                    verify_artifact(c, b, receipt, sym)
+
+
+    def test_complete_pinned_inventory_crosscheck(self):
+        c, _ = fixture()
+        def entry(path, sha, kind="blob", mode="100644", submodule=False, symlink=False):
+            return {"path": path, "sha": sha, "kind": kind, "mode": mode,
+                    "size": 3, "submodule": submodule, "symlink": symlink}
+        inventory = {"repository": c["repository"], "commit_sha": c["commit_sha"],
+                     "root_tree_sha": c["root_tree_sha"], "complete": True,
+                     "next_cursor": None, "requests": 1, "entries": [
+                         entry("LICENSE", c["license"]["blob_sha"]),
+                         entry(c["source_objects"][0]["path"], c["source_objects"][0]["blob_sha"]),
+                     ]}
+        self.assertEqual(verify_complete_inventory(c, inventory), {
+            "source_paths_verified": 2, "complete_inventory": True,
+            "license_approved": False, "runtime_tested": False,
+        })
+        changes = [
+            lambda x: x.update(complete=False),
+            lambda x: x.update(next_cursor={"frames": []}),
+            lambda x: x.update(commit_sha="f" * 40),
+            lambda x: x["entries"][0].update(sha="f" * 40),
+            lambda x: x["entries"].pop(0),
+            lambda x: x["entries"].append(entry("link", "f" * 40, "blob", "120000", symlink=True)),
+            lambda x: x["entries"].append(entry("external", "f" * 40, "commit", "160000", submodule=True)),
+            lambda x: x["entries"].append(entry("license", "f" * 40)),
+        ]
+        for i, mutate in enumerate(changes):
+            bad = copy.deepcopy(inventory)
+            mutate(bad)
+            with self.subTest(case=i), self.assertRaises(InvalidIntake):
+                verify_complete_inventory(c, bad)
 
     def test_strict_types_and_extra_fields(self):
         c, b = fixture()
