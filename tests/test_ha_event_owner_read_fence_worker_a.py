@@ -280,3 +280,99 @@ def test_receipt_health_monitor_rechecks_owner_before_alert(
         task["project_id"],
         allowed_owners=frozenset({"worker.first", "worker.second"}),
     ) == []
+
+def _health_effect_fixture(setup, status):
+    """Stage a local receipt intent without launching a native browser turn."""
+    store, task, inbox, thread = setup
+    _assign(store, task, "worker.chat", 1)
+    inbox.subscribe(task["id"], thread, route="worker.chat", epoch=1)
+    _event(inbox, task, thread, "effect-state-race")
+    effects = DurableEventEffects(store)
+    event = inbox.pending(task["id"], route="worker.chat", epoch=1)[0]
+    assert effects.stage_pending(task["id"]) == [event["event_id"]]
+    with store.tx() as db:
+        db.execute(
+            """UPDATE ha_native_effect SET status=?,generation=1,
+               lease_until=? WHERE task_id=?""",
+            (status, time.time() - 20, task["id"]),
+        )
+    return ProgressWatchdog(store, inbox), event["event_id"]
+
+
+def test_health_receipt_resolution_during_admission_is_not_reported(
+    setup, monkeypatch
+):
+    store, task, inbox, _ = setup
+    watchdog, event_id = _health_effect_fixture(setup, "uncertain")
+    original_receive = inbox.receive
+
+    def resolve_before_admission(**kwargs):
+        # Simulate the atomic effect/delivery state change, not a browser ACK.
+        with store.tx() as db:
+            db.execute(
+                """UPDATE ha_native_effect SET status='delivered',
+                   lease_until=NULL WHERE task_id=?""", (task["id"],)
+            )
+            db.execute(
+                """UPDATE ha_event_delivery SET read_at=?
+                   WHERE task_id=? AND event_id=?""",
+                (time.time(), task["id"], event_id),
+            )
+        return original_receive(**kwargs)
+
+    monkeypatch.setattr(inbox, "receive", resolve_before_admission)
+    assert watchdog.scan_delivery_health(task["project_id"]) == []
+    assert store.one(
+        "SELECT COUNT(*) AS n FROM ha_event_trigger WHERE source='watchdog'"
+    )["n"] == 0
+
+
+def test_health_receipt_generation_change_during_admission_is_fenced(
+    setup, monkeypatch
+):
+    store, task, inbox, _ = setup
+    watchdog, _ = _health_effect_fixture(setup, "uncertain")
+    original_receive = inbox.receive
+
+    def renew_generation_before_admission(**kwargs):
+        with store.tx() as db:
+            db.execute(
+                """UPDATE ha_native_effect SET generation=2
+                   WHERE task_id=?""", (task["id"],)
+            )
+        return original_receive(**kwargs)
+
+    monkeypatch.setattr(inbox, "receive", renew_generation_before_admission)
+    assert watchdog.scan_delivery_health(task["project_id"]) == []
+    assert store.one(
+        "SELECT COUNT(*) AS n FROM ha_event_trigger WHERE source='watchdog'"
+    )["n"] == 0
+    monkeypatch.setattr(inbox, "receive", original_receive)
+    fresh = watchdog.scan_delivery_health(task["project_id"])
+    assert len(fresh) == 1
+    assert fresh[0]["effect_generation"] == 2
+
+
+def test_health_effect_lease_renewal_during_admission_is_fenced(
+    setup, monkeypatch
+):
+    store, task, inbox, _ = setup
+    watchdog, _ = _health_effect_fixture(setup, "leased")
+    original_receive = inbox.receive
+
+    def renew_lease_before_admission(**kwargs):
+        with store.tx() as db:
+            db.execute(
+                """UPDATE ha_native_effect SET lease_until=?
+                   WHERE task_id=?""",
+                (time.time() + 3600, task["id"]),
+            )
+        return original_receive(**kwargs)
+
+    monkeypatch.setattr(inbox, "receive", renew_lease_before_admission)
+    assert watchdog.scan_delivery_health(task["project_id"]) == []
+    assert store.one(
+        "SELECT COUNT(*) AS n FROM ha_event_trigger WHERE source='watchdog'"
+    )["n"] == 0
+    monkeypatch.setattr(inbox, "receive", original_receive)
+    assert watchdog.scan_delivery_health(task["project_id"]) == []
