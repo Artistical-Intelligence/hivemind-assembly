@@ -620,8 +620,12 @@ class NativeEventInbox:
             # packets. Older packets lack this evidence. Do not invent the
             # original owner/epoch after a transfer: replay of an unbound
             # receipt in epoch 2+ must be explicitly reconciled instead.
+            # The explicit field is a modern-packet contract. A null or
+            # malformed value cannot silently opt back into historical
+            # event-id-only compatibility on the first owner epoch.
+            modern = "native_event_owner" in request
             binding = request.get("native_event_owner")
-            if binding is not None:
+            if modern:
                 if (not isinstance(binding, dict)
                         or binding.get("owner") != current["owner"]
                         or type(binding.get("epoch")) is not int
@@ -640,9 +644,12 @@ class NativeEventInbox:
             # entire immutable source envelope, not a truthful subset.
             for item in delivered:
                 has_proof = any(field in item for field in proof_fields)
-                if has_proof and any(
+                # All newly stamped native Chat packets must retain the
+                # complete source envelope. Only truly historical packets
+                # without an owner stamp may contain just an event ID.
+                if (modern and not has_proof) or (has_proof and any(
                     field not in item for field in proof_fields
-                ):
+                )):
                     raise ContractError(
                         "Malformed validated native event envelope: "
                         "incomplete source proof"
