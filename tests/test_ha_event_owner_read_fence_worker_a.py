@@ -5,6 +5,7 @@ These are local tests only. Verifier should independently review and collect
 this module in the focused native-event workflow; tests do not prove live HA.
 """
 
+import json
 import time
 
 import pytest
@@ -123,3 +124,36 @@ def test_transfer_between_native_subscribe_and_pending_never_leaks(setup, monkey
     assert [row["source_id"] for row in inbox.pending(
         task["id"], route="worker.second", epoch=2
     )] == ["raced-input"]
+
+
+def test_explicit_modern_receipt_cannot_downgrade_to_legacy_source_proof(setup):
+    store, task, inbox, thread = setup
+    _assign(store, task, "worker.chat", 1)
+    inbox.subscribe(task["id"], thread, route="worker.chat", epoch=1)
+    _event(inbox, task, thread, "source-proof")
+    event = inbox.pending(task["id"])[0]
+    base = {"task_id": task["id"], "project_id": task["project_id"],
+            "body": {"event_inputs": [event]}}
+    packets = [
+        {**base, "native_event_owner": None},
+        {**base, "native_event_owner": {"owner": "worker.chat", "epoch": 1},
+         "body": {"event_inputs": [{"event_id": event["event_id"]}]}},
+    ]
+    for index, packet in enumerate(packets):
+        with store.tx() as db:
+            db.execute(
+                """INSERT INTO messages
+                   (id,task_id,route,conversation,payload_hash,payload,state,
+                    response,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                (f"modern_downgrade_{index}", task["id"], "worker.chat",
+                 "current-chat", f"saved-hash-{index}",
+                 json.dumps(packet), "validated", '{"type":"step_intent"}',
+                 1.0, 1.0),
+            )
+        with pytest.raises(ContractError, match="binding|envelope"):
+            inbox.acknowledge_validated_request(
+                task["id"], f"modern_downgrade_{index}", route="worker.chat"
+            )
+        assert [row["event_id"] for row in inbox.pending(task["id"])] == [
+            event["event_id"]
+        ]
