@@ -303,21 +303,33 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                 key.replace("_", "").replace("-", "").casefold()
                 for key in value if isinstance(key, str)
             }
-            kind = value.get("type")
-            normalized_kind = (
-                kind.replace("_", "").replace("-", "").casefold()
-                if isinstance(kind, str) else kind
-            )
-            if normalized_kind in (
-                "resource", "resourcelink", "image", "audio",
-                "file", "attachment", "artifact", "download",
-                "binary", "blob", "filelink", "downloadlink",
-                "attachmentlink", "artifactlink", "binarylink", "bloblink",
-            ):
-                raise Blocked(
-                    "MCP source result includes an unconverted resource or media "
-                    "block. No automatic attachment materialization."
-                )
+            # Do not trust only the first spelling of a type field: a safe
+            # type=text can otherwise shadow TYPE=resource_link next to it.
+            kind_values = [
+                entry for key, entry in value.items()
+                if isinstance(key, str) and
+                key.replace("_", "").replace("-", "").casefold() == "type"
+            ]
+            normalized_kinds = [
+                entry.replace("_", "").replace("-", "").casefold()
+                if isinstance(entry, str) else entry
+                for entry in kind_values
+            ]
+            if (len(normalized_kinds) > 1 and
+                    any(entry != normalized_kinds[0]
+                        for entry in normalized_kinds[1:])):
+                raise Blocked("MCP source result has conflicting type aliases")
+            for normalized_kind in normalized_kinds:
+                if normalized_kind in (
+                    "resource", "resourcelink", "image", "audio",
+                    "file", "attachment", "artifact", "download",
+                    "binary", "blob", "filelink", "downloadlink",
+                    "attachmentlink", "artifactlink", "binarylink", "bloblink",
+                ):
+                    raise Blocked(
+                        "MCP source result includes an unconverted resource or media "
+                        "block. No automatic attachment materialization."
+                    )
             if ({"blob", "data"} & normalized_keys and
                     "mimetype" in normalized_keys):
                 raise Blocked("MCP source result includes encoded media data")
@@ -464,11 +476,15 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             # (without type=resource) in arbitrary structured metadata.
             # Reject it instead of returning an attachment-capable URI or
             # base64 payload through an unrecognized nested structure.
-            if ("resource" in value and
-                    (isinstance(value["resource"], (dict, list)) or
-                     (isinstance(value["resource"], str) and
-                      re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", value["resource"])))):
-                raise Blocked("MCP source result includes a nested file resource")
+            for key, resource in value.items():
+                if (not isinstance(key, str) or
+                        key.replace("_", "").replace("-", "").casefold()
+                        != "resource"):
+                    continue
+                if (isinstance(resource, (dict, list)) or
+                        (isinstance(resource, str) and
+                         re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", resource))):
+                    raise Blocked("MCP source result includes a nested file resource")
             # Some servers emit camelCase/underscored resource-link fields
             # without the standard type=resource_link wrapper. They are
             # still resource descriptors, not safe inline source text.
