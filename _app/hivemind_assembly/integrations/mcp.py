@@ -161,7 +161,13 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
         if isinstance(value, dict):
             cleaned = {}
             for key, child in value.items():
-                if (key == "content" and isinstance(child, list) and
+                # The root structuredContent.content mirror was already
+                # validated and byte-counted above. Do not count it again:
+                # a safe bounded text response should not fail solely due to
+                # duplicate traversal of the same outbound representation.
+                if key == "content" and depth == 0 and isinstance(child, list):
+                    cleaned[key] = child
+                elif (key == "content" and isinstance(child, list) and
                         any(isinstance(item, dict) and item.get("type") in
                             ("text", "resource", "resource_link", "image", "audio")
                             for item in child)):
