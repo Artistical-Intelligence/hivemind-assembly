@@ -183,6 +183,7 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
         if isinstance(value, dict):
             if value.get("type") in (
                 "resource", "resource_link", "image", "audio",
+                "file", "attachment",
             ):
                 raise Blocked(
                     "MCP source result includes an unconverted resource or media "
@@ -197,8 +198,18 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             # Reject it instead of returning an attachment-capable URI or
             # base64 payload through an unrecognized nested structure.
             if ("resource" in value and
-                    isinstance(value["resource"], (dict, list))):
+                    (isinstance(value["resource"], (dict, list)) or
+                     (isinstance(value["resource"], str) and
+                      re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", value["resource"])))):
                 raise Blocked("MCP source result includes a nested file resource")
+            # Some servers emit camelCase/underscored resource-link fields
+            # without the standard type=resource_link wrapper. They are
+            # still resource descriptors, not safe inline source text.
+            if any(key in value for key in (
+                "resourceUri", "resource_uri", "resourceLink", "resource_link",
+                "downloadUri", "download_uri",
+            )):
+                raise Blocked("MCP source result includes an unconverted resource link")
             # MCP resource links may omit both type and mimeType. A bare
             # URI buried inside structuredContent cannot be distinguished
             # from an attachable resource descriptor, so reject it for
