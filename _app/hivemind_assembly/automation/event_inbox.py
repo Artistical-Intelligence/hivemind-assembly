@@ -454,8 +454,9 @@ class NativeEventInbox:
                 expected_effect: tuple[str, int, str, float] | None = None) -> str:
         """Record one stable trigger and enqueue it for current subscribers.
 
-        `verified` is supplied ONLY by an authenticated native adapter, never
-        trusted from an external event payload. Internal journal events use
+        `verified` must be literal True from an authenticated native adapter;
+        truthy non-booleans never authorize an external event. Never trust
+        external event payloads. Internal journal events use
         source='native'. No new task, permission or model call is created.
         """
         _bounded(project_id, "project id", 128)
@@ -464,7 +465,7 @@ class NativeEventInbox:
         _bounded(thread, "thread", 256)
         _bounded(kind, "kind", 100)
         _bounded(summary, "summary", 500)
-        if source != "native" and not verified:
+        if source != "native" and verified is not True:
             raise ContractError("External source event requires verified adapter")
         if thread != "project:" + project_id and not thread.startswith("task:"):
             raise ContractError("Thread must belong to the supplied project")
