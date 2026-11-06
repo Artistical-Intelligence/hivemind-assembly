@@ -318,21 +318,60 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
                     if (not isinstance(declared, str) or len(declared) > 256
                             or any(ord(c) < 32 or ord(c) == 127 for c in declared)):
                         raise Blocked("MCP source result has malformed MIME declaration")
-            # Third-party servers can wrap a downloadable file in a
-            # structuredContent.file/attachment/artifact object instead of
-            # the standard MCP resource block. Refuse such descriptors before
-            # they can escape as ordinary-looking source metadata.
-            for name in (
-                "file", "attachment", "artifact",
-                "files", "attachments", "artifacts",
-            ):
-                descriptor = value.get(name)
-                if (isinstance(descriptor, (dict, list)) or
-                        (isinstance(descriptor, str) and
-                         re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", descriptor))):
+            # Nonstandard MCP wrappers can hide file handles in bare
+            # strings, not only object/list descriptors or URI schemes.
+            # Fail closed on attachment/artifact/download/blob descriptors,
+            # while preserving a simple informational file name such as
+            # {"file": "README.md"} and documentation URLs.
+            typed_link = value.get("type")
+            if (isinstance(typed_link, str) and
+                    typed_link.replace("_", "").replace("-", "").lower()
+                    in {"resourcelink", "filelink", "downloadlink",
+                        "attachmentlink", "artifactlink", "binarylink",
+                        "bloblink"}):
+                raise Blocked("MCP source result includes an unconverted typed resource link")
+            descriptor_keys = {
+                "file", "attachment", "artifact", "download", "binary", "blob",
+                "files", "attachments", "artifacts", "downloads",
+                "binaries", "blobs",
+            }
+            for key, descriptor in value.items():
+                if not isinstance(key, str):
+                    continue
+                label = key.replace("_", "").replace("-", "").lower()
+                if label not in descriptor_keys:
+                    continue
+                if isinstance(descriptor, (dict, list)):
                     raise Blocked(
                         "MCP source result includes an unconverted file descriptor"
                     )
+                if isinstance(descriptor, str) and descriptor:
+                    if (label not in ("file", "files") or
+                            "/" in descriptor or "\\" in descriptor or
+                            re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", descriptor) or
+                            descriptor.startswith((".", "~"))):
+                        raise Blocked(
+                            "MCP source result includes an unconverted file descriptor"
+                        )
+                if (label not in ("file", "files") and
+                        descriptor is not None and descriptor is not False and
+                        (not isinstance(descriptor, str) or bool(descriptor))):
+                    raise Blocked(
+                        "MCP source result includes an unconverted file descriptor"
+                    )
+            # Hypermedia links may name their download role with rel rather
+            # than a downloadUri or MIME field. A URL with rel=help/docs is
+            # informational; rel=download/attachment/file is not source text.
+            relation = value.get("rel", value.get("relation"))
+            if (isinstance(relation, str) and
+                    relation.strip().lower().replace("_", "").replace("-", "")
+                    in {"download", "attachment", "artifact", "file",
+                        "resource", "binary", "blob"} and
+                    any(field in value for field in
+                        ("href", "url", "uri", "path", "location"))):
+                raise Blocked(
+                    "MCP source result includes a downloadable resource relation"
+                )
             # A MIME-typed URL/href is another resource descriptor even when
             # its producer does not use an MCP resource/link field name.
             # Preserve ordinary metadata such as documentation_url.
