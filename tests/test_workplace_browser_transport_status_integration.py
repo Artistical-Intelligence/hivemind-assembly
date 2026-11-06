@@ -5,14 +5,17 @@ still be executed against the full repository once a permitted test route is
 available; a passing session_trust helper fixture is not integration acceptance.
 """
 
+import asyncio
+
 import pytest
 
 from hivemind_assembly.automation.browser_actions import BrowserActions
-from hivemind_assembly.core.common import Blocked
+from hivemind_assembly.core.common import Blocked, digest
 
 
 class FakeBrowser:
-    config = {'routes': {'single': {'profile': 'fixture'}}}
+    def __init__(self):
+        self.config = {'routes': {'single': {'profile': 'fixture'}}}
 
 
 class FakePage:
@@ -56,3 +59,29 @@ def test_origin_guard_invalidates_stale_snapshot_without_dispatch(tmp_path):
         actions.require_session_origin(actions.sessions['original'])
     assert actions.sessions['original']['snapshot'] is None
     assert actions.sessions['original']['handles'] == {}
+
+
+def test_revoked_browser_profile_blocks_cached_open_without_new_dispatch(tmp_path):
+    actions, page = make_actions(tmp_path)
+    request = {
+        'action': 'open', 'operation_id': 'open-route-revoked-001',
+        'profile': 'fixture', 'url': 'https://example.invalid/setup',
+    }
+    prior = {'ok': True, 'items': [{'session': 'original', 'outcome': 'opened'}]}
+    actions.receipts[request['operation_id']] = {
+        'hash': digest(request), 'state': 'completed', 'result': prior,
+    }
+    dispatched = []
+
+    async def forbidden_dispatch(payload):
+        dispatched.append(payload)
+        raise AssertionError('replayed open must not dispatch')
+
+    actions._run = forbidden_dispatch
+    assert asyncio.run(actions.run(request)) == prior
+    actions.browser.config['routes'].clear()
+    assert actions.status()['sessions'][0]['open'] is False
+    result = asyncio.run(actions.run(request))
+    assert result['ok'] is False
+    assert result['error']['code'] == 'NEED_ATTENTION'
+    assert dispatched == []
