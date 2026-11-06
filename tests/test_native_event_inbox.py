@@ -565,3 +565,34 @@ from test_ha_event_uncertain_reconciliation import (  # noqa: E402
     test_uncertain_reconciliation_rejects_mismatched_retained_request,
     test_uncertain_reconciliation_accepts_one_exact_current_owner_packet,
 )
+
+@pytest.mark.parametrize("source", ["github_webhook", "grokbot_kit", "watchdog"])
+@pytest.mark.parametrize("forged_receipt", [1, "host-approved", [True], {"verified": True}])
+def test_external_event_requires_exact_boolean_verification(
+        tmp_path, source, forged_receipt):
+    """Truthy JSON-ish receipts are not evidence of authenticated admission.
+
+    A third-party integration must not turn a non-boolean value into the
+    trusted adapter boolean. Rejected input must leave no source trigger or
+    delivery in the project. CHECKS PENDING / AWAITING CI.
+    """
+    store = Store(tmp_path)
+    try:
+        task = store.create_project("external-verification-boundary", "Chat only")
+        inbox = NativeEventInbox(store)
+        thread = "project:" + task["project_id"]
+        inbox.subscribe(task["id"], thread)
+        with pytest.raises(ContractError, match="verified"):
+            inbox.receive(
+                project_id=task["project_id"], source=source,
+                source_id="forged-external-receipt", thread=thread,
+                kind="ci_failed", summary="Unverified external data",
+                verified=forged_receipt,
+            )
+        assert inbox.pending(task["id"]) == []
+        assert store.rows(
+            "SELECT id FROM ha_event_trigger WHERE project_id=?",
+            (task["project_id"],),
+        ) == []
+    finally:
+        store.close()
