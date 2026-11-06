@@ -181,3 +181,23 @@ def test_validated_receipt_ack_succeeds_on_renewed_current_lease(live_task):
     assert NativeEventInbox(store).acknowledge_validated_request(
         task["id"], "ack_lease_renewed", route="worker.chat",
     ) == 0
+
+
+def test_assigned_epoch_zero_cannot_bypass_reader_lease(live_task):
+    """Epoch zero is for unassigned queued catch-up, never assigned workers."""
+    store, task, inbox, thread = live_task
+    _emit(inbox, task, thread, "assigned-zero-epoch")
+    with store.tx() as db:
+        db.execute(
+            "UPDATE tasks SET epoch=0, lease_until=? WHERE id=?",
+            (time.time() - 1, task["id"]),
+        )
+    with pytest.raises(ContractError, match="lease"):
+        inbox.subscribe(task["id"], thread, route="worker.chat", epoch=0)
+    with pytest.raises(ContractError, match="lease"):
+        inbox.pending(task["id"], route="worker.chat", epoch=0)
+    # No subscription or catch-up rows were committed by the rejected owner.
+    assert store.one(
+        "SELECT COUNT(*) AS n FROM ha_event_subscription WHERE task_id=?",
+        (task["id"],),
+    )["n"] == 0
