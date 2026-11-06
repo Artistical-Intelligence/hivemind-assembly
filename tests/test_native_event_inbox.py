@@ -552,4 +552,6 @@ from test_ha_event_receipt_scope import (  # noqa: E402
     claimed_delivery,
     test_validated_native_effect_rejects_mismatched_request_scope,
     test_validated_native_effect_rejects_unrelated_second_event,
+    test_validated_native_effect_rejects_bad_modern_owner_binding,
+    test_validated_native_effect_rejects_extra_same_project_event,
 )
