@@ -322,7 +322,9 @@ class CacheGateTests(unittest.TestCase):
             artifact = Path(tmp) / "synthetic.bin"
             artifact.write_bytes(body)
             expected = {"artifact_identity_verified": True, "runtime_tested": False,
-                        "license_approved": False, "independently_accepted": False}
+                        "license_approved": False, "independently_accepted": False,
+                        "source_inventory_structurally_verified": True,
+                        "remote_source_authenticated": False}
             self.assertEqual(verify_artifact_with_inventory(
                 candidate, build, inventory, receipt, artifact), expected)
             files = [Path(tmp) / name for name in ("candidate.json", "build.json",
