@@ -110,6 +110,18 @@ class BrowserActions:
                 if old['state'] != 'completed':
                     return envelope(channel='browser', action=action, error=ReachError(
                         'UNCERTAIN', 'The previous operation may have reached the page. Read the current page before deciding what to do; HA will not repeat it.'))
+                # A successful open receipt can outlive its ephemeral Playwright
+                # page. Do not replay a stale session ID as if a page still exists.
+                if action == 'open':
+                    previous = old['result'].get('items', [])
+                    previous_id = previous[0].get('session') if (
+                        isinstance(previous, list) and previous and
+                        isinstance(previous[0], dict)) else None
+                    session = self.sessions.get(previous_id)
+                    if not session or session['page'].is_closed():
+                        return envelope(channel='browser', action=action, error=ReachError(
+                            'NEED_ATTENTION',
+                            'The original browser session has ended. No page was reopened; inspect the site and authorize a fresh operation ID.'))
                 return old['result']
             if len(self.receipts) >= MAX_RETAINED_RECEIPTS:
                 raise Blocked('Browser receipts are full; existing operation IDs must be preserved for owner-guided reconciliation before new dispatch')
