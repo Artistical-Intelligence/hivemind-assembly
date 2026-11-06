@@ -20,6 +20,7 @@ from .browser_engine.route_binding import profile_route_binding, bound_route_is_
 from .browser_engine.route_policy import route_policy_fingerprint, route_policy_is_current
 from .browser_engine.dispatch_fence import fenced_browser_dispatch
 from .browser_engine.element_refs import ElementInspectionError, collect_authorized_refs
+from .browser_engine.action_inspection import ActionInspectionError, inspect_action_target
 from .browser_engine.url_origin import canonical_https_origin
 
 ENGINE = Path(__file__).with_name('browser_engine') / 'browser_scripts.json'
@@ -314,13 +315,16 @@ class BrowserActions:
             if not re.fullmatch(r'[0-9]{1,5}', ref) or ref not in session['handles']:
                 raise ContractError('Choose one element reference from the current page snapshot')
             element, expected = session['handles'][ref]
-            identity = await element.evaluate(IDENTITY)
-            self.require_current_browser_authority(session)
-            if not identity['connected'] or identity != expected:
-                raise Blocked('The selected element changed; no action was performed')
-            if not await element.is_visible() or not await element.is_enabled():
-                raise Blocked('The selected element is not currently actionable')
-            metadata = await element.evaluate("e=>[e.type,e.name,e.id,e.getAttribute('autocomplete'),e.getAttribute('aria-label'),e.getAttribute('placeholder'),...[...(e.labels||[])].map(l=>l.textContent)].filter(Boolean).join(' ')")
+            # Each Playwright inspection awaits browser work. A revocation
+            # during visibility/enablement must block subsequent DOM reads, not
+            # merely stop the eventual click or fill.
+            try:
+                identity, metadata = await inspect_action_target(
+                    element, expected, IDENTITY,
+                    "e=>[e.type,e.name,e.id,e.getAttribute('autocomplete'),e.getAttribute('aria-label'),e.getAttribute('placeholder'),...[...(e.labels||[])].map(l=>l.textContent)].filter(Boolean).join(' ')",
+                    session, self.require_current_browser_authority)
+            except ActionInspectionError as error:
+                raise Blocked(str(error)) from None
             if SENSITIVE.search(metadata):
                 raise Blocked('Complete credentials or verification directly in the website; HA does not fill or return those values')
             # A page may have navigated during element/metadata inspection.
