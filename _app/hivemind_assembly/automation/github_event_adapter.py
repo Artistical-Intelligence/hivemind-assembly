@@ -31,36 +31,36 @@ def _is_sha(value):
 
 
 def _checked_push(data):
-    """Require the actual GitHub push identity, not forged partial metadata.
+    """Require a consistent GitHub push lifecycle before admitting source.
 
-    Newly-created branches legitimately have a zero-valued *before* SHA.
-    Deleted branches have a zero-valued *after* SHA and are filtered.
+    A zero `before` SHA denotes creation; a zero `after` SHA denotes
+    deletion. Explicit flags must agree with those sentinels. Omitted
+    flags remain compatible with authenticated older senders.
     """
     for flag in ("created", "deleted", "forced"):
         if flag in data and type(data[flag]) is not bool:
             raise ContractError("Malformed GitHub push " + flag + " flag")
-    # GitHub represents a newly created ref with a zero before SHA and a
-    # deleted ref with a zero after SHA. Reject contradictory signed control
-    # flags instead of silently treating a malformed deletion as harmless.
-    zero = "0" * 40
-    if data.get("created") is True and (
-        data.get("deleted") is True or data.get("before") != zero
-    ):
-        raise ContractError("Contradictory GitHub push creation metadata")
-    if data.get("deleted") is True and data.get("after") != zero:
-        raise ContractError("Contradictory GitHub push deletion metadata")
-    if data.get("deleted") is True or data.get("after") == zero:
-        return None
+    # Validate the whole envelope *before* filtering deletions. Otherwise a
+    # forged or malformed zero-after envelope can evade ref/SHA checks.
     ref = data.get("ref")
     before, after = data.get("before"), data.get("after")
     if (not isinstance(ref, str) or not 1 <= len(ref) <= 320
-            or "\x00" in ref or "\n" in ref or "\r" in ref
+            or "\\x00" in ref or "\\n" in ref or "\\r" in ref
             or not (ref.startswith("refs/heads/") and len(ref) > 11
                     or ref.startswith("refs/tags/") and len(ref) > 10)):
         raise ContractError("Malformed GitHub push reference")
     if not _is_sha(before) or not _is_sha(after):
         raise ContractError("Malformed GitHub push revision")
-    return ref, before.lower(), after.lower()
+    before, after = before.lower(), after.lower()
+    zero = "0" * 40
+    creating, deleting = before == zero, after == zero
+    if (creating and deleting
+            or ("created" in data and data["created"] is not creating)
+            or ("deleted" in data and data["deleted"] is not deleting)):
+        raise ContractError("Contradictory GitHub push lifecycle metadata")
+    if deleting:
+        return None
+    return ref, before, after
 
 _ALLOWED = frozenset({"workflow_run", "check_run", "push"})
 
