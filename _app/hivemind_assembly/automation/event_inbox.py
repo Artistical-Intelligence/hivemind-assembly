@@ -193,7 +193,9 @@ class NativeEventInbox:
             records = self.store.rows(
                 """SELECT payload FROM records
                    WHERE kind='acceptance_result'
-                     AND json_extract(payload,'$.task_id')=?
+                     AND CASE WHEN json_valid(payload)
+                              THEN json_extract(payload,'$.task_id')
+                         END=?
                    ORDER BY rowid DESC LIMIT 1""",
                 (task_id,),
             )
@@ -203,6 +205,8 @@ class NativeEventInbox:
                 result = json.loads(records[0]["payload"])
             except (ValueError, TypeError) as error:
                 raise ContractError("Malformed retained acceptance evidence") from error
+            if not isinstance(result, dict):
+                raise ContractError("Malformed retained acceptance evidence")
             if (result.get("task_id") != task_id
                     or result.get("status") != "accepted"
                     or result.get("passed") is not True
@@ -739,6 +743,11 @@ class NativeEventInbox:
                 delivered = body.get("event_inputs", [])
                 if not isinstance(delivered, list):
                     raise ContractError("Malformed validated native event inputs")
+                # Validate the batch bound BEFORE walking every saved envelope.
+                # The standalone ACK path is already capped at 20; a retained
+                # browser request must not evade the same resource bound.
+                if len(delivered) > 20:
+                    raise ContractError("Invalid bounded native event acknowledgement")
                 ids = []
                 for item in delivered:
                     if (not isinstance(item, dict)
@@ -792,6 +801,14 @@ class NativeEventInbox:
                     raise ContractError(
                         "Malformed validated native event envelope: "
                         "incomplete source proof"
+                    )
+                # Python compares True == 1.0. A forged boolean arrival
+                # timestamp can otherwise pass an exact-envelope comparison
+                # when a historic event's arrival value is 1.0. JSON numeric
+                # timestamps remain compatible; boolean/string proofs do not.
+                if has_proof and type(item["arrived"]) not in (int, float):
+                    raise ContractError(
+                        "Malformed validated native event arrival proof"
                     )
                 matched = db.execute(
                     """SELECT e.source,e.source_id,e.thread,e.kind,e.summary,
