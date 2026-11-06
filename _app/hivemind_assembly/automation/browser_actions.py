@@ -236,7 +236,7 @@ class BrowserActions:
                 await page.close()
                 self.sessions.pop(data['session'], None)
                 return {'session': data['session'], 'outcome': 'closed'}
-            self.require_session_origin(session)
+            self.require_current_browser_authority(session)
             if action == 'read':
                 # Invalidate old refs before awaiting DOM work, while still
                 # disposing the old element handles instead of dropping them.
@@ -248,14 +248,16 @@ class BrowserActions:
                 await page.locator('[data-ha-ref]').evaluate_all("es=>es.forEach(e=>e.removeAttribute('data-ha-ref'))")
                 await page.evaluate(self.scripts['stable'])
                 text = await page.evaluate(self.scripts['snapshot'])
-                self.require_session_origin(session)
+                # The configured route may be revoked while snapshot evaluation
+                # was awaited; origin equality alone does not authorize reads.
+                self.require_current_browser_authority(session)
                 handles = {}
                 for element in await page.locator('[data-ha-ref]').element_handles():
                     ref = await element.get_attribute('data-ha-ref')
                     if ref in handles:
                         raise Blocked('The page contains ambiguous action references; HA will not choose one')
                     handles[ref] = (element, await element.evaluate(IDENTITY))
-                self.require_session_origin(session)
+                self.require_current_browser_authority(session)
                 snapshot = secrets.token_hex(16)
                 session.update(snapshot=snapshot, handles=handles)
                 return {'session': data['session'], 'snapshot': snapshot,
@@ -268,7 +270,7 @@ class BrowserActions:
                 raise ContractError('Choose one element reference from the current page snapshot')
             element, expected = session['handles'][ref]
             identity = await element.evaluate(IDENTITY)
-            self.require_session_origin(session)
+            self.require_current_browser_authority(session)
             if not identity['connected'] or identity != expected:
                 raise Blocked('The selected element changed; no action was performed')
             if not await element.is_visible() or not await element.is_enabled():
@@ -278,7 +280,7 @@ class BrowserActions:
                 raise Blocked('Complete credentials or verification directly in the website; HA does not fill or return those values')
             # A page may have navigated during element/metadata inspection.
             # Do not dispatch a click or fill based on a different site's DOM.
-            self.require_session_origin(session)
+            self.require_current_browser_authority(session)
             session['snapshot'] = None
             if action == 'fill':
                 value = data.get('value')
