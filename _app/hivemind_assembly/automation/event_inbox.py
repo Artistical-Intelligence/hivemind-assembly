@@ -438,7 +438,8 @@ class NativeEventInbox:
 
     def receive(self, *, project_id: str, source: str, source_id: str,
                 thread: str, kind: str, summary: str,
-                verified: bool = False) -> str:
+                verified: bool = False,
+                expected_task: tuple[str, str, int, str] | None = None) -> str:
         """Record one stable trigger and enqueue it for current subscribers.
 
         `verified` is supplied ONLY by an authenticated native adapter, never
@@ -460,7 +461,37 @@ class NativeEventInbox:
             if self.store.task(thread[5:])["project_id"] != project_id:
                 raise ContractError("Event targets task in different project")
 
+        # A watchdog observation is advisory. A task may be transferred or
+        # stopped between its evidence scan and admission of the signal.
+        # Recheck the *observed* owner, epoch and status in the same write
+        # transaction as admission so an old owner's stale sample cannot
+        # create a fresh project event. This is a restriction, not authority
+        # granted by the caller or an alternative model wakeup.
+        if expected_task is not None:
+            if (source != "watchdog" or not verified
+                    or not isinstance(expected_task, tuple)
+                    or len(expected_task) != 4):
+                raise ContractError("Invalid fenced watchdog event admission")
+            task_id, owner, epoch, status = expected_task
+            _bounded(task_id, "observed watchdog task", 128)
+            _bounded(owner, "observed watchdog owner", 128)
+            if type(epoch) is not int or epoch < 0:
+                raise ContractError("Invalid observed watchdog epoch")
+            _bounded(status, "observed watchdog status", 64)
         with self.store.tx() as db:
+            if expected_task is not None:
+                current = db.execute(
+                    """SELECT project_id,owner,epoch,status FROM tasks
+                       WHERE id=?""", (task_id,)
+                ).fetchone()
+                if (current is None
+                        or current["project_id"] != project_id
+                        or current["owner"] != owner
+                        or current["epoch"] != epoch
+                        or current["status"] != status
+                        or status in ("paused", "cancelled", "accepted",
+                                      "awaiting_acceptance")):
+                    return "stale"
             prior = db.execute(
                 """SELECT id,thread,kind,summary FROM ha_event_trigger
                    WHERE project_id=? AND source=? AND source_id=?""",
