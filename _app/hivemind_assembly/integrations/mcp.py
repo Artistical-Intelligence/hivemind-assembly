@@ -269,6 +269,24 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             output[name] = normalize_nested_blocks(output[name])
 
     checked_nodes = 0
+    # The final serialized-response cap must not require first constructing
+    # an arbitrarily large JSON string from untrusted nested metadata.
+    # Each Unicode character (including an output dict key) consumes at
+    # least one byte in the eventual JSON UTF-8 representation. Count that
+    # safe lower bound before invoking canonical() below; the exact encoded
+    # byte check remains authoritative for escapes and multibyte text.
+    output_chars = 0
+    max_output_chars = max_chars + 32_768
+
+    def count_output_string(value):
+        nonlocal output_chars
+        if isinstance(value, str):
+            output_chars += len(value)
+            if output_chars > max_output_chars:
+                raise Blocked(
+                    "MCP inline result exceeds the safe response limit. "
+                    "Read a smaller line range instead of an attachment."
+                )
 
     def reject_remaining_media(value, depth=0):
         nonlocal checked_nodes
@@ -276,6 +294,8 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
         if depth > 24 or checked_nodes > 50_000:
             raise Blocked("Nested MCP source result exceeds the safe structure limit")
         if isinstance(value, dict):
+            for key in value:
+                count_output_string(key)
             if value.get("type") in (
                 "resource", "resource_link", "image", "audio",
                 "file", "attachment",
@@ -398,6 +418,8 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
         elif isinstance(value, list):
             for child in value:
                 reject_remaining_media(child, depth + 1)
+        elif isinstance(value, str):
+            count_output_string(value)
 
     reject_remaining_media(output)
     # Structured metadata is also an outbound payload. Bound its encoded
