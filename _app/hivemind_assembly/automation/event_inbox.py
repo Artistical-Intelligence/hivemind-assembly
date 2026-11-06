@@ -500,79 +500,140 @@ class NativeEventInbox:
 
     def acknowledge_validated_request(self, task_id: str, message_id: str,
                                       *, route: str) -> int:
-        """Acknowledge only event IDs actually present in a validated request.
+        """ACK only a validated *saved* request under its current task lease.
 
-        Prepared/uncertain browser messages have no authority to consume
-        deliveries. A replay uses the persisted request rather than any
-        newly arrived event list supplied by the caller.
+        Legacy pre-effect messages must not drain a transferred owner's inbox
+        or a stopped task. The owner/status/epoch and receipt verification
+        happen in the same SQLite write transaction as the read markers, so
+        a concurrent transfer/revocation cannot race the final ACK. New
+        native event packets carry an explicit owner+epoch binding; older
+        packets without one are accepted only on their original first
+        live lease (or an epoch-zero, never-assigned compatibility fixture).
         """
-        task = self.store.task(task_id)
         _bounded(message_id, "native message id", 128)
         _bounded(route, "native route", 128)
-        messages = self.store.rows(
-            """SELECT payload,route FROM messages
-               WHERE id=? AND task_id=? AND state='validated'""",
-            (message_id, task_id),
-        )
-        if not messages:
-            return 0
-        if messages[0]["route"] != route:
-            raise ContractError("Validated native receipt route mismatch")
-        try:
-            request = json.loads(messages[0]["payload"])
-            if (not isinstance(request, dict)
-                    or request.get("task_id") != task_id
-                    or request.get("project_id") != task["project_id"]):
-                raise ContractError("Validated native receipt project binding mismatch")
-            body = request.get("body", {})
-            if not isinstance(body, dict):
-                raise ContractError("Malformed validated event request body")
-            delivered = body.get("event_inputs", [])
-            if not isinstance(delivered, list):
-                raise ContractError("Malformed validated native event inputs")
-            if any(not isinstance(row, dict) or
-                   "event_id" not in row for row in delivered):
-                raise ContractError("Malformed validated native event receipt")
-            ids = [row["event_id"] for row in delivered]
-        except (ValueError, TypeError) as error:
-            raise ContractError("Malformed validated native event request") from error
-
-        # Older saved native requests recorded only event_id. Keep that
-        # historical compatibility route without inventing a new source ACK.
-        # Newer native packets include immutable source/thread/kind/summary
-        # fields: refuse a partial or forged envelope that contradicts the
-        # original project-scoped event journal.
         proof_fields = ("source", "source_id", "thread", "kind", "summary", "arrived")
-        for item in delivered:
-            if not any(field in item for field in proof_fields):
-                continue
-            # Pre-upgrade native receipts contained only an event ID. Once
-            # ANY modern event metadata appears it must include the ENTIRE
-            # immutable scoped envelope; a conveniently truthful subset
-            # must not bypass source/project binding.
-            if any(field not in item for field in proof_fields):
+        with self.store.tx() as db:
+            message = db.execute(
+                """SELECT payload,route FROM messages
+                   WHERE id=? AND task_id=? AND state='validated'""",
+                (message_id, task_id),
+            ).fetchone()
+            if message is None:
+                return 0
+            current = db.execute(
+                """SELECT project_id,owner,epoch,status,lease_until
+                   FROM tasks WHERE id=?""", (task_id,),
+            ).fetchone()
+            if current is None:
+                raise ContractError("Validated native receipt has no current task")
+            if message["route"] != route:
+                raise ContractError("Validated native receipt route mismatch")
+            # The old message route alone never establishes that its saved
+            # conversation still owns this task. Historical unassigned
+            # epoch-zero fixtures remain compatible; a previously assigned
+            # task with no owner is explicitly *not* equivalent.
+            if current["owner"] is None:
+                if current["epoch"] != 0 or current["status"] != "queued":
+                    raise ContractError(
+                        "Validated native receipt has no eligible current owner"
+                    )
+            elif (current["owner"] != route or current["status"] != "running"
+                  or current["epoch"] <= 0
+                  or current["lease_until"] <= time.time()):
                 raise ContractError(
-                    "Malformed validated native event envelope: incomplete source proof"
+                    "Validated native receipt requires the current live owner lease"
                 )
-            if (type(item["event_id"]) is not int or
-                    item["event_id"] <= 0):
-                raise ContractError("Invalid saved native event identifier")
-            matched = self.store.rows(
-                """SELECT e.source,e.source_id,e.thread,e.kind,e.summary,
-                          e.arrived FROM ha_event_trigger e
-                   JOIN ha_event_delivery d ON d.event_id=e.id
-                   WHERE e.id=? AND e.project_id=? AND d.task_id=?""",
-                (item["event_id"], task["project_id"], task_id),
-            )
-            if not matched or any(
-                item.get(field) != matched[0][field]
-                for field in proof_fields if field in item
-            ):
+            try:
+                request = json.loads(message["payload"])
+                if (not isinstance(request, dict)
+                        or request.get("task_id") != task_id
+                        or request.get("project_id") != current["project_id"]):
+                    raise ContractError(
+                        "Validated native receipt project binding mismatch"
+                    )
+                body = request.get("body", {})
+                if not isinstance(body, dict):
+                    raise ContractError("Malformed validated event request body")
+                delivered = body.get("event_inputs", [])
+                if not isinstance(delivered, list):
+                    raise ContractError("Malformed validated native event inputs")
+                ids = []
+                for item in delivered:
+                    if (not isinstance(item, dict)
+                            or type(item.get("event_id")) is not int
+                            or item["event_id"] <= 0):
+                        raise ContractError("Malformed validated native event receipt")
+                    ids.append(item["event_id"])
+            except (ValueError, TypeError) as error:
                 raise ContractError(
-                    "Validated native event envelope does not match "
-                    "the immutable authorized project event"
+                    "Malformed validated native event request"
+                ) from error
+            if len(ids) > 20 or len(set(ids)) != len(ids):
+                raise ContractError("Invalid bounded native event acknowledgement")
+            if not ids:
+                return 0
+
+            # Exact lease epoch is part of all newly saved native event
+            # packets. Older packets lack this evidence. Do not invent the
+            # original owner/epoch after a transfer: replay of an unbound
+            # receipt in epoch 2+ must be explicitly reconciled instead.
+            binding = request.get("native_event_owner")
+            if binding is not None:
+                if (not isinstance(binding, dict)
+                        or binding.get("owner") != current["owner"]
+                        or type(binding.get("epoch")) is not int
+                        or binding["epoch"] != current["epoch"]):
+                    raise ContractError(
+                        "Validated native receipt owner-epoch binding mismatch"
+                    )
+            elif current["epoch"] > 1:
+                raise ContractError(
+                    "Historical native receipt lacks a current owner-epoch binding"
                 )
-        return self.acknowledge(task_id, ids)
+
+            # Validate *all* deliveries before writing *any* read marker.
+            # Legacy event-id-only records still require an authorized,
+            # project-bound delivery. Modern packets also require their
+            # entire immutable source envelope, not a truthful subset.
+            for item in delivered:
+                has_proof = any(field in item for field in proof_fields)
+                if has_proof and any(
+                    field not in item for field in proof_fields
+                ):
+                    raise ContractError(
+                        "Malformed validated native event envelope: "
+                        "incomplete source proof"
+                    )
+                matched = db.execute(
+                    """SELECT e.source,e.source_id,e.thread,e.kind,e.summary,
+                              e.arrived
+                       FROM ha_event_trigger e
+                       JOIN ha_event_delivery d ON d.event_id=e.id
+                       WHERE e.id=? AND e.project_id=? AND d.task_id=?""",
+                    (item["event_id"], current["project_id"], task_id),
+                ).fetchone()
+                if matched is None:
+                    raise ContractError(
+                        "Validated native receipt has no authorized project delivery"
+                    )
+                if has_proof and any(
+                    item[field] != matched[field] for field in proof_fields
+                ):
+                    raise ContractError(
+                        "Validated native event envelope does not match "
+                        "the immutable authorized project event"
+                    )
+            now = time.time()
+            count = 0
+            for event_id in ids:
+                updated = db.execute(
+                    """UPDATE ha_event_delivery SET read_at=?
+                       WHERE task_id=? AND event_id=? AND read_at IS NULL""",
+                    (now, task_id, event_id),
+                )
+                count += updated.rowcount
+            return count
 
     def bridge_native(self, project_id: str, limit: int = 100) -> int:
         """Read the local Store event journal into this project's inbox.
