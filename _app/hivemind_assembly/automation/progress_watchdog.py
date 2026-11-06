@@ -127,6 +127,11 @@ class ProgressWatchdog:
                 kind="native_receipt_uncertain",
                 expected_task=(row["task_id"], row["owner"], row["epoch"],
                                row["task_status"]),
+                # A just-completed browser receipt or an effect generation
+                # change must invalidate this advisory before event admission.
+                # The inbox re-reads this effect in its own write transaction.
+                expected_effect=(row["effect_key"], row["generation"],
+                                 row["effect_status"], current),
                 summary=(
                     "Native browser event delivery may be unresolved for task "
                     + row["task_id"]
