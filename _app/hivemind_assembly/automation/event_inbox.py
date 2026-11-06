@@ -17,6 +17,7 @@ import json
 import math
 import time
 from collections.abc import Iterable
+from itertools import islice
 
 from hivemind_assembly.core.common import ContractError
 
@@ -654,7 +655,13 @@ class NativeEventInbox:
 
     def acknowledge(self, task_id: str, event_ids: Iterable[int]) -> int:
         self.store.task(task_id)
-        ids = tuple(event_ids)
+        # Never exhaust a caller-owned iterable before applying the cap.
+        # In particular, an infinite iterator must be rejected after at most
+        # 21 values, not hang the native event loop or allocate unbounded RAM.
+        try:
+            ids = tuple(islice(iter(event_ids), 21))
+        except TypeError as error:
+            raise ContractError("Invalid bounded delivery acknowledgement") from error
         if len(ids) > 20 or any(not isinstance(i, int) or isinstance(i, bool)
                                or i < 1 for i in ids):
             raise ContractError("Invalid bounded delivery acknowledgement")
