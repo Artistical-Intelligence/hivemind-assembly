@@ -1,0 +1,28 @@
+{
+  "schema": "ha-public-donor-cache/v1",
+  "repository": "boykopovar/AnyPS5",
+  "commit_sha": "c643163045dc52f1feb00d1cb303a148ce5058f7",
+  "root_tree_sha": "0556a600aa3ab2c42931bd14b86b09bbee04ed33",
+  "license": {
+    "path": "LICENSE",
+    "blob_sha": "a66a55f9806c0500ee810a8b13c024f34a6b2e16",
+    "spdx": "GPL-2.0-only",
+    "review": "PENDING"
+  },
+  "source_objects": [
+    {
+      "path": "CMakeLists.txt",
+      "blob_sha": "564a637fd82ae83934c4b065c451dc5d578fa086"
+    },
+    {
+      "path": "core/relinker/CMakeLists.txt",
+      "blob_sha": "161798ae5131ee384ad4a9c0fd1d96a892b059cd"
+    },
+    {
+      "path": "docs/dev/BUILD.md",
+      "blob_sha": "0ab14034884662d1314d5bf738892e04f181489e"
+    }
+  ],
+  "runtime_seam": "relinker-only x86-64 conversion to Windows PE/Linux ELF; no runtime libraries built",
+  "integration_status": "SOURCE_ONLY_NOT_BUILT"
+}
