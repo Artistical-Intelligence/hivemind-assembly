@@ -224,13 +224,15 @@ def inline_github_mcp_text(result, *, max_chars=240_000):
             for name in ("encoding", "contentEncoding", "content_encoding"):
                 if name in value:
                     encoding = value[name]
+                    # Whitelist only explicit plain-text encodings. A
+                    # blacklist would let uncommon spellings of binary,
+                    # legacy charset, or compression modes pass through.
                     if (not isinstance(encoding, str) or
-                            encoding.strip().lower() in (
-                                "base64", "base64url", "base64-url", "hex",
-                                "binary", "gzip", "deflate", "utf-16",
-                                "utf-16le", "utf-16be", "utf-32",
+                            encoding.strip().lower() not in (
+                                "utf-8", "utf8", "us-ascii", "ascii",
+                                "identity", "none",
                             )):
-                        raise Blocked("MCP source result declares encoded non-UTF-8 content")
+                        raise Blocked("MCP source result declares non-UTF-8 encoding")
             # An embedded resource may be represented as a bare descriptor
             # (without type=resource) in arbitrary structured metadata.
             # Reject it instead of returning an attachment-capable URI or
