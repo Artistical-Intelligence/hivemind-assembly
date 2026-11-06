@@ -176,6 +176,44 @@ class CacheGateTests(unittest.TestCase):
             with self.subTest(case=i), self.assertRaises(InvalidIntake):
                 verify_complete_inventory(c, bad)
 
+    def test_paged_inventory_and_cache_gate_interoperate(self):
+        # The stitching step proves cursor order, while this gate requires
+        # parent trees and pinned source/license blob identities.
+        from donor_inventory_pages import stitch_complete_pages
+        candidate, _ = fixture()
+        def entry(path, sha, kind="blob", mode="100644"):
+            return {"path": path, "sha": sha, "kind": kind, "mode": mode,
+                    "size": None if kind == "tree" else 3,
+                    "submodule": False, "symlink": False}
+        cursor = {"commit_sha": candidate["commit_sha"],
+                  "root_tree_sha": candidate["root_tree_sha"],
+                  "frames": [{"path": "", "sha": candidate["root_tree_sha"], "index": 2}]}
+        def response(entries, next_cursor):
+            return {"repository": candidate["repository"],
+                    "commit_sha": candidate["commit_sha"],
+                    "root_tree_sha": candidate["root_tree_sha"],
+                    "entries": entries, "complete": next_cursor is None,
+                    "next_cursor": next_cursor, "requests": 1}
+        first = [
+            entry("LICENSE", candidate["license"]["blob_sha"]),
+            entry("core", "e" * 40, "tree", "040000"),
+        ]
+        second = [
+            entry("core/relinker", "f" * 40, "tree", "040000"),
+            entry(candidate["source_objects"][0]["path"],
+                  candidate["source_objects"][0]["blob_sha"]),
+        ]
+        pages = [{"request_cursor": None, "response": response(first, cursor)},
+                 {"request_cursor": cursor, "response": response(second, None)}]
+        assembled = stitch_complete_pages(candidate, pages)
+        self.assertTrue(verify_complete_inventory(candidate, assembled)["complete_inventory"])
+        altered = copy.deepcopy(pages)
+        altered[0]["response"]["entries"].pop()  # Remove parent tree.
+        # Cursor stitching alone cannot claim the resulting source is usable.
+        incomplete_structure = stitch_complete_pages(candidate, altered)
+        with self.assertRaises(InvalidIntake):
+            verify_complete_inventory(candidate, incomplete_structure)
+
     def test_strict_types_and_extra_fields(self):
         c, b = fixture()
         b["source_tree_complete"] = 1
