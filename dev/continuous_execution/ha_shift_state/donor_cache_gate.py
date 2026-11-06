@@ -121,6 +121,59 @@ def checked_build(build):
     return x
 
 
+
+def verify_complete_inventory(candidate, inventory):
+    """Consume HA GitHubPublicSourceInventory.fast_manifest output, offline.
+
+    A partial page is not an inventory. Symlinks/gitlinks need their own
+    provenance and review, so this conservative gate fails closed on either.
+    """
+    c = checked_candidate(candidate)
+    _record(inventory, "inventory", [
+        "repository", "commit_sha", "root_tree_sha", "entries",
+        "complete", "next_cursor", "requests",
+    ])
+    if (inventory["repository"] != c["repository"] or
+            inventory["commit_sha"] != c["commit_sha"] or
+            inventory["root_tree_sha"] != c["root_tree_sha"] or
+            inventory["complete"] is not True or inventory["next_cursor"] is not None or
+            type(inventory["requests"]) is not int or inventory["requests"] < 1):
+        raise InvalidIntake("inventory: incomplete or not pinned to candidate")
+    entries = inventory["entries"]
+    if type(entries) is not list or not 1 <= len(entries) <= 100000:
+        raise InvalidIntake("inventory: missing or excessive source entries")
+    required = {obj["path"]: obj["blob_sha"] for obj in c["source_objects"]}
+    required[c["license"]["path"]] = c["license"]["blob_sha"]
+    found, seen = set(), set()
+    for entry in entries:
+        _record(entry, "inventory.entry", [
+            "path", "sha", "kind", "mode", "size", "submodule", "symlink",
+        ])
+        path = _path(entry["path"], "inventory.path")
+        _hex(entry["sha"], SHA1, "inventory.entry.sha")
+        lowered = path.casefold()
+        if lowered in seen:
+            raise InvalidIntake("inventory: duplicate/case-colliding source paths")
+        seen.add(lowered)
+        if entry["kind"] == "commit" or entry["mode"] in ("160000", "120000") or entry["submodule"] is True or entry["symlink"] is True:
+            raise InvalidIntake("inventory: unresolved submodule or symlink source")
+        if entry["kind"] not in ("tree", "blob") or entry["mode"] not in ("040000", "100644", "100755"):
+            raise InvalidIntake("inventory: unsupported source object kind/mode")
+        if entry["kind"] == "tree" and entry["mode"] != "040000":
+            raise InvalidIntake("inventory: inconsistent tree mode")
+        if entry["kind"] == "blob" and entry["mode"] == "040000":
+            raise InvalidIntake("inventory: inconsistent blob mode")
+        if entry["size"] is not None and (type(entry["size"]) is not int or entry["size"] < 0):
+            raise InvalidIntake("inventory: invalid source object size")
+        if path in required:
+            if entry["kind"] != "blob" or entry["sha"] != required[path]:
+                raise InvalidIntake("inventory: pinned source blob mismatch")
+            found.add(path)
+    if len(found) != len(required):
+        raise InvalidIntake("inventory: missing required public source objects")
+    return {"source_paths_verified": len(found), "complete_inventory": True,
+            "license_approved": False, "runtime_tested": False}
+
 def cache_key(candidate, build):
     """Stable across JSON key order, sensitive to source/toolchain/flag/dep drift."""
     c, b = checked_candidate(candidate), checked_build(build)
@@ -166,8 +219,8 @@ def verify_artifact(candidate, build, receipt, artifact_path):
 
 def main(argv=None):
     args = sys.argv[1:] if argv is None else argv
-    if not args or args[0] not in ("validate", "key", "verify") or len(args) != {"validate": 2, "key": 3, "verify": 5}[args[0]]:
-        raise SystemExit("usage: donor_cache_gate.py validate CANDIDATE.json | key CANDIDATE.json BUILD.json | verify CANDIDATE.json BUILD.json RECEIPT.json ARTIFACT")
+    if not args or args[0] not in ("validate", "inventory", "key", "verify") or len(args) != {"validate": 2, "inventory": 3, "key": 3, "verify": 5}[args[0]]:
+        raise SystemExit("usage: donor_cache_gate.py validate CANDIDATE.json | inventory CANDIDATE.json INVENTORY.json | key CANDIDATE.json BUILD.json | verify CANDIDATE.json BUILD.json RECEIPT.json ARTIFACT")
     with open(args[1], encoding="utf-8") as f:
         c = json.load(f)
     if args[0] == "validate":
@@ -176,6 +229,9 @@ def main(argv=None):
         return
     with open(args[2], encoding="utf-8") as f:
         b = json.load(f)
+    if args[0] == "inventory":
+        print(json.dumps(verify_complete_inventory(c, b), sort_keys=True))
+        return
     if args[0] == "key":
         print(cache_key(c, b))
         return
