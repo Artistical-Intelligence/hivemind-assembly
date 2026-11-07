@@ -1,0 +1,6 @@
+branch,head_sha,disposition,review_status,notes
+"automation/ha-workplace-browser-transport-20261105","ad8d51bc3092c2414d981bb47d52d26870c75981","untriaged","pending","Review unique SHA/path changes against current main"
+"beta/0.38.0-beta.1-source","c3c6c8bfd3d64c61f90569454edd6b88d55d942c","untriaged","pending","Review unique SHA/path changes against current main"
+"experiment/chatmode-scheduled-github-20261104","8eaa4ba5657cbcd4b4b663af2e79714a81d27a4d","untriaged","pending","Review unique SHA/path changes against current main"
+"fix/browser-mcp-setup-2026-11-01","cd074c3ff9ce508fe593d6717e7f46b1b30ad9a8","untriaged","pending","Review unique SHA/path changes against current main"
+"main","5dd4b450b7cd418ff16e19365d01865278bed230","baseline","pending","Current main baseline"
