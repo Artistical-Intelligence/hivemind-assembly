@@ -61,6 +61,17 @@ def reconstruct_tree_digest(entries):
                 or type(sha) is not str or (kind, mode) not in _ALLOWED
                 or not _SHA1.fullmatch(sha)):
             raise InvalidTreeDigest("invalid Git source entry")
+        # Standalone callers receive the same fail-closed source-entry policy
+        # as the cache inventory validator. In particular, Python treats
+        # bool as int, so types must be checked explicitly.
+        size = entry["size"]
+        if (entry["submodule"] is not False or entry["symlink"] is not False
+                or (kind == "tree" and size is not None)
+                or (kind == "blob" and size is not None
+                    and (type(size) is not int or size < 0))
+                or any(ord(ch) < 32 or ord(ch) == 127
+                       or 0xD800 <= ord(ch) <= 0xDFFF for ch in path)):
+            raise InvalidTreeDigest("unsafe Git source entry flags, size or name")
         if path in by_path:
             raise InvalidTreeDigest("duplicate Git tree path")
         by_path[path] = entry
@@ -93,11 +104,37 @@ def verified_tree_cache_key(candidate, build, inventory):
     return key, digest
 
 
+def verified_tree_artifact(candidate, build, inventory, receipt, artifact_path):
+    """Fail closed on both Git-tree integrity and the actual cached file bytes.
+
+    This adds a strictly opt-in gate. A remote commit signature, dependency
+    license clearance, donor execution and runtime parity are *not* proven.
+    """
+    from donor_cache_gate import verify_artifact
+
+    _key, digest = verified_tree_cache_key(candidate, build, inventory)
+    result = verify_artifact(candidate, build, receipt, artifact_path)
+    return {**result, "source_inventory_structurally_verified": True,
+            "root_tree_sha": digest["root_tree_sha"],
+            "tree_objects_checked": digest["tree_objects_checked"],
+            "root_tree_reconstructed": True,
+            "remote_source_authenticated": False}
+
+
 def main(argv=None):
     args = sys.argv[1:] if argv is None else argv
-    if len(args) != 3:
-        raise SystemExit("usage: donor_tree_digest.py CANDIDATE.json BUILD.json INVENTORY.json")
     from donor_cache_gate import _load_json
+
+    if len(args) == 6 and args[0] == "verify-artifact":
+        candidate, build, inventory, receipt = (_load_json(p) for p in args[1:5])
+        print(json.dumps(verified_tree_artifact(candidate, build, inventory,
+                                              receipt, args[5]), sort_keys=True))
+        return
+    if len(args) != 3:
+        raise SystemExit(
+            "usage: donor_tree_digest.py CANDIDATE.json BUILD.json INVENTORY.json "
+            "| verify-artifact CANDIDATE.json BUILD.json INVENTORY.json "
+            "RECEIPT.json ARTIFACT")
 
     candidate, build, inventory = (_load_json(p) for p in args)
     key, digest = verified_tree_cache_key(candidate, build, inventory)
