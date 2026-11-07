@@ -30,7 +30,7 @@ class GitHubPublicSourceText:
         ".js", ".ts", ".tsx", ".json", ".toml", ".yaml", ".yml",
         ".xml", ".md", ".txt", ".ini", ".cfg", ".cmake", ".sh",
         ".bat", ".cmd", ".ps1", ".gradle", ".m", ".mm", ".swift",
-        ".patch", ".diff", ".gitignore", ".gitattributes",
+        ".patch", ".diff", ".rst", ".spdx", ".license", ".gitignore", ".gitattributes",
     })
     SOURCE_NAMES = frozenset({
         "license", "license.md", "license.txt", "license.mit", "copying",
@@ -38,6 +38,12 @@ class GitHubPublicSourceText:
         "readme", "makefile", "cmakelists.txt", "meson.build", "cargo.lock",
         ".gitmodules", "authors", "authors.md", "contributors", "contributors.md",
     })
+    # Collect common extensionless/British-spelled license notices without
+    # allowing arbitrary binary-looking LICENSE.* filenames as source text.
+    _LICENSE_BARE_NAME = re.compile(
+        r"^(?:license|licence|copying|notice|copyright|unlicense)"
+        r"(?:-[a-z0-9][a-z0-9._-]{0,80})?$", re.IGNORECASE
+    )
     FORBIDDEN_NAMES = frozenset({
         ".env", ".npmrc", ".pypirc", "id_rsa", "id_ed25519", "credentials",
         "credentials.json", "secrets.json", "secret.json", "config.private",
@@ -58,7 +64,9 @@ class GitHubPublicSourceText:
                 or any(segment.lower() in (".git", ".ssh", ".secrets") for segment in path.split("/"))
                 or re.search(r"(?:^|[._-])(secret|password|token|credential|privatekey)(?:[._-]|$)", name)):
             raise Blocked("Source intake refuses credential or private-key material")
-        if name not in cls.SOURCE_NAMES and not any(name.endswith(s) for s in cls.SOURCE_SUFFIXES):
+        if (name not in cls.SOURCE_NAMES
+                and not any(name.endswith(s) for s in cls.SOURCE_SUFFIXES)
+                and cls._LICENSE_BARE_NAME.fullmatch(name) is None):
             raise Blocked("Source intake refuses non-source, binary or archive filename")
         size = entry.get("size")
         if type(size) is not int or size < 0 or size > cls.MAX_FILE_BYTES:
