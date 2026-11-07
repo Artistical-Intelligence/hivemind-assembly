@@ -2,8 +2,11 @@
 import copy
 import hashlib
 import unittest
+import sys
+import types
+from unittest.mock import patch
 
-from donor_tree_digest import InvalidTreeDigest, reconstruct_tree_digest
+from donor_tree_digest import InvalidTreeDigest, reconstruct_tree_digest, verified_tree_cache_key
 
 
 def _object(kind, content):
@@ -69,6 +72,37 @@ class GitTreeDigestTests(unittest.TestCase):
             with self.subTest(change=mutate.__code__.co_firstlineno), self.assertRaises(InvalidTreeDigest):
                 reconstruct_tree_digest(malformed)
 
+
+    def test_opt_in_wrapper_binds_root_to_candidate_and_gate(self):
+        root, entries = fixture()
+        calls = []
+        class StubInvalidIntake(ValueError):
+            pass
+        def gate(candidate, build, inventory):
+            calls.append((candidate, build, inventory))
+            return "synthetic-cache-key"
+        stub = types.SimpleNamespace(cache_key_with_inventory=gate,
+                                     InvalidIntake=StubInvalidIntake)
+        with patch.dict(sys.modules, {"donor_cache_gate": stub}):
+            candidate = {"root_tree_sha": root}
+            inventory = {"entries": entries}
+            key, digest = verified_tree_cache_key(candidate, {}, inventory)
+            self.assertEqual(key, "synthetic-cache-key")
+            self.assertEqual(digest["root_tree_sha"], root)
+            self.assertEqual(len(calls), 1)
+            with self.assertRaisesRegex(StubInvalidIntake, "root SHA mismatch"):
+                verified_tree_cache_key({"root_tree_sha": "0" * 40}, {}, inventory)
+
+    def test_reject_root_only_forgery_and_invalid_top_level_mode(self):
+        _, entries = fixture()
+        changed = copy.deepcopy(entries)
+        changed[1]["sha"] = "a" * 40  # Top-level blob changes root digest.
+        self.assertNotEqual(reconstruct_tree_digest(changed)["root_tree_sha"],
+                            reconstruct_tree_digest(entries)["root_tree_sha"])
+        changed = copy.deepcopy(entries)
+        changed[1]["mode"] = "040000"
+        with self.assertRaises(InvalidTreeDigest):
+            reconstruct_tree_digest(changed)
 
 if __name__ == "__main__":
     unittest.main()
