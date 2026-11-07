@@ -8,8 +8,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import stat
 import sys
+import unicodedata
 from pathlib import Path
 
 SCHEMA = "ha-public-donor-cache/v1"
@@ -77,11 +80,16 @@ def _path(value, where):
         raise InvalidIntake(f"{where}: unsafe relative path")
     # Avoid divergent cache/source identities across Linux and Windows hosts:
     # Win32 collapses trailing dot/space and reserves device names.
-    if any(part.endswith((" ", ".")) or WINDEV.fullmatch(part.split(".", 1)[0])
+    if any(part.endswith((" ", ".")) or WINDEV.fullmatch(part.split(".", 1)[0].rstrip(" "))
            or any(c in '<>"|?*' for c in part) or part.casefold() == ".git"
            or len(part.encode("utf-16-le")) > 510 for part in parts):
         raise InvalidIntake(f"{where}: nonportable Windows source path")
     return value
+
+
+def _portable_path_key(path):
+    """Fold Unicode-equivalent paths before treating a donor tree as portable."""
+    return unicodedata.normalize("NFC", unicodedata.normalize("NFC", path).casefold())
 
 
 def checked_candidate(candidate):
@@ -106,14 +114,14 @@ def checked_candidate(candidate):
     objects = x["source_objects"]
     if type(objects) is not list or not 1 <= len(objects) <= MAX_OBJECTS:
         raise InvalidIntake("source_objects: invalid count")
-    paths = {lic["path"].casefold()}
+    paths = {_portable_path_key(lic["path"])}
     for obj in objects:
         _record(obj, "source_object", ["path", "blob_sha"])
         name = _path(obj["path"], "source_object.path")
         _hex(obj["blob_sha"], SHA1, "source_object.blob_sha")
-        if name.casefold() in paths:
+        if _portable_path_key(name) in paths:
             raise InvalidIntake("source_objects: case-folding path collision")
-        paths.add(name.casefold())
+        paths.add(_portable_path_key(name))
     return x
 
 
@@ -186,7 +194,7 @@ def verify_complete_inventory(candidate, inventory):
         _hex(entry["sha"], SHA1, "inventory.entry.sha")
         if type(entry["submodule"]) is not bool or type(entry["symlink"]) is not bool:
             raise InvalidIntake("inventory: source flags must be Boolean")
-        lowered = path.casefold()
+        lowered = _portable_path_key(path)
         if lowered in seen:
             raise InvalidIntake("inventory: duplicate/case-colliding source paths")
         seen.add(lowered)
@@ -254,10 +262,24 @@ def verify_artifact(candidate, build, receipt, artifact_path):
     if type(receipt["artifact_size"]) is not int or receipt["artifact_size"] < 0:
         raise InvalidIntake("receipt: invalid artifact size")
     path = Path(artifact_path)
-    if path.is_symlink() or not path.is_file():
+    if path.is_symlink():
         raise InvalidIntake("receipt: artifact absent or symlink")
+    # Keep the opened descriptor, rather than checking a pathname and opening
+    # it later. O_NOFOLLOW protects the final component on platforms that
+    # support it; O_NONBLOCK prevents a replaced FIFO from hanging the check.
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NONBLOCK", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise InvalidIntake("receipt: artifact absent or unsafe to open") from exc
     digest, size = hashlib.sha256(), 0
-    with path.open("rb") as stream:
+    with os.fdopen(descriptor, "rb") as stream:
+        before = os.fstat(stream.fileno())
+        if not stat.S_ISREG(before.st_mode):
+            raise InvalidIntake("receipt: artifact must be a regular file")
+        if before.st_size != receipt["artifact_size"]:
+            raise InvalidIntake("receipt: artifact size differs from receipt")
         while True:
             chunk = stream.read(1024 * 1024)
             if not chunk:
@@ -266,6 +288,10 @@ def verify_artifact(candidate, build, receipt, artifact_path):
             if size > receipt["artifact_size"]:
                 raise InvalidIntake("receipt: artifact larger than declared")
             digest.update(chunk)
+        after = os.fstat(stream.fileno())
+        if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (
+                after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns):
+            raise InvalidIntake("receipt: artifact changed while hashing")
     if size != receipt["artifact_size"] or digest.hexdigest() != receipt["artifact_sha256"]:
         raise InvalidIntake("receipt: actual artifact bytes differ")
     return {"artifact_identity_verified": True, "runtime_tested": False,
