@@ -4,8 +4,10 @@ import copy
 import hashlib
 import io
 import json
+import os
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from donor_cache_gate import InvalidIntake, cache_key, cache_key_with_inventory, checked_candidate, main, verify_artifact, verify_artifact_with_inventory, verify_complete_inventory
@@ -455,6 +457,59 @@ class CacheGateTests(unittest.TestCase):
                         main(argv)
                 target.write_text(valid_inventory if target == paths[2] else valid_receipt,
                                   encoding="utf-8")
+
+
+    def test_normalized_unicode_and_reserved_stems_are_not_portable(self):
+        c, b = fixture()
+        for bad in ("CON .txt", "src/aux .bin", "docs/conout$ .log", "src/lpt² .txt"):
+            candidate = copy.deepcopy(c)
+            candidate["source_objects"][0]["path"] = bad
+            with self.subTest(path=bad), self.assertRaises(InvalidIntake):
+                cache_key(candidate, b)
+        for allowed in ("src/constant.cpp", "docs/con file.txt"):
+            candidate = copy.deepcopy(c)
+            candidate["source_objects"][0]["path"] = allowed
+            with self.subTest(path=allowed):
+                self.assertEqual(len(cache_key(candidate, b)), 64)
+        c["source_objects"] = [
+            {"path": "core/café.cpp", "blob_sha": "d" * 40},
+            {"path": "core/cafe\\u0301.cpp".encode("ascii").decode("unicode_escape"), "blob_sha": "e" * 40},
+        ]
+        with self.assertRaisesRegex(InvalidIntake, "collision"):
+            cache_key(c, b)
+
+    def test_receipt_descriptor_rejects_nonregular_and_detects_changed_stat(self):
+        candidate, build = fixture()
+        with tempfile.TemporaryDirectory() as td:
+            artifact = Path(td) / "synthetic-cache.bin"
+            payload = b"first-party-synthetic-cache-bytes"
+            artifact.write_bytes(payload)
+            receipt = {"cache_key": cache_key(candidate, build),
+                       "artifact_sha256": hashlib.sha256(payload).hexdigest(),
+                       "artifact_size": len(payload)}
+            self.assertTrue(verify_artifact(candidate, build, receipt, artifact)["artifact_identity_verified"])
+            if hasattr(os, "mkfifo") and hasattr(os, "O_NONBLOCK"):
+                fifo = Path(td) / "named-pipe"
+                os.mkfifo(fifo)
+                with self.assertRaisesRegex(InvalidIntake, "regular file"):
+                    verify_artifact(candidate, build, receipt, fifo)
+            real_fstat = os.fstat
+            observed = [0]
+            def shifted_fstat(descriptor):
+                result = real_fstat(descriptor)
+                observed[0] += 1
+                if observed[0] < 2:
+                    return result
+                from types import SimpleNamespace
+                return SimpleNamespace(
+                    st_dev=result.st_dev, st_ino=result.st_ino, st_size=result.st_size,
+                    st_mode=result.st_mode, st_mtime_ns=result.st_mtime_ns + 1,
+                    st_ctime_ns=result.st_ctime_ns,
+                )
+            with mock.patch("donor_cache_gate.os.fstat", side_effect=shifted_fstat):
+                with self.assertRaisesRegex(InvalidIntake, "changed while hashing"):
+                    verify_artifact(candidate, build, receipt, artifact)
+            self.assertGreaterEqual(observed[0], 2)
 
 
 if __name__ == "__main__":
