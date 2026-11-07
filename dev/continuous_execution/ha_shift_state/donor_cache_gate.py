@@ -45,6 +45,30 @@ def _hex(value, pattern, where):
     return value
 
 
+def _strict_object_pairs(pairs):
+    """Reject ambiguous object members even inside nested intake records."""
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise InvalidIntake("JSON: duplicate object member")
+        result[key] = value
+    return result
+
+
+def _reject_nonfinite(_constant):
+    raise InvalidIntake("JSON: non-finite numeric literal")
+
+
+def _load_json(path):
+    """Strict UTF-8 document loader; json.load otherwise silently overwrites duplicates."""
+    try:
+        with open(path, encoding="utf-8") as source:
+            return json.load(source, object_pairs_hook=_strict_object_pairs,
+                             parse_constant=_reject_nonfinite)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise InvalidIntake("JSON: invalid UTF-8 or malformed document") from exc
+
+
 def _path(value, where):
     value = _text(value, where, 1024)
     parts = value.split("/")
@@ -266,14 +290,12 @@ def main(argv=None):
     arity = {"validate": 2, "inventory": 3, "key": 3, "verified-key": 4, "verify": 5, "verified-verify": 6}
     if not args or args[0] not in arity or len(args) != arity[args[0]]:
         raise SystemExit("usage: donor_cache_gate.py validate CANDIDATE.json | inventory CANDIDATE.json INVENTORY.json | key CANDIDATE.json BUILD.json | verified-key CANDIDATE.json BUILD.json INVENTORY.json | verify CANDIDATE.json BUILD.json RECEIPT.json ARTIFACT | verified-verify CANDIDATE.json BUILD.json INVENTORY.json RECEIPT.json ARTIFACT")
-    with open(args[1], encoding="utf-8") as f:
-        c = json.load(f)
+    c = _load_json(args[1])
     if args[0] == "validate":
         checked_candidate(c)
         print("PINNED_METADATA_VALID; NOT_BUILT; LICENSE_REVIEW_PENDING")
         return
-    with open(args[2], encoding="utf-8") as f:
-        b = json.load(f)
+    b = _load_json(args[2])
     if args[0] == "inventory":
         print(json.dumps(verify_complete_inventory(c, b), sort_keys=True))
         return
@@ -281,19 +303,15 @@ def main(argv=None):
         print(cache_key(c, b))
         return
     if args[0] == "verified-key":
-        with open(args[3], encoding="utf-8") as stream:
-            inventory = json.load(stream)
+        inventory = _load_json(args[3])
         print(cache_key_with_inventory(c, b, inventory))
         return
     if args[0] == "verified-verify":
-        with open(args[3], encoding="utf-8") as stream:
-            inventory = json.load(stream)
-        with open(args[4], encoding="utf-8") as stream:
-            receipt = json.load(stream)
+        inventory = _load_json(args[3])
+        receipt = _load_json(args[4])
         print(json.dumps(verify_artifact_with_inventory(c, b, inventory, receipt, args[5]), sort_keys=True))
         return
-    with open(args[3], encoding="utf-8") as f:
-        receipt = json.load(f)
+    receipt = _load_json(args[3])
     print(json.dumps(verify_artifact(c, b, receipt, args[4]), sort_keys=True))
 
 
