@@ -31,6 +31,25 @@
   turns for routine polls. Follow any service-required heartbeat without
   presenting waiting as token-free model work.
 
+## Reuse existing branches first (owner directive, 7 November 2026)
+
+- Reuse a suitable existing assigned branch and exclusive file lease for continuing work,
+  evidence, receipts, reports, checkpoints and revisions. Before writing, check
+  its current head, intended base, pending changes, active claims and ownership.
+  A new run, small fix, review pass or date alone never justifies a new branch.
+- Create a new branch only when existing branches cannot safely serve the task
+  because of a concrete isolation, incompatible base/history, ownership or
+  concurrency conflict, security/provenance constraint or justified consolidation
+  destination. Record the reason, explicit manager-approved scope, single writer
+  and planned disposition in the existing task or handoff record.
+- Branch reuse never grants access to another worker's branch or file lease.
+  Obtain the authorized owner/coordinator's explicit assignment or safe handoff
+  before writing shared or separately owned paths. Preserve independent-review
+  boundaries, source permissions, security holds and approval requirements.
+- Preserve unique and unresolved work, original history and evidence. Never
+  overwrite concurrent edits, force-push, reset away work or delete branches to
+  make reuse easier. Branch reduction is not proof of accepted implementation.
+
 ## GitHub MCP: avoid hosted file-materialization approvals
 
 **ChatGPT source-reading rule:** When reviewing GitHub source, use
