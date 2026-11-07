@@ -24,7 +24,7 @@ class GitHubPublicLicenseEvidence:
     MAX_SELECTED = 12
     MAX_TOTAL_BYTES = 512 * 1024
     _LICENSE_NAME = re.compile(
-        r"^(license|licence|copying|notice|third[-_.]?party[-_.]?(?:licenses?|notices?))"
+        r"^(license|licence|copying|notice|copyright|unlicense|third[-_.]?party[-_.]?(?:licenses?|notices?))"
         r"(?:[._-](?:[a-z0-9][a-z0-9._-]{0,80}))?$", re.IGNORECASE
     )
 
@@ -75,8 +75,11 @@ class GitHubPublicLicenseEvidence:
             parts = path.split("/")
             basename = parts[-1]
             in_license_dir = any(part.lower() in ("licenses", "licences") for part in parts[:-1])
+            # Every non-hidden file under LICENSES/ is evidence to account for.
+            # Unsupported extensions/SPDX-style extensionless names must appear
+            # in excluded_candidates, never silently vanish from provenance.
             license_like = (cls._LICENSE_NAME.fullmatch(basename) is not None
-                            or (in_license_dir and basename.lower().endswith((".txt", ".md", ".rst", ".spdx"))))
+                            or (in_license_dir and not basename.startswith(".")))
             if not license_like or entry.get("kind") == "tree":
                 continue
             if len(result) + len(excluded) >= cls.MAX_CANDIDATES:
