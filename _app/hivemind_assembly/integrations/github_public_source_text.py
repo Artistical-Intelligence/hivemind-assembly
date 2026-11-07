@@ -42,7 +42,7 @@ class GitHubPublicSourceText:
     # allowing arbitrary binary-looking LICENSE.* filenames as source text.
     _LICENSE_BARE_NAME = re.compile(
         r"^(?:license|licence|copying|notice|copyright|unlicense)"
-        r"(?:-[a-z0-9][a-z0-9._-]{0,80})?$", re.IGNORECASE
+        r"(?:-[a-z0-9][a-z0-9_-]{0,80}(?:\\.[0-9]+)*(?:-or-later)?)?$", re.IGNORECASE
     )
     FORBIDDEN_NAMES = frozenset({
         ".env", ".npmrc", ".pypirc", "id_rsa", "id_ed25519", "credentials",
