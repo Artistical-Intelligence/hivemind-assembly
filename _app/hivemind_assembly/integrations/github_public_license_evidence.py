@@ -136,6 +136,7 @@ class GitHubPublicLicenseEvidence:
             if not isinstance(text, str):
                 raise Blocked("License source reader did not produce inline UTF-8 text")
             raw = text.encode("utf-8")
+            git_sha = hashlib.sha1(b"blob " + str(len(raw)).encode("ascii") + b"\0" + raw).hexdigest()
             path = entry["path"]
             escaped = "/".join(quote(s, safe="") for s in path.split("/"))
             expected_url = (f"https://github.com/{verified['repository']}/blob/"
@@ -145,7 +146,8 @@ class GitHubPublicLicenseEvidence:
                     or read.get("path") != path or read.get("blob_sha") != entry["sha"]
                     or read.get("source_url") != expected_url
                     or read.get("size") != len(raw) or len(raw) != entry["size"]
-                    or read.get("sha256") != hashlib.sha256(raw).hexdigest()):
+                    or read.get("sha256") != hashlib.sha256(raw).hexdigest()
+                    or git_sha != entry["sha"]):
                 raise Blocked("License text receipt differs from pinned Git content")
             records.append({"path": path, "blob_sha": entry["sha"],
                             "sha256": read["sha256"], "size": len(raw),
