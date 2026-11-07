@@ -62,32 +62,46 @@ class GitHubPublicLicenseEvidence:
 
     @classmethod
     def _candidates(cls, entries):
-        result = []
+        """Separate byte-readable candidates from license-looking items needing review.
+
+        REUSE-style LICENSES/ directories contain files named MIT.txt or
+        Apache-2.0.txt, not necessarily files named LICENSE.*. Never infer
+        license clearance from a filtered list that silently drops a symlink,
+        unreadable extension or oversized file.
+        """
+        result, excluded = [], []
         for entry in entries:
-            if entry.get("kind") != "blob" or entry.get("mode") not in ("100644", "100755"):
-                continue
             path = entry["path"]
-            basename = path.rsplit("/", 1)[-1]
-            if cls._LICENSE_NAME.fullmatch(basename) is None:
+            parts = path.split("/")
+            basename = parts[-1]
+            in_license_dir = any(part.lower() in ("licenses", "licences") for part in parts[:-1])
+            license_like = (cls._LICENSE_NAME.fullmatch(basename) is not None
+                            or (in_license_dir and basename.lower().endswith((".txt", ".md", ".rst", ".spdx"))))
+            if not license_like or entry.get("kind") == "tree":
+                continue
+            if len(result) + len(excluded) >= cls.MAX_CANDIDATES:
+                raise Blocked("Public donor license candidates exceed the bounded inventory")
+            if entry.get("kind") != "blob" or entry.get("mode") not in ("100644", "100755"):
+                excluded.append({"path": path, "reason": "not_ordinary_file"})
                 continue
             try:
                 GitHubPublicSourceText._eligible(entry)
             except Blocked:
-                # A license-looking binary, secret or giant blob is not fetched.
+                excluded.append({"path": path, "reason": "not_approved_inline_text"})
                 continue
             result.append({"path": path, "sha": entry["sha"], "size": entry["size"],
                            "scope": "repository_root" if "/" not in path else "nested_dependency"})
-            if len(result) > cls.MAX_CANDIDATES:
-                raise Blocked("Public donor license candidates exceed the bounded inventory")
-        return sorted(result, key=lambda item: item["path"])
+        return (sorted(result, key=lambda item: item["path"]),
+                sorted(excluded, key=lambda item: item["path"]))
 
     def candidates(self, pin):
         """Metadata only. Missing files do not establish absence of obligations."""
         verified, entries = self._manifest(pin)
-        candidates = self._candidates(entries)
+        candidates, excluded = self._candidates(entries)
         return {"repository": verified["repository"], "commit_sha": verified["commit_sha"],
                 "root_tree_sha": verified["root_tree_sha"], "candidates": candidates,
-                "candidate_count": len(candidates), "complete_git_tree_metadata": True,
+                "candidate_count": len(candidates), "excluded_candidates": excluded,
+                "excluded_count": len(excluded), "complete_git_tree_metadata": True,
                 "license_text_verified": False, "reuse_permission_established": False}
 
     def attest(self, pin, selected_paths, *, byte_budget=MAX_TOTAL_BYTES):
@@ -101,7 +115,8 @@ class GitHubPublicLicenseEvidence:
                 or type(byte_budget) is not int or not 1 <= byte_budget <= self.MAX_TOTAL_BYTES):
             raise ContractError("License evidence requires a bounded explicit text selection")
         verified, entries = self._manifest(pin)
-        candidates = {item["path"]: item for item in self._candidates(entries)}
+        found, excluded = self._candidates(entries)
+        candidates = {item["path"]: item for item in found}
         files = {entry["path"]: entry for entry in entries}
         seen, wanted = set(), []
         size_total = 0
@@ -139,6 +154,7 @@ class GitHubPublicLicenseEvidence:
                             "license_terms_reviewed": False})
         return {"repository": verified["repository"], "commit_sha": verified["commit_sha"],
                 "root_tree_sha": verified["root_tree_sha"], "candidate_count": len(candidates),
+                "excluded_candidates": excluded, "excluded_count": len(excluded),
                 "selected_count": len(records), "remaining_candidates": len(candidates) - len(records),
                 "records": records, "bytes": size_total, "reuse_permission_established": False,
                 "nested_submodules_verified": False, "runtime_verified": False}
