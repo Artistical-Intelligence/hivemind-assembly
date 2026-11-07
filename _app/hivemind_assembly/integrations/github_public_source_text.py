@@ -48,7 +48,17 @@ class GitHubPublicSourceText:
         ".env", ".npmrc", ".pypirc", "id_rsa", "id_ed25519", "credentials",
         "credentials.json", "secrets.json", "secret.json", "config.private",
     })
-    FORBIDDEN_SUFFIXES = (".key", ".pem", ".p12", ".pfx", ".keystore", ".jks", ".asc")
+    # A license-like prefix must never turn a binary/download filename into
+    # an eligible source file (e.g. LICENSE-MIT.zip or LICENSE-BSD.exe).
+    FORBIDDEN_SUFFIXES = (
+        ".key", ".pem", ".p12", ".pfx", ".keystore", ".jks", ".asc",
+        ".exe", ".dll", ".so", ".dylib", ".zip", ".7z", ".rar",
+        ".tar", ".gz", ".xz", ".bz2", ".zst", ".png", ".jpg",
+        ".jpeg", ".gif", ".webp", ".pdf", ".bin", ".dat",
+        ".obj", ".o", ".a", ".lib", ".pdb", ".class", ".jar",
+        ".wasm", ".nso", ".nro", ".elf", ".nca", ".nsz",
+        ".xci", ".nsp", ".apk", ".ipa", ".iso", ".rom",
+    )
 
     def __init__(self, http=None):
         self.http = http or GitHubHTTP()
