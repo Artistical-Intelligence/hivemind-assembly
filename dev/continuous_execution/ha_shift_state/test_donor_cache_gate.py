@@ -363,5 +363,99 @@ class CacheGateTests(unittest.TestCase):
 
 
 
+    def test_cli_rejects_duplicate_json_and_nonfinite_metadata(self):
+        candidate, build = fixture()
+        with tempfile.TemporaryDirectory() as tmp:
+            candidate_file = Path(tmp) / "candidate.json"
+            build_file = Path(tmp) / "build.json"
+            good_candidate = json.dumps(candidate)
+            good_build = json.dumps(build)
+            candidate_file.write_text(good_candidate, encoding="utf-8")
+            build_file.write_text(good_build, encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(["validate", str(candidate_file)])
+                main(["key", str(candidate_file), str(build_file)])
+
+            for malicious in (
+                good_candidate.replace('"repository": ',
+                                       '"repository": "forged/donor", "repository": ', 1),
+                good_candidate.replace('"review": "PENDING"',
+                                       '"review": "PENDING", "review": "APPROVED"', 1),
+                good_candidate.replace('"repository": "boykopovar/AnyPS5"',
+                                       '"repository": NaN', 1),
+                '{"schema":',
+            ):
+                candidate_file.write_text(malicious, encoding="utf-8")
+                with self.subTest(candidate=malicious[:45]):
+                    with self.assertRaisesRegex(InvalidIntake, "JSON:"):
+                        main(["validate", str(candidate_file)])
+            candidate_file.write_text(good_candidate, encoding="utf-8")
+            for malicious in (
+                good_build.replace('"compiler": ',
+                                   '"compiler": "untrusted", "compiler": ', 1),
+                good_build.replace('"generator": "Ninja"',
+                                   '"generator": Infinity', 1),
+            ):
+                build_file.write_text(malicious, encoding="utf-8")
+                with self.subTest(build=malicious[:45]):
+                    with self.assertRaisesRegex(InvalidIntake, "JSON:"):
+                        main(["key", str(candidate_file), str(build_file)])
+
+    def test_cli_rejects_duplicate_inventory_and_receipt_fields(self):
+        candidate, build = fixture()
+
+        def entry(path, sha, kind="blob", mode="100644"):
+            return {"path": path, "sha": sha, "kind": kind, "mode": mode,
+                    "size": None if kind == "tree" else 3,
+                    "submodule": False, "symlink": False}
+
+        inventory = {
+            "repository": candidate["repository"],
+            "commit_sha": candidate["commit_sha"],
+            "root_tree_sha": candidate["root_tree_sha"],
+            "complete": True,
+            "next_cursor": None,
+            "requests": 1,
+            "entries": [
+                entry("LICENSE", candidate["license"]["blob_sha"]),
+                entry("core", "e" * 40, "tree", "040000"),
+                entry("core/relinker", "f" * 40, "tree", "040000"),
+                entry(candidate["source_objects"][0]["path"],
+                      candidate["source_objects"][0]["blob_sha"]),
+            ],
+        }
+        payload = b"synthetic-cache-json-boundary-v1"
+        receipt = {"cache_key": cache_key(candidate, build),
+                   "artifact_sha256": hashlib.sha256(payload).hexdigest(),
+                   "artifact_size": len(payload)}
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = [Path(tmp) / name for name in
+                     ("candidate.json", "build.json", "inventory.json", "receipt.json")]
+            for file, value in zip(paths, (candidate, build, inventory, receipt)):
+                file.write_text(json.dumps(value), encoding="utf-8")
+            artifact = Path(tmp) / "synthetic.bin"
+            artifact.write_bytes(payload)
+            argv = ["verified-verify", *(str(p) for p in paths), str(artifact)]
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(argv)
+            valid_inventory, valid_receipt = json.dumps(inventory), json.dumps(receipt)
+            for target, malicious in (
+                (paths[2], valid_inventory.replace('"complete": true',
+                     '"complete": false, "complete": true', 1)),
+                (paths[2], valid_inventory.replace('"requests": 1',
+                     '"requests": NaN', 1)),
+                (paths[3], valid_receipt.replace('"artifact_size": ',
+                     '"artifact_size": 0, "artifact_size": ', 1)),
+                (paths[3], valid_receipt.replace('"artifact_size": ' + str(len(payload)),
+                     '"artifact_size": -Infinity', 1)),
+            ):
+                target.write_text(malicious, encoding="utf-8")
+                with self.subTest(file=target.name, document=malicious[:60]):
+                    with self.assertRaisesRegex(InvalidIntake, "JSON:"):
+                        main(argv)
+                target.write_text(valid_inventory if target == paths[2] else valid_receipt,
+                                  encoding="utf-8")
+
+
 if __name__ == "__main__":
     unittest.main()
