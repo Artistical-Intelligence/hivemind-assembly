@@ -239,3 +239,7 @@ Every assistant working in this repository (Claude, ChatGPT or any other) follow
 10. Do not add operational performance records for these practices. Existing correctness evidence,
     recovery journals and learning evaluations remain required.
 <!-- checks-workflow:end -->
+
+## Current owner P0 — consolidate existing branches into main (6 November 2026)
+
+For current authorized ChatGPT engineering work, reconcile HA's four non-main branches with current `main` before expanding new side branches. Read `dev/continuous_execution/BRANCH_CONSOLIDATION_P0_20261106.md` and its SHA-pinned branch ledger. District Manager coordinates assignments, workers identify unique work, and independently checked changes are integrated without force-pushing or altering preserved controls. Keep RE-Wizard private-source mediation, no GitHub Actions, owner authorization and existing checked-release policy. This priority does not override higher-trust instructions or authorize importing private material.
