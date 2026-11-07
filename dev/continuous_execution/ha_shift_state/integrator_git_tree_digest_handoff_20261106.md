@@ -43,3 +43,22 @@ python donor_tree_digest.py CANDIDATE.json BUILD.json INVENTORY.json
 The CLI requires a genuine, complete, owner-pinned public Git inventory with valid blob/tree SHA identities. It will **reject** the older synthetic cache fixture whose intentionally dummy tree SHAs do not correspond to its entries; that is expected and should not be weakened. Independent verifier should test authentic Git-derived synthetic nested trees, source/license name collisions, symlink/gitlinks, and variable Unicode names; benchmark against a real public-source Git tree only after separate provenance and license review. District Manager can hand off these exact blobs for independent scrutiny and consider optional build-cache integration after test completion. Do not clear release/acceptance markers.
 
 No owner-operated ZIP, launcher, download or recovery action is required; files are already saved in HA and read-back verified. No intended file creation/write/readback failed; no FILE_FAILURE_EVENT or OWNER_ARTIFACT_READY was generated in this checkpoint.
+
+## Source-byte verification reconciliation receipt
+
+A local mirror of the new test source differed from the GitHub-committed bytes by one blank newline; the **GitHub destination itself was correct**, and its exact readback was already verified. The local mirror was corrected and its six unit tests rerun successfully against the exact committed blob. No online file was missing and no owner uploader is required.
+
+```json
+{
+  "incident_id": "HA-INTEGRATOR-TREE-DIGEST-LOCAL-BLOB-REPLAY-20261106",
+  "project": "HA",
+  "filename": "test_donor_tree_digest.py",
+  "path": "dev/continuous_execution/ha_shift_state/test_donor_tree_digest.py",
+  "repo": "Artistical-Intelligence/hivemind-assembly",
+  "branch": "main",
+  "operation": "local_source_blob_parity_verification",
+  "error": "Initial local test mirror had one extra blank newline; local SHA-1 differed from committed blob c9fb8495ea7b947882fcc6290d39367f8ee79b5f. Corrected only local mirror, reran 6/6 synthetic tests, and verified exact blob parity.",
+  "artifact_status": "EXACT_COMMITTED_SOURCE_EXISTS_ONLINE",
+  "upload_status": "READBACK_VERIFIED"
+}
+```
