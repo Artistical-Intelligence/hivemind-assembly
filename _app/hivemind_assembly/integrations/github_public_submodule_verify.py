@@ -14,6 +14,7 @@ import re
 
 from hivemind_assembly.core.common import Blocked, ContractError
 from .github_public_source_inventory import GitHubPublicSourceInventory
+from .github_public_complete_inventory import GitHubPublicCompleteInventory
 from .github_public_source_text import GitHubPublicSourceText
 
 
@@ -88,7 +89,7 @@ class GitHubPublicSubmoduleVerify:
         pin = self.inventory.pin(owner, repository, ref=parent_sha)
         if pin.get("commit_sha") != parent_sha:
             raise Blocked("Parent public commit differs from the pinned mapping")
-        manifest = self.inventory.fast_manifest(pin)
+        manifest = GitHubPublicCompleteInventory(self.inventory).manifest(pin)
         if manifest.get("complete") is not True:
             raise Blocked("Public parent Git tree inventory is incomplete")
         records = manifest.get("entries")
