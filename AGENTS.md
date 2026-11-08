@@ -43,6 +43,20 @@ provider/surface, source-access, ownership and review boundaries:
   retaining every required review and acceptance gate. Reuse valid exact-input
   evidence; rerun affected checks only when permitted and warranted. Static
   document/hash review is not executable validation or release acceptance.
+- Set bounded assignments up front: named owner, exact branch/path and input
+  scope, acceptance criteria and preauthorized next actions. Keep the existing
+  single-writer lease and any required qualified independent final check.
+- Once that final check passes where required and fresh source/HEAD, PR, claim,
+  ownership and safety guards pass, the assigned owner may proceed directly to
+  the ready-work handoff or specifically preauthorized cleanup. Do not wait for
+  another purely clerical manager acknowledgment of the same approved action.
+  Record the actual action and verified outcome afterward in the existing live
+  status and retained receipt. This does not defer preservation proof or other
+  prerequisites that must be recorded before a destructive action.
+- A changed input, failed guard, unresolved owner, missing action authorization
+  or required action-time approval still blocks that action. Resolve that exact
+  condition rather than treating removal of clerical waits as a permission or
+  safety bypass. The HA development pause remains in force.
 - Avoid duplicate handoffs, unchanged-status polling and unnecessary waits.
   Continue independent authorized work while an unrelated item is blocked, but
   do not interpret this as permission to bypass approval, ownership or a pause.
