@@ -112,6 +112,73 @@ provider/surface, source-access, ownership and review boundaries:
   overwrite concurrent edits, force-push, reset away work or delete branches to
   make reuse easier. Branch reduction is not proof of accepted implementation.
 
+### Prevent branch creep and finish the lifecycle (owner directive, 8 November 2026)
+
+These practices apply to projects of different sizes and types. Use the existing
+task, PR or handoff record, not a new branch registry, recurring job or reporting
+layer. Keep the existing project's coordinator, permissions and review standard.
+
+- **Prevent duplication at assignment time.** Inspect current branches, open PRs
+  and active claims before assigning work. Prefer the existing suitable workstream
+  or approved mainline path; there is no branch-per-task, worker, review, run or
+  checkpoint default. A fresh conversation, retry or continuation must recover
+  the recorded branch rather than mint another. A reviewer can inspect pinned
+  inputs and save evidence through its assigned path without a new source branch.
+  Do not reuse an incompatible or separately owned branch merely to reduce count.
+- **Make exceptions temporary and purposeful.** When isolation really requires a
+  branch, record its purpose, single writer, exact starting revision, intended
+  integration target, dependencies and exit condition in the existing handoff.
+  The approved scope must explain why reuse is unsafe. Check these fields when
+  handing off work; a branch with no remaining purpose needs disposition, not a
+  replacement branch with a newer date.
+- **Recognize common redundancy, then prove it.** Typical candidates are duplicate
+  tips, ancestors already retained downstream, superseded experiments, overlapping
+  worker/retry branches, patches already ported to the target, and branches whose
+  only extra content is status, reviews or test receipts. Age, name, a closed PR
+  or an ahead/behind count is only a clue. Distinguish commit ancestry, full-tree
+  equality and source/behavior equivalence: identical trees do not preserve
+  distinct histories; ancestry alone does not show that later commits retained
+  the intended behavior. Compare complete relevant deltas, renames, deletions,
+  tests, configuration and dependencies, and account for every unique item.
+- **Consolidate useful work, not just branch names.** Integrate accepted, compatible
+  source changes into the intended destination in cohesive reviewable units, using
+  the existing merge owner and required independent checks. Recompare remaining
+  candidates after the destination moves. Preserve useful evidence in its normal
+  retained location with original source pins; do not create evidence-only branches
+  by default. An archive, merge record or empty/history-only merge is not proof
+  that useful functionality was integrated. Rejected, unsafe or unresolved work
+  stays preserved and explicitly held, not silently accepted to simplify cleanup.
+- **Require both preservation and retirement clearance.** Before deleting a name,
+  prove that useful unique content and the complete original commit history and
+  required objects are durably retained. Prefer reachability from the accepted
+  destination; where that is unsuitable, verify an owner-approved retained ref or
+  recoverable archive, including its access restrictions and recovery method.
+  A copied working tree, squash/cherry-pick, recorded SHA, closed PR or unverified
+  remote object lookup alone is not full-history preservation. Do not merge held
+  content into an active/public target merely to establish reachability, or turn
+  cleanup into one new archival branch per old branch.
+- **Check live dependencies immediately before mutation.** Record exact source and
+  retained destination heads and preservation proof first. Resolve active writers,
+  file leases, open PR heads/bases, stacked-branch dependencies, release/default
+  branch roles, automation assignments and live links with their existing owners.
+  Preserve security, licensing, privacy and source-access holds. A moved head,
+  changed claim or uncertain preservation result invalidates the prior clearance.
+  Serialize mutations, use expected-head guards where supported, and never call a
+  preflight read an atomic lock. Never force-push, reset away or discard unique
+  work. Verify remote results and reconcile uncertain outcomes before any retry.
+- **Make cleanup part of completion.** During authorized work, check disposition
+  at assignment, successful integration and handoff/completion, not through
+  unchanged-status polling. The assigned merge owner should proactively integrate
+  ready accepted work and retire genuinely obsolete names once the action is
+  authorized and all required guards pass, without another purely clerical wait.
+  Update the existing live pointers and record original/final SHAs and outcome.
+  Keep held branches with a concrete reason, responsible owner and release
+  condition. Necessary active branches are not failures; accepted useful work and
+  fewer redundant refs matter more than a branch-count target.
+
+This is process guidance, not acceptance of any branch or blanket permission to
+merge, delete, change schedules, bypass protection or restart paused work.
+
 ## GitHub MCP: avoid hosted file-materialization approvals
 
 **ChatGPT source-reading rule:** When reviewing GitHub source, use
