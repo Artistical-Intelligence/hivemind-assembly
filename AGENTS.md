@@ -102,8 +102,9 @@ provider/surface, source-access, ownership and review boundaries:
 - Create a new branch only when existing branches cannot safely serve the task
   because of a concrete isolation, incompatible base/history, ownership or
   concurrency conflict, security/provenance constraint or justified consolidation
-  destination. Record the reason, scope explicitly approved by the authorized owner/coordinator,
-  single writer and planned disposition in the existing task or handoff record.
+  destination. Record the reason, assigned scope, single writer and planned
+  disposition in the existing task or handoff record. Reuse authorization already
+  covering that scope; request only a genuinely missing required permission.
 - Branch reuse never grants access to another worker's branch or file lease.
   Obtain the authorized owner/coordinator's explicit assignment or safe handoff
   before writing shared or separately owned paths. Preserve independent-review
@@ -128,7 +129,7 @@ layer. Keep the existing project's coordinator, permissions and review standard.
 - **Make exceptions temporary and purposeful.** When isolation really requires a
   branch, record its purpose, single writer, exact starting revision, intended
   integration target, dependencies and exit condition in the existing handoff.
-  The approved scope must explain why reuse is unsafe. Check these fields when
+  The assigned scope must explain why reuse is unsafe. Check these fields when
   handing off work; a branch with no remaining purpose needs disposition, not a
   replacement branch with a newer date.
 - **Recognize common redundancy, then prove it.** Typical candidates are duplicate
@@ -151,7 +152,7 @@ layer. Keep the existing project's coordinator, permissions and review standard.
 - **Require both preservation and retirement clearance.** Before deleting a name,
   prove that useful unique content and the complete original commit history and
   required objects are durably retained. Prefer reachability from the accepted
-  destination; where that is unsuitable, verify an owner-approved retained ref or
+  destination; where that is unsuitable, verify an authorized retained ref or
   recoverable archive, including its access restrictions and recovery method.
   A copied working tree, squash/cherry-pick, recorded SHA, closed PR or unverified
   remote object lookup alone is not full-history preservation. Do not merge held
@@ -176,8 +177,40 @@ layer. Keep the existing project's coordinator, permissions and review standard.
   condition. Necessary active branches are not failures; accepted useful work and
   fewer redundant refs matter more than a branch-count target.
 
-This is process guidance, not acceptance of any branch or blanket permission to
-merge, delete, change schedules, bypass protection or restart paused work.
+### Plan work around actual permission boundaries
+
+- **Use the authority already given.** At assignment, distinguish read-only
+  inspection, edits, merges, deletion, publication, execution and access changes.
+  Match each intended action to the current user request, standing authorization
+  and existing project assignment. A new worker, tool, turn, retry or handoff does
+  not by itself require another approval. Keep the same authorized scope; recheck
+  only when the target, data, recipients, terms, cost, access or risk materially
+  changes, or a mandatory action-time approval applies. Coordination, file leases
+  and independent review are not additional user-permission requests.
+- **Choose an equivalent supported route with fewer permission needs.** For
+  example, prefer inline source text and directory/commit metadata over downloading
+  files for ordinary inspection; reuse assigned branches and valid pinned evidence
+  rather than creating disposable branches, uploads or new infrastructure. Make
+  this choice before a gated operation. Preserve the requested result, required
+  evidence, access boundaries and review coverage; if the safer route cannot do
+  the full job, state the limitation rather than silently reducing the task.
+- **Do not invent gates.** Verify current state and the actual applicable
+  requirement using permitted reads before declaring a blocker. Existing scoped
+  approval or an authorized coordinator's assignment is sufficient where the
+  rules allow it. Do not add a blanket ask-first step, require new approval of
+  unchanged work, or treat a historical pause/blocker as current without checking
+  the owner's latest direction. A current explicit pause still controls.
+- **Ask at the real boundary and keep other work moving.** Prepare permitted
+  steps first, then request the specific missing action, target and scope, with
+  material consequences; combine foreseeable required decisions when practical.
+  Continue independent authorized work meanwhile. A denial or pending approval
+  must not be evaded by changing tools, routes, agents or wording. Reconcile an
+  uncertain result before retrying; retry a denied action only when materially
+  new evidence or authorization permits it, not as a loop.
+
+This guidance neither grants blanket authority nor withdraws existing
+authorization. Mandatory confirmations, actual access restrictions, source and
+security holds, ownership, required checks and current pauses remain binding.
 
 ## GitHub MCP: avoid hosted file-materialization approvals
 
