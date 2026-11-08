@@ -183,9 +183,10 @@ layer. Keep the existing project's coordinator, permissions and review standard.
   inspection, edits, merges, deletion, publication, execution and access changes.
   Match each intended action to the current user request, standing authorization
   and existing project assignment. A new worker, tool, turn, retry or handoff does
-  not by itself require another approval. Keep the same authorized scope; recheck
-  only when the target, data, recipients, terms, cost, access or risk materially
-  changes, or a mandatory action-time approval applies. Coordination, file leases
+  not by itself require another approval. Keep the same authorized scope; seek
+  fresh permission only when the target, data, recipients, terms, cost, access or
+  risk materially changes, or a mandatory action-time approval applies. Still
+  perform required current-state and ownership checks. Coordination, file leases
   and independent review are not additional user-permission requests.
 - **Choose an equivalent supported route with fewer permission needs.** For
   example, prefer inline source text and directory/commit metadata over downloading
