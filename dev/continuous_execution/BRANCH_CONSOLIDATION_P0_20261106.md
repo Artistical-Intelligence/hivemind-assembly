@@ -1,5 +1,18 @@
 # Owner P0 — converge Hivemind Assembly branches into main (6 November 2026)
 
+## Current scope (8 November 2026)
+
+**HA development remains paused.** This file retains the 6 November priority and
+inventory as historical context; its counts, branch names and main-first order
+must not be treated as live assignments. The owner authorized a process-guidance
+update, not execution of consolidation, tests, builds, Actions or branch deletion.
+Read the current scope/process section in [AGENTS.md](../../AGENTS.md) before any
+separately authorized continuation. Keep live state concise, immutable evidence
+linked, a single coordination owner, guarded preservation and compatible batches.
+Another project's phase sequence does not become an HA instruction.
+
+## Historical 6 November priority
+
 Current initial GitHub inventory: **5 branches (main + 4 other refs)**. The owner's priority is to stop branch proliferation and integrate accepted unique work into the single mainline, while preserving all existing permission, security, independent-check, and no-force-push rules.
 
 **Manager:** the Workplace District Manager is the sole assignment and integration coordinator for ChatGPT workers. Work on existing branches and uniquely useful commits first; pause lower-priority expansion while reconciling. This instruction does not grant HA workers direct RE-Wizard reference-source access or authorize any cross-repository copying.
