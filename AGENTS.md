@@ -1,5 +1,53 @@
 # Hivemind Assembly development
 
+## Current scope and process guidance (owner update, 8 November 2026)
+
+**HA development remains PAUSED.** The owner authorized this documentation update
+only. Do not resume engineering, tests, builds, GitHub Actions, releases, schedules
+or staffing because of this guidance. Older priorities, rosters and handoffs are
+historical evidence, not authority to restart work. No other project's phase
+sequence or permissions are adopted here.
+
+When HA work is separately authorized, use these practices within its existing
+provider/surface, source-access, ownership and review boundaries:
+
+- Keep the existing live status/handoff compact: current objective, exact source
+  revision, assigned owner and branch/path scope, verified result, concrete
+  blocker and next permitted action. Update superseded current-state text rather
+  than appending another full shift narrative. Mark unknown or stale state.
+- Keep historical receipts immutable and separate from the live summary. Link
+  exact commits, report paths and hashes; retain original failures, limitations
+  and supersession evidence. A newer summary must not rewrite an old result or
+  count historical tests as current acceptance.
+- Reconcile a stale handoff against current HEADs, relevant source blobs, open
+  PRs and active claims before acting. Repair current pointers with pinned
+  replacements while retaining historical provenance. Do not recreate retired
+  branches, repeat completed work or revive an obsolete assignment from a link.
+- For ChatGPT Chat Mode staffing, retain one District Manager with clear
+  assignments and one integration/saving owner for shared files. Do not create a
+  second manager or competing ledger. Other surfaces keep their existing
+  authorized owner/coordinator; this does not extend Chat Mode management to them.
+- Reuse suitable existing branches as required below. Batch compatible,
+  nonoverlapping consolidation evidence and work where this reduces duplicate
+  handoffs safely; compare against a suitable common baseline, including
+  dependencies, renames, deletions, shared configuration and workflow triggers.
+  Route conflicts to their owners rather than assuming distinct filenames imply
+  compatibility. No batch may bypass a lease, review gate or prompt saving.
+- Before any separately authorized ref retirement, verify the exact current
+  source and retained destination HEADs, PR/claim dependencies and preservation of
+  every useful change and required history/object in a durable retained ref or
+  approved archive. Record original SHAs and preservation proof first. Recheck
+  immediately before mutation; a moved head or changed claim invalidates the
+  earlier decision. Never force-push or discard unique/unresolved work.
+- Keep independent verification proportional to the change and risk, while
+  retaining every required review and acceptance gate. Reuse valid exact-input
+  evidence; rerun affected checks only when permitted and warranted. Static
+  document/hash review is not executable validation or release acceptance.
+- Avoid duplicate handoffs, unchanged-status polling and unnecessary waits.
+  Continue independent authorized work while an unrelated item is blocked, but
+  do not interpret this as permission to bypass approval, ownership or a pause.
+  Report a specific blocker, its owner and the next condition needed to proceed.
+
 - Reverse engineering capability is the primary goal. Preserve complete Ghidra
   and REA foundations and deep, efficient integration; additions must not reduce
   upstream functionality.
