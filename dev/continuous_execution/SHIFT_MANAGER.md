@@ -4,6 +4,49 @@
 
 **Scope and status:** **CHECKS PENDING. ChatGPT Chat Mode only.** HA also targets Claude, but this experimental scheduling policy must **not** be injected into Claude, ChatGPT Work, Codex or unknown modes. This is a documented design and pure helper contract; it does **not** install a scheduler, create a team, activate a worker, or change any private RE-Wizard automation. Actual HA-native prompt receipt, worker permissions, independent acceptance and service integration need separate verification. Apply the user's general design principles without copying RE-Wizard-specific private task IDs, branch names, eight-person staffing decisions or game restrictions as universal HA requirements.
 
+## Current bootstrap and capacity amendment (owner update, November 9, 2026)
+
+**HA remains paused.** This is documentation only, not staffing activation or a
+scheduler change. Within separately authorized ChatGPT Chat Mode work, the
+current delivery structure in [AGENTS.md](../../AGENTS.md) governs both
+full-time peer scheduling and finite temporary help. Check both at START and
+again at END after your own ready tasks; preserve useful mid-run handoffs.
+
+An authorized peer may advance only another healthy, enabled, idle full-time
+worker's next eligible `DTSTART` for its existing ready assignment. The manager
+proactively reserves this narrow action in existing private coordination records,
+identifying the exact target, dedupe key, predecessor run, sole scheduling owner,
+allowed change and release/uncertain-state condition. The manager and all other
+peers honor that exclusive reservation. Immediately recheck it, the fresh task/run
+state, source pins, output readiness and service limits before updating. Preserve
+prompt, title, role, hourly `RRULE`, enabled state, timezone, environment,
+source grants and file ownership. No self-wake chains, duplicate occurrence,
+one-shot conversion or `run_now` without separate explicit authorization.
+Uncertain state is reconciled before any retry. Saved settings, matched actual
+execution, useful output and consumption are separate evidence.
+
+Only the District Manager changes assignments, roles, prompts, source leases,
+general cadence, pause/revival or authoritative shared state. Provision narrow
+peer reservations promptly without an extra per-handoff approval ceremony.
+Restricted/no-trigger roles remain restricted. This schedule-only exception
+supersedes older blanket manager-only scheduling statements below and in
+subordinate guidance. Full-time workers never enter the temp pool; the global
+exclusive atomic temp claim/release protocol is unchanged.
+
+For the last two actually available positions, use recent actual temp-use
+evidence across a meaningful period, not configuration or one idle snapshot.
+If they are not consistently filled by useful temporary work, use them for
+suitable permanent workers with continuing ready responsibilities through the
+existing manager staffing process. Verify current capacity, appointments, claims,
+safe handoffs and authorization; do not promise a fixed cap, invent a numerical
+utilization threshold or take protected workers. This policy overrides an older
+reserve ratio where it would indefinitely leave those positions unused.
+
+The prior policy is retained at
+[the preceding instruction revision](https://github.com/Artistical-Intelligence/hivemind-assembly/blob/de79b45da54d92dc9c52b2405e545a40f80cf2b4/dev/continuous_execution/SHIFT_MANAGER.md).
+No public private-task identifiers, source grants, extra manager, Actions,
+paid route, service-limit bypass or demonstrated runtime acceptance is implied.
+
 ## Permanent Workplace — latest owner authority (November 5, 2026)
 
 The owner's **later permanent Workplace policy** supersedes the historic separate-Shift-Manager staffing procedures below. **One District Manager** (the original existing owner-authorized RE-Wizard conductor) now performs **ALL** former HA and RE-Wizard Shift Manager tasks, including checking every HA employee's actual scheduled/source/test/CI output, retasking underperforming workers, directing temporary coffee through genuine claims, managing project dependencies and independent verification/integration, and reporting milestones, **PLUS** cross-project hiring. There is no independent HA Shift Manager job title or permanent manager seat.
@@ -32,14 +75,14 @@ There are **two disjoint classes of scheduled employees**. An agent's title, his
 
 | Class | Work contract | Who can change its scheduled prompt, time and enabled state |
 | --- | --- | --- |
-| **Full-time / permanent** | Owner-authorized existing recurring roles (typically hourly when owner requests the service minimum), each with a permanent project mission, distinct current workload, branch/file ownership and acceptance criteria. A stopped full-time role remains full-time. | **Only the Shift Manager** may reassign, reschedule, pause, revive, restore recurrence or change the role's rights, subject to owner authorization and host permissions. Workers cannot update each other's full-time task objects. |
+| **Full-time / permanent** | Owner-authorized existing recurring roles (typically hourly when owner requests the service minimum), each with a permanent project mission, distinct current workload, branch/file ownership and acceptance criteria. A stopped full-time role remains full-time. | **The District Manager** retains structural assignment, role/prompt, general cadence, pause/revival and rights changes. A peer may only advance a healthy idle receiver's next eligible start under the current amendment's exclusive schedule-only reservation. |
 | **Temporary / shared coffee pool** | Any **currently available, previously created one-time Chat Mode task** in the owner's accessible task registry, **regardless of original chat, project, title or purpose**; plus new dormant one-time reserve slots prepared at team bootstrap. A newly claimed finite work order replaces the old assignment, without inheriting old project's source access or permanent writes. | **Every authorized scheduled Chat Mode worker** is expected to seek and claim available temporary help when parallel or synergistic work is genuinely useful. The claimant must use the global exclusive claim protocol in §5; the Shift Manager is not a gate. The interactive chat may claim a temp only during an active user turn. |
 
 **Default workforce obligation: actively use temporary Necromancy whenever it enables substantive parallel and/or synergistic progress.** Every scheduled worker, including the manager and an already executing temporary worker, should evaluate whether distinct useful pieces can be advanced simultaneously: implementation alongside independent synthetic testing, research alongside source validation, failure reproduction alongside repair, or independent bounded subtasks of a large objective. When the tasks are meaningful, nonduplicative, and resources/permissions permit, **claim and dispatch available coffee without waiting for Shift Manager approval**. Synergy means complementary work that improves the same outcome, not cloned identical jobs. No need to borrow an agent for trivial work, an unavailable dependent input, insufficient quota or conflicting writers. Preserve deep productive work in the requesting worker's own invocation as well.
 
-**Global cross-chat eligibility is intentional owner authorization.** Search *all accessible previously created one-time tasks from any ChatGPT conversation*, whatever their former use or project. A task is available if the **current** registry establishes that it is not running, not enabled for a future event, not currently claimed/leased or reserved for ongoing work, and not subject to an explicit current owner stop/protective hold. Previous purpose, age, former title and conversation identity do **not** disqualify it. Do not require individual reauthorization solely because it once belonged to another chat/project; this owner instruction supplies standing permission for eligible dormant one-offs. Preserve historical results and avoid importing prior chat context or permissions into the new work order. A cross-chat update does not move the task to a new conversation or certify clean model context; verify the task's actual delivery/tool access. This does **not** give employees authority over healthy or stopped *full-time* roles.
+**Global cross-chat eligibility is intentional owner authorization.** Search *all accessible previously created one-time tasks from any ChatGPT conversation*, whatever their former use or project. A task is available if the **current** registry establishes that it is not running, not enabled for a future event, not currently claimed/leased or reserved for ongoing work, and not subject to an explicit current owner stop/protective hold. Previous purpose, age, former title and conversation identity do **not** disqualify it. Do not require individual reauthorization solely because it once belonged to another chat/project; this owner instruction supplies standing permission for eligible dormant one-offs. Preserve historical results and avoid importing prior chat context or permissions into the new work order. A cross-chat update does not move the task to a new conversation or certify clean model context; verify the task's actual delivery/tool access. Temp reuse grants no authority over *full-time* roles; the separate current schedule-only peer exception does not authorize stopped-role revival.
 
-**One-to-one bootstrap reserve:** When creating an owner-authorized cohort of **N active hourly/full-time scheduled roles**, **also prepare N reusable one-time temp slots at the same setup stage** (target 1:1), so temp capacity exists before a later scheduled invocation asks for it. Prefer verified already-created dormant one-offs from the global registry to satisfy the reserve; pre-create additional one-off placeholders to fill any shortage when the interactive/bootstrap interface permits. Keep all reserve slots **disabled/dormant with no pending runnable appointment**, not idle runs that consume allowance. If creation cannot safely produce dormant placeholders or the service quota/permission restricts the count, provision only the confirmed safe number and record the shortfall; never activate placeholder jobs merely to fulfill a ratio. Scheduled-run child creation remains restricted. The target is a ready capacity pool, **not** a permanent extra N hourly executions. No RE-Wizard-specific fixed role count applies to HA.
+**One-to-one bootstrap reserve (subject to the current last-two-position policy):** When creating an owner-authorized cohort of **N active hourly/full-time scheduled roles**, **also prepare N reusable one-time temp slots at the same setup stage** (target 1:1), so temp capacity exists before a later scheduled invocation asks for it. Prefer verified already-created dormant one-offs from the global registry to satisfy the reserve; pre-create additional one-off placeholders to fill any shortage when the interactive/bootstrap interface permits. Keep all reserve slots **disabled/dormant with no pending runnable appointment**, not idle runs that consume allowance. If creation cannot safely produce dormant placeholders or the service quota/permission restricts the count, provision only the confirmed safe number and record the shortfall; never activate placeholder jobs merely to fulfill a ratio. Scheduled-run child creation remains restricted. The target is a ready capacity pool, **not** a permanent extra N hourly executions. No RE-Wizard-specific fixed role count applies to HA.
 
 **The manager supervises, but does not gate, temp assignments.** The shared temp pool exists so independent staff can request useful parallel help without waiting for the manager's next hourly check. Conversely, this does **not** give any regular employee permission to retask a full-time colleague.
 
@@ -61,7 +104,7 @@ An important unfinished or failing shift produces a **new logical corrective wor
 
 **Immediate triggers, not optional delays:** a failed pinned test, missing mandatory output, failed independent review, repeated non-progress or a currently blocking shared prerequisite warrants corrective action at the **next available manager decision point**. Two distinct workers reporting the same blocker, or the same blocker surviving two completed shifts, is a **maximum escalation delay**, not permission to wait when a consumer is blocked now. The manager assigns one permitted owner to the executable unblock experiment and lets unrelated lanes proceed.
 
-To dispatch, choose the **earliest suitable already authorized full-time worker or available claimed temp** with the necessary skills and nonconflicting write scope. An original worker is a candidate, not a mandatory recipient; a different colleague may investigate a genuinely separate test/reproduction while the original implements the fix. **Only the manager** may change a full-time person's assignment or schedule. A properly claimed temp can be dispatched by any authorized project worker. The manager must actually perform the supported update where permitted, then verify the complete saved prompt/schedule/enable state and later the receiving run and artifact result. Status reporting alone is not dispatch.
+To dispatch, choose the **earliest suitable already authorized full-time worker or available claimed temp** with the necessary skills and nonconflicting write scope. An original worker is a candidate, not a mandatory recipient; a different colleague may investigate a genuinely separate test/reproduction while the original implements the fix. **Only the manager** may change a full-time person's assignment or structural schedule; the current guarded peer exception may advance the existing assignment's next eligible start. A properly claimed temp can be dispatched by any authorized project worker. The manager must actually perform the supported update where permitted, then verify the complete saved prompt/schedule/enable state and later the receiving run and artifact result. Status reporting alone is not dispatch.
 
 **Corrective overtime:** prioritize/redistribute the unfinished deliverable, let a current invocation continue substantive work, and request the earliest **service-accepted** next occurrence for its new assignment. Ordinary permanent recurrence remains hourly when required by the owner; never pretend an updated task prompt forces an additional run or overrides provider limits. An entirely distinct **one-time** corrective assignment should use the earliest permitted future single event rather than an invented per-ID 60-minute cooldown inferred from the recurring `RRULE` minimum. Sub-hour single-event execution is **not established** by the earlier same-ID resurrection tests; test actual service acceptance, no unsupported workaround. Do not duplicate active writers, revive unrelated/user-paused work, spawn scheduled children through prohibited tools, or automatically bypass approvals.
 
@@ -125,7 +168,7 @@ and revisit it when a dependency clears. A productive worker should
 keep its useful assignment and continue across invocations; do not
 churn roles merely to appear active. Temp workers available in the
 global coffee pool may support independent parallel/synergistic work,
-but manager-only authority over full-time roles remains unchanged.
+but structural control of full-time roles remains with the manager, subject to the current guarded peer scheduling exception.
 
 **Action and receipts are mandatory:** actual changed saved assignment,
 next eligible schedule and full-prompt readback, followed by the
@@ -217,7 +260,7 @@ The shift report must also account for **every authorized project worker**, incl
 **Prove each capability separately** before claiming deployment:
 
 - **Full-roster anti-idling:** a completed manager invocation enumerates **all accessible scheduled tasks across chats**, classifies unrelated/protected entries without changing them, and evaluates meaningful progress for **every authorized project worker**, including no-update/failed/blocked/delayed employees. At least one eligible nonproductive worker is given a substantive alternative work order **in that manager invocation**, with saved prompt/next-slot readback and a later successful receiving-run result; true no-ready-work and in-progress exclusions are verified without manufacturing duplicate work.
-- **Full-time authority:** only manager updates a permanent role and it later receives the correct assignment; no unrelated task touched.
+- **Full-time authority and peer scheduling:** verify manager-only structural control and separately verify the guarded schedule-only peer advance, exclusive reservation/conflict refusal, preserved recurrence/settings, dedupe, actual receiving output and consumption. No unrelated task is touched; saved policy/configuration alone is not live acceptance.
 - **Corrective dispatch:** a completed manager identifies an incomplete important outcome; writes a generalized brief; moves the **same eligible worker's next start earlier** where genuinely permitted and beneficial (retained acceptance demonstration), and separately tests dispatching a nonconflicting fragment to a **different** suitable role. Verify actual receipts, not just configuration. This is not a requirement to make the manager a gate or to violate actual cadence restrictions.
 - **Global, reusable temp pool:** bootstrap N permanent hourly roles with a **target N dormant one-time reserves** where quota permits, including genuinely idle one-offs discovered in **other ChatGPT chats regardless of previous purpose**. Confirm disabled/no-future-run state, exact global membership and scope reset. At least two authorized scheduled agents obtain **different** claims without collision, execute distinct parallel/synergistic one-time assignments, record actual results, release verified claims, and demonstrate later reuse. Independently test a cross-chat competing claim for the **same** temp and fail-closed behavior; **no double dispatch**. If the reserve target cannot be met, record the actual capacity reason instead of launching placeholders.
 - **Stopped recurring revival:** a genuinely stopped manager-controlled full-time task resumes under the **same task ID** and produces actual work, or properly returns to dormancy as a single-event corrective instance. Don't manufacture the stopped state by pausing healthy work.
