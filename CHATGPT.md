@@ -1,6 +1,6 @@
 # ChatGPT Chat Mode execution instructions for Hivemind Assembly
 
-Provider/surface scope: **ChatGPT in Chat Mode only**. Policy revision: 1.6 — 2026-11-09.
+Provider/surface scope: **ChatGPT in Chat Mode only**. Policy revision: 1.7 — 2026-11-09.
 
 Read `AGENTS.md` first, then the [ChatGPT Chat Mode adaptive execution process](dev/continuous_execution/PROCESS.md). The owner adopted the ten steps below only for the ChatGPT **Chat Mode** workflow being tested in ordinary chats and scheduled chat continuations. Do not apply or inject this profile into **ChatGPT Work**, **Codex**, Claude prompts, Claude coordinator/worker briefs, or any other provider/surface instructions. Evidence from Chat Mode does not establish capabilities in Work, Codex, Claude, or another surface/model configuration.
 
@@ -131,13 +131,35 @@ changed **only by the Shift Manager**, not by other scheduled workers.
 An otherwise healthy hourly role is not dormant just because its
 last invocation completed.
 
-**Proactive use is the default for every scheduled worker.** When
-parallel or *synergistic* work could materially improve progress
-(e.g., implementation with independent tests; research plus
-verification; separate repairs of a large milestone), each worker
-should find and claim temporary help rather than wait for the manager.
-Keep useful work progressing locally too; avoid duplicate or
-conflicting writes, unnecessary temp calls and meaningless jobs.
+**Proactive bootstrapping is the default for useful ready work.** At each
+authorized run start and after a material completion, new result or handoff,
+check whether eligible temporary help can advance a dependency-ready part of the
+priority candidate: complementary implementation, bounded regression execution,
+qualified independent verification or a separate nonconflicting repair. Dispatch
+a bounded assignment promptly only when the role already has direct TEMP rights
+and all eligibility/claim guards pass, rather than waiting for another manager
+report. Restricted, no-trigger and consumer-only roles send the exact ready packet
+to the existing District Manager; this update gives them no new trigger authority. Keep useful local
+work moving. Do not add a minimum dispatch count, duplicate an active assignment,
+split work merely to fill seats or create a permanent worker outside DM control.
+
+Before seeking more capacity, consume returned evidence and reconcile owned
+claims. Close/release a claim only under the existing authority after the actual
+result and outstanding obligations are accounted for and the worker is safely
+stopped. Age, a finished invocation or `next_run_time: null` does not prove
+availability. Do not discard unresolved claims to make the pool look free.
+
+Use the existing global exclusive atomic claim and recheck exact task identity,
+idle state, future appointments, owner holds, claims, writer scope, source grants,
+dependency readiness, capacity and service limits immediately before activation.
+A preflight read is not a lock. Verify the complete saved brief and later real
+execution separately. In the existing summary distinguish ready packet, saved
+claim/configuration, matched run/output and consumed result, without a new ledger.
+A distinct task ID is not reviewer qualification or context independence. Only the District Manager controls full-time recurring roles.
+No blind revival, duplicate run, scheduled child creation or limit/approval
+circumvention. A missing safe route is a concrete blocker, not a reason to switch
+providers or bypass it. These instructions do not prove a live HA dispatcher;
+HA remains paused and Actions remain prohibited.
 
 **Account-wide eligibility:** Any genuinely idle, previously created
 **one-time** task in **any ChatGPT chat** is an eligible candidate,
