@@ -1,6 +1,6 @@
 # ChatGPT Chat Mode execution instructions for Hivemind Assembly
 
-Provider/surface scope: **ChatGPT in Chat Mode only**. Policy revision: 1.7 — 2026-11-09.
+Provider/surface scope: **ChatGPT in Chat Mode only**. Policy revision: 1.8 — 2026-11-09.
 
 Read `AGENTS.md` first, then the [ChatGPT Chat Mode adaptive execution process](dev/continuous_execution/PROCESS.md). The owner adopted the ten steps below only for the ChatGPT **Chat Mode** workflow being tested in ordinary chats and scheduled chat continuations. Do not apply or inject this profile into **ChatGPT Work**, **Codex**, Claude prompts, Claude coordinator/worker briefs, or any other provider/surface instructions. Evidence from Chat Mode does not establish capabilities in Work, Codex, Claude, or another surface/model configuration.
 
@@ -117,7 +117,7 @@ mandated management behavior, **not** proof of an HA-native
 all-schedule monitoring implementation. See
 [Shift Manager Policy](dev/continuous_execution/SHIFT_MANAGER.md).
 
-## Single Shift Manager policy and temporary worker authority
+## Single District Manager policy and guarded worker bootstrapping
 
 For HA's **ChatGPT Chat Mode** scheduled workforce, the
 [Shift Manager operating policy](dev/continuous_execution/SHIFT_MANAGER.md)
@@ -125,43 +125,45 @@ is the sole procedural authority for employee classes, corrective
 overtime, stopped recurring tasks, shift exit criteria, shared coffee
 pool, claim/release, and manager check-in timing.
 
-**Full-time** employees are owner-authorized ongoing recurring roles:
-their complete prompt, schedule, recurrence and enabled state may be
-changed **only by the Shift Manager**, not by other scheduled workers.
-An otherwise healthy hourly role is not dormant just because its
-last invocation completed.
+**Full-time and temporary bootstrap are both required decision checks.** Follow
+the current delivery structure in `AGENTS.md` at the START of every authorized
+run and again at the END after your own ready tasks. Include both a ready
+existing permanent receiver and eligible finite temporary help; mid-run handoffs
+do not replace those checks. Consume existing results/claims first, keep your
+own work moving and do not manufacture work or a dispatch quota.
 
-**Proactive bootstrapping is the default for useful ready work.** Check at the
-start of every authorized run and again at its end, after completing the worker's
-own ready authorized tasks. Useful dependency handoffs during work do not replace
-these two checks. Do not defer your own tasks or prolong a run merely to bootstrap;
-report unfinished or blocked own work honestly. At each check, consider whether
-eligible temporary help can advance a dependency-ready part of the priority candidate: complementary implementation, bounded regression execution,
-qualified independent verification or a separate nonconflicting repair. Dispatch
-a bounded assignment promptly only when the role already has direct TEMP rights
-and all eligibility/claim guards pass, rather than waiting for another manager
-report. Restricted, no-trigger and consumer-only roles send the exact ready packet
-to the existing District Manager; this update gives them no new trigger authority. Keep useful local
-work moving. Do not add a minimum dispatch count, duplicate an active assignment,
-split work merely to fill seats or create a permanent worker outside DM control.
+A permitted worker may advance another healthy, enabled, idle full-time
+receiver's next eligible `DTSTART` for its existing ready assignment only under
+the verified exclusive schedule-only reservation described in `AGENTS.md`.
+Preserve its complete prompt/title/role, hourly `RRULE`, enabled state, timezone,
+environment, source grants and file ownership. Recheck fresh task/run state,
+pins, readiness and the exact reservation immediately before mutation. No
+self-wake chains, `run_now` without separate explicit authorization, duplicate
+occurrences, one-shot conversion or limit bypass. The existing District Manager
+retains structural assignment, role/prompt, cadence, pause/revival and shared
+record authority and proactively provisions narrow peer reservations; it is
+not an extra clerical gate for every ready handoff. Restricted/no-trigger roles
+keep their restrictions and promptly route the exact packet to that manager.
 
-Before seeking more capacity, consume returned evidence and reconcile owned
-claims. Close/release a claim only under the existing authority after the actual
-result and outstanding obligations are accounted for and the worker is safely
-stopped. Age, a finished invocation or `next_run_time: null` does not prove
-availability. Do not discard unresolved claims to make the pool look free.
+Temps retain the existing global exclusive atomic claim protocol and direct
+TEMP rights. Do not put full-time IDs into the coffee pool. A preflight read is
+not a lock; uncertain outcomes and unresolved claims remain held for
+reconciliation. Verify saved configuration, matched actual execution, output
+consumption and authorized claim/reservation release separately in existing
+owned summaries. A distinct task ID alone is not qualified independent review.
 
-Use the existing global exclusive atomic claim and recheck exact task identity,
-idle state, future appointments, owner holds, claims, writer scope, source grants,
-dependency readiness, capacity and service limits immediately before activation.
-A preflight read is not a lock. Verify the complete saved brief and later real
-execution separately. In the existing summary distinguish ready packet, saved
-claim/configuration, matched run/output and consumed result, without a new ledger.
-A distinct task ID is not reviewer qualification or context independence. Only the District Manager controls full-time recurring roles.
-No blind revival, duplicate run, scheduled child creation or limit/approval
-circumvention. A missing safe route is a concrete blocker, not a reason to switch
-providers or bypass it. These instructions do not prove a live HA dispatcher;
-HA remains paused and Actions remain prohibited.
+**Conditional use of the last two available positions:** follow `AGENTS.md`
+and `workplace/WORKPLACE_POLICY.md` (under `dev/continuous_execution/`).
+If actual recent evidence shows these positions are not consistently filled by
+useful temporary workers, the District Manager uses verified available capacity
+for suitable permanent workers with continuing ready responsibilities instead.
+Do not infer use from configuration or a single idle observation, impose a new
+fixed threshold or assume a cap of 15. Preserve current claims, appointments,
+safe handoffs, service limits and project pauses. This takes priority over an
+older target that would indefinitely reserve those positions for unused temps.
+
+These are documented policies, not proof of a live dispatcher, receiving
+execution or new staffing. **HA remains paused; Actions remain prohibited.**
 
 **Account-wide eligibility:** Any genuinely idle, previously created
 **one-time** task in **any ChatGPT chat** is an eligible candidate,
