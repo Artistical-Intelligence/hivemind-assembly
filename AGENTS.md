@@ -93,6 +93,88 @@ provider/surface, source-access, ownership and review boundaries:
   turns for routine polls. Follow any service-required heartbeat without
   presenting waiting as token-free model work.
 
+## Bounded original-source regression execution (owner update, 9 November 2026)
+
+This is a reusable method for separately authorized work, not proof of an
+available executor or a completed role change. It grants no new execution,
+source access, publication, staffing or merge permission. Provider/surface
+boundaries, owner pauses, quarantines and existing review gates still apply.
+
+**HA development remains PAUSED.** This documentation-only maintenance does not
+resume tests, builds, Actions, engineering, staffing or schedules. Keep all private
+counterpart task IDs, claims, source and test evidence out of this public repository.
+
+- **Diagnose the bottleneck first.** Reconcile current heads, complete relevant
+  source/test/dependency blobs, failures, open PRs, ownership and claims. Decide
+  whether the missing result is an actual regression run, failure reproduction,
+  source repair, independent acceptance or integration. When execution evidence
+  is missing, assign one bounded original-source regression executor/failure
+  reproducer instead of another summary producer or duplicate reviewer.
+- **Prove the route in the actual scheduled context.** Before relying on the
+  assignment, verify that invocation has the authorized source-read, execution,
+  dependency and result-saving capabilities. Record the actual tool/runtime,
+  source identity and observed outcome. Prior foreground success, a saved prompt,
+  an enabled schedule or another provider's run does not prove this route works.
+  Do not run a prohibited test merely to probe a capability; absent authority or
+  interfaces is a blocker, not permission to change environments or bypass a gate.
+- **Bound the work and preserve roles.** Name the existing task/branch, single
+  writer, exact inputs, methods or failing case, synthetic fixtures, resource
+  bounds, acceptance criteria and allowed next actions. The executor produces
+  reproducible evidence and a repair handoff. Source authors retain fixes; a
+  separately qualified, author-independent verifier retains acceptance; the
+  authorized integrator retains merges. Executing tests does not confer any of
+  those other roles or release protected evaluator material.
+- **Use complete original inputs.** Pin repository, commit, every source/test
+  path and blob identity, relevant package initializers, transitive dependencies,
+  configuration and runtime versions. Verify complete retrieval and identity;
+  a line window, truncated response or historical receipt is not full-source
+  evidence. Review imports and initialization before execution for filesystem,
+  bytecode, process, network, native-library and other side effects. Synthetic
+  fixtures must not import private production data or broaden source grants.
+- **Use memory-only loading only where authorized and sufficient.** A supported
+  executor may load the complete unchanged source and tests from verified inline
+  blobs in memory, without cloning, downloading, unpacking, materializing source
+  files or writing source/bytecode. Disable bytecode writes and account for import
+  and package behavior; name any omitted initialization or restricted dependency.
+  Keep synthetic temporary fixture/output writes only within explicitly permitted
+  bounds. Memory loading is not a sandbox or an exception to execution holds.
+  If faithful execution needs unavailable dependencies or forbidden side effects,
+  stop that case and report the limit.
+- **Do not substitute an implementation.** Hand-transcribed predicates, copied
+  fragments, reimplementations, dependency stubs or stand-in packages cannot count
+  as original-source or package acceptance. A declared mock/adapter may support
+  only the narrower test contract that actually permits it; identify the altered
+  boundary and leave dependent integration/package behavior unverified. Run the
+  named original test methods against the identified original implementation,
+  retain failures and distinguish a harness/setup error from a product assertion.
+- **Report method-level evidence honestly.** Retain exact inputs, execution
+  command or in-memory loading method, environment/dependency limits, named cases,
+  fixture identity, expected and observed results, failure diagnostics and
+  reproducible next steps in the existing private or public evidence location
+  allowed for that project. Use PASS, FAIL, ERROR, SKIP and NOT RUN distinctly:
+  PASS/FAIL require an executed assertion; ERROR records setup/harness/runtime
+  failure without a valid case verdict; SKIP records an explicitly skipped case
+  and reason; NOT RUN records work never executed. Preserve counts and individual
+  outcomes, including negative controls. A focused synthetic pass is not whole
+  package, native, platform, live-provider, game or release acceptance.
+- **Retask safely, without adding infrastructure.** Where the current surface
+  permits an owner-authorized same-ID role handoff, its existing coordinator must
+  reconcile active runs, obligations, future appointments, leases and claims
+  first. Preserve original history, outstanding reporting/notification duties,
+  cadence, destination and settings unless a particular change is authorized.
+  Verify the complete saved brief and later receiving execution separately.
+  Reuse suitable existing seats, schedules, branches and evidence records by
+  default; create no duplicate manager, registry or reporting layer. This is not
+  an extension of Chat Mode scheduling permissions to Work, Codex, Claude or
+  another provider/surface.
+- **Escalate the concrete blocker once.** State the exact missing capability or
+  permission, affected operation/target, completed work, owner and condition for
+  resuming. Keep the result pending and continue independent ready work already
+  authorized. Repeat only when the blocker materially changes or a decision is
+  needed; do not spend successive runs restating it or spawn retries around a
+  denial. Reconcile uncertain outcomes before retrying, and use a changed route
+  only when independently authorized rather than to evade the restriction.
+
 ## Reuse existing branches first (owner directive, 7 November 2026)
 
 - Reuse a suitable existing assigned branch and exclusive file lease for continuing work,
