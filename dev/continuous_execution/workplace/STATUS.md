@@ -1,1 +1,0 @@
-CHECKS PENDING: 2026-11-09 full-time peer bootstrap and conditional last-two-position staffing policy — independent static instruction, ownership, concurrency, capacity and pause-boundary review; no live deployment or execution acceptance.
