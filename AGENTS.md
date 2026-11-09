@@ -72,15 +72,44 @@ provider/surface, source-access, ownership, preservation and review boundaries:
   Mode work. A saved prompt, changed schedule or emitted handoff is not proof of
   a receiving execution. Do not create duplicate workers, force wakeups, change
   cadence outside authority or restart HA while paused.
-- **Keep one concise current contract.** In the existing authorized live status
-  or handoff, maintain the current objective, phase, selected candidate and source
-  pins, named owners/branches/leases, actual test and review state, blocker and
-  next permitted action. Reconcile these fields together when evidence changes;
-  do not leave stale no-work constraints beside a newer active phase. Only the
-  existing record owner changes shared state. Preserve old failures, decisions
-  and receipts as immutable linked history, with exact commits/paths/hashes,
-  rather than appending full shift narratives to the live contract. Unknown
-  state stays unknown; historical tests are not current acceptance.
+- **Keep worker-owned current summaries.** Each assigned worker maintains a
+  short summary in its existing owned handoff/status location: goal, owner,
+  verified progress, next action, blocker and timestamp with timezone. Link the
+  exact supporting source/result rather than copying a full report. Update at
+  material state changes and safe handoffs; do not create duplicate summaries
+  or cross another worker's lease. Distinguish last observed evidence from last
+  edited text, and mark stale, unknown or unverified state explicitly. Do not
+  call a scheduled snapshot live or up to the minute.
+- **Keep one lean manager overview and act on it.** The existing District
+  Manager maintains the single authorized human overview from those summaries
+  and current evidence: overall goal, active subprojects/owners, material progress,
+  next priorities and actionable blockers. Include a short evidence-backed trend
+  since the preceding overview, such as advanced, unchanged or regressed, without
+  invented completion percentages, speed claims or a performance ledger. At
+  every actual manager run, actively improve the team and project plan: identify
+  the current completion bottleneck, resolve or assign it, adjust authorized
+  priorities/ownership/handoffs where useful, and apply ready requested changes.
+  Do not merely summarize the same state or invent busywork; if no safe useful
+  change is available, retain the precise blocker and next condition. Do not
+  create a weekly review ritual or schedule. During HA's pause, this is permitted
+  documentation/coordination only, not authority to resume engineering or staff.
+- **Keep the owner's action inbox minimal.** In the existing authorized inbox,
+  show only essential actions the owner must take now as a numbered list:
+  "Run this" or "Approve this", with the exact actionable link. Do not include
+  explanations, history, optional/reference items, routine status or work the
+  agents can already perform. Remove completed or no-longer-needed entries
+  promptly after verifying their outcome. Keep receipts and recovery/uploader
+  records behind that view; inbox cleanup does not delete evidence or change
+  permissions. Keep private owner actions out of this public repository.
+- **Preserve the live machine contract.** The overview and worker summaries are
+  human views, not replacements for parser-consumed state, schemas, required
+  fields, exact source pins, claims, leases, gates or ownership records. Only the
+  existing record owner changes shared state. Reconcile current fields together
+  without erasing required reader inputs; archive superseded instructions and
+  settings with their evidence links in the existing authorized history before
+  replacing them. Never compact by dropping live obligations or force-pushing.
+  Historical failures and receipts remain immutable; historical tests are not
+  current acceptance.
 - **Give each actionable blocker an owner.** Identify the specific operation and
   target, responsible existing owner, next corrective action and observable
   condition for resuming. Use the source owner for repair, executor for missing
