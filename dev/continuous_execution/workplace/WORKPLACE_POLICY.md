@@ -10,6 +10,28 @@ HA does **not** retain a parallel managerial position. Its former HA Shift Manag
 
 **Security:** HA worker agents are never authorized to access or modify private RE-Wizard repo sources or task records solely because the District Manager oversees both. Private RE-Wizard task IDs, personal conversation IDs, claims, passwords, schedules, or source evidence must not appear in this public HA repository. The District Manager may use only separately owner-authorized project management metadata and task actions for cross-project hiring. HA production workers keep HA-only scopes; even transferred workers require explicitly verified new project access. No Work/Codex/Claude/API substitution or consent bypass.
 
+## Capacity and peer scheduling amendment (owner update, November 9, 2026)
+
+**HA remains paused; this amendment does not activate HA staff or schedules.**
+The current delivery contract in [AGENTS.md](../../../AGENTS.md) and the current
+amendment in [SHIFT_MANAGER.md](../SHIFT_MANAGER.md) require START and END
+bootstrap checks for both full-time receivers and finite temps. The manager
+retains structural control and proactively provisions exclusive schedule-only
+peer reservations for existing ready assignments. Peers may only advance another
+healthy enabled idle receiver's next eligible start with all stated guards;
+they do not acquire assignments, source leases or shared-record write authority.
+
+The last two available positions should serve permanent workers if actual
+recent evidence across a meaningful observation period shows they are not
+consistently being filled with useful temporary work. Verify actual capacity,
+current appointments, claims, protected work and continuing ready responsibilities.
+Do not assume a fixed task limit or infer utilization from a configured prompt
+or one idle snapshot. Use the existing manager-owned safe staffing process and
+existing eligible workers. Do not preempt active temps or create meaningless
+placeholder runs. This condition overrides earlier reserve ratios where those
+ratios would leave the positions unused. Record the actual decision and evidence
+in existing private manager records, not a new public utilization ledger.
+
 ## Permanent registries
 
 - `dev/continuous_execution/workplace/org_chart.json` is the complete **desired HA positions** list, filled and unfilled. It is **not** just a task inventory.
@@ -26,7 +48,7 @@ Every actual hourly District Manager run must reconcile HA's role chart and open
 
 For each vacancy: determine priority, readiness and nonconflicting file scope; check whether an eligible permanent worker has truly completed its prior deliverable or has a named safe handoff; examine reusable released/claimed one-time temp capacity for complementary **finite** coverage; decide whether the worker has actual Chat Mode, model and tool access; and prepare a durable district transfer receipt. Do not preempt a running employee or withdraw its claim without provenance. A scheduler `completed` run is not automatic engineering job completion.
 
-On an authorized, supported transfer, prepare old-project handoff, issue new project work order and exclusive branch/path scope, update the **same existing task ID**, read back its settings, then wait for **actual new-run output** before closing the job opening or releasing the old position. Record real tool/usage/permission blockers; never silently borrow an owner-paused or protected worker. Observe host limit (last reported 15 active) and hourly minimum; do not duplicate schedules to evade them.
+On an authorized, supported transfer, prepare old-project handoff, issue new project work order and exclusive branch/path scope, update the **same existing task ID**, read back its settings, then wait for **actual new-run output** before closing the job opening or releasing the old position. Record real tool/usage/permission blockers; never silently borrow an owner-paused or protected worker. Verify the current host capacity and minimum cadence rather than assuming the historical 15-active report still applies; include the manager and all applicable permanent, temp and unrelated active tasks in the service's actual accounting. Do not duplicate schedules to evade limits.
 
 The District Manager must keep original HA source-level acceptance conditions intact, including Linux and Windows GitHub Actions evidence, live native browser/provider transport validation, correct ACK/receipt lifecycle, replay/authorization safeguards, and independent review. A fixture or passing isolated CI is not live provider acceptance. Maintain meaningful material milestone reporting while avoiding repetitive status notes.
 
