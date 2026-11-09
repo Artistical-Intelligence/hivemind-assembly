@@ -72,6 +72,42 @@ provider/surface, source-access, ownership, preservation and review boundaries:
   Mode work. A saved prompt, changed schedule or emitted handoff is not proof of
   a receiving execution. Do not create duplicate workers, force wakeups, change
   cadence outside authority or restart HA while paused.
+- **Bootstrap useful temporary help at real decision points.** For already
+  authorized scheduled ChatGPT Chat Mode work, check at run start and after each
+  material completion, new result or handoff whether an independent,
+  dependency-ready task would advance the priority candidate. When a suitable
+  existing temporary worker is eligible, the current role permits direct TEMP
+  dispatch and all gates pass, claim and dispatch that scoped work promptly.
+  Do not wait for another hourly manager report or request a second clerical approval of the same authorized assignment. This is
+  useful-work-driven, not a dispatch quota or permission to manufacture tasks.
+  A restricted, no-trigger or consumer-only role instead sends the exact ready
+  packet to the existing District Manager; it does not gain dispatch authority.
+  First consume available results and reconcile the disposition of this worker's
+  existing claims so completed work can safely return capacity.
+- **Guard each dispatch and close the loop.** Verify the exact current worker
+  identity, stopped/idle state, appointments, holds, claims, source access,
+  dependency readiness, file ownership, capacity and service limits. Acquire the
+  existing exclusive atomic claim and recheck it and the worker immediately
+  before dispatch; a read-before-write is not an atomic lock. A claim does not
+  permit reuse of active, booked, held, conflictingly claimed or ineligible workers. Give a bounded brief with
+  source pins, output ownership and acceptance; qualify reviewers independently.
+  In the existing summary distinguish a ready packet, saved claim/configuration,
+  actual matched run/output and consumed result; do not create a separate ledger.
+  Verify saved configuration separately from actual execution, consume the real
+  result and release only a claim the actor is authorized to close, after its
+  result/obligations are accounted for and the worker is safely stopped. Never
+  discard an unresolved claim or infer availability from age, a completed invocation or a null
+  next-run field alone.
+- **Keep permanent control and platform limits intact.** Only the existing
+  District Manager may retask, revive or change permanent recurring workers'
+  prompts, schedules, recurrence or enabled state. Other authorized workers may
+  dispatch eligible temps only under the existing pool/claim rules. No duplicate
+  run, scheduled child creation, blind revival, quota/cadence/approval bypass,
+  new paid route or takeover of owner-paused or currently assigned unrelated work. If a required capability
+  or safe claim route is unavailable, name that blocker and continue other
+  permitted work instead of trying another route around the restriction.
+  This rule does not activate HA: its development pause, no-Actions rule and
+  provider/surface boundaries remain binding.
 - **Keep worker-owned current summaries.** Each assigned worker maintains a
   short summary in its existing owned handoff/status location: goal, owner,
   verified progress, next action, blocker and timestamp with timezone. Link the
