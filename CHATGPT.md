@@ -1,6 +1,6 @@
 # ChatGPT Chat Mode execution instructions for Hivemind Assembly
 
-Provider/surface scope: **ChatGPT in Chat Mode only**. Policy revision: 1.5 — 2026-11-09.
+Provider/surface scope: **ChatGPT in Chat Mode only**. Policy revision: 1.6 — 2026-11-09.
 
 Read `AGENTS.md` first, then the [ChatGPT Chat Mode adaptive execution process](dev/continuous_execution/PROCESS.md). The owner adopted the ten steps below only for the ChatGPT **Chat Mode** workflow being tested in ordinary chats and scheduled chat continuations. Do not apply or inject this profile into **ChatGPT Work**, **Codex**, Claude prompts, Claude coordinator/worker briefs, or any other provider/surface instructions. Evidence from Chat Mode does not establish capabilities in Work, Codex, Claude, or another surface/model configuration.
 
@@ -26,10 +26,17 @@ below remain scoped evidence, not proof of current capabilities.
   before their review/integration consumers where useful. Clock order does not
   prove readiness: consumers require completed, exact-input evidence and active-run,
   claim and source checks. No force wakeup, duplicate worker or limit bypass.
-- Keep the existing live contract concise and internally consistent: current
-  objective/phase, selected source pins, owners and leases, actual evidence state,
-  blocker, next action and readiness condition. Link immutable historical receipts.
-  The record owner replaces superseded current text without erasing history.
+- Follow AGENTS.md's current-summary contract: each worker owns a concise
+  goal/owner/progress/next-action/blocker/timestamp summary; the existing District
+  Manager maintains one lean overview with an evidence-backed progress trend and
+  actively improves priorities, team assignments and blocker resolution every
+  actual run. No weekly review ritual or extra schedule. Preserve parser-consumed
+  state, schemas, claims, leases and historical records behind these human views.
+  Timestamp the evidence actually observed; never imply continuous freshness.
+- The existing private owner-action inbox contains only numbered essential
+  "Run this" or "Approve this" entries with actionable links. Remove completed
+  entries promptly after verifying the outcome; keep recovery records and history
+  behind the view. Do not fill it with routine status or agent-solvable work.
 - A blocker must name its existing responsible owner and a concrete resolution.
   Missing ownership goes to the District Manager. Correct the assignment or perform
   the authorized resolving work; do not substitute repeated reports, acknowledgments
