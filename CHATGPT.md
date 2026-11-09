@@ -183,7 +183,8 @@ creates N hourly workers, concurrently provision a **target N
 dormant one-time temp slots**. Verified idle historical one-offs
 can fill that reserve; create a new placeholder for any shortfall
 only when interactive setup supports safe dormant creation and task
-capacity permits. Never schedule a meaningless live placeholder
+capacity permits, subject to the current conditional last-two-position policy
+above. Never schedule a meaningless live placeholder
 execution or exceed a known quota. If unable to provision N, record
 the verified shortfall and keep the workers productive.
 
@@ -193,7 +194,8 @@ the exact claim and inactive task before activation; then record
 the real completed result and release only its own claim after
 checking the task is safely stopped. A protected owner hold, active
 appointment or conflicting claim means **not available**. Full-time
-employees remain under Shift Manager-only control. This is
+structural control remains with the District Manager; only the guarded peer
+schedule-only advance described above is delegated. This is
 [policy](dev/continuous_execution/SHIFT_MANAGER.md), not proof of
 a deployed HA-native global pool.
 
