@@ -1,3 +1,5 @@
+CHECKS PENDING: 2026-11-09 full-time peer bootstrap and conditional last-two-position staffing policy — independent static instruction, ownership, concurrency, capacity and pause-boundary review; no live deployment or execution acceptance.
+
 CHECKS PENDING: HA integration — unified setup, automation, remote access and packaged foundations; source review, regression checks and live-provider/Windows acceptance remain separate. No new release is approved by this marker.
 CHECKS PENDING: AGENTS.md; CHATGPT.md; QUEUE.md — Owner-directed ChatGPT Chat Mode-only adaptive execution instructions, all ten steps with no arbitrary backlog, small-chunk or adaptive-chain-length limits; chains are evidence-driven decisions, not prescheduled loops. Independent instruction and surface/provider-boundary review remain required; documentation adoption is not live harness or release acceptance. ChatGPT Work, Codex and Claude instructions, roles and runtime configuration are unchanged. See dev/continuous_execution/PROCESS.md.
 
