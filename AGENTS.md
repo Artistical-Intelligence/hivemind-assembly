@@ -7,6 +7,44 @@ only, not engineering, tests, builds, GitHub Actions, releases, staffing or
 schedules. Older priorities, rosters and handoffs are historical evidence, not
 authority to restart work. No other project's phase or permissions are adopted.
 
+
+
+### Immediate District Manager review-and-apply handoff (owner directive, 9 November 2026)
+
+This standing rule applies to Hivemind Assembly as well as RE-Wizard. When the
+owner asks any assistant, chat, worker or other authorized surface to create,
+change, fix, stage or update something for HA and completion of that exact
+requested scope requires District Manager/coordinator review, approval,
+assignment, publication, integration authorization or another manager-owned
+control write, **send the concrete handoff to the existing District Manager
+immediately**. Do not leave owner-requested work sitting in `HELD`,
+`NOT_APPROVED`, proposal-only or "awaiting manager review" state merely because
+nobody explicitly asked the manager a second time.
+
+The handoff must identify the exact artifact/update, source and evidence pins,
+the requested manager-owned action, current dependencies/gates, and relevant
+claims or concurrency constraints. The owner's request already supplies owner
+intent for the unchanged requested scope; **do not ask the owner to approve it
+again solely because manager review is required**.
+
+The District Manager treats such handoffs as immediate review-and-apply work at
+the next safe write boundary. In that invocation, review the exact update and,
+when the existing required gates pass, make/approve/assign/publish/integrate the
+requested change immediately rather than returning a status-only acknowledgment.
+If a genuine independent-review, security, licensing, ownership, capability,
+execution, concurrency or provider/surface gate blocks the full change, name the
+exact blocker and responsible owner, clear or assign that gate immediately where
+already authorized, and apply every unaffected eligible part. Do not use
+"needs manager review" as a reason to defer otherwise ready owner-authorized
+work.
+
+**This rule does not resume HA development while the HA pause is active.** During
+the pause it governs documentation/coordination and preserves ready handoffs; it
+becomes actionable for engineering only when the owner separately authorizes HA
+work. It is a routing and priority rule, not a bypass of mandatory safeguards.
+Independent acceptance, source ownership, provider/surface limits, privacy,
+security, licensing, execution and receiving-tree gates remain binding.
+
 When HA work is separately authorized, use the existing project structure and
 provider/surface, source-access, ownership, preservation and review boundaries:
 
