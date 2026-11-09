@@ -68,12 +68,15 @@ run timestamps before asserting parallel execution and verify
 the receiving run's recorded use of an exact source artifact before
 asserting a handoff worked.
 
-## HA shift manager: proactive shared coffee across conversations
+## District Manager: guarded peer bootstrap and shared coffee
 
 **Authoritative HA Chat Mode policy:
 [SHIFT_MANAGER.md](SHIFT_MANAGER.md).** Every authorized scheduled
-worker should evaluate, and whenever productive **use**, parallel
-or synergistic temporary Necromancy while continuing its own task.
+worker checks both existing full-time receivers and finite temporary help at
+START and again at END after its own ready tasks, while preserving useful
+mid-run handoffs. Follow the current guarded schedule-only peer reservation
+and conditional last-two-position staffing amendment in SHIFT_MANAGER.md.
+Continue useful own work; do not manufacture tasks or a dispatch quota.
 Any presently available historical **one-time** automation in
 **any ChatGPT conversation**, irrespective of its former work, may
 be recycled after a current-state check and enrollment in one
@@ -86,16 +89,21 @@ content and permissions are not transferred.
 When owner-authorized setup creates N hourly full-time workers,
 aim to prepare **N dormant one-time temp reserves simultaneously**,
 counting safely reusable existing one-offs and creating any
-shortfall only where dormant task creation and quota allow.
+shortfall only where dormant task creation and quota allow. The current
+last-two-position permanent-staffing condition takes priority over this target.
 There are no meaningless live placeholder runs. Any worker may
 borrow temps after a verified atomic global claim, return them
 only following checked completion and safe exclusive claim
 release, and must not rely on manager permission to parallelize.
-The Shift Manager alone controls full-time/recurring employees,
-including truly stopped recurring revival. Keep the manager's
+The District Manager retains structural control of full-time/recurring
+employees, including truly stopped recurring revival. The only peer exception
+is the current reserved advance of an idle healthy receiver's next eligible
+start for its unchanged ready assignment; preserve hourly recurrence and all
+other settings, ownership and service limits. Keep the manager's
 maximum-useful-runway objective without making workers wait.
 A global coffee pool and claim dispatcher are documented design,
 **not verified deployed HA-native scheduler capabilities**.
+HA remains paused and GitHub Actions remain prohibited.
 Strict Chat Mode-only scope; no cross-provider inference.
 
 ## Earlier HA shift-manager context (superseded where inconsistent)
