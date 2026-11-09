@@ -73,9 +73,11 @@ provider/surface, source-access, ownership, preservation and review boundaries:
   a receiving execution. Do not create duplicate workers, force wakeups, change
   cadence outside authority or restart HA while paused.
 - **Bootstrap useful temporary help at real decision points.** For already
-  authorized scheduled ChatGPT Chat Mode work, check at run start and after each
-  material completion, new result or handoff whether an independent,
-  dependency-ready task would advance the priority candidate. When a suitable
+  authorized scheduled ChatGPT Chat Mode work, check at the start of every run
+  and again at its end, after completing the worker's own ready authorized tasks,
+  whether independent, dependency-ready help would advance the priority candidate.
+  Useful handoffs during work do not replace either check. Do not defer your own
+  tasks or prolong a run merely to bootstrap; report unfinished/blocked work honestly. When a suitable
   existing temporary worker is eligible, the current role permits direct TEMP
   dispatch and all gates pass, claim and dispatch that scoped work promptly.
   Do not wait for another hourly manager report or request a second clerical approval of the same authorized assignment. This is
