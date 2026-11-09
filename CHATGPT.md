@@ -131,10 +131,12 @@ changed **only by the Shift Manager**, not by other scheduled workers.
 An otherwise healthy hourly role is not dormant just because its
 last invocation completed.
 
-**Proactive bootstrapping is the default for useful ready work.** At each
-authorized run start and after a material completion, new result or handoff,
-check whether eligible temporary help can advance a dependency-ready part of the
-priority candidate: complementary implementation, bounded regression execution,
+**Proactive bootstrapping is the default for useful ready work.** Check at the
+start of every authorized run and again at its end, after completing the worker's
+own ready authorized tasks. Useful dependency handoffs during work do not replace
+these two checks. Do not defer your own tasks or prolong a run merely to bootstrap;
+report unfinished or blocked own work honestly. At each check, consider whether
+eligible temporary help can advance a dependency-ready part of the priority candidate: complementary implementation, bounded regression execution,
 qualified independent verification or a separate nonconflicting repair. Dispatch
 a bounded assignment promptly only when the role already has direct TEMP rights
 and all eligibility/claim guards pass, rather than waiting for another manager
