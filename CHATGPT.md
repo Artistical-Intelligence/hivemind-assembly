@@ -1,10 +1,44 @@
 # ChatGPT Chat Mode execution instructions for Hivemind Assembly
 
-Provider/surface scope: **ChatGPT in Chat Mode only**. Policy revision: 1.4 — 2026-11-04.
+Provider/surface scope: **ChatGPT in Chat Mode only**. Policy revision: 1.5 — 2026-11-09.
 
 Read `AGENTS.md` first, then the [ChatGPT Chat Mode adaptive execution process](dev/continuous_execution/PROCESS.md). The owner adopted the ten steps below only for the ChatGPT **Chat Mode** workflow being tested in ordinary chats and scheduled chat continuations. Do not apply or inject this profile into **ChatGPT Work**, **Codex**, Claude prompts, Claude coordinator/worker briefs, or any other provider/surface instructions. Evidence from Chat Mode does not establish capabilities in Work, Codex, Claude, or another surface/model configuration.
 
 Existing shared repository safety, saving, independent-review, privacy and source-access rules still apply to their existing audiences. This profile adds Chat Mode-specific operating instructions; it does not replace those shared rules or alter Work, Codex, or Claude behavior. A maintainer using another surface/provider may implement specifically assigned HA changes, but that does not make this execution profile their operating policy.
+
+## Current delivery contract
+
+**HA remains paused.** This documentation update does not activate staff, execution
+or schedules. When separately authorized, follow the current delivery structure
+in `AGENTS.md` within ChatGPT Chat Mode only. The detailed historical observations
+below remain scoped evidence, not proof of current capabilities.
+
+- The existing District Manager is the only manager. Existing source, regression,
+  independent verification and integration owners retain their separate roles
+  and exclusive paths; do not create a second manager or competing current ledger.
+- Prioritize one small, dependency-complete candidate through actual permitted
+  tests, source-owner corrections, qualified independent acceptance and authorized
+  receiving-tree integration. Save unchecked work promptly with pending markers.
+  This is not a fixed task-size limit, prohibition on large coherent work or a
+  barrier for unrelated ready workers.
+- Use authorized completion-driven handoffs only on a verified supported route.
+  Keep the existing authorized hourly schedule as fallback, with test opportunities
+  before their review/integration consumers where useful. Clock order does not
+  prove readiness: consumers require completed, exact-input evidence and active-run,
+  claim and source checks. No force wakeup, duplicate worker or limit bypass.
+- Keep the existing live contract concise and internally consistent: current
+  objective/phase, selected source pins, owners and leases, actual evidence state,
+  blocker, next action and readiness condition. Link immutable historical receipts.
+  The record owner replaces superseded current text without erasing history.
+- A blocker must name its existing responsible owner and a concrete resolution.
+  Missing ownership goes to the District Manager. Correct the assignment or perform
+  the authorized resolving work; do not substitute repeated reports, acknowledgments
+  or unchanged commits for progress. A no-change result can be brief.
+
+Saved instructions and schedules are configuration, not receiving execution or
+accepted work. This document claims no live pipeline repair. The no-Actions rule,
+HA pause, source mediation, independence, preservation and permission gates control
+all older roster, timing and dispatch examples below.
 
 ## Workplace: permanent staffing and job openings
 
