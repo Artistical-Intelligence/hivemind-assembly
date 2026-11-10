@@ -4,6 +4,16 @@
 
 **Scope and status:** **CHECKS PENDING. ChatGPT Chat Mode only.** HA also targets Claude, but this experimental scheduling policy must **not** be injected into Claude, ChatGPT Work, Codex or unknown modes. This is a documented design and pure helper contract; it does **not** install a scheduler, create a team, activate a worker, or change any private RE-Wizard automation. Actual HA-native prompt receipt, worker permissions, independent acceptance and service integration need separate verification. Apply the user's general design principles without copying RE-Wizard-specific private task IDs, branch names, eight-person staffing decisions or game restrictions as universal HA requirements.
 
+## Blocker closure and no-status-only completion — owner documentation fix, 10 November 2026
+
+**Documentation-only while HA is paused.** The owner has not restarted HA engineering, tests, CI, staffing, runtime, releases or schedules. This section clarifies the documented procedure for use only when those operations are separately authorized; the HA-only source boundary and the single owner-level District Manager remain unchanged.
+
+When an authorized worker reports a blocker, the manager must not merely copy it into a HOLD list. Within its next safe administrative action, the manager must (1) deduplicate against the current blocker and source pins, (2) choose the smallest coherent affected output, (3) name the specific resolver, authorized operation and acceptance evidence, (4) make the real assignment/lease or execution-route correction, and (5) follow the result through testing, independent review and authorized integration. Use existing worker handoffs and the single manager overview; do not create a new reporting system or reviewer-only worker to watch another stalled reviewer.
+
+**Deadlock breaker:** If the blocker is a lease missing for a currently authorized small source integration, the manager should grant a suitably narrow lease at a verified nonconflicting boundary, rather than treating the lack of a lease as an indefinite pending condition. If a test route lacks a runner, dependencies, full original source or platform capability, give the existing executor one permitted exact alternative or advance another dependency-complete nonconflicting candidate. A failed route is not permission to bypass a denial or produce synthetic PASS. A partial test result is not full acceptance.
+
+For any future HA engineering run after owner resumption, success is **actual accepted work delivered**, not reports, task updates or source staging. Follow **finish → applicable real tests → qualified independent verification → authorized integration → repeat**; close blockers by their evidence, never by a report. Historical phases and old instructions cannot override a newer explicit owner authorization; no RE-Wizard Phase 3 permission transfers to HA during its pause.
+
 ## Current bootstrap and capacity amendment (owner update, November 9, 2026)
 
 **HA remains paused.** This is documentation only, not staffing activation or a
