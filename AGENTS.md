@@ -12,6 +12,11 @@ the conversation so far. Cached, that is cheap per request, but it is most of th
   briefed once with the goal, the files to read first (paths, not contents), the rules and a report limit.
   Follow-ups on the same work resume the same agent; start a new one for new work or when the old context is very
   large. Clerical chains (collecting results, releases, records) go to a script first and a cheaper model second.
+- **Parallel writers, inside one feature too.** Never give one writer a feature that splits into independent parts.
+  Fix the joining interface first, split by file ownership (for example a third-party tool build, each command, the
+  runner changes), and start one writer per part at the same time, each with its own tests. A checker starts on each
+  part as it lands, then one short check covers the joined result. (One writer doing three parts in turn took
+  about 1 h 45 min where three writers take about 40 min.)
 - **Waves.** Plan work in waves of normal size (a few hours). Agents cannot start agents, so the coordinator starts
   every writer and checker: all writers at once, then all checks (related small items share one checker), then one
   round of fixes and one delta check. A wave manager agent runs the mechanical chains (collect, release, PC jobs)
