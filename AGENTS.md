@@ -22,7 +22,8 @@ the conversation so far. Cached, that is cheap per request, but it is most of th
   or earlier only for a blocker or a decision that belongs to the owner. **Errors are reported at once:** a
   failed pre-flight, release, real job on the PC, or a check verdict that is not a pass is reported immediately
   (cause if known, fix under way, effect on the plan), and the owner hears about it when it changes the plan or
-  a time estimate. The owner hears at the end of a wave, on
+  a time estimate. Exception: an error the manager fixes by itself (no checker needed, plan or time estimate
+  moved by under about 30 minutes, typically a test-only fix) goes in the end-of-wave report instead. The owner hears at the end of a wave, on
   a blocker or decision, or when he asks. Keep waves to a few hours so a wrong early choice is caught in time.
 - **One report per task.** An agent sends one final report; a message during the task only for a real blocker or
   a question. It never repeats a report it already sent. Every message or notice wakes the coordinator and costs a
