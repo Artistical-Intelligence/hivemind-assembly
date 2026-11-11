@@ -1,5 +1,18 @@
 # Hivemind Assembly development
 
+## Token use: fewer requests, long chains to agents (owner directive, 11 November 2026)
+
+Every request an assistant makes re-sends its whole context: the app's instructions, every tool description and
+the conversation so far. Cached, that is cheap per request, but it is most of the cost over a long session.
+- **Fewer, bigger steps.** Batch independent commands, reads and checks into one request (one shell call doing
+  several things, several tool calls sent together). Never poll "is it done yet": wait for a completion notice or
+  schedule one check-in, and let a tool wait and report once.
+- **Long chains go to subagents.** A long chain is a run of many dependent steps that each need the previous
+  result: build, test, fix, retest; scanning many files; a release pipeline; a decode-and-rerun loop. Give the
+  whole chain to one subagent with a short brief (goal, files to read first, rules, report length). It starts
+  with a small context and reports one short result. The coordinator keeps decisions, not the steps.
+- **Short results.** Reports are tables, counts and the first failure; details go to files that are named, not pasted.
+
 ## Blocker-to-resolution lifecycle — owner amendment, 10 November 2026
 
 **Current scope:** HA development remains **PAUSED**. This is an owner-requested documentation/process correction only. It does not authorize implementation, build/test execution, deployment, worker activation, GitHub Actions, model APIs, schedule/role changes, or access to another project's private source. It becomes operational for HA engineering only when the owner explicitly resumes that work. HA-only agents retain HA-only access.
