@@ -16,6 +16,9 @@ the conversation so far. Cached, that is cheap per request, but it is most of th
   report limit. Follow-ups on the same work go to the same agent (resume it: it already holds the context); start
   a new agent for new work or when the old one's context has grown very large. Clerical chains (collecting
   results, releases, records) go to a script first and a cheaper model second.
+- **One report per task.** An agent sends one final report; a message during the task only for a real blocker or
+  a question. It never repeats a report it already sent. Every message or notice wakes the coordinator and costs a
+  full-context request, however short the answer.
 - **Waiting.** Whoever waits does it inside one blocking call (a background command, `collect --wait`); the
   coordinator gets one completion notice. A scheduled check-in is set once, for the expected finish time, never
   repeated at short intervals. A check-in that only does mechanical steps runs one script in one call (or is a
