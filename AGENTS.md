@@ -12,6 +12,12 @@ the conversation so far. Cached, that is cheap per request, but it is most of th
   briefed once with the goal, the files to read first (paths, not contents), the rules and a report limit.
   Follow-ups on the same work resume the same agent; start a new one for new work or when the old context is very
   large. Clerical chains (collecting results, releases, records) go to a script first and a cheaper model second.
+- **Only what changed, for every change (the default, not a special lane).** Run only the tests that cover the changed
+  code; the full suite only when shared foundations change (runner, path handling, Python or toolchain version) or the
+  affected tests cannot be identified. The checker reads only the change. One record line per change (what, commit,
+  verdict, test result). Briefs name only the sections and files an agent needs. One agent runs the whole chain and
+  the checker starts the moment the code is pushed. Estimates come from measured times only. Anything more is the
+  exception, with a one-line reason in the report.
 - **Parallel writers, inside one feature too.** Never give one writer a feature that splits into independent parts.
   Fix the joining interface first, split by file ownership (for example a third-party tool build, each command, the
   runner changes), and start one writer per part at the same time, each with its own tests. A checker starts on each
