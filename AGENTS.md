@@ -19,7 +19,10 @@ the conversation so far. Cached, that is cheap per request, but it is most of th
 - **Waves.** Plan work in waves. A wave manager agent (one level below the coordinator) runs the whole wave:
   it starts all writers at once, then all checks at once (related small items share one checker), then one round
   of fixes and one delta check, and schedules its own check-ins. It reports to the coordinator once, at the end,
-  or earlier only for a blocker or a decision that belongs to the owner. The owner hears at the end of a wave, on
+  or earlier only for a blocker or a decision that belongs to the owner. **Errors are reported at once:** a
+  failed pre-flight, release, real job on the PC, or a check verdict that is not a pass is reported immediately
+  (cause if known, fix under way, effect on the plan), and the owner hears about it when it changes the plan or
+  a time estimate. The owner hears at the end of a wave, on
   a blocker or decision, or when he asks. Keep waves to a few hours so a wrong early choice is caught in time.
 - **One report per task.** An agent sends one final report; a message during the task only for a real blocker or
   a question. It never repeats a report it already sent. Every message or notice wakes the coordinator and costs a
