@@ -27,6 +27,11 @@ the conversation so far. Cached, that is cheap per request, but it is most of th
 - **Few scheduled check-ins.** Only where nobody else is waiting, set once for the expected finish time, never at
   short intervals; a routine check-in that needs no live agent may be a fresh-session scheduled task.
 
+## Third-party tools (owner decision, 11 November 2026)
+
+Pin third-party tools by source and hash, build them from that pinned source where possible, and never run an
+unverified binary.
+
 ## Blocker-to-resolution lifecycle — owner amendment, 10 November 2026
 
 **Current scope:** HA development remains **PAUSED**. This is an owner-requested documentation/process correction only. It does not authorize implementation, build/test execution, deployment, worker activation, GitHub Actions, model APIs, schedule/role changes, or access to another project's private source. It becomes operational for HA engineering only when the owner explicitly resumes that work. HA-only agents retain HA-only access.
