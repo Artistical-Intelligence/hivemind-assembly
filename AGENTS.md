@@ -560,10 +560,13 @@ The originating chat/project is not a bar to reuse. When bootstrapping
 N recurring employees, target N additional dormant one-time temp
 slots from available historical tasks and safe new placeholders;
 do not run empty placeholders or exceed real task capacity.
-The District Manager controls permanent roles and structural changes; the guarded
-schedule-only peer exception in the current delivery structure above also applies.
-All-authorized-worker temp claims require a single globally atomic
-create-if-absent registry, not separate per-project claim files.
+The District Manager controls permanent roles and structural changes; the
+November 11 synchronized bootstrap protocol above (whole-series shift with a
+BOARD reservation) replaces the former schedule-only peer exception. For a team
+running under that protocol, temp claims use its BOARD CLAIMS compare-and-swap
+lock (step 4), superseding the former single global claim registry; the
+"N additional temp slots" target above yields to step 6 (DM may give idle last
+two slots permanent work). Superseded 11 November 2026; HA remains paused.
 This is **ChatGPT Chat Mode only**, and documentation is not
 proof of a deployed HA temp dispatcher. See
 [SHIFT_MANAGER.md](dev/continuous_execution/SHIFT_MANAGER.md).
