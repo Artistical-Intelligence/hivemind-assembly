@@ -118,67 +118,20 @@ provider/surface, source-access, ownership, preservation and review boundaries:
   Mode work. A saved prompt, changed schedule or emitted handoff is not proof of
   a receiving execution. Do not create duplicate workers, force wakeups, change
   cadence outside authority or restart HA while paused.
-- **Bootstrap full-time receivers and temporary help at real decision points.**
-  For already authorized scheduled ChatGPT Chat Mode work, check at the START
-  of every run and again at the END, after completing your own ready authorized
-  tasks, for both an existing full-time receiver whose current assignment is
-  ready and eligible finite temporary help. Useful mid-run handoffs replace
-  neither check. Consume returned results and reconcile owned claims first.
-  Do not defer your own tasks, prolong a run solely to bootstrap, manufacture
-  work or impose a dispatch quota. Report unfinished or blocked work honestly.
-- **Advance a ready full-time peer without an extra manager cycle.** An
-  authorized worker may advance only another healthy, enabled, idle permanent
-  worker's next eligible `DTSTART` for its existing ready assignment. Preserve
-  the complete prompt, title, role, hourly `RRULE`, enabled state, timezone,
-  environment, source access and branch/file ownership. Do not retask it,
-  convert it to a one-shot, wake yourself, create a wake chain or use
-  `run_now` without separate explicit authorization. Check the latest exact
-  task/run state, predecessor output and source pins, dependencies, next
-  occurrence, holds and service limits; a completed last invocation or null
-  next-run field alone is not proof of idleness or eligibility.
-  Use a verified exclusive schedule-only reservation in the existing private
-  District Manager coordination records: exact target ID, handoff dedupe key,
-  predecessor run, scheduling owner, permitted change and release/uncertain-state
-  condition. Only that scheduling owner may mutate the target while reserved;
-  the manager and other peers must not race it. A read-before-write is not a lock.
-  Recheck the reservation and live state immediately before the supported update.
-  If exclusivity or fresh run state cannot be verified, preserve the handoff and
-  ask the existing manager to reconcile rather than dispatching a duplicate.
-- **Keep the manager responsible for structural control, not clerical delay.**
-  The District Manager retains assignments, source leases, role/prompt changes,
-  general cadence, pause/revival, enabled state and authoritative shared records.
-  It must proactively provision narrow peer scheduling reservations for ready
-  authorized handoffs at its next safe write boundary, without requiring another
-  owner approval or making each handoff wait through an extra manager cycle.
-  The peer exception above supersedes older blanket manager-only scheduling
-  wording; it does not grant shared-record writes or structural control to peers.
-  Restricted, no-trigger or consumer-only roles retain their restrictions and
-  immediately give the exact ready packet to the existing manager.
-- **Keep temporary claims separate and close the loop.** Eligible finite temps
-  still require the existing global exclusive atomic claim protocol and current
-  TEMP rights. Full-time IDs never become coffee-pool entries. Verify identity,
-  stopped/free state, appointments, holds, claims, source grants, dependencies,
-  output ownership, capacity and service limits before a temp dispatch. Give a
-  bounded brief with pins and acceptance; qualify independent reviewers.
-  For either path, verify the saved configuration separately from the matched
-  actual run, useful output and consumed result. Record those states and the
-  dedupe/reservation or claim disposition in the existing owned summary, not a
-  new ledger. Release only under existing authority after the result and remaining
-  obligations are accounted for and the worker is safely stopped. Preserve
-  uncertain outcomes and unresolved claims until reconciled; do not retry blindly.
-- **Use the last two available positions productively.** The District Manager
-  must check actual recent temporary-worker use across a meaningful observation
-  period, current active tasks/reservations and the service's current capacity.
-  If the last two available positions are not consistently being filled by useful
-  temporary assignments, use them for suitable permanent workers with ready
-  continuing responsibilities instead of indefinitely reserving empty temp seats.
-  Do not infer consistent use from configured prompts or a single idle snapshot,
-  invent a fixed utilization threshold, promise a fixed task limit or count two
-  positions that are not actually available. Respect active temp claims, existing
-  appointments, protected work and safe handoffs; reuse eligible existing workers
-  through the manager's normal staffing process. Keep actual permanent staffing,
-  finite temp use and verified capacity distinct. This policy supersedes an older
-  temp-reserve target where that target would keep these positions unused.
+
+### November 11 synchronized bootstrap protocol (instructions only)
+
+**HA development remains PAUSED.** These rules are recorded for future owner-authorized HA team use. They do not resume engineering, enable/retask any schedule, start tests, grant cross-project access or activate Actions. For an active RE-Wizard scheduled team, the board named below is its own private repository board, never an HA-owned file. HA must establish its authorized own board before unpausing; no cross-project write is implied.
+
+**Bootstrapping (future-only policy, HA remains paused).**
+1. At start and end of every permanent/temporary run, after one's own ready work, find oldest board item whose next owner starts later than 15 minutes. Do not extend a run or invent work for dispatch. If none, log NONE_READY or OWNER_DUE_SOON.
+2. Reserve atomically by adding a row in BOARD **RESERVATIONS**: target worker ID, item, dispatcher role, current UTC, expiry +30 min. Commit with the **expected current BOARD blob SHA** (optimistic CAS); failed update: re-read; if target already locked, skip. Expired lines are void; one scheduling writer per target. A plain read-before-write is **not** a lock. Board line is the handoff packet, including source/test SHA, expected result and owner.
+3. Only for healthy, enabled, idle permanent workers with existing ready assignment: move **only their next hourly start** to five minutes ahead, preserving title, prompt, role, hourly RRULE, timezone, environment, enabled state, ownership and source permissions. Never wake self, chain wakes, retask, duplicate a running invocation or call run-now without separate explicit authorization. If this timing-only edit cannot be expressed or verified with the available scheduler, log SERVICE_REJECTED and exact error; do not alter cadence or create a one-shot.
+4. For temporary workers, make a BOARD **CLAIM** through the same CAS: registered genuinely free compatible temp only, adequate capacity, no open claim/obligation, one finite nonrecurring task. Permanent IDs are not temps. Release only after result link is recorded. Do not revive paused tasks.
+5. Immediately read back schedule edits. At next run compare actual target start against original start and link **useful output**: ACCEL_OK or ACCEL_FAILED with reason. Reconcile uncertainty before retrying. If not accelerated, log one concrete reason: NONE_READY, OWNER_DUE_SOON, TARGET_BUSY, TARGET_PAUSED, NO_FREE_TEMP or SERVICE_REJECTED with returned error. Missing reservation alone is never a reason.
+6. Next DM run settles unresolved worker reservations by making one supported change or logging specific active work, conflict or service denial. If last two available positions are not consistently useful as temp slots, DM reassigns them to compatible permanent work after checking real claims/capacity. Do not violate source ownership, pauses, authorization, paid-route prohibition or capacity constraints.
+
+
 - **Preserve all other gates.** No duplicate occurrence, blind revival, scheduled
   child creation, quota/cadence/approval bypass, paid route or takeover of paused
   or unrelated assigned work. Missing safe capability is a concrete blocker.
