@@ -11,6 +11,15 @@ the conversation so far. Cached, that is cheap per request, but it is most of th
   result: build, test, fix, retest; scanning many files; a release pipeline; a decode-and-rerun loop. Give the
   whole chain to one subagent with a short brief (goal, files to read first, rules, report length). It starts
   with a small context and reports one short result. The coordinator keeps decisions, not the steps.
+- **Agent rules.** The coordinator keeps decisions; any chain of more than about three dependent steps goes to
+  one agent, briefed once with the goal, the files to read first (paths, not pasted contents), the rules and a
+  report limit. Follow-ups on the same work go to the same agent (resume it: it already holds the context); start
+  a new agent for new work or when the old one's context has grown very large. Clerical chains (collecting
+  results, releases, records) go to a script first and a cheaper model second.
+- **Waiting.** Whoever waits does it inside one blocking call (a background command, `collect --wait`); the
+  coordinator gets one completion notice. A scheduled check-in is set once, for the expected finish time, never
+  repeated at short intervals. A check-in that only does mechanical steps runs one script in one call (or is a
+  fresh-session scheduled task) instead of a long turn in the coordinator's chat.
 - **Short results.** Reports are tables, counts and the first failure; details go to files that are named, not pasted.
 
 ## Blocker-to-resolution lifecycle — owner amendment, 10 November 2026
