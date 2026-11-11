@@ -4,35 +4,30 @@
 
 Every request an assistant makes re-sends its whole context: the app's instructions, every tool description and
 the conversation so far. Cached, that is cheap per request, but it is most of the cost over a long session.
-- **Fewer, bigger steps.** Batch independent commands, reads and checks into one request (one shell call doing
-  several things, several tool calls sent together). Never poll "is it done yet": wait for a completion notice or
-  schedule one check-in, and let a tool wait and report once.
-- **Long chains go to subagents.** A long chain is a run of many dependent steps that each need the previous
-  result: build, test, fix, retest; scanning many files; a release pipeline; a decode-and-rerun loop. Give the
-  whole chain to one subagent with a short brief (goal, files to read first, rules, report length). It starts
-  with a small context and reports one short result. The coordinator keeps decisions, not the steps.
-- **Agent rules.** The coordinator keeps decisions; any chain of more than about three dependent steps goes to
-  one agent, briefed once with the goal, the files to read first (paths, not pasted contents), the rules and a
-  report limit. Follow-ups on the same work go to the same agent (resume it: it already holds the context); start
-  a new agent for new work or when the old one's context has grown very large. Clerical chains (collecting
-  results, releases, records) go to a script first and a cheaper model second.
-- **Waves.** Plan work in waves. A wave manager agent (one level below the coordinator) runs the whole wave:
-  it starts all writers at once, then all checks at once (related small items share one checker), then one round
-  of fixes and one delta check, and schedules its own check-ins. It reports to the coordinator once, at the end,
-  or earlier only for a blocker or a decision that belongs to the owner. **Errors are reported at once:** a
-  failed pre-flight, release, real job on the PC, or a check verdict that is not a pass is reported immediately
-  (cause if known, fix under way, effect on the plan), and the owner hears about it when it changes the plan or
-  a time estimate. Exception: an error the manager fixes by itself (no checker needed, plan or time estimate
-  moved by under about 30 minutes, typically a test-only fix) goes in the end-of-wave report instead. The owner hears at the end of a wave, on
-  a blocker or decision, or when he asks. Keep waves to a few hours so a wrong early choice is caught in time.
-- **One report per task.** An agent sends one final report; a message during the task only for a real blocker or
-  a question. It never repeats a report it already sent. Every message or notice wakes the coordinator and costs a
-  full-context request, however short the answer.
-- **Waiting.** Whoever waits does it inside one blocking call (a background command, `collect --wait`); the
-  coordinator gets one completion notice. A scheduled check-in is set once, for the expected finish time, never
-  repeated at short intervals. A check-in that only does mechanical steps runs one script in one call (or is a
-  fresh-session scheduled task) instead of a long turn in the coordinator's chat.
-- **Short results.** Reports are tables, counts and the first failure; details go to files that are named, not pasted.
+- **Fewer, bigger steps; never poll.** Batch independent commands, reads and checks into one request (one shell
+  call doing several things, several tool calls sent together). Whoever waits does it inside one blocking call (a
+  background command, `collect --wait`) and reports once.
+- **Agents.** The coordinator keeps decisions, not steps. A long chain (more than about three dependent steps:
+  build, test, fix, retest; scanning many files; a release pipeline; a decode-and-rerun loop) goes to one agent,
+  briefed once with the goal, the files to read first (paths, not contents), the rules and a report limit.
+  Follow-ups on the same work resume the same agent; start a new one for new work or when the old context is very
+  large. Clerical chains (collecting results, releases, records) go to a script first and a cheaper model second.
+- **Waves.** Plan work in waves of normal size (a few hours). Agents cannot start agents, so the coordinator starts
+  every writer and checker: all writers at once, then all checks (related small items share one checker), then one
+  round of fixes and one delta check. A wave manager agent runs the mechanical chains (collect, release, PC jobs)
+  and small fixes, absorbs the scheduled waits and completion notices, and sends the coordinator a ready brief when
+  a writer or checker is needed; otherwise it reports once, at wave end. Batching never delays finding a problem: a failed
+  pre-flight, release or real PC job, or a check verdict that is not a pass, is reported at once (cause, fix under
+  way, effect on the plan), except an error the manager fixes itself (no checker needed, plan moved by under about
+  30 minutes), which goes in its end-of-wave report. The owner hears at wave end, on a decision, on a change to
+  the plan or a time estimate, or when he asks.
+- **One short report per task.** One final report: tables, counts and the first failure; details in named files,
+  not pasted. A message during the task only for a real blocker or a question, never a repeat: every message or
+  notice wakes the coordinator and costs a full-context request.
+- **Few scheduled check-ins.** Only where nobody else is waiting, set once for the expected finish time, never at
+  short intervals; a routine check-in that needs no live agent may be a fresh-session scheduled task.
+- **Measure.** The coordinator records each wave's token use as RE-Wizard's `Research/Continuation/TOKEN_LOG.md`
+  does, in HA's own continuation notes (`dev/continuous_execution/`).
 
 ## Blocker-to-resolution lifecycle — owner amendment, 10 November 2026
 
