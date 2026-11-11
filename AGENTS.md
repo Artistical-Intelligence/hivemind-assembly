@@ -26,8 +26,6 @@ the conversation so far. Cached, that is cheap per request, but it is most of th
   notice wakes the coordinator and costs a full-context request.
 - **Few scheduled check-ins.** Only where nobody else is waiting, set once for the expected finish time, never at
   short intervals; a routine check-in that needs no live agent may be a fresh-session scheduled task.
-- **Measure.** The coordinator records each wave's token use as RE-Wizard's `Research/Continuation/TOKEN_LOG.md`
-  does, in HA's own continuation notes (`dev/continuous_execution/`).
 
 ## Blocker-to-resolution lifecycle — owner amendment, 10 November 2026
 
